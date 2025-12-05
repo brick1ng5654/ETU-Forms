@@ -19,7 +19,7 @@ ETU-Forms - это веб-сервис для создания форм и оп�
                 <th align="left">Назначение</th> </tr> 
         </thead> 
 <tbody> <tr> <td><strong>Бэкенд</strong></td> <td>FastAPI</td> <td>Основной API сервиса</td> </tr> 
-        <tr> <td><strong>Фронтенд</strong></td> <td>React + TypeScript</td> <td>Пользовательский интерфейс</td> </tr> 
+        <tr> <td><strong>Фронтенд</strong></td> <td>React + JS</td> <td>Пользовательский интерфейс</td> </tr> 
         <tr> <td><strong>База данных</strong></td> <td>PostgreSQL</td> <td>Основное хранилище данных</td> </tr> 
         <tr> <td><strong>ORM</strong></td> <td>1) SQLAlchemy + Alembic <br/>2) SQLModel</td> <td>Работа с БД и миграции</td> </tr> 
         <tr> <td><strong>Конструктор</strong></td> <td>SurveyJS Library</td> <td>Создание и отображение форм</td> </tr> 
