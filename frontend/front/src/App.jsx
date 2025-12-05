@@ -1,5 +1,5 @@
 import './App.css'
-import Creator from "./Creator.tsx";
+import Creator from "./Creator.jsx";
 function App() {
   return (
     <div>

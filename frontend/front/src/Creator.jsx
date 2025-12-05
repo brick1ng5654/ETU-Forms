@@ -1,4 +1,4 @@
-import "./style/survey-custom.css";
+import "./styles/survey-custom.css";
 
 import { SurveyCreator, SurveyCreatorComponent } from "survey-creator-react";
 
