@@ -1,11 +1,18 @@
-import './App.css'
-import Creator from "./Creator.jsx";
+import { SurveyCreatorWidget } from "./Creator.jsx";
+import './App.css';
 function App() {
   return (
-    <div>
-      <h1>ETU Forms works</h1>
-      <Creator /> {/* Здесь отображается SurveyJS конструктор */}
+    <div className="body">
+      <div className="header">
+        <h1>ETU Forms</h1>
+      </div>
+      
+      <div className="form_creator">
+      <SurveyCreatorWidget /> {/* creator */}
+      </div>
+      
     </div>
   );
 }
+
 export default App;

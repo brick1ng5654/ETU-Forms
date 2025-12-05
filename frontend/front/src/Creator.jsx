@@ -1,13 +1,12 @@
-import "./styles/survey-custom.css";
-
 import { SurveyCreator, SurveyCreatorComponent } from "survey-creator-react";
+import "survey-core/survey-core.min.css";
+import "survey-creator-core/survey-creator-core.min.css";
 
-const Creator = () => {
-  const creator = new SurveyCreator({ showLogicTab: false });
-
-  // @ts-ignore — временное решение для TypeScript
-  return <SurveyCreatorComponent creator={creator} />; 
+const creatorOptions = {
+  showLogicTab: false,
 };
 
-export default Creator;
-
+export function SurveyCreatorWidget() {
+  const creator = new SurveyCreator(creatorOptions);
+  return <SurveyCreatorComponent creator={creator} />;
+}
