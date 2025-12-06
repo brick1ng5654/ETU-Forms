@@ -1,11 +1,23 @@
-FROM node:20-alpine
+# Базовый образ
+FROM node:20
 
-WORKDIR /app
-COPY package*.json ./
+# Рабочая директория внутри контейнера
+WORKDIR /app/front
+
+# Копируем package.json и package-lock.json
+COPY front/package*.json ./
+
+# Копируем локальные пакеты SurveyJS
+COPY surveyjs/ ../../surveyjs/
+
+# Устанавливаем зависимости, включая локальные пакеты
 RUN npm install
-COPY . .
 
-EXPOSE 5173
+# Копируем весь фронтенд код
+COPY front/ ./
 
-# Запускаем Vite на 0.0.0.0
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+# Собираем фронтенд
+RUN npm run build
+
+# Команда запуска dev-сервера
+CMD ["npm", "run", "dev"]

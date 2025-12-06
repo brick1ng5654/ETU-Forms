@@ -7,3 +7,10 @@
 .header {
   text-align: center;
 }
+
+:root {
+  --sjs-primary-backcolor: #0078d4;
+  --sjs-primary-forecolor: white;
+  --sjs-header-backcolor: #f7f7f7;
+  --sjs-editorpanel-hover: #e5e5e5;
+}
