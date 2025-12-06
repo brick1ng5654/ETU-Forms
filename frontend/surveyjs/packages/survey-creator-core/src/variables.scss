@@ -1,0 +1,97 @@
+@forward "./lbr-variables.scss";
+@forward "./ctr-variables.scss";
+
+$base-unit: var(--sjs-base-unit, var(--base-unit, 8px));
+
+$sd-panel-normal-min-width: 496px;
+$sd-panel-medium-min-width: 176px;
+
+@function calcSize($multiplier) {
+  @if $multiplier ==1 {
+    $result: #{$base-unit};
+    @return $result;
+  }
+
+  @else {
+    $result: calc(#{$multiplier} * (#{$base-unit}));
+    @return $result;
+  }
+}
+
+// creator variables
+
+$tab-min-height: var(--tab-min-height, auto);
+
+@mixin textEllipsis {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+@mixin defaultActionButtonSettings {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  outline: none;
+  display: flex;
+  box-sizing: border-box;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+@mixin disableUserSelect {
+  -moz-user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+@mixin disableTransitionAnimations {
+  * {
+    -webkit-transition: none !important;
+    -moz-transition: none !important;
+    -o-transition: none !important;
+    transition: none !important;
+  }
+}
+
+@mixin disableLibraryAnimations {
+  .sd-row--leave,
+  .sd-row--enter {
+    animation: none;
+  }
+  .sd-element-wrapper--leave,
+  .sd-element-wrapper--enter {
+    animation: none;
+  }
+  .sd-element__content--enter,
+  .sd-element__content--leave {
+    animation: none;
+  }
+  .sd-paneldynamic__panel-wrapper--enter,
+  .sd-paneldynamic__panel-wrapper--leave {
+    animation: none;
+  }
+  .sd-item--enter {
+    animation: none;
+  }
+  .sd-item--leave {
+    animation: none;
+  }
+  .sd-table__row--leave,
+  .sd-table__row--enter {
+    animation: none;
+  }
+}
+
+$creator-transition-duration: var(--sjs-creator-transition-duration, 150ms);
+$ease-out: cubic-bezier(0, 0, 0.58, 1);
+$reverse-ease-out: cubic-bezier(0.42, 0, 1, 1);
+
+$svc-expand-fade-in-duration: var(--sjs-svc-expand-fade-in-duration, 150ms);
+$svc-expand-move-in-duration: var(--sjs-svc-expand-move-in-duration, 250ms);
+$svc-expand-fade-in-delay: var(--sjs-svc-expand-fade-in-delay, 250ms);
+$svc-collapse-fade-out-duration: var(--sjs-svc-collapse-fade-out-duration, 150ms);
+$svc-collapse-move-out-duration: var(--sjs-svc-collapse-move-out-duration, 250ms);
+$svc-collapse-move-out-delay: var(--sjs-svc-collapse-move-out-delay, 100ms);
