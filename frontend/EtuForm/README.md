@@ -71,3 +71,11 @@ drizzle.config.ts - конфигурация ORM
 
 ## Сборка
 script/build.ts - скрипт сборки
+
+
+# Локальная сборка с помощью Docker
+
+```bash
+docker build -t frontend .
+docker run --name=frontend frontend
+```
