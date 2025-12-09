@@ -75,7 +75,7 @@ export default function Home() {
           <div className="h-9 w-9 bg-primary rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-lg">F</span>
           </div>
-          <span className="font-bold text-xl">FormFlow</span>
+          <span className="font-bold text-xl">EtuForm</span>
         </div>
         <Button onClick={createNewForm} className="gap-2">
           <Plus className="h-4 w-4" /> Create New Form

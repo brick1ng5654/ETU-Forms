@@ -1,24 +1,10 @@
 import { useState, useRef, useEffect } from "react";
-import { 
-  DndContext, 
-  DragOverlay, 
-  useSensor, 
-  useSensors, 
-  PointerSensor,
-  DragStartEvent,
-  DragEndEvent,
-  DragOverEvent,
-  defaultDropAnimationSideEffects,
-  DropAnimation,
-  closestCorners
-} from "@dnd-kit/core";
-import { arrayMove } from "@dnd-kit/sortable";
 import { nanoid } from "nanoid";
 import { FormField, FieldType, FormSchema } from "@/lib/form-types";
 import { FormCanvas, getIconForType } from "@/components/form-builder/FormCanvas";
 import { PropertiesPanel } from "@/components/form-builder/PropertiesPanel";
 import { FormPreview } from "@/components/form-builder/FormPreview";
-import { ToolboxItem, ToolboxItemOverlay } from "@/components/form-builder/ToolboxItem";
+import { ToolboxItem } from "@/components/form-builder/ToolboxItem";
 import { Button } from "@/components/ui/button";
 import { 
   Eye, Share2, Save, ChevronLeft, Upload, Download, FileJson, 
@@ -77,7 +63,6 @@ export default function Builder({ params }: { params: { id?: string } }) {
   const [activeFormId, setActiveFormId] = useState<string | null>(null);
   
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [activeDragItem, setActiveDragItem] = useState<any>(null);
   const [isToolboxOpen, setIsToolboxOpen] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -162,74 +147,38 @@ export default function Builder({ params }: { params: { id?: string } }) {
     // Deletion should happen in Dashboard.
   };
 
-  // DnD Sensors
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    })
-  );
-
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveDragItem(event.active.data.current);
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
+  const addField = (fieldType: FieldType, label: string) => {
+    const defaultProps: Partial<FormField> = {};
     
-    if (!over) {
-      setActiveDragItem(null);
-      return;
+    if (["checkbox", "radio", "select", "ranking"].includes(fieldType)) {
+      defaultProps.options = ["Option 1", "Option 2", "Option 3"];
+    }
+    if (fieldType === "rating") {
+      defaultProps.maxRating = 5;
+    }
+    if (fieldType === "country") {
+      defaultProps.options = ["Russia", "USA", "China", "Germany", "France"]; 
+    }
+    if (fieldType === "file") {
+      defaultProps.maxFileSize = 10;
+      defaultProps.acceptedFileTypes = [];
+    }
+    if (fieldType === "text") {
+      defaultProps.multiline = false;
     }
 
-    if (active.data.current?.type === "toolbox-item") {
-      const fieldType = active.data.current.fieldType as FieldType;
-      const defaultProps: Partial<FormField> = {};
-      
-      if (["checkbox", "radio", "select", "ranking"].includes(fieldType)) {
-        defaultProps.options = ["Option 1", "Option 2", "Option 3"];
-      }
-      if (fieldType === "rating") {
-        defaultProps.maxRating = 5;
-      }
-      if (fieldType === "country") {
-        defaultProps.options = ["Russia", "USA", "China", "Germany", "France"]; 
-      }
-      if (fieldType === "file") {
-        defaultProps.maxFileSize = 10;
-        defaultProps.acceptedFileTypes = [];
-      }
-      if (fieldType === "text") {
-        defaultProps.multiline = false;
-      }
+    const newField: FormField = {
+      id: nanoid(),
+      type: fieldType,
+      label: fieldType === "header" ? "Section Header" : `New ${label}`,
+      placeholder: "",
+      required: false,
+      ...defaultProps
+    };
 
-      const newField: FormField = {
-        id: nanoid(),
-        type: fieldType,
-        label: fieldType === "header" ? "Section Header" : `New ${active.data.current.label}`,
-        placeholder: "",
-        required: false,
-        ...defaultProps
-      };
-
-      let newFields = [...fields];
-      if (fields.find(f => f.id === over.id)) {
-        const overIndex = fields.findIndex(f => f.id === over.id);
-         newFields.splice(overIndex + 1, 0, newField);
-      } else {
-         newFields.push(newField);
-      }
-      setFields(newFields);
-      setSelectedId(newField.id);
-    } else if (active.id !== over.id) {
-      if (fields.find(f => f.id === over.id)) {
-        const oldIndex = fields.findIndex((f) => f.id === active.id);
-        const newIndex = fields.findIndex((f) => f.id === over.id);
-        setFields(arrayMove(fields, oldIndex, newIndex));
-      }
-    }
-    setActiveDragItem(null);
+    const newFields = [...fields, newField];
+    setFields(newFields);
+    setSelectedId(newField.id);
   };
 
   const updateField = (id: string, updates: Partial<FormField>) => {
@@ -293,113 +242,109 @@ export default function Builder({ params }: { params: { id?: string } }) {
   if (!activeForm) return <div>Loading...</div>;
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="h-screen w-full flex flex-col bg-background overflow-hidden">
-        {/* Navbar */}
-        <header className="h-14 border-b border-border bg-white flex items-center justify-between px-4 shrink-0 z-20">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" className="-ml-2" onClick={() => setIsToolboxOpen(!isToolboxOpen)}>
-              {isToolboxOpen ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeftOpen className="h-5 w-5" />}
-            </Button>
-            <div className="flex items-center gap-2 cursor-pointer" onClick={() => setLocation('/')}>
-              <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center">
-                 <span className="text-white font-bold">F</span>
-              </div>
-              <span className="font-semibold hidden sm:inline">FormFlow</span>
+    <div className="h-screen w-full flex flex-col bg-background overflow-hidden">
+      {/* Navbar */}
+      <header className="h-14 border-b border-border bg-white flex items-center justify-between px-4 shrink-0 z-20">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" className="-ml-2" onClick={() => setIsToolboxOpen(!isToolboxOpen)}>
+            {isToolboxOpen ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeftOpen className="h-5 w-5" />}
+          </Button>
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setLocation('/')}>
+            <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center">
+               <span className="text-white font-bold">E</span>
             </div>
-            
-            <div className="h-8 w-px bg-border mx-2 hidden md:block" />
-            <div className="flex-1 flex items-center overflow-x-auto no-scrollbar max-w-xl">
-              <div className="flex items-center gap-1">
-                {forms.map(form => (
-                  <div 
-                    key={form.id}
-                    onClick={() => {
-                      setActiveFormId(form.id);
-                      setLocation(`/builder/${form.id}`);
-                    }}
-                    className={cn(
-                      "group flex items-center gap-2 px-3 py-1.5 rounded-md text-sm cursor-pointer transition-colors min-w-[100px] max-w-[160px]",
-                      activeFormId === form.id 
-                        ? "bg-secondary text-secondary-foreground font-medium" 
-                        : "hover:bg-muted text-muted-foreground"
-                    )}
-                  >
-                    <span className="truncate">{form.title || "Untitled"}</span>
-                  </div>
-                ))}
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={addNewForm}>
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
+            <span className="font-semibold hidden sm:inline">EtuFrom</span>
           </div>
-
-          <div className="flex items-center gap-2">
-             <Dialog>
-              <DialogTrigger asChild>
-                 <Button variant="outline" size="sm" className="gap-2">
-                  <Eye className="h-4 w-4" /> <span className="hidden sm:inline">Preview</span>
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>{activeForm.title}</DialogTitle>
-                  {activeForm.description && (
-                    <p className="text-sm text-muted-foreground">{activeForm.description}</p>
+          
+          <div className="h-8 w-px bg-border mx-2 hidden md:block" />
+          <div className="flex-1 flex items-center overflow-x-auto no-scrollbar max-w-xl">
+            <div className="flex items-center gap-1">
+              {forms.map(form => (
+                <div 
+                  key={form.id}
+                  onClick={() => {
+                    setActiveFormId(form.id);
+                    setLocation(`/builder/${form.id}`);
+                  }}
+                  className={cn(
+                    "group flex items-center gap-2 px-3 py-1.5 rounded-md text-sm cursor-pointer transition-colors min-w-[100px] max-w-[160px]",
+                    activeFormId === form.id 
+                      ? "bg-secondary text-secondary-foreground font-medium" 
+                      : "hover:bg-muted text-muted-foreground"
                   )}
-                </DialogHeader>
-                <FormPreview form={activeForm} />
-                <DialogFooter>
-                  <DialogClose asChild>
-                    <Button variant="secondary">Close Preview</Button>
-                  </DialogClose>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-
-            <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={loadFormJson} />
-            <Button variant="outline" size="sm" className="gap-2" onClick={() => fileInputRef.current?.click()}>
-              <Upload className="h-4 w-4" /> <span className="hidden sm:inline">Load</span>
-            </Button>
-            <Button size="sm" className="gap-2" onClick={saveFormJson}>
-              <Download className="h-4 w-4" /> <span className="hidden sm:inline">Save</span>
-            </Button>
-          </div>
-        </header>
-
-        <div className="flex-1 flex overflow-hidden">
-          <div className={cn("border-r border-border bg-white flex flex-col shrink-0 z-10 transition-all duration-300 ease-in-out overflow-hidden", isToolboxOpen ? "w-64" : "w-0 border-r-0")}>
-            <div className="p-4 border-b border-border min-w-[256px]">
-              <h2 className="font-semibold text-sm text-foreground uppercase tracking-wider">Toolbox</h2>
-            </div>
-            <div className="flex-1 p-4 overflow-y-auto space-y-6 min-w-[256px]">
-              {Object.entries(groupedToolbox).map(([category, items]) => (
-                <div key={category} className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground mb-3 pl-1 uppercase">{category}</p>
-                  {items.map((item) => (
-                    <ToolboxItem key={item.type} type={item.type} label={item.label} icon={getIconForType(item.type)} />
-                  ))}
+                >
+                  <span className="truncate">{form.title || "Untitled"}</span>
                 </div>
               ))}
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={addNewForm}>
+                <Plus className="h-4 w-4" />
+              </Button>
             </div>
           </div>
+        </div>
 
-          <FormCanvas form={activeForm} setForm={setForm} selectedId={selectedId} setSelectedId={setSelectedId} />
+        <div className="flex items-center gap-2">
+           <Dialog>
+            <DialogTrigger asChild>
+               <Button variant="outline" size="sm" className="gap-2">
+                <Eye className="h-4 w-4" /> <span className="hidden sm:inline">Preview</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>{activeForm.title}</DialogTitle>
+                {activeForm.description && (
+                  <p className="text-sm text-muted-foreground">{activeForm.description}</p>
+                )}
+              </DialogHeader>
+              <FormPreview form={activeForm} />
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button variant="secondary">Close Preview</Button>
+                </DialogClose>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
-          <div className="w-80 border-l border-border bg-white flex flex-col shrink-0 z-10">
-             <PropertiesPanel selectedField={selectedField} updateField={updateField} deleteField={deleteField} />
+          <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={loadFormJson} />
+          <Button variant="outline" size="sm" className="gap-2" onClick={() => fileInputRef.current?.click()}>
+            <Upload className="h-4 w-4" /> <span className="hidden sm:inline">Load</span>
+          </Button>
+          <Button size="sm" className="gap-2" onClick={saveFormJson}>
+            <Download className="h-4 w-4" /> <span className="hidden sm:inline">Save</span>
+          </Button>
+        </div>
+      </header>
+
+      <div className="flex-1 flex overflow-hidden">
+        <div className={cn("border-r border-border bg-white flex flex-col shrink-0 z-10 transition-all duration-300 ease-in-out overflow-hidden", isToolboxOpen ? "w-64" : "w-0 border-r-0")}>
+          <div className="p-4 border-b border-border min-w-[256px]">
+            <h2 className="font-semibold text-sm text-foreground uppercase tracking-wider">Toolbox</h2>
+          </div>
+          <div className="flex-1 p-4 overflow-y-auto space-y-6 min-w-[256px]">
+            {Object.entries(groupedToolbox).map(([category, items]) => (
+              <div key={category} className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground mb-3 pl-1 uppercase">{category}</p>
+                {items.map((item) => (
+                  <ToolboxItem 
+                    key={item.type} 
+                    type={item.type} 
+                    label={item.label} 
+                    icon={getIconForType(item.type)}
+                    onAddField={addField}
+                  />
+                ))}
+              </div>
+            ))}
           </div>
         </div>
-      </div>
 
-      <DragOverlay>
-        {activeDragItem ? (
-           activeDragItem.type === "toolbox-item" ? (
-             <ToolboxItemOverlay label={activeDragItem.label} icon={getIconForType(activeDragItem.fieldType)} />
-           ) : null
-        ) : null}
-      </DragOverlay>
-    </DndContext>
+        <FormCanvas form={activeForm} setForm={setForm} selectedId={selectedId} setSelectedId={setSelectedId} />
+
+        <div className="w-80 border-l border-border bg-white flex flex-col shrink-0 z-10">
+           <PropertiesPanel selectedField={selectedField} updateField={updateField} deleteField={deleteField} />
+        </div>
+      </div>
+    </div>
   );
 }
