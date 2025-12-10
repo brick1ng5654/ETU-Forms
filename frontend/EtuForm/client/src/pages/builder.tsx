@@ -244,14 +244,14 @@ export default function Builder({ params }: { params: { id?: string } }) {
   return (
     <div className="h-screen w-full flex flex-col bg-background overflow-hidden">
       {/* Navbar */}
-      <header className="h-14 border-b border-border bg-white flex items-center justify-between px-4 shrink-0 z-20">
+      <header className="h-19 border-b border-border bg-white flex items-center justify-between px-4 shrink-0 z-20">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" className="-ml-2" onClick={() => setIsToolboxOpen(!isToolboxOpen)}>
             {isToolboxOpen ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeftOpen className="h-5 w-5" />}
           </Button>
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => setLocation('/')}>
-            <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center">
-               <span className="text-white font-bold">E</span>
+            <div className="h-16 w-16 rounded-lg flex items-center justify-center">
+               <img src="/logo_etu.png" alt="ETU_LOGO" />
             </div>
             <span className="font-semibold hidden sm:inline">EtuFrom</span>
           </div>

@@ -70,10 +70,10 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-muted/30 flex flex-col">
-      <header className="h-16 border-b border-border bg-white flex items-center justify-between px-8 shrink-0">
+      <header className="h-19 border-b border-border bg-white flex items-center justify-between px-8 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="h-9 w-9 bg-primary rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg">F</span>
+          <div className="h-16 w-16  rounded-lg flex items-center justify-center">
+              <img src="/logo_etu.png" alt="ETU_LOGO" />
           </div>
           <span className="font-bold text-xl">EtuForm</span>
         </div>
