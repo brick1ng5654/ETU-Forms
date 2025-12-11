@@ -75,7 +75,10 @@ export default function Home() {
           <div className="h-16 w-16  rounded-lg flex items-center justify-center">
               <img src="/logo_etu.png" alt="ETU_LOGO" />
           </div>
-          <span className="font-bold text-xl">EtuForm</span>
+          <div className="color-txt">
+            <span className="font-bold text-xl">ETUForm</span>
+          </div>
+          
         </div>
         <Button onClick={createNewForm} className="gap-2">
           <Plus className="h-4 w-4" /> Create New Form

@@ -91,3 +91,7 @@
 .builder-scroll::-webkit-scrollbar-thumb:hover {
   @apply bg-muted-foreground/30;
 }
+
+.color-txt {
+  color: #05336e;
+}

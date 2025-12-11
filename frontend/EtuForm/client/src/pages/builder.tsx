@@ -253,7 +253,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
             <div className="h-16 w-16 rounded-lg flex items-center justify-center">
                <img src="/logo_etu.png" alt="ETU_LOGO" />
             </div>
-            <span className="font-semibold hidden sm:inline">EtuFrom</span>
+            <span className="font-bold hidden sm:inline text-xl">ETU-F</span>
           </div>
           
           <div className="h-8 w-px bg-border mx-2 hidden md:block" />

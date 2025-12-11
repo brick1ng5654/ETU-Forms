@@ -1,8 +1,8 @@
 import { FormSchema, FormFolder } from "./form-types";
 import { nanoid } from "nanoid";
 
-const STORAGE_KEY_FORMS = "formflow_forms";
-const STORAGE_KEY_FOLDERS = "formflow_folders";
+const STORAGE_KEY_FORMS = "etu_forms";
+const STORAGE_KEY_FOLDERS = "etu_folders";
 
 export const storage = {
   getForms: (): FormSchema[] => {
