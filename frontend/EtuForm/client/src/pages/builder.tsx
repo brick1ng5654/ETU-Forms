@@ -127,24 +127,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
       toast({ title: "Cannot close last form", variant: "destructive" });
       return;
     }
-    // We don't delete from storage here, just close tab. To delete, user uses dashboard.
-    // Wait, the previous implementation deleted from storage. Let's keep consistency if user wants "close tab".
-    // But typically "Tabs" in builders imply open documents. 
-    // Let's assume "close" means "close tab", not delete.
-    // But since we don't have a concept of "open forms" vs "all forms", let's behave like a browser tab
-    // and just switch to another form.
-    
-    // Actually, let's keep it simple: If you close a tab here, it just switches view, it doesn't delete.
     const newForms = forms.filter(f => f.id !== id);
-    // Wait, if we filter from state, we lose it from the "Tabs bar".
-    // But if we want to PERSIST the form, we shouldn't delete it from storage.
-    // The previous implementation deleted it. Let's change that. "Close" just removes from view?
-    // But we are showing ALL forms in the tab bar.
-    // If we want to show ALL forms, "Close" is weird.
-    // Let's change the tab bar to only show "Open" forms?
-    // For now, to keep it simple and robust: The tab bar shows ALL forms. "Close" button is confusing if it shows all.
-    // I will remove the "Close" button from the tab bar to avoid accidental deletion. 
-    // Deletion should happen in Dashboard.
   };
 
   const addField = (fieldType: FieldType, label: string) => {
