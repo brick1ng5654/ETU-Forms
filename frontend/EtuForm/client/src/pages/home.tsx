@@ -76,7 +76,7 @@ export default function Home() {
               <img src="/logo_etu.png" alt="ETU_LOGO" />
           </div>
           <div className="color-txt">
-            <span className="font-bold text-xl">ETUForm</span>
+            <span className="font-bold text-xl">ETU-Form</span>
           </div>
           
         </div>

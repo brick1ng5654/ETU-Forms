@@ -1,0 +1,82 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "untitled": "Untitled",
+    "toolbox": "Toolbox",
+    "preview": "Preview",
+    "load": "Load",
+    "save": "Save",
+    "close": "Close"
+  },
+  "navigation": {
+    "allForms": "All Forms",
+    "newFolder": "New Folder",
+    "createNewForm": "Create New Form",
+    "createForm": "Create Form",
+    "noForms": "No forms found",
+    "noFormsDesc": "Create a new form in this folder to get started",
+    "folder": "Folder",
+    "forms": "Forms",
+    "fields": "Fields"
+  },
+  "builder": {
+    "toolbox": "Toolbox",
+    "preview": "Preview",
+    "load": "Load",
+    "save": "Save",
+    "closePreview": "Close Preview",
+    "formSaved": "Form Saved",
+    "formSavedDesc": "Downloaded as JSON.",
+    "formLoaded": "Form Loaded",
+    "formLoadedDesc": "Form structure loaded.",
+    "error": "Error",
+    "invalidJson": "Invalid JSON file",
+    "cannotCloseLastForm": "Cannot close last form"
+  },
+  "categories": {
+    "Basic": "Basic",
+    "Choice": "Choice",
+    "Advanced": "Advanced",
+    "Specialized": "Specialized"
+  },
+  "fields": {
+    "header": "Header",
+    "text": "Text",
+    "number": "Number",
+    "select": "Dropdown",
+    "checkbox": "Checkbox",
+    "radio": "Radio Group",
+    "date": "Date",
+    "time": "Time",
+    "email": "Email",
+    "rating": "Rating",
+    "ranking": "Ranking",
+    "file": "File Upload",
+    "fullname": "Full Name",
+    "phone": "Phone Number",
+    "passport": "Passport Data",
+    "inn": "INN",
+    "snils": "SNILS",
+    "account": "Bank Account",
+    "country": "Country",
+    "ogrn": "OGRN",
+    "bik": "BIK"
+  },
+  "actions": {
+    "delete": "Delete",
+    "moveTo": "Move to...",
+    "create": "Create",
+    "cancel": "Cancel",
+    "confirm": "Are you sure?",
+    "confirmDeleteForm": "Are you sure you want to delete this form?",
+    "confirmDeleteFolder": "Are you sure? Forms in this folder will be moved to 'All Forms'."
+  },
+  "placeholders": {
+    "folderName": "Folder Name",
+    "search": "Search..."
+  },
+  "language": {
+    "switched": "Language Switched",
+    "switchedTo": "Switched to {{lang}}"
+  }
+}

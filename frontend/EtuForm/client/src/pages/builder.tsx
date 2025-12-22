@@ -26,6 +26,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 
+import { useTranslation } from 'react-i18next';
+import { Languages } from "lucide-react";
+
 const TOOLBOX_ITEMS: { type: FieldType; label: string; category: string }[] = [
   // Basic
   { type: "header", label: "Header", category: "Basic" },
@@ -65,6 +68,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isToolboxOpen, setIsToolboxOpen] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { t, i18n } = useTranslation();
 
   // Initialize
   useEffect(() => {
@@ -124,7 +128,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
   const closeForm = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     if (forms.length === 1) {
-      toast({ title: "Cannot close last form", variant: "destructive" });
+      toast({ title: t('builder.cannotCloseLastForm'), variant: "destructive" });
       return;
     }
     const newForms = forms.filter(f => f.id !== id);
@@ -182,7 +186,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
     document.body.appendChild(downloadAnchorNode);
     downloadAnchorNode.click();
     downloadAnchorNode.remove();
-    toast({ title: "Form Saved", description: "Downloaded as JSON." });
+    toast({ title: t('builder.formSaved'), description: t('builder.formSavedDesc') });
   };
 
   const loadFormJson = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -202,12 +206,12 @@ export default function Builder({ params }: { params: { id?: string } }) {
              fields: schema.fields
           };
           setForm(newForm);
-          toast({ title: "Form Loaded", description: "Form structure loaded." });
+          toast({ title: t('builder.formLoaded'), description: t('builder.formLoadedDesc') });
         } else {
           throw new Error("Invalid schema");
         }
       } catch (error) {
-        toast({ title: "Error", description: "Invalid JSON file", variant: "destructive" });
+        toast({ title: t('builder.error'), description: t('builder.invalidJson'), variant: "destructive" });
       }
     };
     reader.readAsText(file);
@@ -236,7 +240,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
             <div className="h-16 w-16 rounded-lg flex items-center justify-center">
                <img src="/logo_etu.png" alt="ETU_LOGO" />
             </div>
-            <span className="font-bold hidden sm:inline text-xl">ETU-F</span>
+            <span className="font-bold hidden sm:inline text-xl">{t('ETU-Form')}</span>
           </div>
           
           <div className="h-8 w-px bg-border mx-2 hidden md:block" />
@@ -256,7 +260,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
                       : "hover:bg-muted text-muted-foreground"
                   )}
                 >
-                  <span className="truncate">{form.title || "Untitled"}</span>
+                  <span className="truncate">{form.title || t('common.untitled')}</span>
                 </div>
               ))}
               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={addNewForm}>
@@ -267,15 +271,30 @@ export default function Builder({ params }: { params: { id?: string } }) {
         </div>
 
         <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1 h-9 px-3"
+              onClick={() => {
+                const newLang = i18n.language.startsWith('ru') ? 'en' : 'ru';
+                i18n.changeLanguage(newLang);
+              }}
+              title={i18n.language.startsWith('ru') ? 'Switch to English' : 'Переключить на русский'}>
+              <Languages className="h-4 w-4" />
+              <span className="hidden sm:inline text-sm font-medium">
+                {i18n.language.startsWith('ru') ? 'EN' : 'RU'}
+              </span>
+            </Button>
            <Dialog>
             <DialogTrigger asChild>
                <Button variant="outline" size="sm" className="gap-2">
-                <Eye className="h-4 w-4" /> <span className="hidden sm:inline">Preview</span>
+                <Eye className="h-4 w-4" /> <span className="hidden sm:inline">{t('builder.preview')}</span>
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>{activeForm.title}</DialogTitle>
+                <DialogTitle>{activeForm.title || t('common.untitled')}</DialogTitle>
                 {activeForm.description && (
                   <p className="text-sm text-muted-foreground">{activeForm.description}</p>
                 )}
@@ -283,7 +302,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
               <FormPreview form={activeForm} />
               <DialogFooter>
                 <DialogClose asChild>
-                  <Button variant="secondary">Close Preview</Button>
+                  <Button variant="secondary">{t('builder.closePreview')}</Button>
                 </DialogClose>
               </DialogFooter>
             </DialogContent>
@@ -291,28 +310,29 @@ export default function Builder({ params }: { params: { id?: string } }) {
 
           <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={loadFormJson} />
           <Button variant="outline" size="sm" className="gap-2" onClick={() => fileInputRef.current?.click()}>
-            <Upload className="h-4 w-4" /> <span className="hidden sm:inline">Load</span>
+            <Upload className="h-4 w-4" /> <span className="hidden sm:inline">{t('builder.load')}</span>
           </Button>
           <Button size="sm" className="gap-2" onClick={saveFormJson}>
-            <Download className="h-4 w-4" /> <span className="hidden sm:inline">Save</span>
+            <Download className="h-4 w-4" /> <span className="hidden sm:inline">{t('builder.save')}</span>
           </Button>
+          </div>
         </div>
       </header>
 
       <div className="flex-1 flex overflow-hidden">
         <div className={cn("border-r border-border bg-white flex flex-col shrink-0 z-10 transition-all duration-300 ease-in-out overflow-hidden", isToolboxOpen ? "w-64" : "w-0 border-r-0")}>
           <div className="p-4 border-b border-border min-w-[256px]">
-            <h2 className="font-semibold text-sm text-foreground uppercase tracking-wider">Toolbox</h2>
+            <h2 className="font-semibold text-sm text-foreground uppercase tracking-wider">{t('builder.toolbox')}</h2>
           </div>
           <div className="flex-1 p-4 overflow-y-auto space-y-6 min-w-[256px]">
             {Object.entries(groupedToolbox).map(([category, items]) => (
               <div key={category} className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground mb-3 pl-1 uppercase">{category}</p>
+                <p className="text-xs font-medium text-muted-foreground mb-3 pl-1 uppercase">{t(`categories.${category}`)}</p>
                 {items.map((item) => (
                   <ToolboxItem 
                     key={item.type} 
-                    type={item.type} 
-                    label={item.label} 
+                    type={item.type as string} 
+                    label={t(`fields.${item.type}`)} 
                     icon={getIconForType(item.type)}
                     onAddField={addField}
                   />

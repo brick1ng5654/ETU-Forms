@@ -1,0 +1,82 @@
+{
+  "common": {
+    "loading": "Загрузка...",
+    "untitled": "Без названия",
+    "toolbox": "Инструменты",
+    "preview": "Предпросмотр",
+    "load": "Загрузить",
+    "save": "Сохранить",
+    "close": "Закрыть"
+  },
+  "navigation": {
+    "allForms": "Все формы",
+    "newFolder": "Новая папка",
+    "createNewForm": "Создать новую форму",
+    "createForm": "Создать форму",
+    "noForms": "Формы не найдены",
+    "noFormsDesc": "Создайте новую форму в этой папке, чтобы начать",
+    "folder": "Папка",
+    "forms": "Формы",
+    "fields": "Поля"
+  },
+  "builder": {
+    "toolbox": "Инструменты",
+    "preview": "Предпросмотр",
+    "load": "Загрузить",
+    "save": "Сохранить",
+    "closePreview": "Закрыть предпросмотр",
+    "formSaved": "Форма сохранена",
+    "formSavedDesc": "Скачано как JSON.",
+    "formLoaded": "Форма загружена",
+    "formLoadedDesc": "Структура формы загружена.",
+    "error": "Ошибка",
+    "invalidJson": "Некорректный JSON файл",
+    "cannotCloseLastForm": "Нельзя закрыть последнюю форму"
+  },
+  "categories": {
+    "Basic": "Основные",
+    "Choice": "Выбор",
+    "Advanced": "Продвинутые",
+    "Specialized": "Специальные"
+  },
+  "fields": {
+    "header": "Заголовок",
+    "text": "Текст",
+    "number": "Число",
+    "select": "Выпадающий список",
+    "checkbox": "Флажок",
+    "radio": "Переключатель",
+    "date": "Дата",
+    "time": "Время",
+    "email": "Электронная почта",
+    "rating": "Рейтинг",
+    "ranking": "Ранжирование",
+    "file": "Загрузка файла",
+    "fullname": "ФИО",
+    "phone": "Номер телефона",
+    "passport": "Паспортные данные",
+    "inn": "ИНН",
+    "snils": "СНИЛС",
+    "account": "Банковский счет",
+    "country": "Страна",
+    "ogrn": "ОГРН",
+    "bik": "БИК"
+  },
+  "actions": {
+    "delete": "Удалить",
+    "moveTo": "Переместить в...",
+    "create": "Создать",
+    "cancel": "Отмена",
+    "confirm": "Вы уверены?",
+    "confirmDeleteForm": "Вы уверены, что хотите удалить эту форму?",
+    "confirmDeleteFolder": "Вы уверены? Формы в этой папке будут перемещены в 'Все формы'."
+  },
+  "placeholders": {
+    "folderName": "Название папки",
+    "search": "Поиск..."
+  },
+  "language": {
+    "switched": "Язык изменен",
+    "switchedTo": "Переключено на {{lang}}"
+  }
+}
