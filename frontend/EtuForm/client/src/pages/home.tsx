@@ -8,12 +8,15 @@ import { formatDistanceToNow } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
+import { useTranslation } from 'react-i18next';
+import { Languages } from "lucide-react";
 
 export default function Home() {
   const [forms, setForms] = useState<FormSchema[]>([]);
   const [folders, setFolders] = useState<FormFolder[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [newFolderName, setNewFolderName] = useState("");
+  const { t, i18n } = useTranslation();
 
   const refreshData = () => {
     setForms(storage.getForms());
@@ -38,7 +41,7 @@ export default function Home() {
   };
 
   const deleteFolder = (id: string) => {
-    if (confirm("Are you sure? Forms in this folder will be moved to 'All Forms'.")) {
+    if (confirm(t("actions.confirmDeleteFolder"))) {
       storage.deleteFolder(id);
       if (selectedFolderId === id) setSelectedFolderId(null);
       refreshData();
@@ -48,7 +51,7 @@ export default function Home() {
   const deleteForm = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
-    if (confirm("Are you sure you want to delete this form?")) {
+    if (confirm(t("actions.confirmDeleteForm"))) {
       storage.deleteForm(id);
       refreshData();
     }
@@ -69,6 +72,7 @@ export default function Home() {
     : forms;
 
   return (
+    // Шапка
     <div className="min-h-screen bg-muted/30 flex flex-col">
       <header className="h-19 border-b border-border bg-white flex items-center justify-between px-8 shrink-0">
         <div className="flex items-center gap-3">
@@ -78,15 +82,30 @@ export default function Home() {
           <div className="color-txt">
             <span className="font-bold text-xl">ETU-Form</span>
           </div>
-          
         </div>
-        <Button onClick={createNewForm} className="gap-2">
-          <Plus className="h-4 w-4" /> Create New Form
-        </Button>
+          <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1 h-9 px-3"
+            onClick={() => {
+              const newLang = i18n.language.startsWith('ru') ? 'en' : 'ru';
+              i18n.changeLanguage(newLang);
+            }}
+            title={i18n.language.startsWith('ru') ? 'Переключить на Английский' : 'Switch to Russian'}>
+            <Languages className="h-4 w-4" />
+            <span className="hidden sm:inline text-sm font-medium">
+              {i18n.language.startsWith('ru') ? 'RU' : 'EN'}
+            </span>
+          </Button>
+          <Button onClick={createNewForm} className="gap-2">
+            <Plus className="h-4 w-4" /> {t('navigation.createNewForm')}
+          </Button>
+        </div>
       </header>
 
       <div className="flex-1 flex overflow-hidden max-w-7xl w-full mx-auto">
-        {/* Sidebar */}
+        {/* Боковая панель */}
         <aside className="w-64 border-r border-border/50 bg-transparent p-6 space-y-6">
           <div className="space-y-1">
              <Button 
@@ -94,7 +113,7 @@ export default function Home() {
                className="w-full justify-start"
                onClick={() => setSelectedFolderId(null)}
              >
-               <FileText className="mr-2 h-4 w-4" /> All Forms
+               <FileText className="mr-2 h-4 w-4" /> {t('navigation.allForms')}
              </Button>
              {folders.map(folder => (
                <div key={folder.id} className="group flex items-center">
@@ -122,20 +141,20 @@ export default function Home() {
             <Dialog>
               <DialogTrigger asChild>
                 <Button variant="outline" className="w-full justify-start">
-                  <FolderPlus className="mr-2 h-4 w-4" /> New Folder
+                  <FolderPlus className="mr-2 h-4 w-4" />{t('navigation.newFolder')}
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Create New Folder</DialogTitle>
+                  <DialogTitle>{t("navigation.createNewFolder")}</DialogTitle>
                 </DialogHeader>
                 <div className="flex items-center gap-2 pt-4">
                   <Input 
                     value={newFolderName}
                     onChange={(e) => setNewFolderName(e.target.value)}
-                    placeholder="Folder Name"
+                    placeholder={t("placeholders.folderName")}
                   />
-                  <Button onClick={createFolder}>Create</Button>
+                  <Button onClick={createFolder}>{t("navigation.create")}</Button>
                 </div>
               </DialogContent>
             </Dialog>
@@ -146,7 +165,7 @@ export default function Home() {
         <main className="flex-1 p-8 overflow-y-auto">
           <div className="flex items-center justify-between mb-8">
             <h1 className="text-2xl font-bold">
-              {selectedFolderId ? folders.find(f => f.id === selectedFolderId)?.name || "Folder" : "All Forms"}
+              {selectedFolderId ? folders.find(f => f.id === selectedFolderId)?.name || "Folder" : t("navigation.allForms")}
             </h1>
           </div>
 
@@ -155,9 +174,9 @@ export default function Home() {
               <div className="h-16 w-16 bg-muted rounded-full flex items-center justify-center mb-4">
                 <FileText className="h-8 w-8 text-muted-foreground" />
               </div>
-              <h3 className="text-lg font-semibold">No forms found</h3>
-              <p className="text-muted-foreground mb-6">Create a new form in this folder to get started</p>
-              <Button onClick={createNewForm}>Create Form</Button>
+              <h3 className="text-lg font-semibold">{t("navigation.noForms")}</h3>
+              <p className="text-muted-foreground mb-6">{t("navigation.noFormsDesc")}</p>
+              <Button onClick={createNewForm}>{t("navigation.createNewForm")}</Button>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -172,14 +191,14 @@ export default function Home() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuLabel>{t("actions.act")}</DropdownMenuLabel>
                           <DropdownMenuItem onClick={(e) => deleteForm(e, form.id)} className="text-destructive focus:text-destructive">
-                            <Trash2 className="mr-2 h-4 w-4" /> Delete
+                            <Trash2 className="mr-2 h-4 w-4" /> {t("actions.delete")}
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuLabel>Move to...</DropdownMenuLabel>
+                          <DropdownMenuLabel>{t("actions.moveTo")}</DropdownMenuLabel>
                           <DropdownMenuItem onClick={(e) => moveForm(e, form.id, undefined)}>
-                             All Forms
+                             {t("navigation.allForms")}
                           </DropdownMenuItem>
                           {folders.map(folder => (
                              <DropdownMenuItem key={folder.id} onClick={(e) => moveForm(e, form.id, folder.id)}>

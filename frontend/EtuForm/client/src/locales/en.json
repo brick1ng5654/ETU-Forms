@@ -11,6 +11,8 @@
   "navigation": {
     "allForms": "All Forms",
     "newFolder": "New Folder",
+    "createNewFolder":"Create New Folder",
+    "create":"Create",
     "createNewForm": "Create New Form",
     "createForm": "Create Form",
     "noForms": "No forms found",
@@ -63,8 +65,9 @@
     "bik": "BIK"
   },
   "actions": {
+    "act":"Actions",
     "delete": "Delete",
-    "moveTo": "Move to...",
+    "moveTo": "Move to",
     "create": "Create",
     "cancel": "Cancel",
     "confirm": "Are you sure?",

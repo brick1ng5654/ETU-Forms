@@ -11,6 +11,8 @@
   "navigation": {
     "allForms": "Все формы",
     "newFolder": "Новая папка",
+    "createNewFolder":"Создать новую папку",
+    "create":"Создать",
     "createNewForm": "Создать новую форму",
     "createForm": "Создать форму",
     "noForms": "Формы не найдены",
@@ -63,8 +65,9 @@
     "bik": "БИК"
   },
   "actions": {
+    "act":"Действия",
     "delete": "Удалить",
-    "moveTo": "Переместить в...",
+    "moveTo": "Переместить в",
     "create": "Создать",
     "cancel": "Отмена",
     "confirm": "Вы уверены?",

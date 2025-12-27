@@ -240,7 +240,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
             <div className="h-16 w-16 rounded-lg flex items-center justify-center">
                <img src="/logo_etu.png" alt="ETU_LOGO" />
             </div>
-            <span className="font-bold hidden sm:inline text-xl">{t('ETU-Form')}</span>
+            <span className="font-bold hidden sm:inline text-xl color-txt">{t('ETU-Form')}</span>
           </div>
           
           <div className="h-8 w-px bg-border mx-2 hidden md:block" />
@@ -280,10 +280,10 @@ export default function Builder({ params }: { params: { id?: string } }) {
                 const newLang = i18n.language.startsWith('ru') ? 'en' : 'ru';
                 i18n.changeLanguage(newLang);
               }}
-              title={i18n.language.startsWith('ru') ? 'Switch to English' : 'Переключить на русский'}>
+              title={i18n.language.startsWith('ru') ? 'Переключить на Английский' : 'Switch to Russian'}>
               <Languages className="h-4 w-4" />
               <span className="hidden sm:inline text-sm font-medium">
-                {i18n.language.startsWith('ru') ? 'EN' : 'RU'}
+                {i18n.language.startsWith('ru') ? 'RU' : 'EN'}
               </span>
             </Button>
            <Dialog>
