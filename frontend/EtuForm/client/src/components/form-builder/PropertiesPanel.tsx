@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { X, Plus, Trash2, Check } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useTranslation } from 'react-i18next';
+import { Languages } from "lucide-react";
 
 interface PropertiesPanelProps {
   selectedField: FormField | null;
@@ -15,10 +17,11 @@ interface PropertiesPanelProps {
 }
 
 export function PropertiesPanel({ selectedField, updateField, deleteField }: PropertiesPanelProps) {
+  const { t, i18n } = useTranslation()
   if (!selectedField) {
     return (
       <div className="p-6 text-center text-muted-foreground">
-        <p>Select a field on the canvas to edit its properties.</p>
+        <p>{t("back.properties")}</p>
       </div>
     );
   }

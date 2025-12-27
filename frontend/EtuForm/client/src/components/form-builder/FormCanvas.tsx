@@ -27,7 +27,8 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import React from "react";
-
+import { useTranslation } from 'react-i18next';
+import { Languages } from "lucide-react";
 interface FormCanvasProps {
   form: FormSchema;
   setForm: (form: FormSchema) => void;
@@ -73,6 +74,7 @@ export const getIconForType = (type: FieldType) => {
 
 export function FormCanvas({ form, setForm, selectedId, setSelectedId }: FormCanvasProps) {
   const [activeDragItem, setActiveDragItem] = useState<any>(null);
+  const { t, i18n } = useTranslation()
   const { setNodeRef, isOver } = useDroppable({
     id: 'form-canvas-droppable',
   });
@@ -151,8 +153,8 @@ export function FormCanvas({ form, setForm, selectedId, setSelectedId }: FormCan
             <SortableContext items={form.fields} strategy={verticalListSortingStrategy}>
               {form.fields.length === 0 ? (
                  <div className="h-64 flex flex-col items-center justify-center border-2 border-dashed border-muted-foreground/20 rounded-lg bg-muted/5">
-                    <p className="text-muted-foreground font-medium">Click elements from the sidebar to add them</p>
-                    <p className="text-sm text-muted-foreground/60 mt-1">Drag fields to reorder them</p>
+                    <p className="text-muted-foreground font-medium">{t("back.bgFormCreate")}</p>
+                    <p className="text-sm text-muted-foreground/60 mt-1">{t("back.drag")}</p>
                  </div>
               ) : (
                 form.fields.map((field) => (

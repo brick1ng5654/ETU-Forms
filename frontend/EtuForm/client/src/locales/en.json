@@ -81,5 +81,10 @@
   "language": {
     "switched": "Language Switched",
     "switchedTo": "Switched to {{lang}}"
+  },
+  "back":{
+    "bgFormCreate":"Click elements from the sidebar to add them",
+    "drag":"Drag fields to reorder them",
+    "properties":"Select a field on the canvas to edit its properties"
   }
 }

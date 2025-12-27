@@ -260,7 +260,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
                       : "hover:bg-muted text-muted-foreground"
                   )}
                 >
-                  <span className="truncate">{form.title || t('common.untitled')}</span>
+                  <span className="truncate">{form.title || t("common.untitled")}</span>
                 </div>
               ))}
               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={addNewForm}>
