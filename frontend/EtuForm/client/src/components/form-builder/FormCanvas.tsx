@@ -20,7 +20,6 @@ import {
 import { useState, useEffect } from "react";
 import { FormField, FieldType, FormSchema } from "@/lib/form-types";
 import { SortableField } from "./SortableField";
-import { ToolboxItemOverlay } from "./ToolboxItem";
 import { nanoid } from "nanoid";
 import { 
   Type, AlignLeft, Hash, Calendar, Mail, List, CheckSquare, CircleDot, Heading, Star, ListOrdered, Upload, FolderTree, User, Phone, FileText, CreditCard, Globe, Clock, FileDigit
@@ -49,8 +48,7 @@ export const getIconForType = (type: FieldType) => {
     case "radio": return CircleDot;
     
     // Advanced
-    case "date": return Calendar;
-    case "time": return Clock;
+    case "datetime": return Calendar;
     case "email": return Mail;
     case "rating": return Star;
     case "ranking": return ListOrdered;
@@ -137,7 +135,7 @@ export function FormCanvas({ form, setForm, selectedId, setSelectedId }: FormCan
                  value={form.description} 
                  onChange={(e) => updateDescription(e.target.value)}
                  className="text-muted-foreground text-lg border-transparent hover:border-border px-0 h-auto py-1 focus-visible:ring-0 shadow-none bg-transparent"
-                 placeholder="Form Description"
+                 placeholder="Description"
                />
              </div>
              <div className="absolute right-4 top-4 opacity-0 group-hover:opacity-100 transition-opacity">

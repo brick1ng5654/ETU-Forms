@@ -41,8 +41,7 @@ const TOOLBOX_ITEMS: { type: FieldType; label: string; category: string }[] = [
   { type: "radio", label: "Radio Group", category: "Choice" },
   
   // Advanced
-  { type: "date", label: "Date", category: "Advanced" },
-  { type: "time", label: "Time", category: "Advanced" },
+  { type: "datetime", label: "Date & Time", category: "Advanced" },
   { type: "email", label: "Email", category: "Advanced" },
   { type: "rating", label: "Rating", category: "Advanced" },
   { type: "ranking", label: "Ranking", category: "Advanced" },
@@ -120,7 +119,16 @@ export default function Builder({ params }: { params: { id?: string } }) {
   // Form Management
   const addNewForm = () => {
     const newForm = storage.createForm();
-    setForms([...forms, newForm]);
+    const activeFormIndex = forms.findIndex(f => f.id === activeFormId);
+    let newForms: FormSchema[];
+    
+    if (activeFormIndex >= 0) {
+      newForms = [...forms.slice(0, activeFormIndex + 1), newForm, ...forms.slice(activeFormIndex + 1)];
+    } else {
+      newForms = [...forms, newForm];
+    }
+    
+    setForms(newForms);
     setActiveFormId(newForm.id);
     setLocation(`/builder/${newForm.id}`);
   };
@@ -132,6 +140,17 @@ export default function Builder({ params }: { params: { id?: string } }) {
       return;
     }
     const newForms = forms.filter(f => f.id !== id);
+    setForms(newForms);
+    storage.deleteForm(id);
+    
+    // If closed form was active, switch to another
+    if (activeFormId === id) {
+      const newActiveId = newForms[0]?.id || null;
+      setActiveFormId(newActiveId);
+      if (newActiveId) {
+        setLocation(`/builder/${newActiveId}`);
+      }
+    }
   };
 
   const addField = (fieldType: FieldType, label: string) => {
@@ -261,6 +280,15 @@ export default function Builder({ params }: { params: { id?: string } }) {
                   )}
                 >
                   <span className="truncate">{form.title || t("common.untitled")}</span>
+                  <Button
+          variant="ghost"
+          size="icon"
+          className="h-5 w-5 opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive"
+          onClick={(e) => closeForm(e, form.id)}
+          title="Close form"
+        >
+          <X className="h-3 w-3" />
+        </Button>
                 </div>
               ))}
               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={addNewForm}>

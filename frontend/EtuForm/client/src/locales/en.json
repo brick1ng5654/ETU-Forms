@@ -48,8 +48,7 @@
     "select": "Dropdown",
     "checkbox": "Checkbox",
     "radio": "Radio Group",
-    "date": "Date",
-    "time": "Time",
+    "datetime": "Date and Time",
     "email": "Email",
     "rating": "Rating",
     "ranking": "Ranking",
@@ -86,5 +85,12 @@
     "bgFormCreate":"Click elements from the sidebar to add them",
     "drag":"Drag fields to reorder them",
     "properties":"Select a field on the canvas to edit its properties"
+  },
+  "propert":{
+    "propet":"Properties",
+    "label":"Label",
+    "placeholder":"Placeholder",
+    "helper":"Helper Text",
+    "":""
   }
 }

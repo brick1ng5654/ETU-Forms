@@ -33,14 +33,15 @@ export function PropertiesPanel({ selectedField, updateField, deleteField }: Pro
   const isEmail = selectedField.type === "email";
   const isFile = selectedField.type === "file";
   const isHeader = selectedField.type === "header";
+  const isDatetime = selectedField.type === "datetime";
   
   // Fields that can have "Correct Answers"
-  const canHaveCorrectAnswers = !isHeader && !isFile && selectedField.type !== "category";
+  const canHaveCorrectAnswers = !isHeader && !isFile && selectedField.type !== "category" && !isDatetime;
 
   return (
     <div className="p-4 space-y-6 overflow-y-auto h-full pb-20">
       <div className="flex items-center justify-between border-b pb-4">
-        <h3 className="font-semibold text-lg">Properties</h3>
+        <h3 className="font-semibold text-lg">{t("propert.propet")}</h3>
         <Button 
           variant="destructive" 
           size="icon" 
@@ -53,7 +54,7 @@ export function PropertiesPanel({ selectedField, updateField, deleteField }: Pro
 
       <div className="space-y-4">
         <div className="space-y-2">
-          <Label>Label</Label>
+          <Label>{t("propert.label")}</Label>
           <Textarea 
             value={selectedField.label} 
             onChange={(e) => updateField(selectedField.id, { label: e.target.value })}
@@ -61,9 +62,9 @@ export function PropertiesPanel({ selectedField, updateField, deleteField }: Pro
           />
         </div>
 
-        {!isHeader && !["checkbox", "radio", "rating", "file"].includes(selectedField.type) && (
+        {!isHeader && !["checkbox", "radio", "rating", "file", "datetime"].includes(selectedField.type) && (
           <div className="space-y-2">
-            <Label>Placeholder</Label>
+            <Label>{t("propert.placeholder")}</Label>
             <Input 
               value={selectedField.placeholder || ""} 
               onChange={(e) => updateField(selectedField.id, { placeholder: e.target.value })}
@@ -73,7 +74,7 @@ export function PropertiesPanel({ selectedField, updateField, deleteField }: Pro
         
         {!isHeader && (
            <div className="space-y-2">
-            <Label>Helper Text</Label>
+            <Label>{t("propert.helper")}</Label>
             <Input 
               value={selectedField.helperText || ""} 
               onChange={(e) => updateField(selectedField.id, { helperText: e.target.value })}
@@ -317,7 +318,7 @@ export function PropertiesPanel({ selectedField, updateField, deleteField }: Pro
           </div>
         )}
 
-        {!isHeader && (
+        {!isHeader && !isDatetime && (
           <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
             <div className="space-y-0.5">
               <Label>Required</Label>

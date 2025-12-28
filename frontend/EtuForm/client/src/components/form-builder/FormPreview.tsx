@@ -267,43 +267,43 @@ export function FormPreview({ form }: FormPreviewProps) {
           />
         )}
 
-        {field.type === "date" && (
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={cn(
-                  "w-full justify-start text-left font-normal",
-                  !answers[field.id] && "text-muted-foreground"
-                )}
-                disabled={results !== null}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {answers[field.id] ? (
-                  format(answers[field.id] as Date, "PPP", { locale: ru })
-                ) : (
-                  <span>Выберите дату</span>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
-              <Calendar
-                mode="single"
-                selected={answers[field.id] as Date | undefined}
-                onSelect={(date) => updateAnswer(field.id, date || null)}
-                locale={ru}
-              />
-            </PopoverContent>
-          </Popover>
-        )}
-
-        {field.type === "time" && (
-          <Input
-            type="time"
-            value={(answers[field.id] as string) || ""}
-            onChange={(e) => updateAnswer(field.id, e.target.value)}
-            disabled={results !== null}
-          />
+        {field.type === "datetime" && (
+          <div className="space-y-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !answers[field.id] && "text-muted-foreground"
+                  )}
+                  disabled={results !== null}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {answers[field.id] ? (
+                    format(answers[field.id] as Date, "PPP", { locale: ru })
+                  ) : (
+                    <span>Выберите дату</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={answers[field.id] as Date | undefined}
+                  onSelect={(date) => updateAnswer(field.id, date || null)}
+                  locale={ru}
+                />
+              </PopoverContent>
+            </Popover>
+            <Input
+              type="time"
+              value={(answers[field.id + "_time"] as string) || ""}
+              onChange={(e) => updateAnswer(field.id + "_time", e.target.value)}
+              disabled={results !== null}
+              placeholder="Выберите время"
+            />
+          </div>
         )}
 
         {field.type === "select" && (
