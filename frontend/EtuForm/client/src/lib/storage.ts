@@ -23,6 +23,11 @@ export const storage = {
     }
   },
 
+  folderExists: (name: string): boolean => {
+    const folders = storage.getFolders();
+    return folders.some(f => f.name.toLowerCase() === name.toLowerCase());
+  },
+
   saveForm: (form: FormSchema) => {
     const forms = storage.getForms();
     const existingIndex = forms.findIndex(f => f.id === form.id);

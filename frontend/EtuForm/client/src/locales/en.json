@@ -71,7 +71,8 @@
     "cancel": "Cancel",
     "confirm": "Are you sure?",
     "confirmDeleteForm": "Are you sure you want to delete this form?",
-    "confirmDeleteFolder": "Are you sure? Forms in this folder will be moved to 'All Forms'."
+    "confirmDeleteFolder": "Are you sure? Forms in this folder will be moved to 'All Forms'.",
+    "error":"Error"
   },
   "placeholders": {
     "folderName": "Folder Name",
@@ -92,5 +93,9 @@
     "placeholder":"Placeholder",
     "helper":"Helper Text",
     "":""
+  },
+  "descerr":{
+    "empty":"Folder name cannot be empty",
+    "query":"Folder with this name already exists"
   }
 }

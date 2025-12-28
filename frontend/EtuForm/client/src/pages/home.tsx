@@ -5,9 +5,10 @@ import { storage } from "@/lib/storage";
 import { useEffect, useState } from "react";
 import { FormSchema, FormFolder } from "@/lib/form-types";
 import { formatDistanceToNow } from "date-fns";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
+import { toast } from "@/hooks/use-toast";
 import { useTranslation } from 'react-i18next';
 import { Languages } from "lucide-react";
 
@@ -16,6 +17,7 @@ export default function Home() {
   const [folders, setFolders] = useState<FormFolder[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [newFolderName, setNewFolderName] = useState("");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { t, i18n } = useTranslation();
 
   const refreshData = () => {
@@ -33,11 +35,20 @@ export default function Home() {
   };
 
   const createFolder = () => {
-    if (newFolderName.trim()) {
-      storage.createFolder(newFolderName.trim());
-      setNewFolderName("");
-      refreshData();
+    if (!newFolderName.trim()) {
+      toast({ title: t("actions.error"), description: t("descerr.empty"), variant: "destructive" });
+      return;
     }
+
+    if (storage.folderExists(newFolderName.trim())) {
+      toast({ title: t("actions.error"), description: t("descerr.query"), variant: "destructive" });
+      return;
+    }
+
+    storage.createFolder(newFolderName.trim());
+    setNewFolderName("");
+    refreshData();
+    setIsDialogOpen(false);
   };
 
   const deleteFolder = (id: string) => {
@@ -138,7 +149,7 @@ export default function Home() {
           </div>
 
           <div className="pt-4 border-t border-border/50">
-            <Dialog>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" className="w-full justify-start">
                   <FolderPlus className="mr-2 h-4 w-4" />{t('navigation.newFolder')}
@@ -153,6 +164,11 @@ export default function Home() {
                     value={newFolderName}
                     onChange={(e) => setNewFolderName(e.target.value)}
                     placeholder={t("placeholders.folderName")}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        createFolder();
+                      }
+                    }}
                   />
                   <Button onClick={createFolder}>{t("navigation.create")}</Button>
                 </div>
