@@ -11,6 +11,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverTrigger } from "@/components/ui/popover";
+import { useTranslation } from 'react-i18next';
+import { Languages } from "lucide-react";
 
 interface SortableFieldProps {
   field: FormField;
@@ -27,7 +29,7 @@ export function SortableField({ field, isSelected, onSelect }: SortableFieldProp
     transition,
     isDragging,
   } = useSortable({ id: field.id });
-
+  const { t, i18n } = useTranslation()
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -161,9 +163,9 @@ export function SortableField({ field, isSelected, onSelect }: SortableFieldProp
         return (
            <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 flex flex-col items-center justify-center text-center bg-muted/5 hover:bg-muted/10 transition-colors">
               <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-              <p className="text-sm text-muted-foreground font-medium">Drag & drop files here or click to upload</p>
+              <p className="text-sm text-muted-foreground font-medium">{t("back.loaddrag")}</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Max size: {field.maxFileSize || 10}MB
+                {t("propert.sizefile")} {field.maxFileSize || 10}MB
                 {field.acceptedFileTypes && field.acceptedFileTypes.length > 0 && ` (${field.acceptedFileTypes.join(", ")})`}
               </p>
            </div>
@@ -171,7 +173,7 @@ export function SortableField({ field, isSelected, onSelect }: SortableFieldProp
       case "header":
         return null; // Rendered in header
       default:
-        return <div className="text-sm text-muted-foreground">Unknown field type</div>;
+        return <div className="text-sm text-muted-foreground">Select data-time</div>;
     }
   };
 

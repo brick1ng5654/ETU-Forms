@@ -86,14 +86,14 @@ export function PropertiesPanel({ selectedField, updateField, deleteField }: Pro
         {canHaveCorrectAnswers && (
           <div className="space-y-3 pt-2 border-t mt-2">
             <Label className="text-green-600 flex items-center gap-1">
-              <Check className="h-4 w-4" /> Correct Answer(s)
+              <Check className="h-4 w-4" /> {t("propert.corransw")}
             </Label>
             <p className="text-xs text-muted-foreground">
               {hasOptions 
                 ? (selectedField.type === "ranking" 
-                    ? "Drag options in the correct order above, then mark as correct order." 
-                    : "Select the correct answer(s) from the options.")
-                : "Add valid answers for auto-grading."}
+                    ? t("propert.subranj")
+                    : t("propert.corranopt"))
+                    : t("propert.subtxt")}
             </p>
             
             {/* For fields with options (select, radio, checkbox, ranking) - show checkboxes to select from options */}
@@ -102,7 +102,7 @@ export function PropertiesPanel({ selectedField, updateField, deleteField }: Pro
                 {selectedField.type === "ranking" ? (
                   <div className="space-y-2">
                     <p className="text-xs text-muted-foreground">
-                      The correct order is the current order of options above. Click "Set Current Order as Correct" to save it.
+                      {t("propert.subranji")}
                     </p>
                     <Button
                       variant="outline"
@@ -112,7 +112,7 @@ export function PropertiesPanel({ selectedField, updateField, deleteField }: Pro
                         updateField(selectedField.id, { correctAnswers: [...(selectedField.options || [])] });
                       }}
                     >
-                      <Check className="h-4 w-4 mr-2" /> Set Current Order as Correct
+                      <Check className="h-4 w-4 mr-2" /> {t("propert.curorder")}
                     </Button>
                     {selectedField.correctAnswers && selectedField.correctAnswers.length > 0 && (
                       <div className="mt-2 p-2 bg-green-50 rounded border border-green-200">
@@ -203,13 +203,13 @@ export function PropertiesPanel({ selectedField, updateField, deleteField }: Pro
                     updateField(selectedField.id, { correctAnswers: newAnswers });
                   }}
                 >
-                  <Plus className="h-4 w-4 mr-2" /> Add Correct Answer
+                  <Plus className="h-4 w-4 mr-2" /> {t("propert.addcorransw")}
                 </Button>
               </div>
             )}
             
             <div className="space-y-2 mt-3">
-              <Label className="text-green-600">Points for Correct Answer</Label>
+              <Label className="text-green-600">{t("propert.pointcorr")}</Label>
               <Input 
                 type="number"
                 min="0"
@@ -218,7 +218,7 @@ export function PropertiesPanel({ selectedField, updateField, deleteField }: Pro
                 placeholder="0"
                 className="border-green-200 focus-visible:ring-green-500"
               />
-              <p className="text-xs text-muted-foreground">Points awarded for a correct answer in quiz mode.</p>
+              <p className="text-xs text-muted-foreground">{t("propert.subpoint")}</p>
             </div>
           </div>
         )}
@@ -227,19 +227,11 @@ export function PropertiesPanel({ selectedField, updateField, deleteField }: Pro
           <>
             <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm mt-4">
               <div className="space-y-0.5">
-                <Label>Long Text (Multiline)</Label>
+                <Label>{t("propert.longtxt")}</Label>
               </div>
               <Switch 
                 checked={selectedField.multiline}
                 onCheckedChange={(checked) => updateField(selectedField.id, { multiline: checked })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Max Characters</Label>
-              <Input 
-                type="number"
-                value={selectedField.maxChars || ""} 
-                onChange={(e) => updateField(selectedField.id, { maxChars: parseInt(e.target.value) || undefined })}
               />
             </div>
           </>
@@ -248,7 +240,7 @@ export function PropertiesPanel({ selectedField, updateField, deleteField }: Pro
         {isNumber && (
           <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
             <div className="space-y-0.5">
-              <Label>Allow Decimals</Label>
+              <Label>{t("propert.allowdec")}</Label>
             </div>
             <Switch 
               checked={selectedField.allowDecimals}
@@ -260,7 +252,7 @@ export function PropertiesPanel({ selectedField, updateField, deleteField }: Pro
         {isFile && (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Max File Size (MB)</Label>
+              <Label>{t("propert.sizefile")}</Label>
               <Input 
                 type="number"
                 value={selectedField.maxFileSize || 10}
@@ -268,7 +260,7 @@ export function PropertiesPanel({ selectedField, updateField, deleteField }: Pro
               />
             </div>
             <div className="space-y-2">
-               <Label>Accepted Types (e.g. .pdf, .jpg)</Label>
+               <Label>{t("propert.accepfile")}</Label>
                <Input 
                  placeholder=".pdf, .jpg, .png"
                  value={selectedField.acceptedFileTypes?.join(", ") || ""}
@@ -282,7 +274,7 @@ export function PropertiesPanel({ selectedField, updateField, deleteField }: Pro
 
         {isRating && (
            <div className="space-y-2">
-            <Label>Max Rating Value ({selectedField.maxRating || 5})</Label>
+            <Label>{t("propert.maxrati")} ({selectedField.maxRating || 5})</Label>
             <Slider 
               value={[selectedField.maxRating || 5]}
               min={3}
@@ -295,7 +287,7 @@ export function PropertiesPanel({ selectedField, updateField, deleteField }: Pro
 
         {isEmail && (
           <div className="space-y-2">
-             <Label>Allowed Domains (comma separated)</Label>
+             <Label>{t("propert.domains")}</Label>
              <Input 
                placeholder="example.com, company.org"
                value={selectedField.allowedDomains?.join(", ") || ""}
@@ -309,7 +301,7 @@ export function PropertiesPanel({ selectedField, updateField, deleteField }: Pro
         {selectedField.type === "select" && (
            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
             <div className="space-y-0.5">
-              <Label>Allow Multiple</Label>
+              <Label>{t("propert.allowmult")}</Label>
             </div>
             <Switch 
               checked={selectedField.multiple}
@@ -321,10 +313,7 @@ export function PropertiesPanel({ selectedField, updateField, deleteField }: Pro
         {!isHeader && !isDatetime && (
           <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
             <div className="space-y-0.5">
-              <Label>Required</Label>
-              <div className="text-xs text-muted-foreground">
-                Make this field mandatory
-              </div>
+              <Label>{t("propert.requered")}</Label>
             </div>
             <Switch 
               checked={selectedField.required}
@@ -335,7 +324,7 @@ export function PropertiesPanel({ selectedField, updateField, deleteField }: Pro
 
         {hasOptions && (
           <div className="space-y-3 pt-2">
-            <Label>Options</Label>
+            <Label>{t("propert.variabl")}</Label>
             <div className="space-y-2">
               {selectedField.options?.map((option, index) => (
                 <div key={index} className="flex items-center gap-2">
@@ -369,7 +358,7 @@ export function PropertiesPanel({ selectedField, updateField, deleteField }: Pro
                   updateField(selectedField.id, { options: newOptions });
                 }}
               >
-                <Plus className="h-4 w-4 mr-2" /> Add Option
+                <Plus className="h-4 w-4 mr-2" /> {t("propert.addopti")}
               </Button>
             </div>
           </div>

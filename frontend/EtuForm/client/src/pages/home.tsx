@@ -213,9 +213,6 @@ export default function Home() {
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuLabel>{t("actions.moveTo")}</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={(e) => moveForm(e, form.id, undefined)}>
-                             {t("navigation.allForms")}
-                          </DropdownMenuItem>
                           {folders.map(folder => (
                              <DropdownMenuItem key={folder.id} onClick={(e) => moveForm(e, form.id, folder.id)}>
                                {folder.name}
@@ -235,11 +232,11 @@ export default function Home() {
                     </div>
                     <h3 className="font-semibold text-lg mb-1 truncate">{form.title}</h3>
                     <p className="text-sm text-muted-foreground line-clamp-2 h-10">
-                      {form.description || "No description"}
+                      {form.description || t("navigation.descriphome")}
                     </p>
                     <div className="mt-4 pt-4 border-t flex items-center gap-4 text-sm text-muted-foreground">
                        <div className="flex items-center gap-1">
-                         <span className="font-medium text-foreground">{form.fields.length}</span> Fields
+                         <span className="font-medium text-foreground">{form.fields.length}</span> {t("navigation.fields")}
                        </div>
                     </div>
                   </div>

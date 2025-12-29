@@ -19,7 +19,8 @@
     "noFormsDesc": "Create a new form in this folder to get started",
     "folder": "Folder",
     "forms": "Forms",
-    "fields": "Fields"
+    "fields": "Fields",
+    "descriphome":"No description"
   },
   "builder": {
     "toolbox": "Toolbox",
@@ -85,14 +86,33 @@
   "back":{
     "bgFormCreate":"Click elements from the sidebar to add them",
     "drag":"Drag fields to reorder them",
-    "properties":"Select a field on the canvas to edit its properties"
+    "properties":"Select a field on the canvas to edit its properties",
+    "loaddrag":"Drag & drop files here or click to upload"
   },
   "propert":{
     "propet":"Properties",
     "label":"Label",
     "placeholder":"Placeholder",
     "helper":"Helper Text",
-    "":""
+    "addcorransw":"Add Correct Answer",
+    "pointcorr":"Points for Correct Answer",
+    "corransw":"Correct Answers",
+    "subtxt":"Add valid answers for auto-grading",
+    "subpoint":"Points are awarded for the correct answer",
+    "allowdec":"Allow Decimals",
+    "requered":"Required field",
+    "variabl":"Answer options",
+    "addopti":"Add Option",
+    "longtxt":"Multiline text",
+    "sizefile":"Max File Size (MB)",
+    "accepfile":"Accepted Types (.pdf, .jpg, .png)",
+    "maxrati":"Max Rating Value",
+    "domains":"Allowed Domains (comma separated)",
+    "curorder":"Set Current Order as Correct",
+    "subranj":"Drag options in the correct order above, then mark as correct order",
+    "subranji":"The correct order is the current order of options above",
+    "corranopt":"Select the correct answers from the options",
+    "allowmult":"Allow Multiple"
   },
   "descerr":{
     "empty":"Folder name cannot be empty",
