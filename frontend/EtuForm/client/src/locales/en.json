@@ -1,0 +1,121 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "untitled": "Untitled",
+    "toolbox": "Toolbox",
+    "preview": "Preview",
+    "load": "Load",
+    "save": "Save",
+    "close": "Close"
+  },
+  "navigation": {
+    "allForms": "All Forms",
+    "newFolder": "New Folder",
+    "createNewFolder":"Create New Folder",
+    "create":"Create",
+    "createNewForm": "Create New Form",
+    "createForm": "Create Form",
+    "noForms": "No forms found",
+    "noFormsDesc": "Create a new form in this folder to get started",
+    "folder": "Folder",
+    "forms": "Forms",
+    "fields": "Fields",
+    "descriphome":"No description"
+  },
+  "builder": {
+    "toolbox": "Toolbox",
+    "preview": "Preview",
+    "load": "Load",
+    "save": "Save",
+    "closePreview": "Close Preview",
+    "formSaved": "Form Saved",
+    "formSavedDesc": "Downloaded as JSON.",
+    "formLoaded": "Form Loaded",
+    "formLoadedDesc": "Form structure loaded.",
+    "error": "Error",
+    "invalidJson": "Invalid JSON file",
+    "cannotCloseLastForm": "Cannot close last form"
+  },
+  "categories": {
+    "Basic": "Basic",
+    "Choice": "Choice",
+    "Advanced": "Advanced",
+    "Specialized": "Specialized"
+  },
+  "fields": {
+    "header": "Header",
+    "text": "Text",
+    "number": "Number",
+    "select": "Dropdown",
+    "checkbox": "Checkbox",
+    "radio": "Radio Group",
+    "datetime": "Date and Time",
+    "email": "Email",
+    "rating": "Rating",
+    "ranking": "Ranking",
+    "file": "File Upload",
+    "fullname": "Full Name",
+    "phone": "Phone Number",
+    "passport": "Passport Data",
+    "inn": "INN",
+    "snils": "SNILS",
+    "account": "Bank Account",
+    "country": "Country",
+    "ogrn": "OGRN",
+    "bik": "BIK"
+  },
+  "actions": {
+    "act":"Actions",
+    "delete": "Delete",
+    "moveTo": "Move to",
+    "create": "Create",
+    "cancel": "Cancel",
+    "confirm": "Are you sure?",
+    "confirmDeleteForm": "Are you sure you want to delete this form?",
+    "confirmDeleteFolder": "Are you sure? Forms in this folder will be moved to 'All Forms'.",
+    "error":"Error"
+  },
+  "placeholders": {
+    "folderName": "Folder Name",
+    "search": "Search..."
+  },
+  "language": {
+    "switched": "Language Switched",
+    "switchedTo": "Switched to {{lang}}"
+  },
+  "back":{
+    "bgFormCreate":"Click elements from the sidebar to add them",
+    "drag":"Drag fields to reorder them",
+    "properties":"Select a field on the canvas to edit its properties",
+    "loaddrag":"Drag & drop files here or click to upload"
+  },
+  "propert":{
+    "propet":"Properties",
+    "label":"Label",
+    "placeholder":"Placeholder",
+    "helper":"Helper Text",
+    "addcorransw":"Add Correct Answer",
+    "pointcorr":"Points for Correct Answer",
+    "corransw":"Correct Answers",
+    "subtxt":"Add valid answers for auto-grading",
+    "subpoint":"Points are awarded for the correct answer",
+    "allowdec":"Allow Decimals",
+    "requered":"Required field",
+    "variabl":"Answer options",
+    "addopti":"Add Option",
+    "longtxt":"Multiline text",
+    "sizefile":"Max File Size (MB)",
+    "accepfile":"Accepted Types (.pdf, .jpg, .png)",
+    "maxrati":"Max Rating Value",
+    "domains":"Allowed Domains (comma separated)",
+    "curorder":"Set Current Order as Correct",
+    "subranj":"Drag options in the correct order above, then mark as correct order",
+    "subranji":"The correct order is the current order of options above",
+    "corranopt":"Select the correct answers from the options",
+    "allowmult":"Allow Multiple"
+  },
+  "descerr":{
+    "empty":"Folder name cannot be empty",
+    "query":"Folder with this name already exists"
+  }
+}
