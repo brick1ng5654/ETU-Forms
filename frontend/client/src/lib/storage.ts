@@ -1,5 +1,8 @@
 import { FormSchema, FormFolder } from "./form-types";
 import { nanoid } from "nanoid";
+import { useTranslation } from 'react-i18next';
+import { Languages } from "lucide-react";
+import { t } from "i18next";
 
 const STORAGE_KEY_FORMS = "etu_forms";
 const STORAGE_KEY_FOLDERS = "etu_folders";
@@ -75,8 +78,8 @@ export const storage = {
     const newForm: FormSchema = {
       id: nanoid(),
       folderId,
-      title: "Untitled Form",
-      description: "Add a description...",
+      title: t("common.untitled"),
+      description: "",
       fields: [],
       updatedAt: Date.now()
     };

@@ -129,13 +129,13 @@ export function FormCanvas({ form, setForm, selectedId, setSelectedId }: FormCan
                  value={form.title} 
                  onChange={(e) => updateTitle(e.target.value)}
                  className="text-3xl font-bold text-foreground tracking-tight border-transparent hover:border-border px-0 h-auto py-1 focus-visible:ring-0 shadow-none bg-transparent"
-                 placeholder="Untitled Form"
+                 placeholder={t("common.untitled")}
                />
                <Input 
                  value={form.description} 
                  onChange={(e) => updateDescription(e.target.value)}
                  className="text-muted-foreground text-lg border-transparent hover:border-border px-0 h-auto py-1 focus-visible:ring-0 shadow-none bg-transparent"
-                 placeholder="Description"
+                 placeholder={t("common.descriptionf")}
                />
              </div>
              <div className="absolute right-4 top-4 opacity-0 group-hover:opacity-100 transition-opacity">
