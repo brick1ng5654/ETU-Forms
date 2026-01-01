@@ -9,6 +9,7 @@
     "close": "Close",
     "descriptionf":"Description"
   },
+
   "navigation": {
     "allForms": "All Forms",
     "newFolder": "New Folder",
@@ -23,6 +24,7 @@
     "fields": "Fields",
     "descriphome":"No description"
   },
+
   "builder": {
     "toolbox": "Toolbox",
     "preview": "Preview",
@@ -37,12 +39,14 @@
     "invalidJson": "Invalid JSON file",
     "cannotCloseLastForm": "Cannot close last form"
   },
+
   "categories": {
     "Basic": "Basic",
     "Choice": "Choice",
     "Advanced": "Advanced",
     "Specialized": "Specialized"
   },
+
   "fields": {
     "header": "Header",
     "text": "Text",
@@ -65,6 +69,7 @@
     "ogrn": "OGRN",
     "bik": "BIK"
   },
+
   "actions": {
     "act":"Actions",
     "delete": "Delete",
@@ -76,20 +81,24 @@
     "confirmDeleteFolder": "Are you sure? Forms in this folder will be moved to 'All Forms'.",
     "error":"Error"
   },
+
   "placeholders": {
     "folderName": "Folder Name",
     "search": "Search..."
   },
+
   "language": {
     "switched": "Language Switched",
     "switchedTo": "Switched to {{lang}}"
   },
+
   "back":{
     "bgFormCreate":"Click elements from the sidebar to add them",
     "drag":"Drag fields to reorder them",
     "properties":"Select a field on the canvas to edit its properties",
     "loaddrag":"Drag & drop files here or click to upload"
   },
+
   "propert":{
     "propet":"Properties",
     "label":"Label",
@@ -115,6 +124,7 @@
     "corranopt":"Select the correct answers from the options",
     "allowmult":"Allow Multiple"
   },
+  
   "descerr":{
     "empty":"Folder name cannot be empty",
     "query":"Folder with this name already exists"

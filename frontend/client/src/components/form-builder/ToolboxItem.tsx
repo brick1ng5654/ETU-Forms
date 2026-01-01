@@ -1,6 +1,17 @@
 import { cn } from "@/lib/utils";
 import { LucideIcon } from "lucide-react";
 
+/**
+ Для компонента элемента тулбокса (панели инструментов)
+ 
+ type - уникальный тип поля (например: "text", "number", "email")
+ 
+ icon - компонент иконки из библиотеки lucide-react
+ 
+ label - отображаемое название элемента (например: "Текстовое поле")
+ 
+ onAddField - функция-обработчик, вызываемая при клике на элемент
+*/
 interface ToolboxItemProps {
   type: string;
   icon: LucideIcon;
@@ -8,6 +19,13 @@ interface ToolboxItemProps {
   onAddField: (type: string, label: string) => void;
 }
 
+/**
+ Компонент элемента панели инструментов конструктора форм
+ Представляет собой интерактивную кнопку для добавления нового поля в форму
+ 
+ Используется в боковой панели инструментов конструктора форм
+ Пользователь может кликнуть на элемент, чтобы добавить соответствующее поле в форму
+*/
 export function ToolboxItem({ type, icon: Icon, label, onAddField }: ToolboxItemProps) {
   return (
     <div
