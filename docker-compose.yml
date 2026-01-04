@@ -5,5 +5,12 @@ services:
     ports:
     - "80:80"
     - "443:443"
-    volumes:
-    - ./ssl:/etc/nginx/ssl
+    secrets:
+      - ssl_certificate.crt
+      - ssl_private.key
+    
+secrets:
+  ssl_certificate.crt:
+    file: ./ssl/nginx.crt
+  ssl_private.key:
+    file: ./ssl/nginx.key
