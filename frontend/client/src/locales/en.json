@@ -102,7 +102,7 @@
   "propert":{
     "propet":"Properties",
     "label":"Label",
-    "placeholder":"Placeholder",
+    "placeholder":"Text hint",
     "helper":"Helper Text",
     "addcorransw":"Add Correct Answer",
     "pointcorr":"Points for Correct Answer",
