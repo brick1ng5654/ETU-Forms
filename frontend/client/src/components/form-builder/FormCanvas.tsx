@@ -17,7 +17,7 @@ import {
   verticalListSortingStrategy,
   arrayMove 
 } from "@dnd-kit/sortable";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { FormField, FieldType, FormSchema } from "@/lib/form-types";
 import { SortableField } from "./SortableField";
 import { nanoid } from "nanoid";
@@ -25,6 +25,7 @@ import {
   Type, AlignLeft, Hash, Calendar, Mail, List, CheckSquare, CircleDot, Heading, Star, ListOrdered, Upload, FolderTree, User, Phone, FileText, CreditCard, Globe, Clock, FileDigit
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import React from "react";
 import { useTranslation } from 'react-i18next';
 import { Languages } from "lucide-react";
@@ -87,6 +88,8 @@ export function FormCanvas({ form, setForm, selectedId, setSelectedId }: FormCan
 
   const { t, i18n } = useTranslation()  // Хук для локализации
   const [activeDragItem, setActiveDragItem] = useState<any>(null);
+  const titleTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const descriptionTextareaRef = useRef<HTMLTextAreaElement>(null);
   const { setNodeRef, isOver } = useDroppable({
     id: 'form-canvas-droppable',
   });
@@ -134,6 +137,16 @@ export function FormCanvas({ form, setForm, selectedId, setSelectedId }: FormCan
   };
 
   /**
+   Функция для автоматического изменения высоты textarea
+  */
+  const adjustTextareaHeight = (textarea: HTMLTextAreaElement | null) => {
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    }
+  };
+
+  /**
    Обновление заголовка формы
   */
   const updateTitle = (title: string) => {
@@ -146,6 +159,12 @@ export function FormCanvas({ form, setForm, selectedId, setSelectedId }: FormCan
   const updateDescription = (description: string) => {
     setForm({ ...form, description });
   };
+
+  // Устанавливаем высоту при изменении значений
+  useEffect(() => {
+    adjustTextareaHeight(titleTextareaRef.current);
+    adjustTextareaHeight(descriptionTextareaRef.current);
+  }, [form.title, form.description]);
 
   return (
     // DndContext - компонент для Drag & Drop функциональности
@@ -166,19 +185,33 @@ export function FormCanvas({ form, setForm, selectedId, setSelectedId }: FormCan
              <div className="space-y-2">
               
               {/* Редактируемое поле заголовка */}
-               <Input 
+               <Textarea 
+                 ref={titleTextareaRef}
                  value={form.title} 
-                 onChange={(e) => updateTitle(e.target.value)}
-                 className="text-3xl font-bold text-foreground tracking-tight border-transparent hover:border-border px-0 h-auto py-1 focus-visible:ring-0 shadow-none bg-transparent"
+                 onChange={(e) => {
+                  const value = e.target.value.slice(0, 120);
+                  updateTitle(value);
+                  setTimeout(() => adjustTextareaHeight(titleTextareaRef.current), 0);
+                }}
+                 maxLength={120}
+                 className="text-3xl font-bold text-foreground tracking-tight border-transparent hover:border-border px-0 py-1 focus-visible:ring-0 shadow-none bg-transparent resize-none whitespace-pre-wrap break-words overflow-hidden min-h-[1.5em]"
                  placeholder={t("common.untitled")}
+                 rows={1}
                />
                
                {/* Редактируемое поле описания */}
-               <Input 
+               <Textarea 
+                 ref={descriptionTextareaRef}
                  value={form.description} 
-                 onChange={(e) => updateDescription(e.target.value)}
-                 className="text-muted-foreground text-lg border-transparent hover:border-border px-0 h-auto py-1 focus-visible:ring-0 shadow-none bg-transparent"
+                 onChange={(e) => {
+                  const value = e.target.value.slice(0, 720);
+                  updateDescription(value);
+                  setTimeout(() => adjustTextareaHeight(descriptionTextareaRef.current), 0);
+                }}
+                 maxLength={720}
+                 className="text-muted-foreground text-lg border-transparent hover:border-border px-0 py-1 focus-visible:ring-0 shadow-none bg-transparent resize-none whitespace-pre-wrap break-words overflow-hidden min-h-[1.5em]"
                  placeholder={t("common.descriptionf")}
+                 rows={1}
                />
              </div>
 
