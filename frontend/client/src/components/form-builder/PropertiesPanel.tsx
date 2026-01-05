@@ -57,7 +57,11 @@ export function PropertiesPanel({ selectedField, updateField, deleteField }: Pro
           <Label>{t("propert.label")}</Label>
           <Textarea 
             value={selectedField.label} 
-            onChange={(e) => updateField(selectedField.id, { label: e.target.value })}
+            onChange={(e) => {
+              const value = e.target.value.slice(0, 120);
+              updateField(selectedField.id, { label: value });
+            }}
+            maxLength={120}
             className="min-h-[80px]"
           />
         </div>
@@ -65,19 +69,29 @@ export function PropertiesPanel({ selectedField, updateField, deleteField }: Pro
         {!isHeader && !["checkbox", "radio", "rating", "file", "datetime"].includes(selectedField.type) && (
           <div className="space-y-2">
             <Label>{t("propert.placeholder")}</Label>
-            <Input 
-              value={selectedField.placeholder || ""} 
-              onChange={(e) => updateField(selectedField.id, { placeholder: e.target.value })}
+            <Textarea
+              value={selectedField.placeholder || ""}
+              onChange={(e) => {
+                const value = e.target.value.slice(0, 80);
+                updateField(selectedField.id, { placeholder: value });
+              }}
+              maxLength={80}
+              className="min-h-[44px] resize-y break-all"
             />
           </div>
         )}
         
         {!isHeader && (
-           <div className="space-y-2">
+          <div className="space-y-2">
             <Label>{t("propert.helper")}</Label>
-            <Input 
-              value={selectedField.helperText || ""} 
-              onChange={(e) => updateField(selectedField.id, { helperText: e.target.value })}
+            <Textarea
+              value={selectedField.helperText || ""}
+              onChange={(e) => {
+                const value = e.target.value.slice(0, 1200);
+                updateField(selectedField.id, { helperText: value });
+              }}
+              maxLength={1200}
+              className="min-h-[60px] resize-y break-all"
             />
           </div>
         )}
