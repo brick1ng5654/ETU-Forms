@@ -222,7 +222,9 @@ export function FormPreview({ form }: FormPreviewProps) {
         )}
 
         {field.helperText && (
-          <p className="text-xs text-muted-foreground">{field.helperText}</p>
+          <p className="text-sm text-muted-foreground whitespace-pre-wrap break-all">
+            {field.helperText}
+          </p>
         )}
 
         {field.type === "header" && (
