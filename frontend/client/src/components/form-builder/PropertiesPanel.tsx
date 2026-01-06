@@ -34,8 +34,12 @@ export function PropertiesPanel({ selectedField, updateField, deleteField }: Pro
   const isHeader = selectedField.type === "header";
   const isDatetime = selectedField.type === "datetime";
   
+  // Specialized field types that should not have correct answers
+  const specializedTypes = ["fullname", "phone", "passport", "inn", "snils", "account", "country", "ogrn", "bik"];
+  const isSpecialized = specializedTypes.includes(selectedField.type);
+  
   // Fields that can have "Correct Answers"
-  const canHaveCorrectAnswers = !isHeader && !isFile && selectedField.type !== "category" && !isDatetime;
+  const canHaveCorrectAnswers = !isHeader && !isFile && selectedField.type !== "category" && !isDatetime && !isSpecialized;
 
   return (
     <div className="p-4 space-y-6 overflow-y-auto h-full pb-20">
