@@ -70,10 +70,13 @@ SelectScrollDownButton.displayName =
 const SelectContent = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content>
->(({ className, children, position = "popper", ...props }, ref) => (
+>(({ className, children, position = "popper", side = "bottom", ...props }, ref) => (
   <SelectPrimitive.Portal>
     <SelectPrimitive.Content
       ref={ref}
+      side={side}
+      // фиксируем направление вниз, чтобы список не уезжал вверх
+      avoidCollisions={false}
       className={cn(
         // ограничиваем высоту контента через CSS-переменную Radix,
         // чтобы при большом числе опций включался скролл
