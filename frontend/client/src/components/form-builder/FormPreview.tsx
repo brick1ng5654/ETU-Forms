@@ -9,10 +9,11 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar as CalendarIcon, CheckCircle2, XCircle, Star, RotateCcw, GripVertical } from "lucide-react";
+import { CalendarDays, Clock, CheckCircle2, XCircle, Star, RotateCcw, GripVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
+import { useTranslation } from 'react-i18next';
 import {
   DndContext,
   closestCenter,
@@ -110,6 +111,7 @@ type Answers = Record<string, AnswerValue>;
 type Results = Record<string, boolean>;
 
 export function FormPreview({ form }: FormPreviewProps) {
+  const { t } = useTranslation();
   const [answers, setAnswers] = useState<Answers>({});
   const [results, setResults] = useState<Results | null>(null);
   const [totalScore, setTotalScore] = useState<number>(0);
@@ -132,6 +134,24 @@ export function FormPreview({ form }: FormPreviewProps) {
       setResults(null);
     }
   };
+
+  const formatDateInput = (date: Date | null) => {
+    if (!date || Number.isNaN(date.getTime())) return ""
+    return format(date, "yyyy-MM-dd")
+  }
+
+  const isValidDateString = (value: string) => {
+    if (value.length !== 10) return false
+    const [y, m, d] = value.split("-").map(Number)
+    if (!y || !m || !d) return false
+    if (m < 1 || m > 12) return false
+    const parsed = new Date(y, m - 1, d)
+    return (
+      parsed.getFullYear() === y &&
+      parsed.getMonth() === m - 1 &&
+      parsed.getDate() === d
+    )
+  }
 
   const handleRankingDragEnd = (fieldId: string, event: DragEndEvent) => {
     const { active, over } = event;
@@ -294,41 +314,88 @@ export function FormPreview({ form }: FormPreviewProps) {
         )}
 
         {field.type === "datetime" && (
-          <div className="space-y-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !answers[field.id] && "text-muted-foreground"
+          <div className="space-y-3">
+            {!field.hideDate && (
+              <div className="relative">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute left-0 top-0 h-10 w-10 hover:bg-transparent z-10"
+                      disabled={results !== null}
+                      type="button"
+                    >
+                      <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={answers[field.id] as Date | undefined}
+                      onSelect={(date) => {
+                        updateAnswer(field.id, date || null)
+                      }}
+                      locale={ru}
+                    />
+                  </PopoverContent>
+                </Popover>
+                <Input
+                  type="date"
+                  value={formatDateInput(
+                    answers[field.id] instanceof Date
+                      ? (answers[field.id] as Date)
+                      : null
                   )}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    if (val === "") {
+                      updateAnswer(field.id, null)
+                      return
+                    }
+                    if (isValidDateString(val)) {
+                      const [y, m, d] = val.split("-").map(Number)
+                      const parsed = new Date(y, m - 1, d)
+                      updateAnswer(field.id, parsed)
+                    }
+                  }}
                   disabled={results !== null}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {answers[field.id] ? (
-                    format(answers[field.id] as Date, "PPP", { locale: ru })
-                  ) : (
-                    <span>Выберите дату</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={answers[field.id] as Date | undefined}
-                  onSelect={(date) => updateAnswer(field.id, date || null)}
-                  locale={ru}
+                  className="pl-10 h-10 text-muted-foreground"
+                  placeholder={t("propert.selectDate")}
                 />
-              </PopoverContent>
-            </Popover>
-            <Input
-              type="time"
-              value={(answers[field.id + "_time"] as string) || ""}
-              onChange={(e) => updateAnswer(field.id + "_time", e.target.value)}
-              disabled={results !== null}
-              placeholder="Выберите время"
-            />
+              </div>
+            )}
+            {!field.hideTime && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal h-10",
+                      !answers[field.id + "_time"] && "text-muted-foreground"
+                    )}
+                    disabled={results !== null}
+                  >
+                    <Clock className="mr-2 h-4 w-4" />
+                    {answers[field.id + "_time"] ? (
+                      <span>{answers[field.id + "_time"] as string}</span>
+                    ) : (
+                      <span>{t("propert.selectTime")}</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-4" align="start">
+                  <Input
+                    type="time"
+                    value={(answers[field.id + "_time"] as string) || ""}
+                    onChange={(e) => updateAnswer(field.id + "_time", e.target.value)}
+                    disabled={results !== null}
+                    className="w-full"
+                    autoFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            )}
           </div>
         )}
 

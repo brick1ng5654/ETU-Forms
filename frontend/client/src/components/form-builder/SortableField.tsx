@@ -2,7 +2,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { FormField } from "@/lib/form-types";
 import { cn } from "@/lib/utils";
-import { GripVertical, Star, Upload, GripHorizontal, CalendarIcon, Clock } from "lucide-react";
+import { GripVertical, Star, Upload, GripHorizontal, CalendarIcon, CalendarDays, Clock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -170,6 +170,33 @@ export function SortableField({ field, isSelected, onSelect }: SortableFieldProp
                 {field.acceptedFileTypes && field.acceptedFileTypes.length > 0 && ` (${field.acceptedFileTypes.join(", ")})`}
               </p>
            </div>
+        );
+      case "datetime":
+        return (
+          <div className="space-y-3">
+            {!field.hideDate && (
+              <div className="relative">
+                <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
+                <Input
+                  type="date"
+                  disabled
+                  className="pl-10 h-10 bg-white/50 pointer-events-none text-muted-foreground"
+                  placeholder={t("propert.selectDate")}
+                />
+              </div>
+            )}
+            {!field.hideTime && (
+              <div className="relative">
+                <Input
+                  type="time"
+                  disabled
+                  className="pl-10 h-10 bg-white/50 pointer-events-none"
+                  placeholder={t("propert.selectTime")}
+                />
+                <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              </div>
+            )}
+          </div>
         );
       case "header":
         return null; // Rendered in header
