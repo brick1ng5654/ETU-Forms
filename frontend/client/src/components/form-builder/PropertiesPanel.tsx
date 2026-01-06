@@ -51,6 +51,12 @@ export function PropertiesPanel({ selectedField, updateField, deleteField }: Pro
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
+        <div className="space-y-2">
+          <Label>{t("propert.fieldType")}</Label>
+            <div className="text-sm text-muted-foreground font-medium">
+              {t(`fields.${selectedField.type}`)}
+            </div>
+        </div>
 
       <div className="space-y-4">
         <div className="space-y-2">

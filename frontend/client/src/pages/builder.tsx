@@ -176,7 +176,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
     const newField: FormField = {
       id: nanoid(),
       type: fieldType,
-      label: fieldType === "header" ? "Section Header" : `New ${label}`,
+      label: fieldType === "header" ? "Section Header" : `${label}`,
       placeholder: "",
       required: false,
       ...defaultProps
