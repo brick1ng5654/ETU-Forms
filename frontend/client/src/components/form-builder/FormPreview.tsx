@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { FormField, FormSchema } from "@/lib/form-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,30 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+
+interface AutoResizeTextareaProps extends React.ComponentProps<typeof Textarea> {}
+
+function AutoResizeTextarea({ value, onChange, ...props }: AutoResizeTextareaProps) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    }
+  }, [value]);
+
+  return (
+    <Textarea
+      ref={textareaRef}
+      value={value}
+      onChange={onChange}
+      className="resize-none overflow-hidden"
+      {...props}
+    />
+  );
+}
 
 interface SortableItemProps {
   id: string;
@@ -233,7 +257,7 @@ export function FormPreview({ form }: FormPreviewProps) {
 
         {field.type === "text" && (
           field.multiline ? (
-            <Textarea
+            <AutoResizeTextarea
               placeholder={field.placeholder}
               value={(answers[field.id] as string) || ""}
               onChange={(e) => updateAnswer(field.id, e.target.value)}

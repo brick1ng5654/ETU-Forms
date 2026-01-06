@@ -170,7 +170,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
       defaultProps.acceptedFileTypes = [];
     }
     if (fieldType === "text") {
-      defaultProps.multiline = false;
+      defaultProps.multiline = true;
     }
 
     const newField: FormField = {
