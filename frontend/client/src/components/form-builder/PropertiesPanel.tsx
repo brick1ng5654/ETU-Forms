@@ -28,7 +28,6 @@ export function PropertiesPanel({ selectedField, updateField, deleteField }: Pro
 
   const hasOptions = ["select", "radio", "checkbox", "ranking"].includes(selectedField.type);
   const isRating = selectedField.type === "rating";
-  const isText = selectedField.type === "text";
   const isNumber = selectedField.type === "number";
   const isEmail = selectedField.type === "email";
   const isFile = selectedField.type === "file";
@@ -235,20 +234,6 @@ export function PropertiesPanel({ selectedField, updateField, deleteField }: Pro
               <p className="text-xs text-muted-foreground">{t("propert.subpoint")}</p>
             </div>
           </div>
-        )}
-
-        {isText && (
-          <>
-            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm mt-4">
-              <div className="space-y-0.5">
-                <Label>{t("propert.longtxt")}</Label>
-              </div>
-              <Switch 
-                checked={selectedField.multiline}
-                onCheckedChange={(checked) => updateField(selectedField.id, { multiline: checked })}
-              />
-            </div>
-          </>
         )}
 
         {isNumber && (
