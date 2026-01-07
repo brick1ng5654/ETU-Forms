@@ -465,6 +465,7 @@ export function FormPreview({ form }: FormPreviewProps) {
                     id={`${field.id}-${option}`}
                     checked={isChecked}
                     disabled={results !== null}
+                    simplifiedAnimation
                     onCheckedChange={(checked) => {
                       if (checked) {
                         updateAnswer(field.id, [...currentValues, option]);

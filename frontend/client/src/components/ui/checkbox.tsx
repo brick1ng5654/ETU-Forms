@@ -10,6 +10,7 @@ export interface CheckboxProps extends Omit<React.ComponentPropsWithoutRef<'butt
   name?: string;
   value?: string;
   className?: string;
+  simplifiedAnimation?: boolean;
 }
 
 const Checkbox = React.forwardRef<HTMLButtonElement, CheckboxProps>(
@@ -23,6 +24,7 @@ const Checkbox = React.forwardRef<HTMLButtonElement, CheckboxProps>(
     name,
     value,
     id,
+    simplifiedAnimation,
     ...props 
   }, ref) => {
     const [uncontrolledChecked, setUncontrolledChecked] = React.useState(defaultChecked || false);
@@ -53,7 +55,10 @@ const Checkbox = React.forwardRef<HTMLButtonElement, CheckboxProps>(
     };
 
     return (
-      <StyledWrapper className={className}>
+      <StyledWrapper
+        className={className}
+        data-animation={simplifiedAnimation ? 'simple' : 'default'}
+      >
         <div className="cntr">
           {/* Скрытый input для форм */}
           <input
@@ -167,12 +172,20 @@ const StyledWrapper = styled.div`
     animation: jelly 0.6s ease;
   }
 
+  &[data-animation='simple'] button.cbx[data-state='checked'] {
+    animation: none;
+  }
+
   button.cbx[data-state='checked'].disabled {
     background: #a0a7f0;
   }
 
   button.cbx .check-icon {
     animation: checkAnim 0.3s ease;
+  }
+
+  &[data-animation='simple'] button.cbx .check-icon {
+    animation: none;
   }
 
   button.cbx:focus-visible {
