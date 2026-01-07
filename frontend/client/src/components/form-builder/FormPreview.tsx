@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { FormField, FormSchema } from "@/lib/form-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -85,7 +85,7 @@ type AnswerValue = string | string[] | number | Date | null;
 type Answers = Record<string, AnswerValue>;
 type Results = Record<string, boolean>;
 
-export function FormPreview({ form }: FormPreviewProps) {
+const FormPreview: React.FC<FormPreviewProps> = ({ form }) => {
   const [answers, setAnswers] = useState<Answers>({});
   const [results, setResults] = useState<Results | null>(null);
   const [totalScore, setTotalScore] = useState<number>(0);
@@ -184,6 +184,37 @@ export function FormPreview({ form }: FormPreviewProps) {
     setTotalScore(0);
     setMaxScore(0);
   };
+
+
+
+
+  const isFieldVisible = (field: FormField): boolean => {
+  if (!field.conditionalLogic || !field.conditionalLogic.dependsOn) return true;
+  const { dependsOn, condition, expectedValue } = field.conditionalLogic;
+  const parentAnswer = answers[dependsOn!];
+  
+  switch (condition) {
+    case "equals":
+      if (Array.isArray(expectedValue)) {
+        return Array.isArray(parentAnswer) 
+          ? expectedValue.some(val => parentAnswer.includes(val))
+          : expectedValue.includes(parentAnswer as string);
+      }
+      return parentAnswer === expectedValue;
+    case "not_equals":
+      return parentAnswer !== expectedValue;
+    case "answered":
+      return parentAnswer != null && parentAnswer !== "";
+    case "not_answered":
+      return parentAnswer == null || parentAnswer === "";
+    default:
+      return true;
+  }
+};
+
+
+
+
 
   const renderField = (field: FormField) => {
     const hasResult = results !== null && field.id in results;
@@ -484,7 +515,8 @@ export function FormPreview({ form }: FormPreviewProps) {
         </div>
       )}
 
-      {form.fields.map(renderField)}
+      {form.fields.filter(isFieldVisible).map(renderField)}
+
 
       {hasQuizFields && results === null && (
         <div className="pt-4 border-t">
@@ -496,3 +528,6 @@ export function FormPreview({ form }: FormPreviewProps) {
     </div>
   );
 }
+
+export default FormPreview;
+

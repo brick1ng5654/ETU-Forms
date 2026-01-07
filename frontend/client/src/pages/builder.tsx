@@ -3,7 +3,7 @@ import { nanoid } from "nanoid";
 import { FormField, FieldType, FormSchema } from "@/lib/form-types";
 import { FormCanvas, getIconForType } from "@/components/form-builder/FormCanvas";
 import { PropertiesPanel } from "@/components/form-builder/PropertiesPanel";
-import { FormPreview } from "@/components/form-builder/FormPreview";
+import FormPreview from "@/components/form-builder/FormPreview";
 import { ToolboxItem } from "@/components/form-builder/ToolboxItem";
 import { Button } from "@/components/ui/button";
 import { 
@@ -65,6 +65,11 @@ export default function Builder({ params }: { params: { id?: string } }) {
   const [activeFormId, setActiveFormId] = useState<string | null>(null);
   
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const handleSetSelectedId = (id: string | null) => {
+    console.log('Setting selectedId to:', id);
+    setSelectedId(id);
+  };
   const [isToolboxOpen, setIsToolboxOpen] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { t, i18n } = useTranslation();
@@ -153,7 +158,8 @@ export default function Builder({ params }: { params: { id?: string } }) {
     }
   };
 
-  const addField = (fieldType: FieldType, label: string) => {
+  const addField = (type: string, label: string) => {
+    const fieldType = type as FieldType;
     const defaultProps: Partial<FormField> = {};
     
     if (["checkbox", "radio", "select", "ranking"].includes(fieldType)) {
@@ -176,7 +182,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
     const newField: FormField = {
       id: nanoid(),
       type: fieldType,
-      label: fieldType === "header" ? "Section Header" : `New ${label}`,
+      label: fieldType === "header" ? "Section Header" : `${label}`,
       placeholder: "",
       required: false,
       ...defaultProps
@@ -246,6 +252,8 @@ export default function Builder({ params }: { params: { id?: string } }) {
   }, {} as Record<string, typeof TOOLBOX_ITEMS>);
 
   if (!activeForm) return <div>Loading...</div>;
+
+  console.log('Rendering Builder, activeForm:', activeForm, 'selectedId:', selectedId);
 
   return (
     <div className="h-screen w-full flex flex-col bg-background overflow-hidden">
@@ -370,10 +378,10 @@ export default function Builder({ params }: { params: { id?: string } }) {
           </div>
         </div>
 
-        <FormCanvas form={activeForm} setForm={setForm} selectedId={selectedId} setSelectedId={setSelectedId} />
+        <FormCanvas key={activeForm.id} form={activeForm} setForm={setForm} selectedId={selectedId} setSelectedId={handleSetSelectedId} />
 
         <div className="w-80 border-l border-border bg-white flex flex-col shrink-0 z-10">
-           <PropertiesPanel selectedField={selectedField} updateField={updateField} deleteField={deleteField} />
+           <PropertiesPanel key={selectedField?.id || 'none'} selectedField={selectedField} updateField={updateField} deleteField={deleteField} fields={fields} />
         </div>
       </div>
     </div>

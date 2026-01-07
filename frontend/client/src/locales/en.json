@@ -128,5 +128,17 @@
   "descerr":{
     "empty":"Folder name cannot be empty",
     "query":"Folder with this name already exists"
-  }
+  },
+  "logic": {
+  "conditional": "Conditional Logic",
+  "dependsOn": "Depends on",
+  "none": "None",
+  "condition": "Condition",
+  "equals": "Equals",
+  "not_equals": "Not Equals",
+  "answered": "Answered",
+  "not_answered": "Not Answered",
+  "expectedValue": "Expected Value"
+}
+
 }

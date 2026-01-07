@@ -73,35 +73,7 @@ export function SortableField({ field, isSelected, onSelect }: SortableFieldProp
             type={field.type === "number" ? "number" : "text"}
           />
         );
-      case "date":
-        return (
-           <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant={"outline"}
-                className={cn(
-                  "w-full justify-start text-left font-normal",
-                  "text-muted-foreground"
-                )}
-                disabled
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                <span>Pick a date</span>
-              </Button>
-            </PopoverTrigger>
-          </Popover>
-        );
-      case "time":
-        return (
-          <div className="relative">
-            <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input 
-              type="time" 
-              className="pl-10 bg-white/50 pointer-events-none" 
-              disabled
-            />
-          </div>
-        );
+
       case "select":
       case "country":
       case "category":
@@ -184,6 +156,7 @@ export function SortableField({ field, isSelected, onSelect }: SortableFieldProp
       style={style}
       onClick={(e) => {
         e.stopPropagation();
+        console.log('SortableField onClick for field:', field.id);
         onSelect(field.id);
       }}
       className={cn(

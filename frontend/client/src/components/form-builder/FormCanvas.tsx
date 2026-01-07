@@ -175,7 +175,7 @@ export function FormCanvas({ form, setForm, selectedId, setSelectedId }: FormCan
       onDragEnd={handleDragEnd}
     >
     {/* Основная область холста формы */}
-      <div className="flex-1 bg-muted/30 p-8 overflow-y-auto h-full builder-scroll" onClick={() => setSelectedId(null)}>
+      <div className="flex-1 bg-muted/30 p-8 overflow-y-auto h-full builder-scroll" onClick={() => { console.log('FormCanvas background click, setting selectedId to null'); setSelectedId(null); }}>
         
         {/* Контейнер формы (белая карточка) */}
         <div className="max-w-3xl mx-auto min-h-[800px] bg-white rounded-xl shadow-sm border border-border/50 flex flex-col">

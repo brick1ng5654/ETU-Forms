@@ -14,9 +14,10 @@ interface PropertiesPanelProps {
   selectedField: FormField | null;
   updateField: (id: string, updates: Partial<FormField>) => void;
   deleteField: (id: string) => void;
+  fields: FormField[];
 }
 
-export function PropertiesPanel({ selectedField, updateField, deleteField }: PropertiesPanelProps) {
+export function PropertiesPanel({ selectedField, updateField, deleteField, fields }: PropertiesPanelProps) {
   const { t, i18n } = useTranslation()
   if (!selectedField) {
     return (
@@ -236,6 +237,98 @@ export function PropertiesPanel({ selectedField, updateField, deleteField }: Pro
             </div>
           </div>
         )}
+
+
+
+
+
+
+        {/* Conditional Logic Section */}
+        <div className="space-y-3 pt-2 border-t mt-2">
+          <Label className="text-blue-600 flex items-center gap-1">
+            <Check className="h-4 w-4" /> {t("logic.conditional")}
+          </Label>
+          <div className="space-y-2">
+            <Label>{t("logic.dependsOn")}</Label>
+            <Select
+              value={selectedField.conditionalLogic?.dependsOn || "__none__"}
+              onValueChange={(value) => {
+                const logic = selectedField.conditionalLogic || { condition: "equals" };
+                updateField(selectedField.id, {
+                  conditionalLogic: value === "__none__" ? undefined : { ...logic, dependsOn: value }
+                });
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={t("logic.none")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">{t("logic.none")}</SelectItem>
+                {fields?.filter(f => f.id !== selectedField.id).map((field) => (
+                  <SelectItem key={field.id} value={field.id}>
+                    {field.label} ({t(`fields.${field.type}`)})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {selectedField.conditionalLogic?.dependsOn && (
+            <>
+              <div className="space-y-2">
+                <Label>{t("logic.condition")}</Label>
+                <Select
+                  value={selectedField.conditionalLogic.condition || ""}
+                  onValueChange={(value) => {
+                    const logic = selectedField.conditionalLogic!;
+                    updateField(selectedField.id, {
+                      conditionalLogic: { ...logic, condition: value as any }
+                    });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Выберите условие" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="equals">{t("logic.equals")}</SelectItem>
+                    <SelectItem value="not_equals">{t("logic.not_equals")}</SelectItem>
+                    <SelectItem value="answered">{t("logic.answered")}</SelectItem>
+                    <SelectItem value="not_answered">{t("logic.not_answered")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {(selectedField.conditionalLogic.condition === "equals" || selectedField.conditionalLogic.condition === "not_equals") && (
+                <div className="space-y-2">
+                  <Label>{t("logic.expectedValue")}</Label>
+                  <Input
+                    value={Array.isArray(selectedField.conditionalLogic.expectedValue) 
+                      ? selectedField.conditionalLogic.expectedValue.join(", ") 
+                      : (selectedField.conditionalLogic.expectedValue || "")}
+                    onChange={(e) => {
+                      const logic = selectedField.conditionalLogic!;
+                      const value = e.target.value;
+                      // Для множественных значений разделять по запятой
+                      const expectedValue = value.includes(",")
+                        ? value.split(",").map(v => v.trim()).filter(Boolean)
+                        : value;
+                      updateField(selectedField.id, {
+                        conditionalLogic: { ...logic, expectedValue: value ? expectedValue : undefined }
+                      });
+                    }}
+                    placeholder="Введите ожидаемое значение"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Для множественных значений разделяйте запятой
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+
+
 
         {isText && (
           <>

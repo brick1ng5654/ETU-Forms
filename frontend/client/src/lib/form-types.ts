@@ -43,6 +43,7 @@ export interface FormField {
   acceptedFileTypes?: string[]; // For file (.pdf, .jpg etc)
   correctAnswers?: string[]; // For quiz mode - list of valid answers
   points?: number; // Points for correct answer in quiz mode
+  conditionalLogic?: ConditionalLogic;
 }
 
 export interface FormFolder {
@@ -58,3 +59,11 @@ export interface FormSchema {
   fields: FormField[];
   updatedAt: number;
 }
+
+export interface ConditionalLogic {
+  dependsOn?: string; // ID поля-родителя
+  condition: "equals" | "not_equals" | "answered" | "not_answered";
+  expectedValue?: string | string[]; // Для select с multiple - массив
+}
+
+
