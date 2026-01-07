@@ -319,6 +319,46 @@ export function PropertiesPanel({ selectedField, updateField, deleteField }: Pro
           </div>
         )}
 
+        {isDatetime && (
+          <div className="space-y-3 pt-2 border-t">
+            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+              <div className="space-y-0.5">
+                <Label>{t("propert.hideDate")}</Label>
+              </div>
+              <Switch 
+                checked={selectedField.hideDate || false}
+                onCheckedChange={(checked) => {
+                  // Prevent hiding both date and time
+                  if (checked && selectedField.hideTime) {
+                    return;
+                  }
+                  updateField(selectedField.id, { hideDate: checked });
+                }}
+                disabled={selectedField.hideTime}
+              />
+            </div>
+            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+              <div className="space-y-0.5">
+                <Label>{t("propert.hideTime")}</Label>
+              </div>
+              <Switch 
+                checked={selectedField.hideTime || false}
+                onCheckedChange={(checked) => {
+                  // Prevent hiding both date and time
+                  if (checked && selectedField.hideDate) {
+                    return;
+                  }
+                  updateField(selectedField.id, { hideTime: checked });
+                }}
+                disabled={selectedField.hideDate}
+              />
+            </div>
+            {(selectedField.hideDate && selectedField.hideTime) && (
+              <p className="text-xs text-destructive">{t("propert.datetimeWarning")}</p>
+            )}
+          </div>
+        )}
+
         {!isHeader && !isDatetime && (
           <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
             <div className="space-y-0.5">

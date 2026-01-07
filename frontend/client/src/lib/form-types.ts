@@ -43,6 +43,8 @@ export interface FormField {
   acceptedFileTypes?: string[]; // For file (.pdf, .jpg etc)
   correctAnswers?: string[]; // For quiz mode - list of valid answers
   points?: number; // Points for correct answer in quiz mode
+  hideDate?: boolean; // For datetime - hide date picker
+  hideTime?: boolean; // For datetime - hide time picker
 }
 
 export interface FormFolder {
