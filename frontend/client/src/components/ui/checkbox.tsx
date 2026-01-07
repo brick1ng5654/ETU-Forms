@@ -119,7 +119,9 @@ const Checkbox = React.forwardRef<HTMLButtonElement, CheckboxProps>(
 Checkbox.displayName = 'Checkbox';
 
 const StyledWrapper = styled.div`
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
 
   .cntr {
     position: relative;
