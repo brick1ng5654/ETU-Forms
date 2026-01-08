@@ -79,7 +79,7 @@ export function PropertiesPanel({ selectedField, updateField, deleteField, field
           />
         </div>
 
-        {!isHeader && !["checkbox", "radio", "rating", "file", "datetime"].includes(selectedField.type) && (
+        {!isHeader && !["checkbox", "radio", "rating", "file", "datetime", "fullname"].includes(selectedField.type) && (
           <div className="space-y-2">
             <Label>{t("propert.placeholder")}</Label>
             <Textarea
@@ -541,7 +541,7 @@ export function PropertiesPanel({ selectedField, updateField, deleteField, field
           </div>
         )}
 
-        {!isHeader && !isDatetime && (
+        {!isHeader && !isDatetime && selectedField.type !== "fullname" && (
           <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
             <div className="space-y-0.5">
               <Label>{t("propert.requered")}</Label>
