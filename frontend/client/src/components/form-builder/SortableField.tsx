@@ -14,6 +14,7 @@ import { Popover, PopoverTrigger } from "@/components/ui/popover";
 import { useTranslation } from 'react-i18next';
 import { Languages } from "lucide-react";
 
+const FULLNAME_MAX_CHARS = 50;
 
 interface SortableFieldProps {
   field: FormField;
@@ -58,7 +59,6 @@ export function SortableField({ field, isSelected, onSelect }: SortableFieldProp
       case "email":
       case "number":
       case "phone":
-      case "fullname":
       case "passport":
       case "inn":
       case "snils":
@@ -73,6 +73,37 @@ export function SortableField({ field, isSelected, onSelect }: SortableFieldProp
             type={field.type === "number" ? "number" : "text"}
           />
         );
+      case "fullname": {
+        const isRu = i18n.language.startsWith("ru");
+        const labels = {
+          lastName: isRu ? "Фамилия" : "Last name",
+          firstName: isRu ? "Имя" : "First name",
+          patronymic: isRu ? "Отчество (при наличии)" : "Middle name (if any)",
+        };
+
+        return (
+          <div className="grid gap-2">
+            <Input
+              placeholder={labels.lastName}
+              disabled
+              maxLength={FULLNAME_MAX_CHARS}
+              className="bg-white/50 pointer-events-none"
+            />
+            <Input
+              placeholder={labels.firstName}
+              disabled
+              maxLength={FULLNAME_MAX_CHARS}
+              className="bg-white/50 pointer-events-none"
+            />
+            <Input
+              placeholder={labels.patronymic}
+              disabled
+              maxLength={FULLNAME_MAX_CHARS}
+              className="bg-white/50 pointer-events-none"
+            />
+          </div>
+        );
+      }
       case "select":
       case "country":
       case "category":

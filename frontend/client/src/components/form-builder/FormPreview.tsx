@@ -61,6 +61,8 @@ interface SortableItemProps {
   disabled?: boolean;
 }
 
+const FULLNAME_MAX_CHARS = 50;
+
 function SortableItem({ id, disabled }: SortableItemProps) {
   const {
     attributes,
@@ -111,7 +113,7 @@ type Answers = Record<string, AnswerValue>;
 type Results = Record<string, boolean>;
 
 export function FormPreview({ form }: FormPreviewProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [answers, setAnswers] = useState<Answers>({});
   const [results, setResults] = useState<Results | null>(null);
   const [totalScore, setTotalScore] = useState<number>(0);
@@ -293,7 +295,59 @@ export function FormPreview({ form }: FormPreviewProps) {
           )
         )}
 
-        {["email", "phone", "fullname", "passport", "inn", "snils", "ogrn", "bik", "account"].includes(field.type) && (
+        {field.type === "fullname" && (() => {
+          const lastNameKey = `${field.id}_lastName`;
+          const firstNameKey = `${field.id}_firstName`;
+          const patronymicKey = `${field.id}_patronymic`;
+          const isRu = i18n.language.startsWith("ru");
+          const labels = {
+            lastName: isRu ? "Фамилия" : "Last name",
+            firstName: isRu ? "Имя" : "First name",
+            patronymic: isRu ? "Отчество (при наличии)" : "Middle name (if any)",
+          };
+
+          return (
+            <div className="grid gap-3">
+              <div className="space-y-1">
+                <Label className="text-sm text-muted-foreground">
+                  {labels.lastName}
+                  <span className="text-destructive ml-1">*</span>
+                </Label>
+                <Input
+                  value={(answers[lastNameKey] as string) || ""}
+                  onChange={(e) => updateAnswer(lastNameKey, e.target.value.slice(0, FULLNAME_MAX_CHARS))}
+                  disabled={results !== null}
+                  required
+                  maxLength={FULLNAME_MAX_CHARS}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm text-muted-foreground">
+                  {labels.firstName}
+                  <span className="text-destructive ml-1">*</span>
+                </Label>
+                <Input
+                  value={(answers[firstNameKey] as string) || ""}
+                  onChange={(e) => updateAnswer(firstNameKey, e.target.value.slice(0, FULLNAME_MAX_CHARS))}
+                  disabled={results !== null}
+                  required
+                  maxLength={FULLNAME_MAX_CHARS}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm text-muted-foreground">{labels.patronymic}</Label>
+                <Input
+                  value={(answers[patronymicKey] as string) || ""}
+                  onChange={(e) => updateAnswer(patronymicKey, e.target.value.slice(0, FULLNAME_MAX_CHARS))}
+                  disabled={results !== null}
+                  maxLength={FULLNAME_MAX_CHARS}
+                />
+              </div>
+            </div>
+          );
+        })()}
+
+        {["email", "phone", "passport", "inn", "snils", "ogrn", "bik", "account"].includes(field.type) && (
           <Input
             placeholder={field.placeholder}
             value={(answers[field.id] as string) || ""}
