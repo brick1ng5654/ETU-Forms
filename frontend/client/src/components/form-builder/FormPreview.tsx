@@ -229,6 +229,37 @@ export function FormPreview({ form }: FormPreviewProps) {
     setMaxScore(0);
   };
 
+  const isFieldVisible = (field: FormField): boolean => {
+    try {
+      if (!field.conditionalLogic || !field.conditionalLogic.dependsOn) return true;
+      const { dependsOn, condition, expectedValue } = field.conditionalLogic;
+  const parentAnswer = answers[dependsOn!];
+  
+  switch (condition) {
+    case "equals":
+      if (Array.isArray(expectedValue)) {
+        return Array.isArray(parentAnswer) 
+          ? expectedValue.some(val => parentAnswer.includes(val))
+          : expectedValue.includes(parentAnswer as string);
+      }
+      return parentAnswer === expectedValue;
+    case "not_equals":
+      return parentAnswer !== expectedValue;
+    case "answered":
+      return parentAnswer != null && parentAnswer !== "";
+    default:
+      return true;
+    }
+    } catch (error) {
+      console.error('Error in isFieldVisible for field:', field.id, field.label, error);
+      return true;
+    }
+  };
+
+
+
+
+
   const renderField = (field: FormField) => {
     const hasResult = results !== null && field.id in results;
     const isCorrect = hasResult && results[field.id];
@@ -409,7 +440,7 @@ export function FormPreview({ form }: FormPreviewProps) {
               <SelectValue placeholder={field.placeholder || "Выберите..."} />
             </SelectTrigger>
             <SelectContent>
-              {field.options?.map((option) => (
+              {field.options?.filter(Boolean).map((option) => (
                 <SelectItem key={option} value={option}>
                   {option}
                 </SelectItem>
@@ -428,7 +459,7 @@ export function FormPreview({ form }: FormPreviewProps) {
               <SelectValue placeholder="Выберите страну..." />
             </SelectTrigger>
             <SelectContent>
-              {field.options?.map((option) => (
+              {field.options?.filter(Boolean).map((option) => (
                 <SelectItem key={option} value={option}>
                   {option}
                 </SelectItem>
@@ -575,7 +606,8 @@ export function FormPreview({ form }: FormPreviewProps) {
         </div>
       )}
 
-      {form.fields.map(renderField)}
+      {form.fields.filter(isFieldVisible).map(renderField)}
+
 
       {hasQuizFields && results === null && (
         <div className="pt-4 border-t">
@@ -587,3 +619,6 @@ export function FormPreview({ form }: FormPreviewProps) {
     </div>
   );
 }
+
+export default FormPreview;
+

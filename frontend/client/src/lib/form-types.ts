@@ -45,6 +45,7 @@ export interface FormField {
   points?: number; // Points for correct answer in quiz mode
   hideDate?: boolean; // For datetime - hide date picker
   hideTime?: boolean; // For datetime - hide time picker
+  conditionalLogic?: ConditionalLogic;
 }
 
 export interface FormFolder {
@@ -60,3 +61,11 @@ export interface FormSchema {
   fields: FormField[];
   updatedAt: number;
 }
+
+export interface ConditionalLogic {
+  dependsOn?: string; // ID поля-родителя
+  condition: "equals" | "not_equals" | "answered";
+  expectedValue?: string | string[]; // Для select с multiple - массив
+}
+
+

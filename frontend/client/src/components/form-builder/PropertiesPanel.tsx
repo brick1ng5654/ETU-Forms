@@ -14,9 +14,10 @@ interface PropertiesPanelProps {
   selectedField: FormField | null;
   updateField: (id: string, updates: Partial<FormField>) => void;
   deleteField: (id: string) => void;
+  fields: FormField[];
 }
 
-export function PropertiesPanel({ selectedField, updateField, deleteField }: PropertiesPanelProps) {
+export function PropertiesPanel({ selectedField, updateField, deleteField, fields }: PropertiesPanelProps) {
   const { t, i18n } = useTranslation()
   if (!selectedField) {
     return (
@@ -33,6 +34,7 @@ export function PropertiesPanel({ selectedField, updateField, deleteField }: Pro
   const isFile = selectedField.type === "file";
   const isHeader = selectedField.type === "header";
   const isDatetime = selectedField.type === "datetime";
+  const isText = selectedField.type === "text";
   
   // Specialized field types that should not have correct answers
   const specializedTypes = ["fullname", "phone", "passport", "inn", "snils", "account", "country", "ogrn", "bik"];
@@ -67,7 +69,9 @@ export function PropertiesPanel({ selectedField, updateField, deleteField }: Pro
           <Textarea 
             value={selectedField.label} 
             onChange={(e) => {
-              const value = e.target.value.slice(0, 120);
+              console.log('Updating label, e.target.value:', e.target.value, 'type:', typeof e.target.value);
+              const value = e.target.value ? e.target.value.slice(0, 120) : '';
+              console.log('New label value:', value);
               updateField(selectedField.id, { label: value });
             }}
             maxLength={120}
@@ -246,6 +250,184 @@ export function PropertiesPanel({ selectedField, updateField, deleteField }: Pro
           </div>
         )}
 
+        {/* Conditional Logic Section */}
+        <div className="space-y-3 pt-2 border-t mt-2">
+          <Label className="text-blue-600 flex items-center gap-1">
+            <Check className="h-4 w-4" /> {t("logic.conditional")}
+          </Label>
+          <div className="space-y-2">
+            <Label>{t("logic.dependsOn")}</Label>
+            <Select
+              value={selectedField.conditionalLogic?.dependsOn || "__none__"}
+              onValueChange={(value) => {
+                const logic = selectedField.conditionalLogic || { condition: "equals" };
+                updateField(selectedField.id, {
+                  conditionalLogic: value === "__none__" ? undefined : { ...logic, dependsOn: value }
+                });
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={t("logic.none")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">{t("logic.none")}</SelectItem>
+                {fields?.filter(f => f.id !== selectedField.id).map((field) => (
+                  <SelectItem key={field.id} value={field.id}>
+                    {field.label} ({t(`fields.${field.type}`)})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          {selectedField.conditionalLogic?.dependsOn && (
+            <>
+              <div className="space-y-2">
+                <Label>{t("logic.condition")}</Label>
+                <Select
+                  value={selectedField.conditionalLogic.condition || ""}
+                  onValueChange={(value) => {
+                    const logic = selectedField.conditionalLogic!;
+                    updateField(selectedField.id, {
+                      conditionalLogic: { ...logic, condition: value as any }
+                    });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Выберите условие" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="equals">{t("logic.equals")}</SelectItem>
+                    <SelectItem value="not_equals">{t("logic.not_equals")}</SelectItem>
+                    <SelectItem value="answered">{t("logic.answered")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {(selectedField.conditionalLogic.condition === "equals" || selectedField.conditionalLogic.condition === "not_equals") && (
+                <div className="space-y-2">
+                  <Label>{t("logic.expectedValue")}</Label>
+                  {(() => {
+                    const dependsOnField = fields.find(f => f.id === selectedField.conditionalLogic!.dependsOn);
+                    const hasOptions = dependsOnField && dependsOnField.options && dependsOnField.options.length > 0;
+                    if (hasOptions && dependsOnField && dependsOnField.options) {
+                      if (dependsOnField.multiple) {
+                        // Multiple selection with checkboxes
+                        return (
+                          <div className="space-y-2">
+                            {dependsOnField.options.filter(Boolean).map((option, index) => {
+                              const expectedValue = selectedField.conditionalLogic!.expectedValue;
+                              const currentValues = Array.isArray(expectedValue) ? expectedValue : expectedValue ? [expectedValue] : [];
+                              const isSelected = currentValues.includes(option);
+                              return (
+                                <div key={index} className="flex items-center gap-2 p-2 rounded border border-blue-100 hover:bg-blue-50">
+                                  <input
+                                    type="checkbox"
+                                    id={`expected-${selectedField.id}-${index}`}
+                                    checked={isSelected}
+                                    onChange={(e) => {
+                                      const logic = selectedField.conditionalLogic!;
+                                      let newExpectedValue: string | string[];
+                                      if (e.target.checked) {
+                                        newExpectedValue = [...currentValues, option];
+                                      } else {
+                                        newExpectedValue = currentValues.filter(v => v !== option);
+                                        if (newExpectedValue.length === 1) newExpectedValue = newExpectedValue[0];
+                                      }
+                                      updateField(selectedField.id, {
+                                        conditionalLogic: { ...logic, expectedValue: newExpectedValue.length > 0 ? newExpectedValue : undefined }
+                                      });
+                                    }}
+                                    className="h-4 w-4 text-blue-600 border-blue-300 rounded focus:ring-blue-500"
+                                  />
+                                  <label
+                                    htmlFor={`expected-${selectedField.id}-${index}`}
+                                    className="flex-1 text-sm cursor-pointer"
+                                  >
+                                    {option}
+                                  </label>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      } else {
+                        // Single selection with select
+                        const expectedValue = selectedField.conditionalLogic!.expectedValue;
+                        return (
+                          <Select
+                            value={Array.isArray(expectedValue)
+                              ? expectedValue[0] || ""
+                              : (expectedValue || "")}
+                            onValueChange={(value) => {
+                              const logic = selectedField.conditionalLogic!;
+                              updateField(selectedField.id, {
+                                conditionalLogic: { ...logic, expectedValue: value || undefined }
+                              });
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Выберите значение" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {dependsOnField.options.filter(Boolean).map((option) => (
+                                <SelectItem key={option} value={option}>
+                                  {option}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        );
+                      }
+                    } else {
+                      // Fallback to input
+                      const expectedValue = selectedField.conditionalLogic!.expectedValue;
+                      return (
+                        <>
+                          <Input
+                            value={Array.isArray(expectedValue)
+                              ? expectedValue.join(", ")
+                              : (expectedValue || "")}
+                            onChange={(e) => {
+                              const logic = selectedField.conditionalLogic!;
+                              const value = e.target.value;
+                              // Для множественных значений разделять по запятой
+                              const newExpectedValue = value.includes(",")
+                                ? value.split(",").map(v => v.trim()).filter(Boolean)
+                                : value;
+                              updateField(selectedField.id, {
+                                conditionalLogic: { ...logic, expectedValue: value ? newExpectedValue : undefined }
+                              });
+                            }}
+                            placeholder="Введите ожидаемое значение"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Для множественных значений разделяйте запятой
+                          </p>
+                        </>
+                      );
+                    }
+                  })()}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+        <hr className="border-t border-border my-4" />
+        {isText && (
+          <>
+            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm mt-4">
+              <div className="space-y-0.5">
+                <Label>{t("propert.longtxt")}</Label>
+              </div>
+              <Switch 
+                checked={selectedField.multiline}
+                onCheckedChange={(checked) => updateField(selectedField.id, { multiline: checked })}
+              />
+            </div>
+          </>
+        )}
+
         {isNumber && (
           <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
             <div className="space-y-0.5">
@@ -370,7 +552,7 @@ export function PropertiesPanel({ selectedField, updateField, deleteField }: Pro
             />
           </div>
         )}
-
+        <hr className="border-t border-border my-1" />
         {hasOptions && (
           <div className="space-y-3 pt-2">
             <Label>{t("propert.variabl")}</Label>
