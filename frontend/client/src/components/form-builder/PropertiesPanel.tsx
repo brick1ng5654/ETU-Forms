@@ -29,15 +29,19 @@ export function PropertiesPanel({ selectedField, updateField, deleteField, field
 
   const hasOptions = ["select", "radio", "checkbox", "ranking"].includes(selectedField.type);
   const isRating = selectedField.type === "rating";
-  const isText = selectedField.type === "text";
   const isNumber = selectedField.type === "number";
   const isEmail = selectedField.type === "email";
   const isFile = selectedField.type === "file";
   const isHeader = selectedField.type === "header";
   const isDatetime = selectedField.type === "datetime";
+  const isText = selectedField.type === "text";
+  
+  // Specialized field types that should not have correct answers
+  const specializedTypes = ["fullname", "phone", "passport", "inn", "snils", "account", "country", "ogrn", "bik"];
+  const isSpecialized = specializedTypes.includes(selectedField.type);
   
   // Fields that can have "Correct Answers"
-  const canHaveCorrectAnswers = !isHeader && !isFile && selectedField.type !== "category" && !isDatetime;
+  const canHaveCorrectAnswers = !isHeader && !isFile && selectedField.type !== "category" && !isDatetime && !isSpecialized;
 
   return (
     <div className="p-4 space-y-6 overflow-y-auto h-full pb-20">
@@ -52,6 +56,12 @@ export function PropertiesPanel({ selectedField, updateField, deleteField, field
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
+        <div className="space-y-2">
+          <Label>{t("propert.fieldType")}</Label>
+            <div className="text-sm text-muted-foreground font-medium">
+              {t(`fields.${selectedField.type}`)}
+            </div>
+        </div>
 
       <div className="space-y-4">
         <div className="space-y-2">
@@ -238,11 +248,6 @@ export function PropertiesPanel({ selectedField, updateField, deleteField, field
           </div>
         )}
 
-
-
-
-
-
         {/* Conditional Logic Section */}
         <div className="space-y-3 pt-2 border-t mt-2">
           <Label className="text-blue-600 flex items-center gap-1">
@@ -326,10 +331,6 @@ export function PropertiesPanel({ selectedField, updateField, deleteField, field
             </>
           )}
         </div>
-
-
-
-
         {isText && (
           <>
             <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm mt-4">
@@ -414,6 +415,46 @@ export function PropertiesPanel({ selectedField, updateField, deleteField, field
               checked={selectedField.multiple}
               onCheckedChange={(checked) => updateField(selectedField.id, { multiple: checked })}
             />
+          </div>
+        )}
+
+        {isDatetime && (
+          <div className="space-y-3 pt-2 border-t">
+            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+              <div className="space-y-0.5">
+                <Label>{t("propert.hideDate")}</Label>
+              </div>
+              <Switch 
+                checked={selectedField.hideDate || false}
+                onCheckedChange={(checked) => {
+                  // Prevent hiding both date and time
+                  if (checked && selectedField.hideTime) {
+                    return;
+                  }
+                  updateField(selectedField.id, { hideDate: checked });
+                }}
+                disabled={selectedField.hideTime}
+              />
+            </div>
+            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+              <div className="space-y-0.5">
+                <Label>{t("propert.hideTime")}</Label>
+              </div>
+              <Switch 
+                checked={selectedField.hideTime || false}
+                onCheckedChange={(checked) => {
+                  // Prevent hiding both date and time
+                  if (checked && selectedField.hideDate) {
+                    return;
+                  }
+                  updateField(selectedField.id, { hideTime: checked });
+                }}
+                disabled={selectedField.hideDate}
+              />
+            </div>
+            {(selectedField.hideDate && selectedField.hideTime) && (
+              <p className="text-xs text-destructive">{t("propert.datetimeWarning")}</p>
+            )}
           </div>
         )}
 

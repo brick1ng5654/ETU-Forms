@@ -122,7 +122,14 @@
     "subranj":"Drag options in the correct order above, then mark as correct order",
     "subranji":"The correct order is the current order of options above",
     "corranopt":"Select the correct answers from the options",
-    "allowmult":"Allow Multiple"
+    "allowmult":"Allow Multiple",
+    "fieldType": "Field Type",
+    "hideDate": "Hide Date",
+    "hideTime": "Hide Time",
+    "datetimeWarning": "Cannot hide both date and time at the same time",
+    "selectDate": "Select date",
+    "selectTime": "Select time",
+    "selectDateTime": "Select date and time"
   },
   
   "descerr":{
