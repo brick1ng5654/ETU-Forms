@@ -19,9 +19,10 @@ interface SortableFieldProps {
   field: FormField;
   isSelected: boolean;
   onSelect: (id: string) => void;
+  fields: FormField[];
 }
 
-export function SortableField({ field, isSelected, onSelect }: SortableFieldProps) {
+export function SortableField({ field, isSelected, onSelect, fields }: SortableFieldProps) {
   const {
     attributes,
     listeners,
@@ -82,7 +83,7 @@ export function SortableField({ field, isSelected, onSelect }: SortableFieldProp
               <SelectValue placeholder="Select an option" />
             </SelectTrigger>
             <SelectContent>
-              {field.options?.map((opt, i) => (
+              {field.options?.filter(Boolean).map((opt, i) => (
                 <SelectItem key={i} value={opt}>{opt}</SelectItem>
               ))}
             </SelectContent>
@@ -217,6 +218,27 @@ export function SortableField({ field, isSelected, onSelect }: SortableFieldProp
         
         {field.helperText && (
           <p className="text-sm text-muted-foreground -mt-1">{field.helperText}</p>
+        )}
+
+        {field.conditionalLogic?.dependsOn && (
+          (() => {
+            const dependsOnField = fields.find(f => f.id === field.conditionalLogic!.dependsOn);
+            if (!dependsOnField) return null;
+            const condition = field.conditionalLogic!.condition;
+            const conditionText = condition === "equals" ? "Равно" :
+                                 condition === "not_equals" ? "Не равно" :
+                                 condition === "answered" ? "Дан ответ":
+                                 "пусто"; 
+            const expectedValue = field.conditionalLogic!.expectedValue;
+            const valueText = Array.isArray(expectedValue) ? expectedValue.join(", ") : expectedValue || "";
+            const showValue = condition === "equals";
+return (
+  <p className="text-xs text-muted-foreground italic -mt-1">
+    Зависит от "{dependsOnField.label}", при "{conditionText}"{showValue && valueText ? ` "${valueText}"` : ""}
+  </p>
+);
+
+          })()
         )}
 
         <div className="pointer-events-none">

@@ -378,7 +378,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
           </div>
         </div>
 
-        <FormCanvas key={activeForm.id} form={activeForm} setForm={setForm} selectedId={selectedId} setSelectedId={handleSetSelectedId} />
+        <FormCanvas key={activeForm.id} form={activeForm} setForm={setForm} selectedId={selectedId} setSelectedId={handleSetSelectedId} fields={fields} />
 
         <div className="w-80 border-l border-border bg-white flex flex-col shrink-0 z-10">
            <PropertiesPanel key={selectedField?.id || 'none'} selectedField={selectedField} updateField={updateField} deleteField={deleteField} fields={fields} />

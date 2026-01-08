@@ -64,7 +64,7 @@ export interface FormSchema {
 
 export interface ConditionalLogic {
   dependsOn?: string; // ID поля-родителя
-  condition: "equals" | "not_equals" | "answered" | "not_answered";
+  condition: "equals" | "not_equals" | "answered";
   expectedValue?: string | string[]; // Для select с multiple - массив
 }
 

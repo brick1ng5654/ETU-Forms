@@ -230,8 +230,9 @@ export function FormPreview({ form }: FormPreviewProps) {
   };
 
   const isFieldVisible = (field: FormField): boolean => {
-  if (!field.conditionalLogic || !field.conditionalLogic.dependsOn) return true;
-  const { dependsOn, condition, expectedValue } = field.conditionalLogic;
+    try {
+      if (!field.conditionalLogic || !field.conditionalLogic.dependsOn) return true;
+      const { dependsOn, condition, expectedValue } = field.conditionalLogic;
   const parentAnswer = answers[dependsOn!];
   
   switch (condition) {
@@ -246,12 +247,14 @@ export function FormPreview({ form }: FormPreviewProps) {
       return parentAnswer !== expectedValue;
     case "answered":
       return parentAnswer != null && parentAnswer !== "";
-    case "not_answered":
-      return parentAnswer == null || parentAnswer === "";
     default:
       return true;
-  }
-};
+    }
+    } catch (error) {
+      console.error('Error in isFieldVisible for field:', field.id, field.label, error);
+      return true;
+    }
+  };
 
 
 
@@ -437,7 +440,7 @@ export function FormPreview({ form }: FormPreviewProps) {
               <SelectValue placeholder={field.placeholder || "Выберите..."} />
             </SelectTrigger>
             <SelectContent>
-              {field.options?.map((option) => (
+              {field.options?.filter(Boolean).map((option) => (
                 <SelectItem key={option} value={option}>
                   {option}
                 </SelectItem>
@@ -456,7 +459,7 @@ export function FormPreview({ form }: FormPreviewProps) {
               <SelectValue placeholder="Выберите страну..." />
             </SelectTrigger>
             <SelectContent>
-              {field.options?.map((option) => (
+              {field.options?.filter(Boolean).map((option) => (
                 <SelectItem key={option} value={option}>
                   {option}
                 </SelectItem>

@@ -142,8 +142,7 @@
   "condition": "Условие",
   "equals": "Равно",
   "not_equals": "Не равно",
-  "answered": "Отвечено",
-  "not_answered": "Не отвечено",
+  "answered": "Дан ответ",
   "expectedValue": "Ожидаемое значение"
 }
 }

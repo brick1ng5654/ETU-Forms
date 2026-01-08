@@ -34,6 +34,7 @@ interface FormCanvasProps {
   setForm: (form: FormSchema) => void;
   selectedId: string | null;
   setSelectedId: (id: string | null) => void;
+  fields: FormField[];
 }
 
 /**
@@ -84,7 +85,7 @@ export const getIconForType = (type: FieldType) => {
  3. Редактирование заголовка и описания формы
  4. Визуальную обратную связь при перетаскивании
 */
-export function FormCanvas({ form, setForm, selectedId, setSelectedId }: FormCanvasProps) {
+export function FormCanvas({ form, setForm, selectedId, setSelectedId, fields }: FormCanvasProps) {
 
   const { t, i18n } = useTranslation()  // Хук для локализации
   const [activeDragItem, setActiveDragItem] = useState<any>(null);
@@ -247,6 +248,7 @@ export function FormCanvas({ form, setForm, selectedId, setSelectedId }: FormCan
                     field={field} 
                     isSelected={selectedId === field.id}
                     onSelect={setSelectedId}
+                    fields={fields}
                   />
                 ))
               )}
