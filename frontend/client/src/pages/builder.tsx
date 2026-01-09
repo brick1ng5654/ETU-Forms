@@ -453,6 +453,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
           selectedIds={selectedIds}
           onSelectField={handleSelectField}
           clearSelection={clearSelection}
+          deleteField={deleteField}
           fields={fields}
         />
 

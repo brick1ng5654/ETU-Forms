@@ -36,6 +36,7 @@ interface FormCanvasProps {
   selectedIds: string[];
   onSelectField: (id: string, event: MouseEvent<HTMLDivElement>) => void;
   clearSelection: () => void;
+  deleteField: (id: string) => void;
   fields: FormField[];
 }
 
@@ -87,7 +88,7 @@ export const getIconForType = (type: FieldType) => {
  3. Редактирование заголовка и описания формы
  4. Визуальную обратную связь при перетаскивании
 */
-export function FormCanvas({ form, setForm, selectedIds, onSelectField, clearSelection, fields }: FormCanvasProps) {
+export function FormCanvas({ form, setForm, selectedIds, onSelectField, clearSelection, deleteField, fields }: FormCanvasProps) {
 
   const { t, i18n } = useTranslation()  // Хук для локализации
   const [activeDragItem, setActiveDragItem] = useState<any>(null);
@@ -250,6 +251,7 @@ export function FormCanvas({ form, setForm, selectedIds, onSelectField, clearSel
                     field={field} 
                     isSelected={selectedIds.includes(field.id)}
                     onSelect={onSelectField}
+                    onDelete={deleteField}
                     fields={fields}
                   />
                 ))
