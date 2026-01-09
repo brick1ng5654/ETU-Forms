@@ -23,8 +23,10 @@ import { FormField, FieldType, FormSchema } from "@/lib/form-types";
 import { SortableField } from "./SortableField";
 import { nanoid } from "nanoid";
 import { 
-  Type, AlignLeft, Hash, Calendar, Mail, List, CheckSquare, CircleDot, Heading, Star, ListOrdered, Upload, FolderTree, User, Phone, FileText, CreditCard, Globe, Clock, FileDigit
+  Type, AlignLeft, Hash, Calendar, Mail, List, CheckSquare, CircleDot, Heading, Star, ListOrdered, Upload, FolderTree, User, Phone, FileText, CreditCard, Globe, Clock, FileDigit, Undo2, Redo2
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import React from "react";
@@ -37,6 +39,10 @@ interface FormCanvasProps {
   onSelectField: (id: string, event: MouseEvent<HTMLDivElement>) => void;
   clearSelection: () => void;
   deleteField: (id: string) => void;
+  onUndo: () => void;
+  onRedo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
   fields: FormField[];
 }
 
@@ -88,7 +94,19 @@ export const getIconForType = (type: FieldType) => {
  3. Редактирование заголовка и описания формы
  4. Визуальную обратную связь при перетаскивании
 */
-export function FormCanvas({ form, setForm, selectedIds, onSelectField, clearSelection, deleteField, fields }: FormCanvasProps) {
+export function FormCanvas({
+  form,
+  setForm,
+  selectedIds,
+  onSelectField,
+  clearSelection,
+  deleteField,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
+  fields,
+}: FormCanvasProps) {
 
   const { t, i18n } = useTranslation()  // Хук для локализации
   const [activeDragItem, setActiveDragItem] = useState<any>(null);
@@ -179,7 +197,31 @@ export function FormCanvas({ form, setForm, selectedIds, onSelectField, clearSel
       onDragEnd={handleDragEnd}
     >
     {/* Основная область холста формы */}
-      <div className="flex-1 bg-muted/30 p-8 overflow-y-auto h-full builder-scroll" onClick={() => { console.log('FormCanvas background click, clearing selection'); clearSelection(); }}>
+      <div className="flex-1 bg-muted/30 px-8 pb-8 pt-0 overflow-y-auto h-full builder-scroll" onClick={() => { console.log('FormCanvas background click, clearing selection'); clearSelection(); }}>
+        <div className="sticky top-0 z-20 -mx-8 mb-0 bg-white/95 backdrop-blur border-b border-border">
+          <div className="h-[52px] px-4 flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onUndo}
+              disabled={!canUndo}
+              className={cn("gap-2", !canUndo && "text-muted-foreground")}
+            >
+              <Undo2 className={cn("h-4 w-4", !canUndo && "text-muted-foreground")} />
+              Шаг назад
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onRedo}
+              disabled={!canRedo}
+              className={cn("gap-2", !canRedo && "text-muted-foreground")}
+            >
+              <Redo2 className={cn("h-4 w-4", !canRedo && "text-muted-foreground")} />
+              Шаг вперед
+            </Button>
+          </div>
+        </div>
         
         {/* Контейнер формы (белая карточка) */}
         <div className="max-w-3xl mx-auto min-h-[800px] bg-white rounded-xl shadow-sm border border-border/50 flex flex-col">

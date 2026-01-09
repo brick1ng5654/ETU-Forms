@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import type { MouseEvent } from "react";
 import { nanoid } from "nanoid";
 import { FormField, FieldType, FormSchema } from "@/lib/form-types";
@@ -67,6 +67,14 @@ export default function Builder({ params }: { params: { id?: string } }) {
   
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
+  const [history, setHistory] = useState<FormSchema[]>([]);
+  const [redoHistory, setRedoHistory] = useState<FormSchema[]>([]);
+  const isUndoingRef = useRef(false);
+  const isRedoingRef = useRef(false);
+  const lastHistoryKeyRef = useRef<string | null>(null);
+  const lastHistoryAtRef = useRef(0);
+  const MAX_HISTORY = 50;
+  const HISTORY_MERGE_WINDOW_MS = 2000;
 
   const handleSelectField = (id: string, event: MouseEvent<HTMLDivElement>) => {
     console.log('Selecting field:', id);
@@ -140,15 +148,56 @@ export default function Builder({ params }: { params: { id?: string } }) {
     }
   }, [activeForm]);
 
-  const setForm = (updatedForm: FormSchema) => {
+  useEffect(() => {
+    setHistory([]);
+    setRedoHistory([]);
+    isUndoingRef.current = false;
+    isRedoingRef.current = false;
+    lastHistoryKeyRef.current = null;
+    lastHistoryAtRef.current = 0;
+  }, [activeFormId]);
+
+  const cloneForm = (form: FormSchema): FormSchema => {
+    return JSON.parse(JSON.stringify(form)) as FormSchema;
+  };
+
+  const pushHistory = (form: FormSchema) => {
+    setHistory(prev => {
+      const next = [...prev, cloneForm(form)];
+      if (next.length > MAX_HISTORY) {
+        next.shift();
+      }
+      return next;
+    });
+  };
+
+  const setForm = (updatedForm: FormSchema, options?: { historyKey?: string | null }) => {
+    if (activeForm && updatedForm.id === activeForm.id && !isUndoingRef.current) {
+      const historyKey = options?.historyKey ?? null;
+      const now = Date.now();
+      const canMerge =
+        historyKey &&
+        historyKey === lastHistoryKeyRef.current &&
+        now - lastHistoryAtRef.current < HISTORY_MERGE_WINDOW_MS;
+
+      if (!canMerge) {
+        pushHistory(activeForm);
+      }
+
+      if (!isRedoingRef.current) {
+        setRedoHistory([]);
+      }
+      lastHistoryKeyRef.current = historyKey;
+      lastHistoryAtRef.current = now;
+    }
     const newForms = forms.map(f => f.id === updatedForm.id ? updatedForm : f);
     setForms(newForms);
     storage.saveForm(updatedForm);
   };
 
-  const setFields = (newFields: FormField[]) => {
+  const setFields = (newFields: FormField[], options?: { historyKey?: string | null }) => {
     if (activeForm) {
-      setForm({ ...activeForm, fields: newFields });
+      setForm({ ...activeForm, fields: newFields }, options);
     }
   };
 
@@ -226,7 +275,15 @@ export default function Builder({ params }: { params: { id?: string } }) {
   };
 
   const updateField = (id: string, updates: Partial<FormField>) => {
-    setFields(fields.map(f => f.id === id ? { ...f, ...updates } : f));
+    const activeElement = document.activeElement;
+    const isTextInput =
+      activeElement instanceof HTMLInputElement ||
+      activeElement instanceof HTMLTextAreaElement;
+    const updateKeys = Object.keys(updates);
+    const historyKey = isTextInput && updateKeys.length === 1
+      ? `input:${id}:${updateKeys[0]}`
+      : null;
+    setFields(fields.map(f => f.id === id ? { ...f, ...updates } : f), { historyKey });
   };
 
   const deleteField = (id: string) => {
@@ -241,6 +298,71 @@ export default function Builder({ params }: { params: { id?: string } }) {
     setFields(fields.filter(f => !selectedSet.has(f.id)));
     clearSelection();
   };
+
+  const undoLast = useCallback(() => {
+    if (!activeForm || history.length === 0) return;
+    const previousForm = history[history.length - 1];
+    const currentForm = activeForm;
+    setHistory(prev => prev.slice(0, -1));
+    setRedoHistory(prev => [...prev, cloneForm(currentForm)]);
+    isUndoingRef.current = true;
+    setForm(previousForm);
+    isUndoingRef.current = false;
+    lastHistoryKeyRef.current = null;
+    lastHistoryAtRef.current = 0;
+
+    const previousIds = new Set(previousForm.fields.map(field => field.id));
+    setSelectedIds(prev => prev.filter(id => previousIds.has(id)));
+    setLastSelectedId(prev => (prev && previousIds.has(prev)) ? prev : null);
+  }, [activeForm, history]);
+
+  const redoLast = useCallback(() => {
+    if (!activeForm || redoHistory.length === 0) return;
+    const nextForm = redoHistory[redoHistory.length - 1];
+    const currentForm = activeForm;
+    setRedoHistory(prev => prev.slice(0, -1));
+    setHistory(prev => [...prev, cloneForm(currentForm)]);
+    isRedoingRef.current = true;
+    setForm(nextForm);
+    isRedoingRef.current = false;
+    lastHistoryKeyRef.current = null;
+    lastHistoryAtRef.current = 0;
+
+    const nextIds = new Set(nextForm.fields.map(field => field.id));
+    setSelectedIds(prev => prev.filter(id => nextIds.has(id)));
+    setLastSelectedId(prev => (prev && nextIds.has(prev)) ? prev : null);
+  }, [activeForm, redoHistory]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const isUndo =
+        (event.ctrlKey || event.metaKey) &&
+        !event.shiftKey &&
+        (event.code === "KeyZ" || event.key.toLowerCase() === "z");
+      const isRedo =
+        (event.ctrlKey || event.metaKey) &&
+        event.shiftKey &&
+        (event.code === "KeyZ" || event.key.toLowerCase() === "z");
+      if (!isUndo && !isRedo) return;
+
+      if (isUndo && history.length === 0) {
+        return;
+      }
+      if (isRedo && redoHistory.length === 0) {
+        return;
+      }
+
+      event.preventDefault();
+      if (isUndo) {
+        undoLast();
+      } else {
+        redoLast();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [history.length, redoHistory.length, undoLast, redoLast]);
 
   const moveSelected = (direction: "up" | "down") => {
     if (selectedIds.length === 0) return;
@@ -454,6 +576,10 @@ export default function Builder({ params }: { params: { id?: string } }) {
           onSelectField={handleSelectField}
           clearSelection={clearSelection}
           deleteField={deleteField}
+          onUndo={undoLast}
+          onRedo={redoLast}
+          canUndo={history.length > 0}
+          canRedo={redoHistory.length > 0}
           fields={fields}
         />
 
