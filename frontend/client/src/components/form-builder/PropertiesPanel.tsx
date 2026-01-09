@@ -24,9 +24,11 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
   const { t, i18n } = useTranslation()
   if (selectedIds.length > 1) {
     return (
-      <div className="p-6 space-y-4">
-        <div className="space-y-1">
+      <div className="p-4 space-y-6 overflow-y-auto h-full pb-20">
+        <div className="flex items-center justify-between border-b pb-4">
           <h3 className="font-semibold text-lg">{t("propert.propet")}</h3>
+        </div>
+        <div className="space-y-1">
           <p className="text-sm text-muted-foreground">Выбрано элементов: {selectedIds.length}</p>
         </div>
         <div className="grid gap-2">
