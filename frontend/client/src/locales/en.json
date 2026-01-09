@@ -7,7 +7,8 @@
     "load": "Load",
     "save": "Save",
     "close": "Close",
-    "descriptionf":"Description"
+    "descriptionf":"Description",
+    "selectopt":"select the option"
   },
 
   "navigation": {
@@ -121,6 +122,12 @@
     "curorder":"Set Current Order as Correct",
     "subranj":"Drag options in the correct order above, then mark as correct order",
     "subranji":"The correct order is the current order of options above",
+    "rankingOrderFixed":"Ranking order is fixed",
+    "rankingOrderFixedDesc":"To change answer options, first cancel the order fixation.",
+    "cancelorder":"Cancel Order",
+    "correctorder":"Correct order",
+    "dragToOrder":"Drag options into the correct order",
+    "fixOrder":"Fix Order",
     "corranopt":"Select the correct answers from the options",
     "allowmult":"Allow Multiple",
     "fieldType": "Field Type",
