@@ -37,7 +37,13 @@
     "formLoadedDesc": "Form structure loaded.",
     "error": "Error",
     "invalidJson": "Invalid JSON file",
-    "cannotCloseLastForm": "Cannot close last form"
+    "cannotCloseLastForm": "Cannot close last form",
+    "undo": "Step back",
+    "redo": "Step forward",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "deleteSelected": "Delete selected",
+    "selectedCount": "Selected items: {{count}}"
   },
 
   "categories": {

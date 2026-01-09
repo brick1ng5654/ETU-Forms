@@ -29,17 +29,19 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
           <h3 className="font-semibold text-lg">{t("propert.propet")}</h3>
         </div>
         <div className="space-y-1">
-          <p className="text-sm text-muted-foreground">Выбрано элементов: {selectedIds.length}</p>
+          <p className="text-sm text-muted-foreground">
+            {t("builder.selectedCount", { count: selectedIds.length })}
+          </p>
         </div>
         <div className="grid gap-2">
           <Button variant="outline" onClick={() => moveSelected("up")}>
-            Поднять выше
+            {t("builder.moveUp")}
           </Button>
           <Button variant="outline" onClick={() => moveSelected("down")}>
-            Поднять ниже
+            {t("builder.moveDown")}
           </Button>
           <Button variant="destructive" onClick={deleteSelected}>
-            Удалить элементы
+            {t("builder.deleteSelected")}
           </Button>
         </div>
       </div>

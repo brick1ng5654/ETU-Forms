@@ -208,7 +208,7 @@ export function FormCanvas({
               className={cn("gap-2", !canUndo && "text-muted-foreground")}
             >
               <Undo2 className={cn("h-4 w-4", !canUndo && "text-muted-foreground")} />
-              Шаг назад
+              {t("builder.undo")}
             </Button>
             <Button
               variant="ghost"
@@ -218,7 +218,7 @@ export function FormCanvas({
               className={cn("gap-2", !canRedo && "text-muted-foreground")}
             >
               <Redo2 className={cn("h-4 w-4", !canRedo && "text-muted-foreground")} />
-              Шаг вперед
+              {t("builder.redo")}
             </Button>
           </div>
         </div>
