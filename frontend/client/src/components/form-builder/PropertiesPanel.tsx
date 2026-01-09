@@ -9,13 +9,6 @@ import { X, Plus, Trash2, Check } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTranslation } from 'react-i18next';
 import { Languages } from "lucide-react";
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
-import { restrictToVerticalAxis, restrictToParentElement } from "@dnd-kit/modifiers";
-import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import { GripVertical } from "lucide-react";
-import { useState, useEffect } from "react";
 
 interface PropertiesPanelProps {
   selectedField: FormField | null;
@@ -24,67 +17,8 @@ interface PropertiesPanelProps {
   fields: FormField[];
 }
 
-interface SortableOptionItemProps {
-  id: string;
-  option: string;
-  disabled?: boolean;
-}
-
-function SortableOptionItem({ id, option, disabled }: SortableOptionItemProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id, disabled });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={`flex items-center gap-2 p-2 rounded border ${
-        disabled ? "bg-gray-50 border-gray-200 opacity-60" : "bg-white border-gray-200 hover:bg-gray-50"
-      } ${isDragging ? "shadow-lg z-50" : ""}`}
-    >
-      <div
-        {...attributes}
-        {...listeners}
-        className={`cursor-grab ${disabled ? "cursor-not-allowed" : ""}`}
-      >
-        <GripVertical className="h-4 w-4 text-gray-400" />
-      </div>
-      <span className="flex-1 text-sm">{option}</span>
-    </div>
-  );
-}
-
 export function PropertiesPanel({ selectedField, updateField, deleteField, fields }: PropertiesPanelProps) {
   const { t, i18n } = useTranslation()
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
-  // Local state for ranking order configuration
-  const [rankingOrderOptions, setRankingOrderOptions] = useState<string[]>([]);
-
-  // Sync local state with selectedField options when field changes
-  useEffect(() => {
-    if (selectedField?.options) {
-      setRankingOrderOptions([...selectedField.options]);
-    } else {
-      setRankingOrderOptions([]);
-    }
-  }, [selectedField?.options]);
   if (!selectedField) {
     return (
       <div className="p-6 text-center text-muted-foreground">
@@ -194,74 +128,27 @@ export function PropertiesPanel({ selectedField, updateField, deleteField, field
               <div className="space-y-2">
                 {selectedField.type === "ranking" ? (
                   <div className="space-y-2">
-                    {!selectedField.correctAnswers || selectedField.correctAnswers.length === 0 ? (
-                      <div className="space-y-2">
-                        <p className="text-xs text-muted-foreground font-medium">
-                          {t("propert.dragToOrder")}
-                        </p>
-                        <DndContext
-                          sensors={sensors}
-                          collisionDetection={closestCenter}
-                          modifiers={[restrictToVerticalAxis, restrictToParentElement]}
-                          onDragEnd={(event) => {
-                            const { active, over } = event;
-                            if (over && active.id !== over.id) {
-                              const oldIndex = rankingOrderOptions.findIndex((_, idx) => `option-${idx}` === active.id);
-                              const newIndex = rankingOrderOptions.findIndex((_, idx) => `option-${idx}` === over.id);
-                              if (oldIndex !== -1 && newIndex !== -1) {
-                                const reordered = arrayMove(rankingOrderOptions, oldIndex, newIndex);
-                                setRankingOrderOptions(reordered);
-                              }
-                            }
-                          }}
-                        >
-                          <SortableContext
-                            items={rankingOrderOptions.map((_, idx) => `option-${idx}`)}
-                            strategy={verticalListSortingStrategy}
-                          >
-                            <div className="space-y-2 max-h-40 overflow-y-auto border rounded p-2">
-                              {rankingOrderOptions.map((option, index) => (
-                                <SortableOptionItem
-                                  key={`option-${index}`}
-                                  id={`option-${index}`}
-                                  option={option}
-                                />
-                              ))}
-                            </div>
-                          </SortableContext>
-                        </DndContext>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
-                          onClick={() => {
-                            updateField(selectedField.id, { correctAnswers: [...rankingOrderOptions] });
-                          }}
-                          disabled={rankingOrderOptions.length === 0}
-                        >
-                          <Check className="h-4 w-4 mr-2" /> {t("propert.fixOrder")}
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        <div className="p-2 bg-green-50 rounded border border-green-200">
-                          <p className="text-xs text-green-700 font-medium mb-1">{t("propert.correctorder")}:</p>
-                          <ol className="list-decimal list-inside text-sm text-green-800">
-                            {selectedField.correctAnswers.map((answer, idx) => (
-                              <li key={idx}>{answer}</li>
-                            ))}
-                          </ol>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
-                          onClick={() => {
-                            updateField(selectedField.id, { correctAnswers: undefined });
-                          }}
-                        >
-                          <X className="h-4 w-4 mr-2" /> {t("propert.cancelorder")}
-                        </Button>
+                    <p className="text-xs text-muted-foreground">
+                      {t("propert.subranji")}
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
+                      onClick={() => {
+                        updateField(selectedField.id, { correctAnswers: [...(selectedField.options || [])] });
+                      }}
+                    >
+                      <Check className="h-4 w-4 mr-2" /> {t("propert.curorder")}
+                    </Button>
+                    {selectedField.correctAnswers && selectedField.correctAnswers.length > 0 && (
+                      <div className="mt-2 p-2 bg-green-50 rounded border border-green-200">
+                        <p className="text-xs text-green-700 font-medium mb-1">Correct order:</p>
+                        <ol className="list-decimal list-inside text-sm text-green-800">
+                          {selectedField.correctAnswers.map((answer, idx) => (
+                            <li key={idx}>{answer}</li>
+                          ))}
+                        </ol>
                       </div>
                     )}
                   </div>
@@ -669,22 +556,11 @@ export function PropertiesPanel({ selectedField, updateField, deleteField, field
         {hasOptions && (
           <div className="space-y-3 pt-2">
             <Label>{t("propert.variabl")}</Label>
-            {selectedField.type === "ranking" && selectedField.correctAnswers && selectedField.correctAnswers.length > 0 && (
-              <div className="p-3 bg-orange-50 border border-orange-200 rounded-md">
-                <p className="text-sm text-orange-700 font-medium">
-                  {t("propert.rankingOrderFixed")}
-                </p>
-                <p className="text-xs text-orange-600 mt-1">
-                  {t("propert.rankingOrderFixedDesc")}
-                </p>
-              </div>
-            )}
             <div className="space-y-2">
               {selectedField.options?.map((option, index) => (
                 <div key={index} className="flex items-center gap-2">
-                  <Input
-                    value={option}
-                    disabled={selectedField.type === "ranking" && selectedField.correctAnswers && selectedField.correctAnswers.length > 0}
+                  <Input 
+                    value={option} 
                     onChange={(e) => {
                       const newOptions = [...(selectedField.options || [])];
                       newOptions[index] = e.target.value;
@@ -695,7 +571,6 @@ export function PropertiesPanel({ selectedField, updateField, deleteField, field
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                    disabled={selectedField.type === "ranking" && selectedField.correctAnswers && selectedField.correctAnswers.length > 0}
                     onClick={() => {
                       const newOptions = selectedField.options?.filter((_, i) => i !== index);
                       updateField(selectedField.id, { options: newOptions });
@@ -709,7 +584,6 @@ export function PropertiesPanel({ selectedField, updateField, deleteField, field
                 variant="outline"
                 size="sm"
                 className="w-full mt-2"
-                disabled={selectedField.type === "ranking" && selectedField.correctAnswers && selectedField.correctAnswers.length > 0}
                 onClick={() => {
                   const newOptions = [...(selectedField.options || []), `Option ${(selectedField.options?.length || 0) + 1}`];
                   updateField(selectedField.id, { options: newOptions });

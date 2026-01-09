@@ -111,7 +111,7 @@ export function SortableField({ field, isSelected, onSelect, fields }: SortableF
         return (
           <Select disabled>
             <SelectTrigger className="bg-white/50">
-              <SelectValue placeholder={t("common.selectopt")} />
+              <SelectValue placeholder="Select an option" />
             </SelectTrigger>
             <SelectContent>
               {field.options?.filter(Boolean).map((opt, i) => (
