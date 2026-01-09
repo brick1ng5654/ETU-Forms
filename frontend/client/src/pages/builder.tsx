@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import type { MouseEvent } from "react";
 import { nanoid } from "nanoid";
 import { FormField, FieldType, FormSchema } from "@/lib/form-types";
 import { FormCanvas, getIconForType } from "@/components/form-builder/FormCanvas";
@@ -64,11 +65,41 @@ export default function Builder({ params }: { params: { id?: string } }) {
   const [forms, setForms] = useState<FormSchema[]>([]);
   const [activeFormId, setActiveFormId] = useState<string | null>(null);
   
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
 
-  const handleSetSelectedId = (id: string | null) => {
-    console.log('Setting selectedId to:', id);
-    setSelectedId(id);
+  const handleSelectField = (id: string, event: MouseEvent<HTMLDivElement>) => {
+    console.log('Selecting field:', id);
+    if (event.shiftKey && lastSelectedId) {
+      const currentIndex = fields.findIndex(f => f.id === id);
+      const lastIndex = fields.findIndex(f => f.id === lastSelectedId);
+      if (currentIndex !== -1 && lastIndex !== -1) {
+        const [start, end] = currentIndex < lastIndex ? [currentIndex, lastIndex] : [lastIndex, currentIndex];
+        const rangeIds = fields.slice(start, end + 1).map(f => f.id);
+        setSelectedIds(rangeIds);
+        setLastSelectedId(id);
+        return;
+      }
+    }
+
+    if (event.metaKey || event.ctrlKey) {
+      setSelectedIds(prev => {
+        if (prev.includes(id)) {
+          return prev.filter(existingId => existingId !== id);
+        }
+        return [...prev, id];
+      });
+      setLastSelectedId(id);
+      return;
+    }
+
+    setSelectedIds([id]);
+    setLastSelectedId(id);
+  };
+
+  const clearSelection = () => {
+    setSelectedIds([]);
+    setLastSelectedId(null);
   };
   const [isToolboxOpen, setIsToolboxOpen] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -190,7 +221,8 @@ export default function Builder({ params }: { params: { id?: string } }) {
 
     const newFields = [...fields, newField];
     setFields(newFields);
-    setSelectedId(newField.id);
+    setSelectedIds([newField.id]);
+    setLastSelectedId(newField.id);
   };
 
   const updateField = (id: string, updates: Partial<FormField>) => {
@@ -199,7 +231,43 @@ export default function Builder({ params }: { params: { id?: string } }) {
 
   const deleteField = (id: string) => {
     setFields(fields.filter(f => f.id !== id));
-    if (selectedId === id) setSelectedId(null);
+    setSelectedIds(prev => prev.filter(existingId => existingId !== id));
+    if (lastSelectedId === id) setLastSelectedId(null);
+  };
+
+  const deleteSelected = () => {
+    if (selectedIds.length === 0) return;
+    const selectedSet = new Set(selectedIds);
+    setFields(fields.filter(f => !selectedSet.has(f.id)));
+    clearSelection();
+  };
+
+  const moveSelected = (direction: "up" | "down") => {
+    if (selectedIds.length === 0) return;
+    const selectedSet = new Set(selectedIds);
+    const newFields = [...fields];
+
+    if (direction === "up") {
+      for (let i = 1; i < newFields.length; i += 1) {
+        const current = newFields[i];
+        const previous = newFields[i - 1];
+        if (selectedSet.has(current.id) && !selectedSet.has(previous.id)) {
+          newFields[i - 1] = current;
+          newFields[i] = previous;
+        }
+      }
+    } else {
+      for (let i = newFields.length - 2; i >= 0; i -= 1) {
+        const current = newFields[i];
+        const next = newFields[i + 1];
+        if (selectedSet.has(current.id) && !selectedSet.has(next.id)) {
+          newFields[i + 1] = current;
+          newFields[i] = next;
+        }
+      }
+    }
+
+    setFields(newFields);
   };
 
   const saveFormJson = () => {
@@ -243,7 +311,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
     event.target.value = "";
   };
 
-  const selectedField = fields.find(f => f.id === selectedId) || null;
+  const selectedField = selectedIds.length === 1 ? fields.find(f => f.id === selectedIds[0]) || null : null;
 
   const groupedToolbox = TOOLBOX_ITEMS.reduce((acc, item) => {
     if (!acc[item.category]) acc[item.category] = [];
@@ -253,7 +321,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
 
   if (!activeForm) return <div>Loading...</div>;
 
-  console.log('Rendering Builder, activeForm:', activeForm, 'selectedId:', selectedId);
+  console.log('Rendering Builder, activeForm:', activeForm, 'selectedIds:', selectedIds);
 
   return (
     <div className="h-screen w-full flex flex-col bg-background overflow-hidden">
@@ -378,10 +446,27 @@ export default function Builder({ params }: { params: { id?: string } }) {
           </div>
         </div>
 
-        <FormCanvas key={activeForm.id} form={activeForm} setForm={setForm} selectedId={selectedId} setSelectedId={handleSetSelectedId} fields={fields} />
+        <FormCanvas
+          key={activeForm.id}
+          form={activeForm}
+          setForm={setForm}
+          selectedIds={selectedIds}
+          onSelectField={handleSelectField}
+          clearSelection={clearSelection}
+          fields={fields}
+        />
 
         <div className="w-80 border-l border-border bg-white flex flex-col shrink-0 z-10">
-           <PropertiesPanel key={selectedField?.id || 'none'} selectedField={selectedField} updateField={updateField} deleteField={deleteField} fields={fields} />
+           <PropertiesPanel
+             key={selectedField?.id || selectedIds.join("-") || 'none'}
+             selectedField={selectedField}
+             selectedIds={selectedIds}
+             updateField={updateField}
+             deleteField={deleteField}
+             deleteSelected={deleteSelected}
+             moveSelected={moveSelected}
+             fields={fields}
+           />
         </div>
       </div>
     </div>

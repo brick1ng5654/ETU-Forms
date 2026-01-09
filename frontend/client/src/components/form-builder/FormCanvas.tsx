@@ -18,6 +18,7 @@ import {
   arrayMove 
 } from "@dnd-kit/sortable";
 import { useState, useEffect, useRef } from "react";
+import type { MouseEvent } from "react";
 import { FormField, FieldType, FormSchema } from "@/lib/form-types";
 import { SortableField } from "./SortableField";
 import { nanoid } from "nanoid";
@@ -32,8 +33,9 @@ import { Languages } from "lucide-react";
 interface FormCanvasProps {
   form: FormSchema;
   setForm: (form: FormSchema) => void;
-  selectedId: string | null;
-  setSelectedId: (id: string | null) => void;
+  selectedIds: string[];
+  onSelectField: (id: string, event: MouseEvent<HTMLDivElement>) => void;
+  clearSelection: () => void;
   fields: FormField[];
 }
 
@@ -85,7 +87,7 @@ export const getIconForType = (type: FieldType) => {
  3. Редактирование заголовка и описания формы
  4. Визуальную обратную связь при перетаскивании
 */
-export function FormCanvas({ form, setForm, selectedId, setSelectedId, fields }: FormCanvasProps) {
+export function FormCanvas({ form, setForm, selectedIds, onSelectField, clearSelection, fields }: FormCanvasProps) {
 
   const { t, i18n } = useTranslation()  // Хук для локализации
   const [activeDragItem, setActiveDragItem] = useState<any>(null);
@@ -176,7 +178,7 @@ export function FormCanvas({ form, setForm, selectedId, setSelectedId, fields }:
       onDragEnd={handleDragEnd}
     >
     {/* Основная область холста формы */}
-      <div className="flex-1 bg-muted/30 p-8 overflow-y-auto h-full builder-scroll" onClick={() => { console.log('FormCanvas background click, setting selectedId to null'); setSelectedId(null); }}>
+      <div className="flex-1 bg-muted/30 p-8 overflow-y-auto h-full builder-scroll" onClick={() => { console.log('FormCanvas background click, clearing selection'); clearSelection(); }}>
         
         {/* Контейнер формы (белая карточка) */}
         <div className="max-w-3xl mx-auto min-h-[800px] bg-white rounded-xl shadow-sm border border-border/50 flex flex-col">
@@ -246,8 +248,8 @@ export function FormCanvas({ form, setForm, selectedId, setSelectedId, fields }:
                   <SortableField 
                     key={field.id} 
                     field={field} 
-                    isSelected={selectedId === field.id}
-                    onSelect={setSelectedId}
+                    isSelected={selectedIds.includes(field.id)}
+                    onSelect={onSelectField}
                     fields={fields}
                   />
                 ))

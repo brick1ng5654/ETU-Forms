@@ -12,13 +12,37 @@ import { Languages } from "lucide-react";
 
 interface PropertiesPanelProps {
   selectedField: FormField | null;
+  selectedIds: string[];
   updateField: (id: string, updates: Partial<FormField>) => void;
   deleteField: (id: string) => void;
+  deleteSelected: () => void;
+  moveSelected: (direction: "up" | "down") => void;
   fields: FormField[];
 }
 
-export function PropertiesPanel({ selectedField, updateField, deleteField, fields }: PropertiesPanelProps) {
+export function PropertiesPanel({ selectedField, selectedIds, updateField, deleteField, deleteSelected, moveSelected, fields }: PropertiesPanelProps) {
   const { t, i18n } = useTranslation()
+  if (selectedIds.length > 1) {
+    return (
+      <div className="p-6 space-y-4">
+        <div className="space-y-1">
+          <h3 className="font-semibold text-lg">{t("propert.propet")}</h3>
+          <p className="text-sm text-muted-foreground">Выбрано элементов: {selectedIds.length}</p>
+        </div>
+        <div className="grid gap-2">
+          <Button variant="outline" onClick={() => moveSelected("up")}>
+            Поднять выше
+          </Button>
+          <Button variant="outline" onClick={() => moveSelected("down")}>
+            Поднять ниже
+          </Button>
+          <Button variant="destructive" onClick={deleteSelected}>
+            Удалить элементы
+          </Button>
+        </div>
+      </div>
+    );
+  }
   if (!selectedField) {
     return (
       <div className="p-6 text-center text-muted-foreground">

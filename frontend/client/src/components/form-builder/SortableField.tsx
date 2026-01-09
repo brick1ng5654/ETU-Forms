@@ -1,5 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import type { MouseEvent } from "react";
 import { FormField } from "@/lib/form-types";
 import { cn } from "@/lib/utils";
 import { GripVertical, Star, Upload, GripHorizontal, CalendarDays, Clock } from "lucide-react";
@@ -19,7 +20,7 @@ const FULLNAME_MAX_CHARS = 50;
 interface SortableFieldProps {
   field: FormField;
   isSelected: boolean;
-  onSelect: (id: string) => void;
+  onSelect: (id: string, event: MouseEvent<HTMLDivElement>) => void;
   fields: FormField[];
 }
 
@@ -215,7 +216,7 @@ export function SortableField({ field, isSelected, onSelect, fields }: SortableF
       onClick={(e) => {
         e.stopPropagation();
         console.log('SortableField onClick for field:', field.id);
-        onSelect(field.id);
+        onSelect(field.id, e);
       }}
       className={cn(
         "group relative flex items-start gap-2 p-6 rounded-lg border border-transparent bg-white transition-all hover:shadow-md",
