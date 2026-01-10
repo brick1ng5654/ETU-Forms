@@ -1,9 +1,10 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { KeyboardEvent, MouseEvent } from "react";
+import { useState } from "react";
 import { FormField } from "@/lib/form-types";
 import { cn } from "@/lib/utils";
-import { GripVertical, Star, Upload, GripHorizontal, CalendarDays, Clock } from "lucide-react";
+import { GripVertical, Star, Upload, GripHorizontal, CalendarDays, Clock, ChevronDown, ChevronUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,6 +27,7 @@ interface SortableFieldProps {
 }
 
 export function SortableField({ field, isSelected, onSelect, onDelete, fields }: SortableFieldProps) {
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const {
     attributes,
     listeners,
@@ -254,11 +256,24 @@ export function SortableField({ field, isSelected, onSelect, onDelete, fields }:
               {field.label}
               {field.required && <span className="text-destructive ml-1">*</span>}
             </Label>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsCollapsed(!isCollapsed);
+              }}
+              className="p-1 h-6 w-6 hover:bg-muted"
+            >
+              {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+            </Button>
         </div>
         
-        {field.helperText && (
-          <p className="text-sm text-muted-foreground -mt-1">{field.helperText}</p>
-        )}
+        {!isCollapsed && (
+          <>
+            {field.helperText && (
+              <p className="text-sm text-muted-foreground -mt-1">{field.helperText}</p>
+            )}
 
         {field.conditionalLogic?.dependsOn && (
           (() => {
@@ -284,6 +299,8 @@ return (
         <div className="pointer-events-none">
           {renderFieldPreview()}
         </div>
+          </>
+        )}
       </div>
       
       {/* Selection Indicator */}
