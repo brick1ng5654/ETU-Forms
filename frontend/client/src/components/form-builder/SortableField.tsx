@@ -1,5 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import type { KeyboardEvent, MouseEvent } from "react";
 import { FormField } from "@/lib/form-types";
 import { cn } from "@/lib/utils";
 import { GripVertical, Star, Upload, GripHorizontal, CalendarDays, Clock } from "lucide-react";
@@ -19,11 +20,12 @@ const FULLNAME_MAX_CHARS = 50;
 interface SortableFieldProps {
   field: FormField;
   isSelected: boolean;
-  onSelect: (id: string) => void;
+  onSelect: (id: string, event: MouseEvent<HTMLDivElement>) => void;
+  onDelete: (id: string) => void;
   fields: FormField[];
 }
 
-export function SortableField({ field, isSelected, onSelect, fields }: SortableFieldProps) {
+export function SortableField({ field, isSelected, onSelect, onDelete, fields }: SortableFieldProps) {
   const {
     attributes,
     listeners,
@@ -212,10 +214,17 @@ export function SortableField({ field, isSelected, onSelect, fields }: SortableF
     <div
       ref={setNodeRef}
       style={style}
+      tabIndex={0}
       onClick={(e) => {
         e.stopPropagation();
         console.log('SortableField onClick for field:', field.id);
-        onSelect(field.id);
+        onSelect(field.id, e);
+      }}
+      onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
+        if (e.key === "Delete") {
+          e.preventDefault();
+          onDelete(field.id);
+        }
       }}
       className={cn(
         "group relative flex items-start gap-2 p-6 rounded-lg border border-transparent bg-white transition-all hover:shadow-md",

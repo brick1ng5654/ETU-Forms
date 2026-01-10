@@ -19,8 +19,11 @@ import { useState, useEffect } from "react";
 
 interface PropertiesPanelProps {
   selectedField: FormField | null;
+  selectedIds: string[];
   updateField: (id: string, updates: Partial<FormField>) => void;
   deleteField: (id: string) => void;
+  deleteSelected: () => void;
+  moveSelected: (direction: "up" | "down") => void;
   fields: FormField[];
 }
 
@@ -65,7 +68,7 @@ function SortableOptionItem({ id, option, disabled }: SortableOptionItemProps) {
   );
 }
 
-export function PropertiesPanel({ selectedField, updateField, deleteField, fields }: PropertiesPanelProps) {
+export function PropertiesPanel({ selectedField, selectedIds, updateField, deleteField, deleteSelected, moveSelected, fields }: PropertiesPanelProps) {
   const { t, i18n } = useTranslation()
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -85,6 +88,32 @@ export function PropertiesPanel({ selectedField, updateField, deleteField, field
       setRankingOrderOptions([]);
     }
   }, [selectedField?.options]);
+
+  if (selectedIds.length > 1) {
+    return (
+      <div className="p-4 space-y-6 overflow-y-auto h-full pb-20">
+        <div className="flex items-center justify-between border-b pb-4">
+          <h3 className="font-semibold text-lg">{t("propert.propet")}</h3>
+        </div>
+        <div className="space-y-1">
+          <p className="text-sm text-muted-foreground">
+            {t("builder.selectedCount", { count: selectedIds.length })}
+          </p>
+        </div>
+        <div className="grid gap-2">
+          <Button variant="outline" onClick={() => moveSelected("up")}>
+            {t("builder.moveUp")}
+          </Button>
+          <Button variant="outline" onClick={() => moveSelected("down")}>
+            {t("builder.moveDown")}
+          </Button>
+          <Button variant="destructive" onClick={deleteSelected}>
+            {t("builder.deleteSelected")}
+          </Button>
+        </div>
+      </div>
+    );
+  }
   if (!selectedField) {
     return (
       <div className="p-6 text-center text-muted-foreground">

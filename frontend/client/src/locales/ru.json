@@ -38,7 +38,13 @@
     "formLoadedDesc": "Структура формы загружена.",
     "error": "Ошибка",
     "invalidJson": "Некорректный JSON файл",
-    "cannotCloseLastForm": "Нельзя закрыть последнюю форму"
+    "cannotCloseLastForm": "Нельзя закрыть последнюю форму",
+    "undo": "Шаг назад",
+    "redo": "Шаг вперед",
+    "moveUp": "Переместить выше",
+    "moveDown": "Переместить ниже",
+    "deleteSelected": "Удалить элементы",
+    "selectedCount": "Выбрано элементов: {{count}}"
   },
 
   "categories": {
