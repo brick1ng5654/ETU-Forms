@@ -62,6 +62,70 @@ interface SortableItemProps {
 }
 
 const FULLNAME_MAX_CHARS = 50;
+const DEFAULT_PHONE_PLACEHOLDER = "+7 (000) 000-00-00";
+const PHONE_MAX_DIGITS = 15;
+
+const formatRuPhoneDigits = (digits: string) => {
+  if (!digits) return "";
+  let normalized = digits;
+  if (normalized.startsWith("8")) {
+    normalized = `7${normalized.slice(1)}`;
+  }
+  if (!normalized.startsWith("7")) {
+    normalized = `7${normalized}`;
+  }
+  normalized = normalized.slice(0, 11);
+
+  const rest = normalized.slice(1);
+  let output = "+7";
+  if (rest.length === 0) return output;
+
+  const area = rest.slice(0, 3);
+  output += ` (${area}`;
+  if (area.length === 3) {
+    output += ")";
+  }
+  if (rest.length <= 3) return output;
+
+  const main = rest.slice(3);
+  const part1 = main.slice(0, 3);
+  output += ` ${part1}`;
+  if (main.length <= 3) return output;
+
+  const part2 = main.slice(3, 5);
+  output += `-${part2}`;
+  if (main.length <= 5) return output;
+
+  const part3 = main.slice(5, 7);
+  output += `-${part3}`;
+  return output;
+};
+
+const formatInternationalPhoneDigits = (digits: string, hasPlus: boolean) => {
+  if (!digits) return "";
+  const trimmed = digits.slice(0, PHONE_MAX_DIGITS);
+  return `${hasPlus ? "+" : ""}${trimmed}`;
+};
+
+const formatPhoneInput = (value: string, previousValue: string) => {
+  const trimmed = value.trim();
+  const hasPlus = trimmed.startsWith("+");
+  const previousDigits = previousValue.replace(/\D/g, "");
+  let digits = trimmed.replace(/\D/g, "");
+  if (!digits) return "";
+
+  const isDeleting = value.length < previousValue.length;
+  if (isDeleting && digits.length === previousDigits.length) {
+    digits = digits.slice(0, -1);
+    if (!digits) return "";
+  }
+
+  const isRuCandidate = digits.startsWith("7") || digits.startsWith("8") || (hasPlus && digits.startsWith("7"));
+  if (isRuCandidate) {
+    return formatRuPhoneDigits(digits);
+  }
+  return formatInternationalPhoneDigits(digits, hasPlus);
+};
 
 function SortableItem({ id, disabled }: SortableItemProps) {
   const {
@@ -378,7 +442,19 @@ export function FormPreview({ form }: FormPreviewProps) {
           );
         })()}
 
-        {["email", "phone", "passport", "inn", "snils", "ogrn", "bik", "account"].includes(field.type) && (
+        {field.type === "phone" && (
+          <Input
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            placeholder={field.placeholder || DEFAULT_PHONE_PLACEHOLDER}
+            value={(answers[field.id] as string) || ""}
+            onChange={(e) => updateAnswer(field.id, formatPhoneInput(e.target.value, (answers[field.id] as string) || ""))}
+            disabled={results !== null}
+          />
+        )}
+
+        {["email", "passport", "inn", "snils", "ogrn", "bik", "account"].includes(field.type) && (
           <Input
             placeholder={field.placeholder}
             value={(answers[field.id] as string) || ""}
