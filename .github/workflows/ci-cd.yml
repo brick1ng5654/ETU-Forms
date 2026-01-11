@@ -18,7 +18,7 @@ jobs:
           SSL_KEY_CONTENT: ${{ secrets.NGINX_KEY }}
         run: |
           echo "Creating SSL directory and files..."
-          mkdir -p ./ss   l
+          mkdir -p ./ssl
   
           echo "$SSL_CERT_CONTENT" > ./ssl/nginx.crt
           echo "$SSL_KEY_CONTENT" > ./ssl/nginx.key
