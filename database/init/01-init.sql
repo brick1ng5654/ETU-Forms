@@ -1,5 +1,5 @@
 -- Создание таблиц
-CREATE TABLE IF NOT EXISTS "User"(
+CREATE TABLE IF NOT EXISTS App_User(
     user_id SERIAL PRIMARY KEY,
     etu_id VARCHAR(50) UNIQUE,
     name VARCHAR(100) NOT NULL,
@@ -8,13 +8,13 @@ CREATE TABLE IF NOT EXISTS "User"(
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-COMMENT ON TABLE "User" IS 'Таблица пользователей конструктора форм';
-COMMENT ON COLUMN "User".user_id IS 'Уникальный идентификатор пользователя';
-COMMENT ON COLUMN "User".etu_id IS 'Внешний идентификатор пользователя (например, из системы вуза)';
-COMMENT ON COLUMN "User".name IS 'Имя пользователя';
-COMMENT ON COLUMN "User".phone IS 'Номер телефона';
-COMMENT ON COLUMN "User".email IS 'Электронная почта (уникальная)';
-COMMENT ON COLUMN "User".created_at IS 'Дата и время создания записи';
+COMMENT ON TABLE App_User IS 'Таблица пользователей конструктора форм';
+COMMENT ON COLUMN App_User.user_id IS 'Уникальный идентификатор пользователя';
+COMMENT ON COLUMN App_User.etu_id IS 'Внешний идентификатор пользователя (например, из системы вуза)';
+COMMENT ON COLUMN App_User.name IS 'Имя пользователя';
+COMMENT ON COLUMN App_User.phone IS 'Номер телефона';
+COMMENT ON COLUMN App_User.email IS 'Электронная почта (уникальная)';
+COMMENT ON COLUMN App_User.created_at IS 'Дата и время создания записи';
 
 DO $$
 BEGIN
@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS Form (
 
     CONSTRAINT fk_user
         FOREIGN KEY (user_id) 
-        REFERENCES "User"(user_id)
+        REFERENCES App_User(user_id)
         ON DELETE CASCADE,
     
     CONSTRAINT valid_dates 
@@ -85,12 +85,12 @@ CREATE TABLE IF NOT EXISTS Response (
     form_id INT NOT NULL,
     form_version INT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    completed_at TIMESTAMP NOT NULL,
+    completed_at TIMESTAMP NULL,
     response_JSON JSONB NOT NULL DEFAULT '{}',
 
     CONSTRAINT fk_response_user
         FOREIGN KEY (user_id) 
-        REFERENCES "User"(user_id)
+        REFERENCES App_User(user_id)
         ON DELETE CASCADE,
         
     CONSTRAINT fk_response_form
@@ -122,7 +122,7 @@ CREATE TABLE IF NOT EXISTS AccessControl (
         
     CONSTRAINT fk_access_user
         FOREIGN KEY (user_id) 
-        REFERENCES "User"(user_id)
+        REFERENCES App_User(user_id)
         ON DELETE CASCADE,
         
     CONSTRAINT unique_form_user
