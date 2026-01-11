@@ -25,6 +25,23 @@ jobs:
 
           chmod 600 ./ssl/nginx.key
 
+      - name: Create .env file from GitHub Secrets
+        env:
+          # Загружаем значения секретов во временные переменные
+          DB_NAME: ${{ secrets.POSTGRES_DB }}
+          DB_USER: ${{ secrets.POSTGRES_USER }}
+          DB_PASS: ${{ secrets.POSTGRES_PASSWORD }}
+          DB_PORT: ${{ secrets.POSTGRES_PORT }}
+        run: |
+          echo "Creating .env file for PostgreSQL..."
+
+          cat << EOF > .env
+          POSTGRES_DB=${DB_NAME}
+          POSTGRES_USER=${DB_USER}
+          POSTGRES_PASSWORD=${DB_PASS}
+          POSTGRES_PORT=${DB_PORT}
+          EOF
+
       - name: Start containers with Docker Compose
         run: docker compose -f "docker-compose.yml" up -d --build
 
