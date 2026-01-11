@@ -39,7 +39,8 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    if (editingElement === "helperText" && textareaRef.current) {
+    if  ((editingElement === "helperText" || editingElement === "label") 
+      && textareaRef.current) {
       const len = editingValue.length;
       textareaRef.current.setSelectionRange(len, len);
       textareaRef.current.focus();
@@ -606,11 +607,12 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
           {editingElement === "label" ? (
             <Textarea
               value={editingValue}
+              ref={textareaRef}
               onChange={(e) => setEditingValue(e.target.value)}
               onBlur={saveEditing}
               onKeyDown={handleKeyDown}
               className={cn(
-                "text-base font-medium border border-primary bg-white resize-none min-h-[2rem] px-2 py-1",
+                "mt-1 text-base font-medium border border-primary bg-white resize-none min-h-[2rem] px-2 py-1",
                 field.type === "header" ? "text-2xl font-bold" : ""
               )}
               maxLength={120}
@@ -620,7 +622,7 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
           ) : (
             <Label
               className={cn(
-                "text-base font-medium whitespace-normal break-words w-full cursor-pointer hover:bg-muted/50 px-2 py-1 rounded transition-colors",
+                "mt-1 text-base font-medium whitespace-normal break-words w-full cursor-pointer hover:bg-muted/50 px-2 py-1 rounded transition-colors",
                 field.type === "header" ? "text-2xl font-bold" : ""
               )}
               onClick={(e) => {
@@ -654,7 +656,7 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
                 onChange={(e) => setEditingValue(e.target.value)}
                 onBlur={saveEditing}
                 onKeyDown={handleKeyDown}
-                className="text-sm  w-115 text-muted-foreground border border-primary bg-white resize-none min-h-[2rem] px-2 py-1 -mt-1"
+                className="mt-1 text-sm w-115 text-muted-foreground border border-primary bg-white resize-none min-h-[2rem] px-2 py-1 -mt-1"
                 maxLength={1200}
                 autoFocus
                 rows={1}
@@ -662,7 +664,7 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
               />
             ) : field.helperText ? (
               <p
-                className="text-sm text-muted-foreground -mt-1 cursor-pointer hover:bg-muted/50 px-2 py-1 mr-8 rounded transition-colors"
+                className="text-sm text-muted-foreground cursor-pointer hover:bg-muted/50 px-2 py-1 mr-8 rounded transition-colors"
                 onClick={(e) => {
                   e.stopPropagation();
                   startEditing("helperText", field.helperText);
@@ -672,7 +674,7 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
               </p>
             ) : (
               <p
-                className="text-sm text-muted-foreground/50 -mt-1 cursor-pointer hover:bg-muted/50 px-2 py-1 mr-8 rounded transition-colors italic"
+                className="mt-1 text-sm text-muted-foreground/50 -mt-1 cursor-pointer hover:bg-muted/50 px-2 py-1 mr-8 rounded transition-colors italic"
                 onClick={(e) => {
                   e.stopPropagation();
                   startEditing("helperText", "");
