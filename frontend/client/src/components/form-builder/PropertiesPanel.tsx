@@ -184,7 +184,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
           />
         </div>
 
-        {!isHeader && !["checkbox", "radio", "rating", "file", "datetime", "fullname", "passport"].includes(selectedField.type) && (
+        {!isHeader && !["checkbox", "radio", "rating", "file", "datetime", "fullname", "phone", "passport"].includes(selectedField.type) && (
           <div className="space-y-2">
             <Label>{t("propert.placeholder")}</Label>
             <Textarea
