@@ -64,6 +64,7 @@ interface SortableItemProps {
 const FULLNAME_MAX_CHARS = 50;
 const DEFAULT_PHONE_PLACEHOLDER = "+7 (000) 000-00-00";
 const PHONE_MAX_DIGITS = 15;
+const PHONE_REQUIRED_DIGITS = 11;
 
 const formatRuPhoneDigits = (digits: string) => {
   if (!digits) return "";
@@ -120,11 +121,14 @@ const formatPhoneInput = (value: string, previousValue: string) => {
     if (!digits) return "";
   }
 
-  const isRuCandidate = digits.startsWith("7") || digits.startsWith("8") || (hasPlus && digits.startsWith("7"));
-  if (isRuCandidate) {
-    return formatRuPhoneDigits(digits);
+  const startsWithAllowed =
+    digits.startsWith("7") ||
+    digits.startsWith("8") ||
+    (hasPlus && digits.startsWith("7"));
+  if (!startsWithAllowed) {
+    return previousValue;
   }
-  return formatInternationalPhoneDigits(digits, hasPlus);
+  return formatRuPhoneDigits(digits);
 };
 
 function SortableItem({ id, disabled }: SortableItemProps) {
@@ -182,6 +186,7 @@ export function FormPreview({ form }: FormPreviewProps) {
   const [results, setResults] = useState<Results | null>(null);
   const [totalScore, setTotalScore] = useState<number>(0);
   const [maxScore, setMaxScore] = useState<number>(0);
+  const [phoneErrors, setPhoneErrors] = useState<Record<string, boolean>>({});
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -442,17 +447,81 @@ export function FormPreview({ form }: FormPreviewProps) {
           );
         })()}
 
-        {field.type === "phone" && (
-          <Input
-            type="tel"
-            inputMode="tel"
-            autoComplete="tel"
-            placeholder={field.placeholder || DEFAULT_PHONE_PLACEHOLDER}
-            value={(answers[field.id] as string) || ""}
-            onChange={(e) => updateAnswer(field.id, formatPhoneInput(e.target.value, (answers[field.id] as string) || ""))}
-            disabled={results !== null}
-          />
-        )}
+        {field.type === "phone" && (() => {
+          const value = (answers[field.id] as string) || "";
+          const len = value.replace(/\D/g, "").length;
+          const limit = PHONE_REQUIRED_DIGITS;
+          const progress = limit ? Math.min(len / limit, 1) : 0;
+          const isComplete = len > 0 && len === limit;
+          const isError = phoneErrors[field.id];
+          const progressColor = isError ? "#ef4444" : isComplete ? "#22c55e" : "#94a3b8";
+          const trackColor = "#e2e8f0";
+          const ringRadius = 5;
+          const ringCircumference = 2 * Math.PI * ringRadius;
+
+          return (
+            <div className="relative">
+              <Input
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                placeholder={field.placeholder || DEFAULT_PHONE_PLACEHOLDER}
+                value={value}
+                onChange={(e) => updateAnswer(field.id, formatPhoneInput(e.target.value, value))}
+                onBlur={(e) => {
+                  const nextLen = e.target.value.replace(/\D/g, "").length;
+                  const isInvalid = nextLen > 0 && nextLen !== limit;
+                  setPhoneErrors((prev) => ({ ...prev, [field.id]: isInvalid }));
+                }}
+                onFocus={() => {
+                  setPhoneErrors((prev) => ({ ...prev, [field.id]: false }));
+                }}
+                disabled={results !== null}
+                className={cn(
+                  "pr-20",
+                  isError ? "border-destructive focus-visible:ring-destructive/20" : ""
+                )}
+              />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                <div
+                  className={cn(
+                    "text-xs font-medium",
+                    isError ? "text-destructive" : isComplete ? "text-green-600" : "text-muted-foreground"
+                  )}
+                >
+                  {`${len}/${limit}`}
+                </div>
+                <svg
+                  className="h-3 w-3"
+                  viewBox="0 0 12 12"
+                  aria-hidden="true"
+                >
+                  <circle
+                    cx="6"
+                    cy="6"
+                    r={ringRadius}
+                    fill="none"
+                    stroke={trackColor}
+                    strokeWidth="2"
+                  />
+                  <circle
+                    cx="6"
+                    cy="6"
+                    r={ringRadius}
+                    fill="none"
+                    stroke={progressColor}
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeDasharray={ringCircumference}
+                    strokeDashoffset={ringCircumference * (1 - progress)}
+                    style={{ transition: "stroke-dashoffset 240ms ease-out" }}
+                    transform="rotate(-90 6 6)"
+                  />
+                </svg>
+              </div>
+            </div>
+          );
+        })()}
 
         {["email", "passport", "inn", "snils", "ogrn", "bik", "account"].includes(field.type) && (
           <Input
