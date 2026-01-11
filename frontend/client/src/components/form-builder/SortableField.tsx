@@ -17,6 +17,10 @@ import { useTranslation } from 'react-i18next';
 import { Languages } from "lucide-react";
 
 const FULLNAME_MAX_CHARS = 50;
+const PASSPORT_SERIES_NUMBER_MAX_CHARS = 11;
+const PASSPORT_ISSUED_BY_MAX_CHARS = 120;
+const PASSPORT_DEPARTMENT_CODE_MAX_CHARS = 7;
+const PASSPORT_BIRTH_PLACE_MAX_CHARS = 120;
 
 interface SortableFieldProps {
   field: FormField;
@@ -122,7 +126,6 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
       case "email":
       case "number":
       case "phone":
-      case "passport":
       case "inn":
       case "snils":
       case "ogrn":
@@ -178,6 +181,68 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
               maxLength={FULLNAME_MAX_CHARS}
               className="bg-white/50 pointer-events-none"
             />
+          </div>
+        );
+      }
+      case "passport": {
+        const isRu = i18n.language.startsWith("ru");
+        const placeholders = {
+          seriesNumber: isRu ? "\u0421\u0435\u0440\u0438\u044f \u0438 \u043d\u043e\u043c\u0435\u0440" : "Series and number",
+          issuedBy: isRu ? "\u041a\u0435\u043c \u0432\u044b\u0434\u0430\u043d" : "Issued by",
+          issueDate: isRu ? "\u0414\u0430\u0442\u0430 \u0432\u044b\u0434\u0430\u0447\u0438" : "Issue date",
+          departmentCode: isRu ? "\u041a\u043e\u0434 \u043f\u043e\u0434\u0440\u0430\u0437\u0434\u0435\u043b\u0435\u043d\u0438\u044f" : "Department code",
+          birthPlace: isRu ? "\u041c\u0435\u0441\u0442\u043e \u0440\u043e\u0436\u0434\u0435\u043d\u0438\u044f" : "Place of birth",
+        };
+        const hidden = {
+          seriesNumber: field.hidePassportSeriesNumber,
+          issuedBy: field.hidePassportIssuedBy,
+          issueDate: field.hidePassportIssueDate,
+          departmentCode: field.hidePassportDepartmentCode,
+          birthPlace: field.hidePassportBirthPlace,
+        };
+
+        return (
+          <div className="grid gap-2">
+            {!hidden.seriesNumber && (
+              <Input
+                placeholder={placeholders.seriesNumber}
+                disabled
+                maxLength={PASSPORT_SERIES_NUMBER_MAX_CHARS}
+                className="bg-white/50 pointer-events-none"
+              />
+            )}
+            {!hidden.issuedBy && (
+              <Input
+                placeholder={placeholders.issuedBy}
+                disabled
+                maxLength={PASSPORT_ISSUED_BY_MAX_CHARS}
+                className="bg-white/50 pointer-events-none"
+              />
+            )}
+            {!hidden.issueDate && (
+              <Input
+                type="date"
+                placeholder={placeholders.issueDate}
+                disabled
+                className="bg-white/50 pointer-events-none text-muted-foreground"
+              />
+            )}
+            {!hidden.departmentCode && (
+              <Input
+                placeholder={placeholders.departmentCode}
+                disabled
+                maxLength={PASSPORT_DEPARTMENT_CODE_MAX_CHARS}
+                className="bg-white/50 pointer-events-none"
+              />
+            )}
+            {!hidden.birthPlace && (
+              <Input
+                placeholder={placeholders.birthPlace}
+                disabled
+                maxLength={PASSPORT_BIRTH_PLACE_MAX_CHARS}
+                className="bg-white/50 pointer-events-none"
+              />
+            )}
           </div>
         );
       }
@@ -644,3 +709,4 @@ return (
     </div>
   );
 }
+

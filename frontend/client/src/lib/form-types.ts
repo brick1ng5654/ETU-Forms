@@ -45,6 +45,11 @@ export interface FormField {
   points?: number; // Points for correct answer in quiz mode
   hideDate?: boolean; // For datetime - hide date picker
   hideTime?: boolean; // For datetime - hide time picker
+  hidePassportSeriesNumber?: boolean; // For passport - hide series/number field
+  hidePassportIssuedBy?: boolean; // For passport - hide issued by field
+  hidePassportIssueDate?: boolean; // For passport - hide issue date field
+  hidePassportDepartmentCode?: boolean; // For passport - hide department code field
+  hidePassportBirthPlace?: boolean; // For passport - hide birth place field
   conditionalLogic?: ConditionalLogic;
 }
 
