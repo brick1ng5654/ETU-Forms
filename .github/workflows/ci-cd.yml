@@ -35,7 +35,7 @@ jobs:
 
           timeout=30
           elapsed=0
-          while ! curl -f -s -o /dev/null -k http://localhost; do
+          while ! curl -f -s -o /dev/null -k https://localhost; do
             sleep 2
             elapsed=$((elapsed + 2))
             if [ $elapsed -ge $timeout ]; then
@@ -47,7 +47,7 @@ jobs:
 
           echo "Frontend work correctly, check HTML..."
 
-          html_content=$(curl -s -k http://localhost)
+          html_content=$(curl -s -k https://localhost)
 
           if [ -z "$html_content" ]; then
             echo "Pages HTML is empty!"
@@ -78,7 +78,7 @@ jobs:
           echo ""
           echo "HTML Stats:"
           echo "All checkpoints have been completed! Frontend work correctly."
-          
+
       - name: Stop containers
         if: always()
         run: docker compose -f "docker-compose.yml" down
