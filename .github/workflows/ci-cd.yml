@@ -12,6 +12,19 @@ jobs:
       - name: Set up Docker
         uses: docker/setup-buildx-action@v3
 
+      - name: Create SSL files from GitHub Secrets
+        env:
+          SSL_CERT_CONTENT: ${{ secrets.NGINX_CRT }}
+          SSL_KEY_CONTENT: ${{ secrets.NGINX_KEY }}
+        run: |
+          echo "Creating SSL directory and files..."
+          mkdir -p ./ss   l
+  
+          echo "$SSL_CERT_CONTENT" > ./ssl/nginx.crt
+          echo "$SSL_KEY_CONTENT" > ./ssl/nginx.key
+
+          chmod 600 ./ssl/nginx.key
+
       - name: Start containers with Docker Compose
         run: docker compose -f "docker-compose.yml" up -d --build
 
@@ -26,7 +39,7 @@ jobs:
 
           timeout=30
           elapsed=0
-          while ! curl -f -s -o /dev/null -k https://localhost; do
+          while ! curl -f -s -o /dev/null -k http://localhost; do
             sleep 2
             elapsed=$((elapsed + 2))
             if [ $elapsed -ge $timeout ]; then
@@ -38,7 +51,7 @@ jobs:
 
           echo "Frontend work correctly, check HTML..."
 
-          html_content=$(curl -s -k https://localhost)
+          html_content=$(curl -s -k http://localhost)
 
           if [ -z "$html_content" ]; then
             echo "Pages HTML is empty!"
