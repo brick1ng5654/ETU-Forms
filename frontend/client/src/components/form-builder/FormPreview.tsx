@@ -61,9 +61,18 @@ interface SortableItemProps {
   disabled?: boolean;
 }
 
+interface LengthIndicatorProps {
+  len: number;
+  limit: number;
+  isError: boolean;
+  isComplete: boolean;
+}
+
 const FULLNAME_MAX_CHARS = 50;
 const DEFAULT_PHONE_PLACEHOLDER = "+7 (000) 000-00-00";
 const PHONE_MAX_DIGITS = 15;
+const INN_INDIVIDUAL_LENGTH = 12;
+const INN_LEGAL_ENTITY_LENGTH = 10;
 
 const formatRuPhoneDigits = (digits: string) => {
   if (!digits) return "";
@@ -107,6 +116,50 @@ const formatInternationalPhoneDigits = (digits: string, hasPlus: boolean) => {
   return `${hasPlus ? "+" : ""}${trimmed}`;
 };
 
+function LengthIndicator({ len, limit, isError, isComplete }: LengthIndicatorProps) {
+  const progress = limit ? Math.min(len / limit, 1) : 0;
+  const progressColor = isError ? "#ef4444" : isComplete ? "#22c55e" : "#94a3b8";
+  const trackColor = "#e2e8f0";
+  const ringRadius = 5;
+  const ringCircumference = 2 * Math.PI * ringRadius;
+
+  return (
+    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+      <div
+        className={cn(
+          "text-xs font-medium",
+          isError ? "text-destructive" : isComplete ? "text-green-600" : "text-muted-foreground"
+        )}
+      >
+        {`${len}/${limit}`}
+      </div>
+      <svg className="h-3 w-3" viewBox="0 0 12 12" aria-hidden="true">
+        <circle
+          cx="6"
+          cy="6"
+          r={ringRadius}
+          fill="none"
+          stroke={trackColor}
+          strokeWidth="2"
+        />
+        <circle
+          cx="6"
+          cy="6"
+          r={ringRadius}
+          fill="none"
+          stroke={progressColor}
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeDasharray={ringCircumference}
+          strokeDashoffset={ringCircumference * (1 - progress)}
+          style={{ transition: "stroke-dashoffset 240ms ease-out" }}
+          transform="rotate(-90 6 6)"
+        />
+      </svg>
+    </div>
+  );
+}
+
 const formatPhoneInput = (value: string, previousValue: string) => {
   const trimmed = value.trim();
   const hasPlus = trimmed.startsWith("+");
@@ -130,6 +183,14 @@ const PASSPORT_SERIES_NUMBER_MAX_CHARS = 11;
 const PASSPORT_ISSUED_BY_MAX_CHARS = 60;
 const PASSPORT_DEPARTMENT_CODE_MAX_CHARS = 7;
 const PASSPORT_BIRTH_PLACE_MAX_CHARS = 60;
+
+const getInnMaxLength = (field: FormField) =>
+  field.innLegalEntity ? INN_LEGAL_ENTITY_LENGTH : INN_INDIVIDUAL_LENGTH;
+
+const getInnPlaceholder = (field: FormField) => "0".repeat(getInnMaxLength(field));
+
+const sanitizeInnValue = (value: string, maxLength: number) =>
+  value.replace(/\D/g, "").slice(0, maxLength);
 
 function SortableItem({ id, disabled }: SortableItemProps) {
   const {
@@ -186,6 +247,7 @@ export function FormPreview({ form }: FormPreviewProps) {
   const [results, setResults] = useState<Results | null>(null);
   const [totalScore, setTotalScore] = useState<number>(0);
   const [maxScore, setMaxScore] = useState<number>(0);
+  const [innErrors, setInnErrors] = useState<Record<string, boolean>>({});
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -354,7 +416,6 @@ export function FormPreview({ form }: FormPreviewProps) {
     const hasResult = results !== null && field.id in results;
     const isCorrect = hasResult && results[field.id];
     const isIncorrect = hasResult && !results[field.id];
-
     const fieldWrapperClass = cn(
       "space-y-2 p-3 rounded-lg transition-colors",
       isCorrect && "bg-green-50 border border-green-200",
@@ -478,7 +539,59 @@ export function FormPreview({ form }: FormPreviewProps) {
           />
         )}
 
-        {["email", "inn", "snils", "ogrn", "bik", "account"].includes(field.type) && (
+        {field.type === "inn" && (
+          <div className="space-y-1">
+            <Label className="text-sm text-muted-foreground">
+              {t("placeholders.inn")}
+              {field.required && <span className="text-destructive ml-1">*</span>}
+            </Label>
+            <div className="relative">
+              <Input
+                type="text"
+                inputMode="numeric"
+                placeholder={getInnPlaceholder(field)}
+                value={(answers[field.id] as string) || ""}
+                onChange={(e) => {
+                  const maxLength = getInnMaxLength(field);
+                  updateAnswer(field.id, sanitizeInnValue(e.target.value, maxLength));
+                }}
+                onBlur={(e) => {
+                  const maxLength = getInnMaxLength(field);
+                  const nextLen = e.target.value.length;
+                  const isInvalid = nextLen > 0 && nextLen !== maxLength;
+                  setInnErrors((prev) => ({ ...prev, [field.id]: isInvalid }));
+                }}
+                onFocus={() => {
+                  setInnErrors((prev) => ({ ...prev, [field.id]: false }));
+                }}
+                disabled={results !== null}
+                maxLength={getInnMaxLength(field)}
+                className={cn(
+                  "pr-20",
+                  innErrors[field.id] ? "border-destructive focus-visible:ring-destructive/20" : ""
+                )}
+              />
+              {(() => {
+                const limit = getInnMaxLength(field);
+                const value = (answers[field.id] as string) || "";
+                const len = value.length;
+                const isComplete = len > 0 && len === limit;
+                const isError = innErrors[field.id];
+
+                return (
+                  <LengthIndicator
+                    len={len}
+                    limit={limit}
+                    isError={isError}
+                    isComplete={isComplete}
+                  />
+                );
+              })()}
+            </div>
+          </div>
+        )}
+
+        {["email", "snils", "ogrn", "bik", "account"].includes(field.type) && (
           <Input
             placeholder={field.placeholder}
             value={(answers[field.id] as string) || ""}

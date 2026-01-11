@@ -131,6 +131,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
   const isDatetime = selectedField.type === "datetime";
   const isText = selectedField.type === "text";
   const isPassport = selectedField.type === "passport";
+  const isInn = selectedField.type === "inn";
   const passportVisibleCount = isPassport
     ? [
         !selectedField.hidePassportSeriesNumber,
@@ -184,7 +185,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
           />
         </div>
 
-        {!isHeader && !["checkbox", "radio", "rating", "file", "datetime", "fullname", "phone", "passport"].includes(selectedField.type) && (
+        {!isHeader && !["checkbox", "radio", "rating", "file", "datetime", "fullname", "phone", "passport", "inn"].includes(selectedField.type) && (
           <div className="space-y-2">
             <Label>{t("propert.placeholder")}</Label>
             <Textarea
@@ -638,6 +639,18 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                  allowedDomains: e.target.value.split(",").map(d => d.trim()).filter(Boolean) 
                })}
              />
+          </div>
+        )}
+
+        {isInn && (
+          <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+            <div className="space-y-0.5">
+              <Label>Юридическое лицо</Label>
+            </div>
+            <Switch
+              checked={selectedField.innLegalEntity || false}
+              onCheckedChange={(checked) => updateField(selectedField.id, { innLegalEntity: checked })}
+            />
           </div>
         )}
         

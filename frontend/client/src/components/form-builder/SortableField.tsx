@@ -137,7 +137,6 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
         );
       case "email":
       case "number":
-      case "inn":
       case "snils":
       case "ogrn":
       case "bik":
@@ -164,6 +163,19 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
             }}
           />
         );
+      case "inn": {
+        const innMaxLength = field.innLegalEntity ? 10 : 12;
+        return (
+          <Input
+            placeholder={t("placeholders.inn")}
+            disabled
+            className="bg-white/50 pointer-events-none"
+            type="text"
+            inputMode="numeric"
+            maxLength={innMaxLength}
+          />
+        );
+      }
       case "phone":
         return (
           <Input
