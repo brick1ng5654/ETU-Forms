@@ -95,3 +95,25 @@
 .color-txt {
   color: #05336e;
 }
+
+/* Скрываем системную иконку календаря во всех полях даты/даты-времени */
+input[type="date"],
+input[type="datetime-local"] {
+  -webkit-appearance: none;
+  -moz-appearance: textfield;
+  appearance: none;
+  background-image: none;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+input[type="date"]::-webkit-inner-spin-button,
+input[type="datetime-local"]::-webkit-inner-spin-button,
+input[type="date"]::-webkit-clear-button,
+input[type="datetime-local"]::-webkit-clear-button {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  color: transparent !important;
+  background: transparent !important;
+}

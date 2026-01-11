@@ -1,8 +1,10 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import type { KeyboardEvent, MouseEvent } from "react";
+import { useState } from "react";
 import { FormField } from "@/lib/form-types";
 import { cn } from "@/lib/utils";
-import { GripVertical, Star, Upload, GripHorizontal, CalendarIcon, Clock } from "lucide-react";
+import { GripVertical, Star, Upload, GripHorizontal, CalendarDays, Clock, ChevronDown, ChevronUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,13 +16,22 @@ import { Popover, PopoverTrigger } from "@/components/ui/popover";
 import { useTranslation } from 'react-i18next';
 import { Languages } from "lucide-react";
 
+const FULLNAME_MAX_CHARS = 50;
+const PASSPORT_SERIES_NUMBER_MAX_CHARS = 11;
+const PASSPORT_ISSUED_BY_MAX_CHARS = 120;
+const PASSPORT_DEPARTMENT_CODE_MAX_CHARS = 7;
+const PASSPORT_BIRTH_PLACE_MAX_CHARS = 120;
+
 interface SortableFieldProps {
   field: FormField;
   isSelected: boolean;
-  onSelect: (id: string) => void;
+  onSelect: (id: string, event: MouseEvent<HTMLDivElement>) => void;
+  onDelete: (id: string) => void;
+  fields: FormField[];
 }
 
-export function SortableField({ field, isSelected, onSelect }: SortableFieldProps) {
+export function SortableField({ field, isSelected, onSelect, onDelete, fields }: SortableFieldProps) {
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const {
     attributes,
     listeners,
@@ -57,8 +68,6 @@ export function SortableField({ field, isSelected, onSelect }: SortableFieldProp
       case "email":
       case "number":
       case "phone":
-      case "fullname":
-      case "passport":
       case "inn":
       case "snils":
       case "ogrn":
@@ -72,45 +81,109 @@ export function SortableField({ field, isSelected, onSelect }: SortableFieldProp
             type={field.type === "number" ? "number" : "text"}
           />
         );
-      case "date":
+      case "fullname": {
+        const isRu = i18n.language.startsWith("ru");
+        const labels = {
+          lastName: isRu ? "Фамилия" : "Last name",
+          firstName: isRu ? "Имя" : "First name",
+          patronymic: isRu ? "Отчество (при наличии)" : "Middle name (if any)",
+        };
+
         return (
-           <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant={"outline"}
-                className={cn(
-                  "w-full justify-start text-left font-normal",
-                  "text-muted-foreground"
-                )}
-                disabled
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                <span>Pick a date</span>
-              </Button>
-            </PopoverTrigger>
-          </Popover>
-        );
-      case "time":
-        return (
-          <div className="relative">
-            <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input 
-              type="time" 
-              className="pl-10 bg-white/50 pointer-events-none" 
+          <div className="grid gap-2">
+            <Input
+              placeholder={labels.lastName}
               disabled
+              maxLength={FULLNAME_MAX_CHARS}
+              className="bg-white/50 pointer-events-none"
+            />
+            <Input
+              placeholder={labels.firstName}
+              disabled
+              maxLength={FULLNAME_MAX_CHARS}
+              className="bg-white/50 pointer-events-none"
+            />
+            <Input
+              placeholder={labels.patronymic}
+              disabled
+              maxLength={FULLNAME_MAX_CHARS}
+              className="bg-white/50 pointer-events-none"
             />
           </div>
         );
+      }
+      case "passport": {
+        const isRu = i18n.language.startsWith("ru");
+        const placeholders = {
+          seriesNumber: isRu ? "\u0421\u0435\u0440\u0438\u044f \u0438 \u043d\u043e\u043c\u0435\u0440" : "Series and number",
+          issuedBy: isRu ? "\u041a\u0435\u043c \u0432\u044b\u0434\u0430\u043d" : "Issued by",
+          issueDate: isRu ? "\u0414\u0430\u0442\u0430 \u0432\u044b\u0434\u0430\u0447\u0438" : "Issue date",
+          departmentCode: isRu ? "\u041a\u043e\u0434 \u043f\u043e\u0434\u0440\u0430\u0437\u0434\u0435\u043b\u0435\u043d\u0438\u044f" : "Department code",
+          birthPlace: isRu ? "\u041c\u0435\u0441\u0442\u043e \u0440\u043e\u0436\u0434\u0435\u043d\u0438\u044f" : "Place of birth",
+        };
+        const hidden = {
+          seriesNumber: field.hidePassportSeriesNumber,
+          issuedBy: field.hidePassportIssuedBy,
+          issueDate: field.hidePassportIssueDate,
+          departmentCode: field.hidePassportDepartmentCode,
+          birthPlace: field.hidePassportBirthPlace,
+        };
+
+        return (
+          <div className="grid gap-2">
+            {!hidden.seriesNumber && (
+              <Input
+                placeholder={placeholders.seriesNumber}
+                disabled
+                maxLength={PASSPORT_SERIES_NUMBER_MAX_CHARS}
+                className="bg-white/50 pointer-events-none"
+              />
+            )}
+            {!hidden.issuedBy && (
+              <Input
+                placeholder={placeholders.issuedBy}
+                disabled
+                maxLength={PASSPORT_ISSUED_BY_MAX_CHARS}
+                className="bg-white/50 pointer-events-none"
+              />
+            )}
+            {!hidden.issueDate && (
+              <Input
+                type="date"
+                placeholder={placeholders.issueDate}
+                disabled
+                className="bg-white/50 pointer-events-none text-muted-foreground"
+              />
+            )}
+            {!hidden.departmentCode && (
+              <Input
+                placeholder={placeholders.departmentCode}
+                disabled
+                maxLength={PASSPORT_DEPARTMENT_CODE_MAX_CHARS}
+                className="bg-white/50 pointer-events-none"
+              />
+            )}
+            {!hidden.birthPlace && (
+              <Input
+                placeholder={placeholders.birthPlace}
+                disabled
+                maxLength={PASSPORT_BIRTH_PLACE_MAX_CHARS}
+                className="bg-white/50 pointer-events-none"
+              />
+            )}
+          </div>
+        );
+      }
       case "select":
       case "country":
       case "category":
         return (
           <Select disabled>
             <SelectTrigger className="bg-white/50">
-              <SelectValue placeholder="Select an option" />
+              <SelectValue placeholder={t("common.selectopt")} />
             </SelectTrigger>
             <SelectContent>
-              {field.options?.map((opt, i) => (
+              {field.options?.filter(Boolean).map((opt, i) => (
                 <SelectItem key={i} value={opt}>{opt}</SelectItem>
               ))}
             </SelectContent>
@@ -170,6 +243,33 @@ export function SortableField({ field, isSelected, onSelect }: SortableFieldProp
               </p>
            </div>
         );
+      case "datetime":
+        return (
+          <div className="space-y-3">
+            {!field.hideDate && (
+              <div className="relative">
+                <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
+                <Input
+                  type="date"
+                  disabled
+                  className="pl-10 h-10 bg-white/50 pointer-events-none text-muted-foreground"
+                  placeholder={t("propert.selectDate")}
+                />
+              </div>
+            )}
+            {!field.hideTime && (
+              <div className="relative">
+                <Input
+                  type="time"
+                  disabled
+                  className="pl-10 h-10 bg-white/50 pointer-events-none"
+                  placeholder={t("propert.selectTime")}
+                />
+                <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              </div>
+            )}
+          </div>
+        );
       case "header":
         return null; // Rendered in header
       default:
@@ -181,9 +281,17 @@ export function SortableField({ field, isSelected, onSelect }: SortableFieldProp
     <div
       ref={setNodeRef}
       style={style}
+      tabIndex={0}
       onClick={(e) => {
         e.stopPropagation();
-        onSelect(field.id);
+        console.log('SortableField onClick for field:', field.id);
+        onSelect(field.id, e);
+      }}
+      onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
+        if (e.key === "Delete") {
+          e.preventDefault();
+          onDelete(field.id);
+        }
       }}
       className={cn(
         "group relative flex items-start gap-2 p-6 rounded-lg border border-transparent bg-white transition-all hover:shadow-md",
@@ -213,15 +321,51 @@ export function SortableField({ field, isSelected, onSelect }: SortableFieldProp
               {field.label}
               {field.required && <span className="text-destructive ml-1">*</span>}
             </Label>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsCollapsed(!isCollapsed);
+              }}
+              className="p-1 h-6 w-6 hover:bg-muted"
+            >
+              {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+            </Button>
         </div>
         
-        {field.helperText && (
-          <p className="text-sm text-muted-foreground -mt-1">{field.helperText}</p>
+        {!isCollapsed && (
+          <>
+            {field.helperText && (
+              <p className="text-sm text-muted-foreground -mt-1">{field.helperText}</p>
+            )}
+
+        {field.conditionalLogic?.dependsOn && (
+          (() => {
+            const dependsOnField = fields.find(f => f.id === field.conditionalLogic!.dependsOn);
+            if (!dependsOnField) return null;
+            const condition = field.conditionalLogic!.condition;
+            const conditionText = condition === "equals" ? "Равно" :
+                                 condition === "not_equals" ? "Не равно" :
+                                 condition === "answered" ? "Дан ответ":
+                                 "пусто"; 
+            const expectedValue = field.conditionalLogic!.expectedValue;
+            const valueText = Array.isArray(expectedValue) ? expectedValue.join(", ") : expectedValue || "";
+            const showValue = condition === "equals";
+return (
+  <p className="text-xs text-muted-foreground italic -mt-1">
+    Зависит от "{dependsOnField.label}", при "{conditionText}"{showValue && valueText ? ` "${valueText}"` : ""}
+  </p>
+);
+
+          })()
         )}
 
         <div className="pointer-events-none">
           {renderFieldPreview()}
         </div>
+          </>
+        )}
       </div>
       
       {/* Selection Indicator */}
@@ -231,3 +375,4 @@ export function SortableField({ field, isSelected, onSelect }: SortableFieldProp
     </div>
   );
 }
+
