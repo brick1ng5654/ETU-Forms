@@ -1,7 +1,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { KeyboardEvent, MouseEvent } from "react";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { FormField } from "@/lib/form-types";
 import { cn } from "@/lib/utils";
 import { GripVertical, Star, Upload, GripHorizontal, CalendarDays, Clock, ChevronDown, ChevronUp, X, Plus, Check } from "lucide-react";
@@ -36,6 +36,16 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
   const [editingElement, setEditingElement] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState<string>("");
   const [editingOptions, setEditingOptions] = useState<string[]>([]);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (editingElement === "helperText" && textareaRef.current) {
+      const len = editingValue.length;
+      textareaRef.current.setSelectionRange(len, len);
+      textareaRef.current.focus();
+    }
+  }, [editingElement, editingValue]);
+
   const {
     attributes,
     listeners,
@@ -639,11 +649,12 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
           <>
             {editingElement === "helperText" ? (
               <Textarea
+                ref={textareaRef}
                 value={editingValue}
                 onChange={(e) => setEditingValue(e.target.value)}
                 onBlur={saveEditing}
                 onKeyDown={handleKeyDown}
-                className="text-sm text-muted-foreground border border-primary bg-white resize-none min-h-[2rem] px-2 py-1 -mt-1"
+                className="text-sm  w-115 text-muted-foreground border border-primary bg-white resize-none min-h-[2rem] px-2 py-1 -mt-1"
                 maxLength={1200}
                 autoFocus
                 rows={1}
@@ -651,7 +662,7 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
               />
             ) : field.helperText ? (
               <p
-                className="text-sm text-muted-foreground -mt-1 cursor-pointer hover:bg-muted/50 px-2 py-1 rounded transition-colors"
+                className="text-sm text-muted-foreground -mt-1 cursor-pointer hover:bg-muted/50 px-2 py-1 mr-8 rounded transition-colors"
                 onClick={(e) => {
                   e.stopPropagation();
                   startEditing("helperText", field.helperText);
@@ -661,7 +672,7 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
               </p>
             ) : (
               <p
-                className="text-sm text-muted-foreground/50 -mt-1 cursor-pointer hover:bg-muted/50 px-2 py-1 rounded transition-colors italic"
+                className="text-sm text-muted-foreground/50 -mt-1 cursor-pointer hover:bg-muted/50 px-2 py-1 mr-8 rounded transition-colors italic"
                 onClick={(e) => {
                   e.stopPropagation();
                   startEditing("helperText", "");
