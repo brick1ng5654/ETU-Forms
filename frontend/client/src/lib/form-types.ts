@@ -50,6 +50,7 @@ export interface FormField {
   hidePassportIssueDate?: boolean; // For passport - hide issue date field
   hidePassportDepartmentCode?: boolean; // For passport - hide department code field
   hidePassportBirthPlace?: boolean; // For passport - hide birth place field
+  innLegalEntity?: boolean; // For INN - legal entity (10 digits) vs individual (12 digits)
   conditionalLogic?: ConditionalLogic;
 }
 
