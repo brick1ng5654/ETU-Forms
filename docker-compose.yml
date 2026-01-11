@@ -1,21 +1,15 @@
+version: "3.9"
 services:
   frontend:
     build: ./frontend
-    container_name: frontend
     ports:
     - "80:80"
     - "443:443"
     secrets:
       - ssl_certificate.crt
       - ssl_private.key
-    
-secrets:
-  ssl_certificate.crt:
-    file: ./ssl/nginx.crt
-  ssl_private.key:
-    file: ./ssl/nginx.key
-
-postgres:
+      
+  postgres:
     build:
       context: ./database
       dockerfile: Dockerfile
@@ -32,6 +26,12 @@ postgres:
     volumes:
     - postgres_data:/var/lib/postgresql/data
     - ./database/init:/docker-entrypoint-initdb.d:ro
+    
+secrets:
+  ssl_certificate.crt:
+    file: ./ssl/nginx.crt
+  ssl_private.key:
+    file: ./ssl/nginx.key
 
 volumes:
   postgres_data:
