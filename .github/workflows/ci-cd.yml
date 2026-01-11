@@ -43,7 +43,7 @@ jobs:
             sleep 2
             elapsed=$((elapsed + 2))
             if [ $elapsed -ge $timeout ]; then
-              echo "Frontend didn`t started for $timeout seconds"
+              echo "Frontend did not started for $timeout seconds"
               exit 1
             fi
             echo "Try connection... ($elapsed сек.)"
@@ -59,7 +59,7 @@ jobs:
           fi
 
           if [[ ! "$html_content" =~ \<html ]] || [[ ! "$html_content" =~ \<body ]]; then
-            echo "HTML don`t have basic tags (html/body)"
+            echo "HTML do not have basic tags (html/body)"
             exit 1
           fi
 
@@ -67,7 +67,7 @@ jobs:
             echo "Found: logo_etu.png in HTML"
 
           else
-            echo "TOTAL ERROR: HTML don`t has logo_etu.png !"
+            echo "TOTAL ERROR: HTML do not has logo_etu.png !"
             echo "--- Start HTML for debug ---"
             echo "$html_content" | head -20
             echo "--- End of HTML ---"
