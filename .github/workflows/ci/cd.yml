@@ -1,0 +1,74 @@
+name: Docker Compose CI
+
+on: [push]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v3
+
+      - name: Set up Docker Compose
+        uses: docker/setup-compose-action@v3
+
+      - name: Start containers with Docker Compose
+        run: docker compose -f "docker-compose.yml" up -d --build
+
+      - name: Stop containers
+        if: always()
+        run: docker compose -f "docker-compose.yml" down
+
+      - name: Check frontend HTML for logo_etu.png
+        run: |
+          # Ждем доступность фронтенда (макс 30 сек)
+          echo "Waiting for frontend starting..."
+
+          timeout=30
+          elapsed=0
+          while ! curl -f -s -o /dev/null -k https://localhost; do
+            sleep 2
+            elapsed=$((elapsed + 2))
+            if [ $elapsed -ge $timeout ]; then
+              echo "Frontend didn`t started for $timeout seconds"
+              exit 1
+            fi
+            echo "Try connection... ($elapsed сек.)"
+          done
+
+          echo "Frontend work correctly, check HTML..."
+
+          html_content=$(curl -s -k https://localhost)
+
+          if [ -z "$html_content" ]; then
+            echo "Pages HTML is empty!"
+            exit 1
+          fi
+
+          if [[ ! "$html_content" =~ \<html ]] || [[ ! "$html_content" =~ \<body ]]; then
+            echo "HTML don`t have basic tags (html/body)"
+            exit 1
+          fi
+
+          if [[ "$html_content" =~ logo_etu\.png ]]; then
+            echo "Found: logo_etu.png in HTML"
+
+          else
+            echo "TOTAL ERROR: HTML don`t has logo_etu.png !"
+            echo "--- Start HTML for debug ---"
+            echo "$html_content" | head -20
+            echo "--- End of HTML ---"
+            exit 1
+          fi
+
+          title=$(echo "$html_content" | grep -o '<title>[^<]*</title>' | sed 's/<title>//;s/<\/title>//')
+          if [ -n "$title" ]; then
+            echo "Title of page: $title"
+          fi
+
+          echo ""
+          echo "HTML Stats:"
+          echo "All checkpoints have been completed! Frontend work correctly."
