@@ -579,6 +579,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
           onSelectField={handleSelectField}
           clearSelection={clearSelection}
           deleteField={deleteField}
+          updateField={updateField}
           onUndo={undoLast}
           onRedo={redoLast}
           canUndo={history.length > 0}
