@@ -28,10 +28,6 @@ jobs:
       - name: Start containers with Docker Compose
         run: docker compose -f "docker-compose.yml" up -d --build
 
-      - name: Stop containers
-        if: always()
-        run: docker compose -f "docker-compose.yml" down
-
       - name: Check frontend HTML for logo_etu.png
         run: |
           # Ждем доступность фронтенда (макс 30 сек)
@@ -82,3 +78,9 @@ jobs:
           echo ""
           echo "HTML Stats:"
           echo "All checkpoints have been completed! Frontend work correctly."
+          
+      - name: Stop containers
+        if: always()
+        run: docker compose -f "docker-compose.yml" down
+
+      
