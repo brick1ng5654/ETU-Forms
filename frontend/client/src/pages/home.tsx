@@ -93,6 +93,8 @@ export default function Home() {
           <div className="color-txt">
             <span className="font-bold text-xl">ETU-Form</span>
           </div>
+          
+        {/* Кнопки  */}
         </div>
           <div className="flex items-center gap-2">
           <Button
