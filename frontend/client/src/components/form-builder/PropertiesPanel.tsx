@@ -130,6 +130,16 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
   const isHeader = selectedField.type === "header";
   const isDatetime = selectedField.type === "datetime";
   const isText = selectedField.type === "text";
+  const isPassport = selectedField.type === "passport";
+  const passportVisibleCount = isPassport
+    ? [
+        !selectedField.hidePassportSeriesNumber,
+        !selectedField.hidePassportIssuedBy,
+        !selectedField.hidePassportIssueDate,
+        !selectedField.hidePassportDepartmentCode,
+        !selectedField.hidePassportBirthPlace,
+      ].filter(Boolean).length
+    : 0;
   
   // Specialized field types that should not have correct answers
   const specializedTypes = ["fullname", "phone", "passport", "inn", "snils", "account", "country", "ogrn", "bik"];
@@ -174,7 +184,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
           />
         </div>
 
-        {!isHeader && !["checkbox", "radio", "rating", "file", "datetime", "fullname"].includes(selectedField.type) && (
+        {!isHeader && !["checkbox", "radio", "rating", "file", "datetime", "fullname", "passport"].includes(selectedField.type) && (
           <div className="space-y-2">
             <Label>{t("propert.placeholder")}</Label>
             <Textarea
@@ -679,6 +689,90 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
             </div>
             {(selectedField.hideDate && selectedField.hideTime) && (
               <p className="text-xs text-destructive">{t("propert.datetimeWarning")}</p>
+            )}
+          </div>
+        )}
+
+        {isPassport && (
+          <div className="space-y-3 pt-2 border-t">
+            <Label>{t("propert.passportFields")}</Label>
+            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+              <div className="space-y-0.5">
+                <Label>{t("propert.hidePassportSeriesNumber")}</Label>
+              </div>
+              <Switch
+                checked={selectedField.hidePassportSeriesNumber || false}
+                onCheckedChange={(checked) => {
+                  if (checked && passportVisibleCount === 1) {
+                    return;
+                  }
+                  updateField(selectedField.id, { hidePassportSeriesNumber: checked });
+                }}
+                disabled={!selectedField.hidePassportSeriesNumber && passportVisibleCount === 1}
+              />
+            </div>
+            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+              <div className="space-y-0.5">
+                <Label>{t("propert.hidePassportIssuedBy")}</Label>
+              </div>
+              <Switch
+                checked={selectedField.hidePassportIssuedBy || false}
+                onCheckedChange={(checked) => {
+                  if (checked && passportVisibleCount === 1) {
+                    return;
+                  }
+                  updateField(selectedField.id, { hidePassportIssuedBy: checked });
+                }}
+                disabled={!selectedField.hidePassportIssuedBy && passportVisibleCount === 1}
+              />
+            </div>
+            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+              <div className="space-y-0.5">
+                <Label>{t("propert.hidePassportIssueDate")}</Label>
+              </div>
+              <Switch
+                checked={selectedField.hidePassportIssueDate || false}
+                onCheckedChange={(checked) => {
+                  if (checked && passportVisibleCount === 1) {
+                    return;
+                  }
+                  updateField(selectedField.id, { hidePassportIssueDate: checked });
+                }}
+                disabled={!selectedField.hidePassportIssueDate && passportVisibleCount === 1}
+              />
+            </div>
+            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+              <div className="space-y-0.5">
+                <Label>{t("propert.hidePassportDepartmentCode")}</Label>
+              </div>
+              <Switch
+                checked={selectedField.hidePassportDepartmentCode || false}
+                onCheckedChange={(checked) => {
+                  if (checked && passportVisibleCount === 1) {
+                    return;
+                  }
+                  updateField(selectedField.id, { hidePassportDepartmentCode: checked });
+                }}
+                disabled={!selectedField.hidePassportDepartmentCode && passportVisibleCount === 1}
+              />
+            </div>
+            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+              <div className="space-y-0.5">
+                <Label>{t("propert.hidePassportBirthPlace")}</Label>
+              </div>
+              <Switch
+                checked={selectedField.hidePassportBirthPlace || false}
+                onCheckedChange={(checked) => {
+                  if (checked && passportVisibleCount === 1) {
+                    return;
+                  }
+                  updateField(selectedField.id, { hidePassportBirthPlace: checked });
+                }}
+                disabled={!selectedField.hidePassportBirthPlace && passportVisibleCount === 1}
+              />
+            </div>
+            {passportVisibleCount === 1 && (
+              <p className="text-xs text-muted-foreground">{t("propert.passportFieldWarning")}</p>
             )}
           </div>
         )}
