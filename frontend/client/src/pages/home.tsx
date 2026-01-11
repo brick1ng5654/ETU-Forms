@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Plus, FileText, Calendar, Clock, Trash2, Folder, FolderPlus, MoreVertical, X, Check } from "lucide-react";
+import { Plus, FileText, Calendar, Clock, Trash2, Folder, FolderPlus, MoreVertical, X, Check, Share2 } from "lucide-react";
 import { storage } from "@/lib/storage";
 import { useEffect, useState } from "react";
 import { FormSchema, FormFolder } from "@/lib/form-types";
@@ -112,6 +112,11 @@ export default function Home() {
           <Button onClick={createNewForm} className="gap-2">
             <Plus className="h-4 w-4" /> {t('navigation.createNewForm')}
           </Button>
+          <Link href="/publication">
+            <Button className="gap-2">
+              <Share2 className="h-4 w-4" /> Опубликовать
+            </Button>
+          </Link>
         </div>
       </header>
 

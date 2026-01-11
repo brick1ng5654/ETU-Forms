@@ -533,13 +533,17 @@ export default function Builder({ params }: { params: { id?: string } }) {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-
+          
+          {/* Кнопки в правом верхнем углу конструктора */}
           <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={loadFormJson} />
           <Button variant="outline" size="sm" className="gap-2" onClick={() => fileInputRef.current?.click()}>
             <Upload className="h-4 w-4" /> <span className="hidden sm:inline">{t('builder.load')}</span>
           </Button>
           <Button size="sm" className="gap-2" onClick={saveFormJson}>
             <Download className="h-4 w-4" /> <span className="hidden sm:inline">{t('builder.save')}</span>
+          </Button>
+          <Button size="sm" className="gap-2" onClick={() => setLocation('/publication')}>
+            <Share2 className="h-4 w-4" /> <span className="hidden sm:inline">Опубликовать</span>
           </Button>
           </div>
         </div>
