@@ -126,6 +126,10 @@ const formatPhoneInput = (value: string, previousValue: string) => {
   }
   return formatInternationalPhoneDigits(digits, hasPlus);
 };
+const PASSPORT_SERIES_NUMBER_MAX_CHARS = 11;
+const PASSPORT_ISSUED_BY_MAX_CHARS = 60;
+const PASSPORT_DEPARTMENT_CODE_MAX_CHARS = 7;
+const PASSPORT_BIRTH_PLACE_MAX_CHARS = 60;
 
 function SortableItem({ id, disabled }: SortableItemProps) {
   const {
@@ -218,6 +222,26 @@ export function FormPreview({ form }: FormPreviewProps) {
       parsed.getDate() === d
     )
   }
+
+  const formatPassportSeriesNumber = (value: string) => {
+    const digits = value.replace(/\D/g, "").slice(0, 10);
+    const part1 = digits.slice(0, 4);
+    const part2 = digits.slice(4, 10);
+    return part2 ? `${part1} ${part2}` : part1;
+  };
+
+  const formatPassportDepartmentCode = (value: string) => {
+    const digits = value.replace(/\D/g, "").slice(0, 6);
+    const part1 = digits.slice(0, 3);
+    const part2 = digits.slice(3, 6);
+    return part2 ? `${part1}-${part2}` : part1;
+  };
+
+  const parseDateFromString = (value: string) => {
+    if (!isValidDateString(value)) return null;
+    const [y, m, d] = value.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  };
 
   const handleRankingDragEnd = (fieldId: string, event: DragEndEvent) => {
     const { active, over } = event;
@@ -454,7 +478,7 @@ export function FormPreview({ form }: FormPreviewProps) {
           />
         )}
 
-        {["email", "passport", "inn", "snils", "ogrn", "bik", "account"].includes(field.type) && (
+        {["email", "inn", "snils", "ogrn", "bik", "account"].includes(field.type) && (
           <Input
             placeholder={field.placeholder}
             value={(answers[field.id] as string) || ""}
@@ -462,6 +486,167 @@ export function FormPreview({ form }: FormPreviewProps) {
             disabled={results !== null}
           />
         )}
+
+        {field.type === "passport" && (() => {
+          const isRu = i18n.language.startsWith("ru");
+          const keys = {
+            seriesNumber: `${field.id}_seriesNumber`,
+            issuedBy: `${field.id}_issuedBy`,
+            issueDate: `${field.id}_issueDate`,
+            departmentCode: `${field.id}_departmentCode`,
+            birthPlace: `${field.id}_birthPlace`,
+          };
+          const labels = {
+            seriesNumber: isRu ? "Серия и номер" : "Series and number",
+            issuedBy: isRu ? "Кем выдан" : "Issued by",
+            issueDate: isRu ? "Дата выдачи" : "Issue date",
+            departmentCode: isRu ? "Код подразделения" : "Department code",
+            birthPlace: isRu ? "Место рождения" : "Place of birth",
+          };
+          const placeholders = {
+            seriesNumber: "1234 567890",
+            issuedBy: isRu ? "ГУ МВД России по г. Санкт-Петербургу и Ленинградской области" : "GU MVD of Russia, St. Petersburg and Leningrad Region",
+            issueDate: "2001-01-01",
+            departmentCode: "123-456",
+            birthPlace: isRu ? "г. Санкт-Петербург" : "St. Petersburg, Russia",
+          };
+          const hidden = {
+            seriesNumber: field.hidePassportSeriesNumber,
+            issuedBy: field.hidePassportIssuedBy,
+            issueDate: field.hidePassportIssueDate,
+            departmentCode: field.hidePassportDepartmentCode,
+            birthPlace: field.hidePassportBirthPlace,
+          };
+          const issueDateAnswer = answers[keys.issueDate];
+          const issueDateValue = issueDateAnswer instanceof Date
+            ? issueDateAnswer
+            : (typeof issueDateAnswer === "string" ? parseDateFromString(issueDateAnswer) : null);
+
+          return (
+            <div className="grid gap-3">
+            {!hidden.seriesNumber && (
+              <div className="space-y-1">
+                <Label className="text-sm text-muted-foreground">
+                  {labels.seriesNumber}
+                  {field.required && <span className="text-destructive ml-1">*</span>}
+                </Label>
+                <Input
+                  value={(answers[keys.seriesNumber] as string) || ""}
+                  onChange={(e) => updateAnswer(keys.seriesNumber, formatPassportSeriesNumber(e.target.value))}
+                  disabled={results !== null}
+                  required={field.required}
+                  maxLength={PASSPORT_SERIES_NUMBER_MAX_CHARS}
+                  inputMode="numeric"
+                  pattern="\\d{4} \\d{6}"
+                  placeholder={placeholders.seriesNumber}
+                />
+              </div>
+            )}
+            {!hidden.issuedBy && (
+              <div className="space-y-1">
+                <Label className="text-sm text-muted-foreground">
+                  {labels.issuedBy}
+                  {field.required && <span className="text-destructive ml-1">*</span>}
+                </Label>
+                <Input
+                  value={(answers[keys.issuedBy] as string) || ""}
+                  onChange={(e) => updateAnswer(keys.issuedBy, e.target.value.slice(0, PASSPORT_ISSUED_BY_MAX_CHARS))}
+                  disabled={results !== null}
+                  required={field.required}
+                  maxLength={PASSPORT_ISSUED_BY_MAX_CHARS}
+                  placeholder={placeholders.issuedBy}
+                />
+              </div>
+            )}
+            {!hidden.issueDate && (
+              <div className="space-y-1">
+                <Label className="text-sm text-muted-foreground">
+                  {labels.issueDate}
+                  {field.required && <span className="text-destructive ml-1">*</span>}
+                </Label>
+                <div className="relative">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute left-0 top-0 h-10 w-10 hover:bg-transparent z-10"
+                        disabled={results !== null}
+                        type="button"
+                      >
+                        <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={issueDateValue || undefined}
+                        onSelect={(date) => {
+                          updateAnswer(keys.issueDate, date || null)
+                        }}
+                        locale={ru}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <Input
+                    type="date"
+                    value={formatDateInput(issueDateValue)}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      if (val === "") {
+                        updateAnswer(keys.issueDate, null)
+                        return
+                      }
+                      const parsed = parseDateFromString(val)
+                      if (parsed) {
+                        updateAnswer(keys.issueDate, parsed)
+                      }
+                    }}
+                    disabled={results !== null}
+                    className="pl-10 h-10 text-muted-foreground"
+                    placeholder={placeholders.issueDate}
+                    required={field.required}
+                  />
+                </div>
+              </div>
+            )}
+            {!hidden.departmentCode && (
+              <div className="space-y-1">
+                <Label className="text-sm text-muted-foreground">
+                  {labels.departmentCode}
+                  {field.required && <span className="text-destructive ml-1">*</span>}
+                </Label>
+                <Input
+                  value={(answers[keys.departmentCode] as string) || ""}
+                  onChange={(e) => updateAnswer(keys.departmentCode, formatPassportDepartmentCode(e.target.value))}
+                  disabled={results !== null}
+                  required={field.required}
+                  maxLength={PASSPORT_DEPARTMENT_CODE_MAX_CHARS}
+                  inputMode="numeric"
+                  pattern="\\d{3}-\\d{3}"
+                  placeholder={placeholders.departmentCode}
+                />
+              </div>
+            )}
+            {!hidden.birthPlace && (
+              <div className="space-y-1">
+                <Label className="text-sm text-muted-foreground">
+                  {labels.birthPlace}
+                  {field.required && <span className="text-destructive ml-1">*</span>}
+                </Label>
+                <Input
+                  value={(answers[keys.birthPlace] as string) || ""}
+                  onChange={(e) => updateAnswer(keys.birthPlace, e.target.value.slice(0, PASSPORT_BIRTH_PLACE_MAX_CHARS))}
+                  disabled={results !== null}
+                  required={field.required}
+                  maxLength={PASSPORT_BIRTH_PLACE_MAX_CHARS}
+                  placeholder={placeholders.birthPlace}
+                />
+              </div>
+            )}
+            </div>
+          );
+        })()}
 
         {field.type === "number" && (
           <Input
