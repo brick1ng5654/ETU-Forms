@@ -17,22 +17,33 @@ import {
   verticalListSortingStrategy,
   arrayMove 
 } from "@dnd-kit/sortable";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import type { MouseEvent } from "react";
 import { FormField, FieldType, FormSchema } from "@/lib/form-types";
 import { SortableField } from "./SortableField";
 import { nanoid } from "nanoid";
 import { 
-  Type, AlignLeft, Hash, Calendar, Mail, List, CheckSquare, CircleDot, Heading, Star, ListOrdered, Upload, FolderTree, User, Phone, FileText, CreditCard, Globe, Clock, FileDigit
+  Type, AlignLeft, Hash, Calendar, Mail, List, CheckSquare, CircleDot, Heading, Star, ListOrdered, Upload, FolderTree, User, Phone, FileText, CreditCard, Globe, Clock, FileDigit, Undo2, Redo2
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import React from "react";
 import { useTranslation } from 'react-i18next';
 import { Languages } from "lucide-react";
 interface FormCanvasProps {
   form: FormSchema;
   setForm: (form: FormSchema) => void;
-  selectedId: string | null;
-  setSelectedId: (id: string | null) => void;
+  selectedIds: string[];
+  onSelectField: (id: string, event: MouseEvent<HTMLDivElement>) => void;
+  clearSelection: () => void;
+  deleteField: (id: string) => void;
+  onUndo: () => void;
+  onRedo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  fields: FormField[];
 }
 
 /**
@@ -83,10 +94,24 @@ export const getIconForType = (type: FieldType) => {
  3. Редактирование заголовка и описания формы
  4. Визуальную обратную связь при перетаскивании
 */
-export function FormCanvas({ form, setForm, selectedId, setSelectedId }: FormCanvasProps) {
+export function FormCanvas({
+  form,
+  setForm,
+  selectedIds,
+  onSelectField,
+  clearSelection,
+  deleteField,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
+  fields,
+}: FormCanvasProps) {
 
   const { t, i18n } = useTranslation()  // Хук для локализации
   const [activeDragItem, setActiveDragItem] = useState<any>(null);
+  const titleTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const descriptionTextareaRef = useRef<HTMLTextAreaElement>(null);
   const { setNodeRef, isOver } = useDroppable({
     id: 'form-canvas-droppable',
   });
@@ -134,6 +159,16 @@ export function FormCanvas({ form, setForm, selectedId, setSelectedId }: FormCan
   };
 
   /**
+   Функция для автоматического изменения высоты textarea
+  */
+  const adjustTextareaHeight = (textarea: HTMLTextAreaElement | null) => {
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    }
+  };
+
+  /**
    Обновление заголовка формы
   */
   const updateTitle = (title: string) => {
@@ -147,6 +182,12 @@ export function FormCanvas({ form, setForm, selectedId, setSelectedId }: FormCan
     setForm({ ...form, description });
   };
 
+  // Устанавливаем высоту при изменении значений
+  useEffect(() => {
+    adjustTextareaHeight(titleTextareaRef.current);
+    adjustTextareaHeight(descriptionTextareaRef.current);
+  }, [form.title, form.description]);
+
   return (
     // DndContext - компонент для Drag & Drop функциональности
     <DndContext
@@ -156,7 +197,31 @@ export function FormCanvas({ form, setForm, selectedId, setSelectedId }: FormCan
       onDragEnd={handleDragEnd}
     >
     {/* Основная область холста формы */}
-      <div className="flex-1 bg-muted/30 p-8 overflow-y-auto h-full builder-scroll" onClick={() => setSelectedId(null)}>
+      <div className="flex-1 bg-muted/30 px-8 pb-8 pt-0 overflow-y-auto h-full builder-scroll" onClick={() => { console.log('FormCanvas background click, clearing selection'); clearSelection(); }}>
+        <div className="sticky top-0 z-20 -mx-8 mb-0 bg-white/95 backdrop-blur border-b border-border">
+          <div className="h-[52px] px-4 flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onUndo}
+              disabled={!canUndo}
+              className={cn("gap-2", !canUndo && "text-muted-foreground")}
+            >
+              <Undo2 className={cn("h-4 w-4", !canUndo && "text-muted-foreground")} />
+              {t("builder.undo")}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onRedo}
+              disabled={!canRedo}
+              className={cn("gap-2", !canRedo && "text-muted-foreground")}
+            >
+              <Redo2 className={cn("h-4 w-4", !canRedo && "text-muted-foreground")} />
+              {t("builder.redo")}
+            </Button>
+          </div>
+        </div>
         
         {/* Контейнер формы (белая карточка) */}
         <div className="max-w-3xl mx-auto min-h-[800px] bg-white rounded-xl shadow-sm border border-border/50 flex flex-col">
@@ -166,19 +231,33 @@ export function FormCanvas({ form, setForm, selectedId, setSelectedId }: FormCan
              <div className="space-y-2">
               
               {/* Редактируемое поле заголовка */}
-               <Input 
+               <Textarea 
+                 ref={titleTextareaRef}
                  value={form.title} 
-                 onChange={(e) => updateTitle(e.target.value)}
-                 className="text-3xl font-bold text-foreground tracking-tight border-transparent hover:border-border px-0 h-auto py-1 focus-visible:ring-0 shadow-none bg-transparent"
+                 onChange={(e) => {
+                  const value = e.target.value.slice(0, 120);
+                  updateTitle(value);
+                  setTimeout(() => adjustTextareaHeight(titleTextareaRef.current), 0);
+                }}
+                 maxLength={120}
+                 className="text-3xl font-bold text-foreground tracking-tight border-transparent hover:border-border px-0 py-1 focus-visible:ring-0 shadow-none bg-transparent resize-none whitespace-pre-wrap break-words overflow-hidden min-h-[1.5em]"
                  placeholder={t("common.untitled")}
+                 rows={1}
                />
                
                {/* Редактируемое поле описания */}
-               <Input 
+               <Textarea 
+                 ref={descriptionTextareaRef}
                  value={form.description} 
-                 onChange={(e) => updateDescription(e.target.value)}
-                 className="text-muted-foreground text-lg border-transparent hover:border-border px-0 h-auto py-1 focus-visible:ring-0 shadow-none bg-transparent"
+                 onChange={(e) => {
+                  const value = e.target.value.slice(0, 720);
+                  updateDescription(value);
+                  setTimeout(() => adjustTextareaHeight(descriptionTextareaRef.current), 0);
+                }}
+                 maxLength={720}
+                 className="text-muted-foreground text-lg border-transparent hover:border-border px-0 py-1 focus-visible:ring-0 shadow-none bg-transparent resize-none whitespace-pre-wrap break-words overflow-hidden min-h-[1.5em]"
                  placeholder={t("common.descriptionf")}
+                 rows={1}
                />
              </div>
 
@@ -212,8 +291,10 @@ export function FormCanvas({ form, setForm, selectedId, setSelectedId }: FormCan
                   <SortableField 
                     key={field.id} 
                     field={field} 
-                    isSelected={selectedId === field.id}
-                    onSelect={setSelectedId}
+                    isSelected={selectedIds.includes(field.id)}
+                    onSelect={onSelectField}
+                    onDelete={deleteField}
+                    fields={fields}
                   />
                 ))
               )}

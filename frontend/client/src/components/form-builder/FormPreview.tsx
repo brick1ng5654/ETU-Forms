@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { FormField, FormSchema } from "@/lib/form-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,10 +9,11 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar as CalendarIcon, CheckCircle2, XCircle, Star, RotateCcw, GripVertical } from "lucide-react";
+import { CalendarDays, Clock, CheckCircle2, XCircle, Star, RotateCcw, GripVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
+import { useTranslation } from 'react-i18next';
 import {
   DndContext,
   closestCenter,
@@ -31,10 +32,40 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
+interface AutoResizeTextareaProps extends React.ComponentProps<typeof Textarea> {}
+
+function AutoResizeTextarea({ value, onChange, ...props }: AutoResizeTextareaProps) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    }
+  }, [value]);
+
+  return (
+    <Textarea
+      ref={textareaRef}
+      value={value}
+      onChange={onChange}
+      className="resize-none overflow-hidden"
+      {...props}
+    />
+  );
+}
+
 interface SortableItemProps {
   id: string;
   disabled?: boolean;
 }
+
+const FULLNAME_MAX_CHARS = 50;
+const PASSPORT_SERIES_NUMBER_MAX_CHARS = 11;
+const PASSPORT_ISSUED_BY_MAX_CHARS = 60;
+const PASSPORT_DEPARTMENT_CODE_MAX_CHARS = 7;
+const PASSPORT_BIRTH_PLACE_MAX_CHARS = 60;
 
 function SortableItem({ id, disabled }: SortableItemProps) {
   const {
@@ -86,6 +117,7 @@ type Answers = Record<string, AnswerValue>;
 type Results = Record<string, boolean>;
 
 export function FormPreview({ form }: FormPreviewProps) {
+  const { t, i18n } = useTranslation();
   const [answers, setAnswers] = useState<Answers>({});
   const [results, setResults] = useState<Results | null>(null);
   const [totalScore, setTotalScore] = useState<number>(0);
@@ -107,6 +139,44 @@ export function FormPreview({ form }: FormPreviewProps) {
     if (results) {
       setResults(null);
     }
+  };
+
+  const formatDateInput = (date: Date | null) => {
+    if (!date || Number.isNaN(date.getTime())) return ""
+    return format(date, "yyyy-MM-dd")
+  }
+
+  const isValidDateString = (value: string) => {
+    if (value.length !== 10) return false
+    const [y, m, d] = value.split("-").map(Number)
+    if (!y || !m || !d) return false
+    if (m < 1 || m > 12) return false
+    const parsed = new Date(y, m - 1, d)
+    return (
+      parsed.getFullYear() === y &&
+      parsed.getMonth() === m - 1 &&
+      parsed.getDate() === d
+    )
+  }
+
+  const formatPassportSeriesNumber = (value: string) => {
+    const digits = value.replace(/\D/g, "").slice(0, 10);
+    const part1 = digits.slice(0, 4);
+    const part2 = digits.slice(4, 10);
+    return part2 ? `${part1} ${part2}` : part1;
+  };
+
+  const formatPassportDepartmentCode = (value: string) => {
+    const digits = value.replace(/\D/g, "").slice(0, 6);
+    const part1 = digits.slice(0, 3);
+    const part2 = digits.slice(3, 6);
+    return part2 ? `${part1}-${part2}` : part1;
+  };
+
+  const parseDateFromString = (value: string) => {
+    if (!isValidDateString(value)) return null;
+    const [y, m, d] = value.split("-").map(Number);
+    return new Date(y, m - 1, d);
   };
 
   const handleRankingDragEnd = (fieldId: string, event: DragEndEvent) => {
@@ -185,6 +255,37 @@ export function FormPreview({ form }: FormPreviewProps) {
     setMaxScore(0);
   };
 
+  const isFieldVisible = (field: FormField): boolean => {
+    try {
+      if (!field.conditionalLogic || !field.conditionalLogic.dependsOn) return true;
+      const { dependsOn, condition, expectedValue } = field.conditionalLogic;
+  const parentAnswer = answers[dependsOn!];
+  
+  switch (condition) {
+    case "equals":
+      if (Array.isArray(expectedValue)) {
+        return Array.isArray(parentAnswer) 
+          ? expectedValue.some(val => parentAnswer.includes(val))
+          : expectedValue.includes(parentAnswer as string);
+      }
+      return parentAnswer === expectedValue;
+    case "not_equals":
+      return parentAnswer !== expectedValue;
+    case "answered":
+      return parentAnswer != null && parentAnswer !== "";
+    default:
+      return true;
+    }
+    } catch (error) {
+      console.error('Error in isFieldVisible for field:', field.id, field.label, error);
+      return true;
+    }
+  };
+
+
+
+
+
   const renderField = (field: FormField) => {
     const hasResult = results !== null && field.id in results;
     const isCorrect = hasResult && results[field.id];
@@ -222,7 +323,9 @@ export function FormPreview({ form }: FormPreviewProps) {
         )}
 
         {field.helperText && (
-          <p className="text-xs text-muted-foreground">{field.helperText}</p>
+          <p className="text-sm text-muted-foreground whitespace-pre-wrap break-all">
+            {field.helperText}
+          </p>
         )}
 
         {field.type === "header" && (
@@ -231,7 +334,7 @@ export function FormPreview({ form }: FormPreviewProps) {
 
         {field.type === "text" && (
           field.multiline ? (
-            <Textarea
+            <AutoResizeTextarea
               placeholder={field.placeholder}
               value={(answers[field.id] as string) || ""}
               onChange={(e) => updateAnswer(field.id, e.target.value)}
@@ -247,7 +350,59 @@ export function FormPreview({ form }: FormPreviewProps) {
           )
         )}
 
-        {["email", "phone", "fullname", "passport", "inn", "snils", "ogrn", "bik", "account"].includes(field.type) && (
+        {field.type === "fullname" && (() => {
+          const lastNameKey = `${field.id}_lastName`;
+          const firstNameKey = `${field.id}_firstName`;
+          const patronymicKey = `${field.id}_patronymic`;
+          const isRu = i18n.language.startsWith("ru");
+          const labels = {
+            lastName: isRu ? "Фамилия" : "Last name",
+            firstName: isRu ? "Имя" : "First name",
+            patronymic: isRu ? "Отчество (при наличии)" : "Middle name (if any)",
+          };
+
+          return (
+            <div className="grid gap-3">
+              <div className="space-y-1">
+                <Label className="text-sm text-muted-foreground">
+                  {labels.lastName}
+                  <span className="text-destructive ml-1">*</span>
+                </Label>
+                <Input
+                  value={(answers[lastNameKey] as string) || ""}
+                  onChange={(e) => updateAnswer(lastNameKey, e.target.value.slice(0, FULLNAME_MAX_CHARS))}
+                  disabled={results !== null}
+                  required
+                  maxLength={FULLNAME_MAX_CHARS}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm text-muted-foreground">
+                  {labels.firstName}
+                  <span className="text-destructive ml-1">*</span>
+                </Label>
+                <Input
+                  value={(answers[firstNameKey] as string) || ""}
+                  onChange={(e) => updateAnswer(firstNameKey, e.target.value.slice(0, FULLNAME_MAX_CHARS))}
+                  disabled={results !== null}
+                  required
+                  maxLength={FULLNAME_MAX_CHARS}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm text-muted-foreground">{labels.patronymic}</Label>
+                <Input
+                  value={(answers[patronymicKey] as string) || ""}
+                  onChange={(e) => updateAnswer(patronymicKey, e.target.value.slice(0, FULLNAME_MAX_CHARS))}
+                  disabled={results !== null}
+                  maxLength={FULLNAME_MAX_CHARS}
+                />
+              </div>
+            </div>
+          );
+        })()}
+
+        {["email", "phone", "inn", "snils", "ogrn", "bik", "account"].includes(field.type) && (
           <Input
             placeholder={field.placeholder}
             value={(answers[field.id] as string) || ""}
@@ -255,6 +410,167 @@ export function FormPreview({ form }: FormPreviewProps) {
             disabled={results !== null}
           />
         )}
+
+        {field.type === "passport" && (() => {
+          const isRu = i18n.language.startsWith("ru");
+          const keys = {
+            seriesNumber: `${field.id}_seriesNumber`,
+            issuedBy: `${field.id}_issuedBy`,
+            issueDate: `${field.id}_issueDate`,
+            departmentCode: `${field.id}_departmentCode`,
+            birthPlace: `${field.id}_birthPlace`,
+          };
+          const labels = {
+            seriesNumber: isRu ? "Серия и номер" : "Series and number",
+            issuedBy: isRu ? "Кем выдан" : "Issued by",
+            issueDate: isRu ? "Дата выдачи" : "Issue date",
+            departmentCode: isRu ? "Код подразделения" : "Department code",
+            birthPlace: isRu ? "Место рождения" : "Place of birth",
+          };
+          const placeholders = {
+            seriesNumber: "1234 567890",
+            issuedBy: isRu ? "ГУ МВД России по г. Санкт-Петербургу и Ленинградской области" : "GU MVD of Russia, St. Petersburg and Leningrad Region",
+            issueDate: "2001-01-01",
+            departmentCode: "123-456",
+            birthPlace: isRu ? "г. Санкт-Петербург" : "St. Petersburg, Russia",
+          };
+          const hidden = {
+            seriesNumber: field.hidePassportSeriesNumber,
+            issuedBy: field.hidePassportIssuedBy,
+            issueDate: field.hidePassportIssueDate,
+            departmentCode: field.hidePassportDepartmentCode,
+            birthPlace: field.hidePassportBirthPlace,
+          };
+          const issueDateAnswer = answers[keys.issueDate];
+          const issueDateValue = issueDateAnswer instanceof Date
+            ? issueDateAnswer
+            : (typeof issueDateAnswer === "string" ? parseDateFromString(issueDateAnswer) : null);
+
+          return (
+            <div className="grid gap-3">
+            {!hidden.seriesNumber && (
+              <div className="space-y-1">
+                <Label className="text-sm text-muted-foreground">
+                  {labels.seriesNumber}
+                  {field.required && <span className="text-destructive ml-1">*</span>}
+                </Label>
+                <Input
+                  value={(answers[keys.seriesNumber] as string) || ""}
+                  onChange={(e) => updateAnswer(keys.seriesNumber, formatPassportSeriesNumber(e.target.value))}
+                  disabled={results !== null}
+                  required={field.required}
+                  maxLength={PASSPORT_SERIES_NUMBER_MAX_CHARS}
+                  inputMode="numeric"
+                  pattern="\\d{4} \\d{6}"
+                  placeholder={placeholders.seriesNumber}
+                />
+              </div>
+            )}
+            {!hidden.issuedBy && (
+              <div className="space-y-1">
+                <Label className="text-sm text-muted-foreground">
+                  {labels.issuedBy}
+                  {field.required && <span className="text-destructive ml-1">*</span>}
+                </Label>
+                <Input
+                  value={(answers[keys.issuedBy] as string) || ""}
+                  onChange={(e) => updateAnswer(keys.issuedBy, e.target.value.slice(0, PASSPORT_ISSUED_BY_MAX_CHARS))}
+                  disabled={results !== null}
+                  required={field.required}
+                  maxLength={PASSPORT_ISSUED_BY_MAX_CHARS}
+                  placeholder={placeholders.issuedBy}
+                />
+              </div>
+            )}
+            {!hidden.issueDate && (
+              <div className="space-y-1">
+                <Label className="text-sm text-muted-foreground">
+                  {labels.issueDate}
+                  {field.required && <span className="text-destructive ml-1">*</span>}
+                </Label>
+                <div className="relative">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute left-0 top-0 h-10 w-10 hover:bg-transparent z-10"
+                        disabled={results !== null}
+                        type="button"
+                      >
+                        <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={issueDateValue || undefined}
+                        onSelect={(date) => {
+                          updateAnswer(keys.issueDate, date || null)
+                        }}
+                        locale={ru}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <Input
+                    type="date"
+                    value={formatDateInput(issueDateValue)}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      if (val === "") {
+                        updateAnswer(keys.issueDate, null)
+                        return
+                      }
+                      const parsed = parseDateFromString(val)
+                      if (parsed) {
+                        updateAnswer(keys.issueDate, parsed)
+                      }
+                    }}
+                    disabled={results !== null}
+                    className="pl-10 h-10 text-muted-foreground"
+                    placeholder={placeholders.issueDate}
+                    required={field.required}
+                  />
+                </div>
+              </div>
+            )}
+            {!hidden.departmentCode && (
+              <div className="space-y-1">
+                <Label className="text-sm text-muted-foreground">
+                  {labels.departmentCode}
+                  {field.required && <span className="text-destructive ml-1">*</span>}
+                </Label>
+                <Input
+                  value={(answers[keys.departmentCode] as string) || ""}
+                  onChange={(e) => updateAnswer(keys.departmentCode, formatPassportDepartmentCode(e.target.value))}
+                  disabled={results !== null}
+                  required={field.required}
+                  maxLength={PASSPORT_DEPARTMENT_CODE_MAX_CHARS}
+                  inputMode="numeric"
+                  pattern="\\d{3}-\\d{3}"
+                  placeholder={placeholders.departmentCode}
+                />
+              </div>
+            )}
+            {!hidden.birthPlace && (
+              <div className="space-y-1">
+                <Label className="text-sm text-muted-foreground">
+                  {labels.birthPlace}
+                  {field.required && <span className="text-destructive ml-1">*</span>}
+                </Label>
+                <Input
+                  value={(answers[keys.birthPlace] as string) || ""}
+                  onChange={(e) => updateAnswer(keys.birthPlace, e.target.value.slice(0, PASSPORT_BIRTH_PLACE_MAX_CHARS))}
+                  disabled={results !== null}
+                  required={field.required}
+                  maxLength={PASSPORT_BIRTH_PLACE_MAX_CHARS}
+                  placeholder={placeholders.birthPlace}
+                />
+              </div>
+            )}
+            </div>
+          );
+        })()}
 
         {field.type === "number" && (
           <Input
@@ -268,41 +584,88 @@ export function FormPreview({ form }: FormPreviewProps) {
         )}
 
         {field.type === "datetime" && (
-          <div className="space-y-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !answers[field.id] && "text-muted-foreground"
+          <div className="space-y-3">
+            {!field.hideDate && (
+              <div className="relative">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute left-0 top-0 h-10 w-10 hover:bg-transparent z-10"
+                      disabled={results !== null}
+                      type="button"
+                    >
+                      <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={answers[field.id] as Date | undefined}
+                      onSelect={(date) => {
+                        updateAnswer(field.id, date || null)
+                      }}
+                      locale={ru}
+                    />
+                  </PopoverContent>
+                </Popover>
+                <Input
+                  type="date"
+                  value={formatDateInput(
+                    answers[field.id] instanceof Date
+                      ? (answers[field.id] as Date)
+                      : null
                   )}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    if (val === "") {
+                      updateAnswer(field.id, null)
+                      return
+                    }
+                    if (isValidDateString(val)) {
+                      const [y, m, d] = val.split("-").map(Number)
+                      const parsed = new Date(y, m - 1, d)
+                      updateAnswer(field.id, parsed)
+                    }
+                  }}
                   disabled={results !== null}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {answers[field.id] ? (
-                    format(answers[field.id] as Date, "PPP", { locale: ru })
-                  ) : (
-                    <span>Выберите дату</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={answers[field.id] as Date | undefined}
-                  onSelect={(date) => updateAnswer(field.id, date || null)}
-                  locale={ru}
+                  className="pl-10 h-10 text-muted-foreground"
+                  placeholder={t("propert.selectDate")}
                 />
-              </PopoverContent>
-            </Popover>
-            <Input
-              type="time"
-              value={(answers[field.id + "_time"] as string) || ""}
-              onChange={(e) => updateAnswer(field.id + "_time", e.target.value)}
-              disabled={results !== null}
-              placeholder="Выберите время"
-            />
+              </div>
+            )}
+            {!field.hideTime && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal h-10",
+                      !answers[field.id + "_time"] && "text-muted-foreground"
+                    )}
+                    disabled={results !== null}
+                  >
+                    <Clock className="mr-2 h-4 w-4" />
+                    {answers[field.id + "_time"] ? (
+                      <span>{answers[field.id + "_time"] as string}</span>
+                    ) : (
+                      <span>{t("propert.selectTime")}</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-4" align="start">
+                  <Input
+                    type="time"
+                    value={(answers[field.id + "_time"] as string) || ""}
+                    onChange={(e) => updateAnswer(field.id + "_time", e.target.value)}
+                    disabled={results !== null}
+                    className="w-full"
+                    autoFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            )}
           </div>
         )}
 
@@ -316,7 +679,7 @@ export function FormPreview({ form }: FormPreviewProps) {
               <SelectValue placeholder={field.placeholder || "Выберите..."} />
             </SelectTrigger>
             <SelectContent>
-              {field.options?.map((option) => (
+              {field.options?.filter(Boolean).map((option) => (
                 <SelectItem key={option} value={option}>
                   {option}
                 </SelectItem>
@@ -335,7 +698,7 @@ export function FormPreview({ form }: FormPreviewProps) {
               <SelectValue placeholder="Выберите страну..." />
             </SelectTrigger>
             <SelectContent>
-              {field.options?.map((option) => (
+              {field.options?.filter(Boolean).map((option) => (
                 <SelectItem key={option} value={option}>
                   {option}
                 </SelectItem>
@@ -372,6 +735,7 @@ export function FormPreview({ form }: FormPreviewProps) {
                     id={`${field.id}-${option}`}
                     checked={isChecked}
                     disabled={results !== null}
+                    simplifiedAnimation
                     onCheckedChange={(checked) => {
                       if (checked) {
                         updateAnswer(field.id, [...currentValues, option]);
@@ -482,7 +846,8 @@ export function FormPreview({ form }: FormPreviewProps) {
         </div>
       )}
 
-      {form.fields.map(renderField)}
+      {form.fields.filter(isFieldVisible).map(renderField)}
+
 
       {hasQuizFields && results === null && (
         <div className="pt-4 border-t">
@@ -494,3 +859,6 @@ export function FormPreview({ form }: FormPreviewProps) {
     </div>
   );
 }
+
+export default FormPreview;
+

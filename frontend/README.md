@@ -71,13 +71,3 @@ drizzle.config.ts - конфигурация ORM
 
 ## Сборка
 script/build.ts - скрипт сборки
-
-
-# Локальная сборка с помощью Docker
-
-```bash
-docker build -t etu_forms_frontend .
-docker run -d --name etu_forms_frontend -p 3000:80 etu_forms_frontend
-```
-
-После этого конструктор доступен по ссылке http://localhost:3000/

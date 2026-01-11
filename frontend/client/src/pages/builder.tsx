@@ -1,9 +1,10 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import type { MouseEvent } from "react";
 import { nanoid } from "nanoid";
 import { FormField, FieldType, FormSchema } from "@/lib/form-types";
 import { FormCanvas, getIconForType } from "@/components/form-builder/FormCanvas";
 import { PropertiesPanel } from "@/components/form-builder/PropertiesPanel";
-import { FormPreview } from "@/components/form-builder/FormPreview";
+import FormPreview from "@/components/form-builder/FormPreview";
 import { ToolboxItem } from "@/components/form-builder/ToolboxItem";
 import { Button } from "@/components/ui/button";
 import { 
@@ -64,7 +65,50 @@ export default function Builder({ params }: { params: { id?: string } }) {
   const [forms, setForms] = useState<FormSchema[]>([]);
   const [activeFormId, setActiveFormId] = useState<string | null>(null);
   
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
+  const [history, setHistory] = useState<FormSchema[]>([]);
+  const [redoHistory, setRedoHistory] = useState<FormSchema[]>([]);
+  const isUndoingRef = useRef(false);
+  const isRedoingRef = useRef(false);
+  const lastHistoryKeyRef = useRef<string | null>(null);
+  const lastHistoryAtRef = useRef(0);
+  const MAX_HISTORY = 50;
+  const HISTORY_MERGE_WINDOW_MS = 2000;
+
+  const handleSelectField = (id: string, event: MouseEvent<HTMLDivElement>) => {
+    console.log('Selecting field:', id);
+    if (event.shiftKey && lastSelectedId) {
+      const currentIndex = fields.findIndex(f => f.id === id);
+      const lastIndex = fields.findIndex(f => f.id === lastSelectedId);
+      if (currentIndex !== -1 && lastIndex !== -1) {
+        const [start, end] = currentIndex < lastIndex ? [currentIndex, lastIndex] : [lastIndex, currentIndex];
+        const rangeIds = fields.slice(start, end + 1).map(f => f.id);
+        setSelectedIds(rangeIds);
+        setLastSelectedId(id);
+        return;
+      }
+    }
+
+    if (event.metaKey || event.ctrlKey) {
+      setSelectedIds(prev => {
+        if (prev.includes(id)) {
+          return prev.filter(existingId => existingId !== id);
+        }
+        return [...prev, id];
+      });
+      setLastSelectedId(id);
+      return;
+    }
+
+    setSelectedIds([id]);
+    setLastSelectedId(id);
+  };
+
+  const clearSelection = () => {
+    setSelectedIds([]);
+    setLastSelectedId(null);
+  };
   const [isToolboxOpen, setIsToolboxOpen] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { t, i18n } = useTranslation();
@@ -104,15 +148,56 @@ export default function Builder({ params }: { params: { id?: string } }) {
     }
   }, [activeForm]);
 
-  const setForm = (updatedForm: FormSchema) => {
+  useEffect(() => {
+    setHistory([]);
+    setRedoHistory([]);
+    isUndoingRef.current = false;
+    isRedoingRef.current = false;
+    lastHistoryKeyRef.current = null;
+    lastHistoryAtRef.current = 0;
+  }, [activeFormId]);
+
+  const cloneForm = (form: FormSchema): FormSchema => {
+    return JSON.parse(JSON.stringify(form)) as FormSchema;
+  };
+
+  const pushHistory = (form: FormSchema) => {
+    setHistory(prev => {
+      const next = [...prev, cloneForm(form)];
+      if (next.length > MAX_HISTORY) {
+        next.shift();
+      }
+      return next;
+    });
+  };
+
+  const setForm = (updatedForm: FormSchema, options?: { historyKey?: string | null }) => {
+    if (activeForm && updatedForm.id === activeForm.id && !isUndoingRef.current) {
+      const historyKey = options?.historyKey ?? null;
+      const now = Date.now();
+      const canMerge =
+        historyKey &&
+        historyKey === lastHistoryKeyRef.current &&
+        now - lastHistoryAtRef.current < HISTORY_MERGE_WINDOW_MS;
+
+      if (!canMerge) {
+        pushHistory(activeForm);
+      }
+
+      if (!isRedoingRef.current) {
+        setRedoHistory([]);
+      }
+      lastHistoryKeyRef.current = historyKey;
+      lastHistoryAtRef.current = now;
+    }
     const newForms = forms.map(f => f.id === updatedForm.id ? updatedForm : f);
     setForms(newForms);
     storage.saveForm(updatedForm);
   };
 
-  const setFields = (newFields: FormField[]) => {
+  const setFields = (newFields: FormField[], options?: { historyKey?: string | null }) => {
     if (activeForm) {
-      setForm({ ...activeForm, fields: newFields });
+      setForm({ ...activeForm, fields: newFields }, options);
     }
   };
 
@@ -153,7 +238,8 @@ export default function Builder({ params }: { params: { id?: string } }) {
     }
   };
 
-  const addField = (fieldType: FieldType, label: string) => {
+  const addField = (type: string, label: string) => {
+    const fieldType = type as FieldType;
     const defaultProps: Partial<FormField> = {};
     
     if (["checkbox", "radio", "select", "ranking"].includes(fieldType)) {
@@ -170,13 +256,13 @@ export default function Builder({ params }: { params: { id?: string } }) {
       defaultProps.acceptedFileTypes = [];
     }
     if (fieldType === "text") {
-      defaultProps.multiline = false;
+      defaultProps.multiline = true;
     }
 
     const newField: FormField = {
       id: nanoid(),
       type: fieldType,
-      label: fieldType === "header" ? "Section Header" : `New ${label}`,
+      label: fieldType === "header" ? "Section Header" : `${label}`,
       placeholder: "",
       required: false,
       ...defaultProps
@@ -184,16 +270,126 @@ export default function Builder({ params }: { params: { id?: string } }) {
 
     const newFields = [...fields, newField];
     setFields(newFields);
-    setSelectedId(newField.id);
+    setSelectedIds([newField.id]);
+    setLastSelectedId(newField.id);
   };
 
   const updateField = (id: string, updates: Partial<FormField>) => {
-    setFields(fields.map(f => f.id === id ? { ...f, ...updates } : f));
+    const activeElement = document.activeElement;
+    const isTextInput =
+      activeElement instanceof HTMLInputElement ||
+      activeElement instanceof HTMLTextAreaElement;
+    const updateKeys = Object.keys(updates);
+    const historyKey = isTextInput && updateKeys.length === 1
+      ? `input:${id}:${updateKeys[0]}`
+      : null;
+    setFields(fields.map(f => f.id === id ? { ...f, ...updates } : f), { historyKey });
   };
 
   const deleteField = (id: string) => {
     setFields(fields.filter(f => f.id !== id));
-    if (selectedId === id) setSelectedId(null);
+    setSelectedIds(prev => prev.filter(existingId => existingId !== id));
+    if (lastSelectedId === id) setLastSelectedId(null);
+  };
+
+  const deleteSelected = () => {
+    if (selectedIds.length === 0) return;
+    const selectedSet = new Set(selectedIds);
+    setFields(fields.filter(f => !selectedSet.has(f.id)));
+    clearSelection();
+  };
+
+  const undoLast = useCallback(() => {
+    if (!activeForm || history.length === 0) return;
+    const previousForm = history[history.length - 1];
+    const currentForm = activeForm;
+    setHistory(prev => prev.slice(0, -1));
+    setRedoHistory(prev => [...prev, cloneForm(currentForm)]);
+    isUndoingRef.current = true;
+    setForm(previousForm);
+    isUndoingRef.current = false;
+    lastHistoryKeyRef.current = null;
+    lastHistoryAtRef.current = 0;
+
+    const previousIds = new Set(previousForm.fields.map(field => field.id));
+    setSelectedIds(prev => prev.filter(id => previousIds.has(id)));
+    setLastSelectedId(prev => (prev && previousIds.has(prev)) ? prev : null);
+  }, [activeForm, history]);
+
+  const redoLast = useCallback(() => {
+    if (!activeForm || redoHistory.length === 0) return;
+    const nextForm = redoHistory[redoHistory.length - 1];
+    const currentForm = activeForm;
+    setRedoHistory(prev => prev.slice(0, -1));
+    setHistory(prev => [...prev, cloneForm(currentForm)]);
+    isRedoingRef.current = true;
+    setForm(nextForm);
+    isRedoingRef.current = false;
+    lastHistoryKeyRef.current = null;
+    lastHistoryAtRef.current = 0;
+
+    const nextIds = new Set(nextForm.fields.map(field => field.id));
+    setSelectedIds(prev => prev.filter(id => nextIds.has(id)));
+    setLastSelectedId(prev => (prev && nextIds.has(prev)) ? prev : null);
+  }, [activeForm, redoHistory]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const isUndo =
+        (event.ctrlKey || event.metaKey) &&
+        !event.shiftKey &&
+        (event.code === "KeyZ" || event.key.toLowerCase() === "z");
+      const isRedo =
+        (event.ctrlKey || event.metaKey) &&
+        event.shiftKey &&
+        (event.code === "KeyZ" || event.key.toLowerCase() === "z");
+      if (!isUndo && !isRedo) return;
+
+      if (isUndo && history.length === 0) {
+        return;
+      }
+      if (isRedo && redoHistory.length === 0) {
+        return;
+      }
+
+      event.preventDefault();
+      if (isUndo) {
+        undoLast();
+      } else {
+        redoLast();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [history.length, redoHistory.length, undoLast, redoLast]);
+
+  const moveSelected = (direction: "up" | "down") => {
+    if (selectedIds.length === 0) return;
+    const selectedSet = new Set(selectedIds);
+    const newFields = [...fields];
+
+    if (direction === "up") {
+      for (let i = 1; i < newFields.length; i += 1) {
+        const current = newFields[i];
+        const previous = newFields[i - 1];
+        if (selectedSet.has(current.id) && !selectedSet.has(previous.id)) {
+          newFields[i - 1] = current;
+          newFields[i] = previous;
+        }
+      }
+    } else {
+      for (let i = newFields.length - 2; i >= 0; i -= 1) {
+        const current = newFields[i];
+        const next = newFields[i + 1];
+        if (selectedSet.has(current.id) && !selectedSet.has(next.id)) {
+          newFields[i + 1] = current;
+          newFields[i] = next;
+        }
+      }
+    }
+
+    setFields(newFields);
   };
 
   const saveFormJson = () => {
@@ -237,7 +433,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
     event.target.value = "";
   };
 
-  const selectedField = fields.find(f => f.id === selectedId) || null;
+  const selectedField = selectedIds.length === 1 ? fields.find(f => f.id === selectedIds[0]) || null : null;
 
   const groupedToolbox = TOOLBOX_ITEMS.reduce((acc, item) => {
     if (!acc[item.category]) acc[item.category] = [];
@@ -246,6 +442,8 @@ export default function Builder({ params }: { params: { id?: string } }) {
   }, {} as Record<string, typeof TOOLBOX_ITEMS>);
 
   if (!activeForm) return <div>Loading...</div>;
+
+  console.log('Rendering Builder, activeForm:', activeForm, 'selectedIds:', selectedIds);
 
   return (
     <div className="h-screen w-full flex flex-col bg-background overflow-hidden">
@@ -370,10 +568,32 @@ export default function Builder({ params }: { params: { id?: string } }) {
           </div>
         </div>
 
-        <FormCanvas form={activeForm} setForm={setForm} selectedId={selectedId} setSelectedId={setSelectedId} />
+        <FormCanvas
+          key={activeForm.id}
+          form={activeForm}
+          setForm={setForm}
+          selectedIds={selectedIds}
+          onSelectField={handleSelectField}
+          clearSelection={clearSelection}
+          deleteField={deleteField}
+          onUndo={undoLast}
+          onRedo={redoLast}
+          canUndo={history.length > 0}
+          canRedo={redoHistory.length > 0}
+          fields={fields}
+        />
 
         <div className="w-80 border-l border-border bg-white flex flex-col shrink-0 z-10">
-           <PropertiesPanel selectedField={selectedField} updateField={updateField} deleteField={deleteField} />
+           <PropertiesPanel
+             key={selectedField?.id || selectedIds.join("-") || 'none'}
+             selectedField={selectedField}
+             selectedIds={selectedIds}
+             updateField={updateField}
+             deleteField={deleteField}
+             deleteSelected={deleteSelected}
+             moveSelected={moveSelected}
+             fields={fields}
+           />
         </div>
       </div>
     </div>
