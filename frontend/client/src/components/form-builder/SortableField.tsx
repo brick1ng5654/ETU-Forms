@@ -17,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { Languages } from "lucide-react";
 
 const FULLNAME_MAX_CHARS = 50;
+const DEFAULT_PHONE_PLACEHOLDER = "+7 (000) 000-00-00";
 const PASSPORT_SERIES_NUMBER_MAX_CHARS = 11;
 const PASSPORT_ISSUED_BY_MAX_CHARS = 120;
 const PASSPORT_DEPARTMENT_CODE_MAX_CHARS = 7;
@@ -67,7 +68,6 @@ export function SortableField({ field, isSelected, onSelect, onDelete, fields }:
         );
       case "email":
       case "number":
-      case "phone":
       case "inn":
       case "snils":
       case "ogrn":
@@ -79,6 +79,15 @@ export function SortableField({ field, isSelected, onSelect, onDelete, fields }:
             disabled 
             className="bg-white/50 pointer-events-none"
             type={field.type === "number" ? "number" : "text"}
+          />
+        );
+      case "phone":
+        return (
+          <Input
+            placeholder={field.placeholder || DEFAULT_PHONE_PLACEHOLDER}
+            disabled
+            className="bg-white/50 pointer-events-none"
+            type="tel"
           />
         );
       case "fullname": {
