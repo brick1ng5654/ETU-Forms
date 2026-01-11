@@ -61,6 +61,13 @@ interface SortableItemProps {
   disabled?: boolean;
 }
 
+interface LengthIndicatorProps {
+  len: number;
+  limit: number;
+  isError: boolean;
+  isComplete: boolean;
+}
+
 const FULLNAME_MAX_CHARS = 50;
 const PASSPORT_SERIES_NUMBER_MAX_CHARS = 11;
 const PASSPORT_ISSUED_BY_MAX_CHARS = 60;
@@ -68,6 +75,50 @@ const PASSPORT_DEPARTMENT_CODE_MAX_CHARS = 7;
 const PASSPORT_BIRTH_PLACE_MAX_CHARS = 60;
 const PASSPORT_SERIES_REQUIRED_DIGITS = 10;
 const PASSPORT_DEPARTMENT_REQUIRED_DIGITS = 6;
+
+function LengthIndicator({ len, limit, isError, isComplete }: LengthIndicatorProps) {
+  const progress = limit ? Math.min(len / limit, 1) : 0;
+  const progressColor = isError ? "#ef4444" : isComplete ? "#22c55e" : "#94a3b8";
+  const trackColor = "#e2e8f0";
+  const ringRadius = 5;
+  const ringCircumference = 2 * Math.PI * ringRadius;
+
+  return (
+    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+      <div
+        className={cn(
+          "text-xs font-medium",
+          isError ? "text-destructive" : isComplete ? "text-green-600" : "text-muted-foreground"
+        )}
+      >
+        {`${len}/${limit}`}
+      </div>
+      <svg className="h-3 w-3" viewBox="0 0 12 12" aria-hidden="true">
+        <circle
+          cx="6"
+          cy="6"
+          r={ringRadius}
+          fill="none"
+          stroke={trackColor}
+          strokeWidth="2"
+        />
+        <circle
+          cx="6"
+          cy="6"
+          r={ringRadius}
+          fill="none"
+          stroke={progressColor}
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeDasharray={ringCircumference}
+          strokeDashoffset={ringCircumference * (1 - progress)}
+          style={{ transition: "stroke-dashoffset 240ms ease-out" }}
+          transform="rotate(-90 6 6)"
+        />
+      </svg>
+    </div>
+  );
+}
 
 function SortableItem({ id, disabled }: SortableItemProps) {
   const {
@@ -461,13 +512,8 @@ export function FormPreview({ form }: FormPreviewProps) {
                   const value = (answers[keys.seriesNumber] as string) || "";
                   const len = value.replace(/\D/g, "").length;
                   const limit = PASSPORT_SERIES_REQUIRED_DIGITS;
-                  const progress = limit ? Math.min(len / limit, 1) : 0;
                   const isComplete = len > 0 && len === limit;
                   const isError = passportErrors[keys.seriesNumber];
-                  const progressColor = isError ? "#ef4444" : isComplete ? "#22c55e" : "#94a3b8";
-                  const trackColor = "#e2e8f0";
-                  const ringRadius = 5;
-                  const ringCircumference = 2 * Math.PI * ringRadius;
 
                   return (
                     <div className="relative">
@@ -493,43 +539,12 @@ export function FormPreview({ form }: FormPreviewProps) {
                           isError ? "border-destructive focus-visible:ring-destructive/20" : ""
                         )}
                       />
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                        <div
-                          className={cn(
-                            "text-xs font-medium",
-                            isError ? "text-destructive" : isComplete ? "text-green-600" : "text-muted-foreground"
-                          )}
-                        >
-                          {`${len}/${limit}`}
-                        </div>
-                        <svg
-                          className="h-3 w-3"
-                          viewBox="0 0 12 12"
-                          aria-hidden="true"
-                        >
-                          <circle
-                            cx="6"
-                            cy="6"
-                            r={ringRadius}
-                            fill="none"
-                            stroke={trackColor}
-                            strokeWidth="2"
-                          />
-                          <circle
-                            cx="6"
-                            cy="6"
-                            r={ringRadius}
-                            fill="none"
-                            stroke={progressColor}
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeDasharray={ringCircumference}
-                            strokeDashoffset={ringCircumference * (1 - progress)}
-                            style={{ transition: "stroke-dashoffset 240ms ease-out" }}
-                            transform="rotate(-90 6 6)"
-                          />
-                        </svg>
-                      </div>
+                      <LengthIndicator
+                        len={len}
+                        limit={limit}
+                        isError={isError}
+                        isComplete={isComplete}
+                      />
                     </div>
                   );
                 })()}
@@ -613,13 +628,8 @@ export function FormPreview({ form }: FormPreviewProps) {
                   const value = (answers[keys.departmentCode] as string) || "";
                   const len = value.replace(/\D/g, "").length;
                   const limit = PASSPORT_DEPARTMENT_REQUIRED_DIGITS;
-                  const progress = limit ? Math.min(len / limit, 1) : 0;
                   const isComplete = len > 0 && len === limit;
                   const isError = passportErrors[keys.departmentCode];
-                  const progressColor = isError ? "#ef4444" : isComplete ? "#22c55e" : "#94a3b8";
-                  const trackColor = "#e2e8f0";
-                  const ringRadius = 5;
-                  const ringCircumference = 2 * Math.PI * ringRadius;
 
                   return (
                     <div className="relative">
@@ -645,43 +655,12 @@ export function FormPreview({ form }: FormPreviewProps) {
                           isError ? "border-destructive focus-visible:ring-destructive/20" : ""
                         )}
                       />
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                        <div
-                          className={cn(
-                            "text-xs font-medium",
-                            isError ? "text-destructive" : isComplete ? "text-green-600" : "text-muted-foreground"
-                          )}
-                        >
-                          {`${len}/${limit}`}
-                        </div>
-                        <svg
-                          className="h-3 w-3"
-                          viewBox="0 0 12 12"
-                          aria-hidden="true"
-                        >
-                          <circle
-                            cx="6"
-                            cy="6"
-                            r={ringRadius}
-                            fill="none"
-                            stroke={trackColor}
-                            strokeWidth="2"
-                          />
-                          <circle
-                            cx="6"
-                            cy="6"
-                            r={ringRadius}
-                            fill="none"
-                            stroke={progressColor}
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeDasharray={ringCircumference}
-                            strokeDashoffset={ringCircumference * (1 - progress)}
-                            style={{ transition: "stroke-dashoffset 240ms ease-out" }}
-                            transform="rotate(-90 6 6)"
-                          />
-                        </svg>
-                      </div>
+                      <LengthIndicator
+                        len={len}
+                        limit={limit}
+                        isError={isError}
+                        isComplete={isComplete}
+                      />
                     </div>
                   );
                 })()}
