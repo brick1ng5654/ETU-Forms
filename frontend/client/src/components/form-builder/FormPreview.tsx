@@ -434,6 +434,13 @@ export function FormPreview({ form }: FormPreviewProps) {
             departmentCode: "123-456",
             birthPlace: isRu ? "г. Санкт-Петербург" : "St. Petersburg, Russia",
           };
+          const hidden = {
+            seriesNumber: field.hidePassportSeriesNumber,
+            issuedBy: field.hidePassportIssuedBy,
+            issueDate: field.hidePassportIssueDate,
+            departmentCode: field.hidePassportDepartmentCode,
+            birthPlace: field.hidePassportBirthPlace,
+          };
           const issueDateAnswer = answers[keys.issueDate];
           const issueDateValue = issueDateAnswer instanceof Date
             ? issueDateAnswer
@@ -441,6 +448,7 @@ export function FormPreview({ form }: FormPreviewProps) {
 
           return (
             <div className="grid gap-3">
+            {!hidden.seriesNumber && (
               <div className="space-y-1">
                 <Label className="text-sm text-muted-foreground">
                   {labels.seriesNumber}
@@ -457,6 +465,8 @@ export function FormPreview({ form }: FormPreviewProps) {
                   placeholder={placeholders.seriesNumber}
                 />
               </div>
+            )}
+            {!hidden.issuedBy && (
               <div className="space-y-1">
                 <Label className="text-sm text-muted-foreground">
                   {labels.issuedBy}
@@ -471,6 +481,8 @@ export function FormPreview({ form }: FormPreviewProps) {
                   placeholder={placeholders.issuedBy}
                 />
               </div>
+            )}
+            {!hidden.issueDate && (
               <div className="space-y-1">
                 <Label className="text-sm text-muted-foreground">
                   {labels.issueDate}
@@ -521,6 +533,8 @@ export function FormPreview({ form }: FormPreviewProps) {
                   />
                 </div>
               </div>
+            )}
+            {!hidden.departmentCode && (
               <div className="space-y-1">
                 <Label className="text-sm text-muted-foreground">
                   {labels.departmentCode}
@@ -537,6 +551,8 @@ export function FormPreview({ form }: FormPreviewProps) {
                   placeholder={placeholders.departmentCode}
                 />
               </div>
+            )}
+            {!hidden.birthPlace && (
               <div className="space-y-1">
                 <Label className="text-sm text-muted-foreground">
                   {labels.birthPlace}
@@ -551,6 +567,7 @@ export function FormPreview({ form }: FormPreviewProps) {
                   placeholder={placeholders.birthPlace}
                 />
               </div>
+            )}
             </div>
           );
         })()}

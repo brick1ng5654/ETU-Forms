@@ -121,39 +121,56 @@ export function SortableField({ field, isSelected, onSelect, onDelete, fields }:
           departmentCode: isRu ? "\u041a\u043e\u0434 \u043f\u043e\u0434\u0440\u0430\u0437\u0434\u0435\u043b\u0435\u043d\u0438\u044f" : "Department code",
           birthPlace: isRu ? "\u041c\u0435\u0441\u0442\u043e \u0440\u043e\u0436\u0434\u0435\u043d\u0438\u044f" : "Place of birth",
         };
+        const hidden = {
+          seriesNumber: field.hidePassportSeriesNumber,
+          issuedBy: field.hidePassportIssuedBy,
+          issueDate: field.hidePassportIssueDate,
+          departmentCode: field.hidePassportDepartmentCode,
+          birthPlace: field.hidePassportBirthPlace,
+        };
 
         return (
           <div className="grid gap-2">
-            <Input
-              placeholder={placeholders.seriesNumber}
-              disabled
-              maxLength={PASSPORT_SERIES_NUMBER_MAX_CHARS}
-              className="bg-white/50 pointer-events-none"
-            />
-            <Input
-              placeholder={placeholders.issuedBy}
-              disabled
-              maxLength={PASSPORT_ISSUED_BY_MAX_CHARS}
-              className="bg-white/50 pointer-events-none"
-            />
-            <Input
-              type="date"
-              placeholder={placeholders.issueDate}
-              disabled
-              className="bg-white/50 pointer-events-none"
-            />
-            <Input
-              placeholder={placeholders.departmentCode}
-              disabled
-              maxLength={PASSPORT_DEPARTMENT_CODE_MAX_CHARS}
-              className="bg-white/50 pointer-events-none"
-            />
-            <Input
-              placeholder={placeholders.birthPlace}
-              disabled
-              maxLength={PASSPORT_BIRTH_PLACE_MAX_CHARS}
-              className="bg-white/50 pointer-events-none"
-            />
+            {!hidden.seriesNumber && (
+              <Input
+                placeholder={placeholders.seriesNumber}
+                disabled
+                maxLength={PASSPORT_SERIES_NUMBER_MAX_CHARS}
+                className="bg-white/50 pointer-events-none"
+              />
+            )}
+            {!hidden.issuedBy && (
+              <Input
+                placeholder={placeholders.issuedBy}
+                disabled
+                maxLength={PASSPORT_ISSUED_BY_MAX_CHARS}
+                className="bg-white/50 pointer-events-none"
+              />
+            )}
+            {!hidden.issueDate && (
+              <Input
+                type="date"
+                placeholder={placeholders.issueDate}
+                disabled
+                className="bg-white/50 pointer-events-none text-muted-foreground"
+              />
+            )}
+            {!hidden.departmentCode && (
+              <Input
+                placeholder={placeholders.departmentCode}
+                disabled
+                maxLength={PASSPORT_DEPARTMENT_CODE_MAX_CHARS}
+                className="bg-white/50 pointer-events-none"
+              />
+            )}
+            {!hidden.birthPlace && (
+              <Input
+                placeholder={placeholders.birthPlace}
+                disabled
+                maxLength={PASSPORT_BIRTH_PLACE_MAX_CHARS}
+                className="bg-white/50 pointer-events-none"
+              />
+            )}
           </div>
         );
       }
