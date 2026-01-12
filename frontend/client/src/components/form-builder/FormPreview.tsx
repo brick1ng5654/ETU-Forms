@@ -71,6 +71,8 @@ interface LengthIndicatorProps {
 const FULLNAME_MAX_CHARS = 50;
 const DEFAULT_PHONE_PLACEHOLDER = "+7 (000) 000-00-00";
 const PHONE_MAX_DIGITS = 15;
+const SNILS_REQUIRED_DIGITS = 11;
+const SNILS_MAX_CHARS = 14;
 const PHONE_REQUIRED_DIGITS = 11;
 
 const formatRuPhoneDigits = (digits: string) => {
@@ -113,6 +115,26 @@ const formatInternationalPhoneDigits = (digits: string, hasPlus: boolean) => {
   if (!digits) return "";
   const trimmed = digits.slice(0, PHONE_MAX_DIGITS);
   return `${hasPlus ? "+" : ""}${trimmed}`;
+};
+
+const formatSnils = (value: string) => {
+  const digits = value.replace(/\D/g, "").slice(0, SNILS_REQUIRED_DIGITS);
+  const part1 = digits.slice(0, 3);
+  const part2 = digits.slice(3, 6);
+  const part3 = digits.slice(6, 9);
+  const part4 = digits.slice(9, 11);
+
+  let output = part1;
+  if (part2) {
+    output += `-${part2}`;
+  }
+  if (part3) {
+    output += `-${part3}`;
+  }
+  if (part4) {
+    output += ` ${part4}`;
+  }
+  return output;
 };
 
 function LengthIndicator({ len, limit, isError, isComplete }: LengthIndicatorProps) {
@@ -287,7 +309,7 @@ export function FormPreview({ form }: FormPreviewProps) {
   const [results, setResults] = useState<Results | null>(null);
   const [totalScore, setTotalScore] = useState<number>(0);
   const [maxScore, setMaxScore] = useState<number>(0);
-  const [passportErrors, setPassportErrors, phoneErrors, setPhoneErrors] = useState<Record<string, boolean>>({});
+  const [passportErrors, setPassportErrors, phoneErrors, setPhoneErrors, snilsErrors, setSnilsErrors, innErrors, setInnErrors] = useState<Record<string, boolean>>({});
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -608,7 +630,54 @@ export function FormPreview({ form }: FormPreviewProps) {
           );
         })()}
 
-        {["email", "inn", "snils", "ogrn", "bik", "account"].includes(field.type) && (
+        {field.type === "snils" && (() => {
+          const value = (answers[field.id] as string) || "";
+          const len = value.replace(/\D/g, "").length;
+          const limit = SNILS_REQUIRED_DIGITS;
+          const isComplete = len > 0 && len === limit;
+          const isError = snilsErrors[field.id];
+
+          return (
+            <div className="space-y-1">
+              <Label className="text-sm text-muted-foreground">
+                {t("placeholders.snils")}
+                {field.required && <span className="text-destructive ml-1">*</span>}
+              </Label>
+              <div className="relative">
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder={field.placeholder || "000-000-000 00"}
+                  value={value}
+                  onChange={(e) => updateAnswer(field.id, formatSnils(e.target.value))}
+                  onBlur={(e) => {
+                    const nextLen = e.target.value.replace(/\D/g, "").length;
+                    const isInvalid = nextLen > 0 && nextLen !== limit;
+                    setSnilsErrors((prev) => ({ ...prev, [field.id]: isInvalid }));
+                  }}
+                  onFocus={() => {
+                    setSnilsErrors((prev) => ({ ...prev, [field.id]: false }));
+                  }}
+                  disabled={results !== null}
+                  maxLength={SNILS_MAX_CHARS}
+                  pattern="\\d{3}-\\d{3}-\\d{3} \\d{2}"
+                  className={cn(
+                    "pr-20",
+                    isError ? "border-destructive focus-visible:ring-destructive/20" : ""
+                  )}
+                />
+                <LengthIndicator
+                  len={len}
+                  limit={limit}
+                  isError={isError}
+                  isComplete={isComplete}
+                />
+              </div>
+            </div>
+          );
+        })()}
+
+        {["email", "inn", "ogrn", "bik", "account"].includes(field.type) && (
           <Input
             placeholder={field.placeholder}
             value={(answers[field.id] as string) || ""}
