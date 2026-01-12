@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS App_User(
 
 COMMENT ON TABLE App_User IS 'Таблица пользователей конструктора форм';
 COMMENT ON COLUMN App_User.user_id IS 'Уникальный идентификатор пользователя';
-COMMENT ON COLUMN App_User.etu_id IS 'Внешний идентификатор пользователя (например, из системы вуза)';
+COMMENT ON COLUMN App_User.etu_id IS 'Внешний идентификатор пользователя (идентификатор студента в системе ETU ID)';
 COMMENT ON COLUMN App_User.name IS 'Имя пользователя';
 COMMENT ON COLUMN App_User.phone IS 'Номер телефона';
 COMMENT ON COLUMN App_User.email IS 'Электронная почта (уникальная)';
@@ -48,10 +48,8 @@ CREATE TABLE IF NOT EXISTS Form (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     access_mode form_access_mode DEFAULT 'private',
-    
     version INT DEFAULT 1,
-    
-    UNIQUE (form_id, version),
+    prev_form_id INT NULL,
 
     CONSTRAINT fk_user
         FOREIGN KEY (user_id) 
@@ -83,7 +81,6 @@ CREATE TABLE IF NOT EXISTS Response (
     response_id SERIAL PRIMARY KEY,
     user_id INT NOT NULL,
     form_id INT NOT NULL,
-    form_version INT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     completed_at TIMESTAMP NULL,
     response_JSON JSONB NOT NULL DEFAULT '{}',
@@ -94,8 +91,8 @@ CREATE TABLE IF NOT EXISTS Response (
         ON DELETE CASCADE,
         
     CONSTRAINT fk_response_form
-        FOREIGN KEY (form_id, form_version) 
-        REFERENCES Form(form_id, version) 
+        FOREIGN KEY form_id 
+        REFERENCES Form(form_id) 
         ON DELETE CASCADE
 );
 
