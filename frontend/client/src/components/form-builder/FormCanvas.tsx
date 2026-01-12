@@ -39,6 +39,7 @@ interface FormCanvasProps {
   onSelectField: (id: string, event: MouseEvent<HTMLDivElement>) => void;
   clearSelection: () => void;
   deleteField: (id: string) => void;
+  updateField: (id: string, updates: Partial<FormField>) => void;
   onUndo: () => void;
   onRedo: () => void;
   canUndo: boolean;
@@ -101,6 +102,7 @@ export function FormCanvas({
   onSelectField,
   clearSelection,
   deleteField,
+  updateField,
   onUndo,
   onRedo,
   canUndo,
@@ -288,12 +290,13 @@ export function FormCanvas({
 
                 // Отображение всех полей формы как сортируемых элементов
                 form.fields.map((field) => (
-                  <SortableField 
-                    key={field.id} 
-                    field={field} 
+                  <SortableField
+                    key={field.id}
+                    field={field}
                     isSelected={selectedIds.includes(field.id)}
                     onSelect={onSelectField}
                     onDelete={deleteField}
+                    updateField={updateField}
                     fields={fields}
                   />
                 ))

@@ -258,6 +258,9 @@ export default function Builder({ params }: { params: { id?: string } }) {
     if (fieldType === "text") {
       defaultProps.multiline = true;
     }
+    if (fieldType === "phone") {
+      defaultProps.placeholder = "+7 (000) 000-00-00";
+    }
 
     const newField: FormField = {
       id: nanoid(),
@@ -576,6 +579,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
           onSelectField={handleSelectField}
           clearSelection={clearSelection}
           deleteField={deleteField}
+          updateField={updateField}
           onUndo={undoLast}
           onRedo={redoLast}
           canUndo={history.length > 0}
