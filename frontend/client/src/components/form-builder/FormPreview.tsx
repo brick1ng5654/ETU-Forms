@@ -73,6 +73,7 @@ const DEFAULT_PHONE_PLACEHOLDER = "+7 (000) 000-00-00";
 const PHONE_MAX_DIGITS = 15;
 const SNILS_REQUIRED_DIGITS = 11;
 const SNILS_MAX_CHARS = 14;
+const PHONE_REQUIRED_DIGITS = 11;
 
 const formatRuPhoneDigits = (digits: string) => {
   if (!digits) return "";
@@ -193,11 +194,14 @@ const formatPhoneInput = (value: string, previousValue: string) => {
     if (!digits) return "";
   }
 
-  const isRuCandidate = digits.startsWith("7") || digits.startsWith("8") || (hasPlus && digits.startsWith("7"));
-  if (isRuCandidate) {
-    return formatRuPhoneDigits(digits);
+  const startsWithAllowed =
+    digits.startsWith("7") ||
+    digits.startsWith("8") ||
+    (hasPlus && digits.startsWith("7"));
+  if (!startsWithAllowed) {
+    return previousValue;
   }
-  return formatInternationalPhoneDigits(digits, hasPlus);
+  return formatRuPhoneDigits(digits);
 };
 const PASSPORT_SERIES_NUMBER_MAX_CHARS = 11;
 const PASSPORT_ISSUED_BY_MAX_CHARS = 60;
@@ -259,7 +263,7 @@ export function FormPreview({ form }: FormPreviewProps) {
   const [results, setResults] = useState<Results | null>(null);
   const [totalScore, setTotalScore] = useState<number>(0);
   const [maxScore, setMaxScore] = useState<number>(0);
-  const [snilsErrors, setSnilsErrors] = useState<Record<string, boolean>>({});
+  const [passportErrors, setPassportErrors, phoneErrors, setPhoneErrors, snilsErrors, setSnilsErrors] = useState<Record<string, boolean>>({});
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -540,17 +544,45 @@ export function FormPreview({ form }: FormPreviewProps) {
           );
         })()}
 
-        {field.type === "phone" && (
-          <Input
-            type="tel"
-            inputMode="tel"
-            autoComplete="tel"
-            placeholder={field.placeholder || DEFAULT_PHONE_PLACEHOLDER}
-            value={(answers[field.id] as string) || ""}
-            onChange={(e) => updateAnswer(field.id, formatPhoneInput(e.target.value, (answers[field.id] as string) || ""))}
-            disabled={results !== null}
-          />
-        )}
+        {field.type === "phone" && (() => {
+          const value = (answers[field.id] as string) || "";
+          const len = value.replace(/\D/g, "").length;
+          const limit = PHONE_REQUIRED_DIGITS;
+          const isComplete = len > 0 && len === limit;
+          const isError = phoneErrors[field.id];
+
+          return (
+            <div className="relative">
+              <Input
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                placeholder={field.placeholder || DEFAULT_PHONE_PLACEHOLDER}
+                value={value}
+                onChange={(e) => updateAnswer(field.id, formatPhoneInput(e.target.value, value))}
+                onBlur={(e) => {
+                  const nextLen = e.target.value.replace(/\D/g, "").length;
+                  const isInvalid = nextLen > 0 && nextLen !== limit;
+                  setPhoneErrors((prev) => ({ ...prev, [field.id]: isInvalid }));
+                }}
+                onFocus={() => {
+                  setPhoneErrors((prev) => ({ ...prev, [field.id]: false }));
+                }}
+                disabled={results !== null}
+                className={cn(
+                  "pr-20",
+                  isError ? "border-destructive focus-visible:ring-destructive/20" : ""
+                )}
+              />
+              <LengthIndicator
+                len={len}
+                limit={limit}
+                isError={isError}
+                isComplete={isComplete}
+              />
+            </div>
+          );
+        })()}
 
         {field.type === "snils" && (() => {
           const value = (answers[field.id] as string) || "";
