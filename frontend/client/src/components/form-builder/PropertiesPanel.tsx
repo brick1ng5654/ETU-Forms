@@ -5,6 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { X, Plus, Trash2, Check } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTranslation } from 'react-i18next';
@@ -642,10 +643,24 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
           </div>
         )}
 
-        {isInn && (
+                {isInn && (
           <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
             <div className="space-y-0.5">
-              <Label>Юридическое лицо</Label>
+              <div className="flex items-center gap-2">
+                <Label>Юридическое лицо</Label>
+                <Tooltip delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label="\u041F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0430 \u043F\u043E \u0418\u041D\u041D"
+                      className="h-5 w-5 rounded-full border border-muted-foreground/40 text-muted-foreground text-[11px] leading-none flex items-center justify-center hover:bg-muted"
+                    >
+                      ?
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">{"\u042D\u0442\u043E \u0441\u0432\u043E\u0439\u0441\u0442\u0432\u043E \u043F\u0440\u0435\u0434\u043D\u0430\u0437\u043D\u0430\u0447\u0435\u043D\u043E \u0434\u043B\u044F \u0432\u0432\u043E\u0434\u0430 \u0418\u041D\u041D \u044E\u0440\u0438\u0434\u0438\u0447\u0435\u0441\u043A\u0438\u0445 \u043B\u0438\u0446. \u0414\u043B\u0438\u043D\u0430 \u0418\u041D\u041D \u0434\u043B\u044F \u044E\u0440. \u043B\u0438\u0446\u0430 - 10 \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432, \u0434\u043B\u044F \u0444\u0438\u0437. \u043B\u0438\u0446\u0430 - 12."}</TooltipContent>
+                </Tooltip>
+              </div>
             </div>
             <Switch
               checked={selectedField.innLegalEntity || false}
@@ -860,3 +875,4 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
     </div>
   );
 }
+
