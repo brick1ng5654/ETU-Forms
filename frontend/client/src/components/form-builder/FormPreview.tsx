@@ -650,7 +650,6 @@ export function FormPreview({ form }: FormPreviewProps) {
           </div>
         )}
 
-        {["email", "ogrn", "bik", "account"].includes(field.type) && (
         {field.type === "snils" && (() => {
           const value = (answers[field.id] as string) || "";
           const len = value.replace(/\D/g, "").length;
