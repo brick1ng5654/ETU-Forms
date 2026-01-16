@@ -137,7 +137,6 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
         );
       case "email":
       case "number":
-      case "ogrn":
       case "bik":
       case "account":
         return editingElement === "placeholder" ? (
@@ -162,6 +161,20 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
             }}
           />
         );
+      case "ogrn": {
+        const ogrnMaxLength = field.ogrnIp ? 15 : 13;
+        const placeholderKey = field.ogrnIp ? "placeholders.ogrnIp" : "placeholders.ogrn";
+        return (
+          <Input
+            placeholder={t(placeholderKey)}
+            disabled
+            className="bg-white/50 pointer-events-none"
+            type="text"
+            inputMode="numeric"
+            maxLength={ogrnMaxLength}
+          />
+        );
+      }
       case "inn": {
         const innMaxLength = field.innLegalEntity ? 10 : 12;
         return (

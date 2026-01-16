@@ -133,6 +133,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
   const isText = selectedField.type === "text";
   const isPassport = selectedField.type === "passport";
   const isInn = selectedField.type === "inn";
+  const isOgrn = selectedField.type === "ogrn";
   const passportVisibleCount = isPassport
     ? [
         !selectedField.hidePassportSeriesNumber,
@@ -186,7 +187,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
           />
         </div>
 
-        {!isHeader && !["checkbox", "radio", "rating", "file", "datetime", "fullname", "phone", "passport", "inn"].includes(selectedField.type) && (
+        {!isHeader && !["checkbox", "radio", "rating", "file", "datetime", "fullname", "phone", "passport", "inn", "ogrn"].includes(selectedField.type) && (
           <div className="space-y-2">
             <Label>{t("propert.placeholder")}</Label>
             <Textarea
@@ -643,7 +644,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
           </div>
         )}
 
-                {isInn && (
+        {isInn && (
           <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
             <div className="space-y-0.5">
               <div className="flex items-center gap-2">
@@ -665,6 +666,34 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
             <Switch
               checked={selectedField.innLegalEntity || false}
               onCheckedChange={(checked) => updateField(selectedField.id, { innLegalEntity: checked })}
+            />
+          </div>
+        )}
+
+        {isOgrn && (
+          <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <Label>ОГРНИП</Label>
+                <Tooltip delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label="Подсказка по ОГРН"
+                      className="h-5 w-5 rounded-full border border-muted-foreground/40 text-muted-foreground text-[11px] leading-none flex items-center justify-center hover:bg-muted"
+                    >
+                      ?
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">
+                    {"ОГРН — основной государственный регистрационный номер юридического лица (13 цифр). ОГРНИП — основной государственный регистрационный номер ИП (15 цифр)."}
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            </div>
+            <Switch
+              checked={selectedField.ogrnIp || false}
+              onCheckedChange={(checked) => updateField(selectedField.id, { ogrnIp: checked })}
             />
           </div>
         )}

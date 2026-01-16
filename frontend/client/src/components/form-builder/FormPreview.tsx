@@ -73,6 +73,8 @@ const DEFAULT_PHONE_PLACEHOLDER = "+7 (000) 000-00-00";
 const PHONE_MAX_DIGITS = 15;
 const INN_INDIVIDUAL_LENGTH = 12;
 const INN_LEGAL_ENTITY_LENGTH = 10;
+const OGRN_LEGAL_ENTITY_LENGTH = 13;
+const OGRN_IP_LENGTH = 15;
 const SNILS_REQUIRED_DIGITS = 11;
 const SNILS_MAX_CHARS = 14;
 const PHONE_REQUIRED_DIGITS = 11;
@@ -220,6 +222,17 @@ const getInnPlaceholder = (field: FormField) => "0".repeat(getInnMaxLength(field
 const sanitizeInnValue = (value: string, maxLength: number) =>
   value.replace(/\D/g, "").slice(0, maxLength);
 
+const getOgrnMaxLength = (field: FormField) =>
+  field.ogrnIp ? OGRN_IP_LENGTH : OGRN_LEGAL_ENTITY_LENGTH;
+
+const getOgrnLabelKey = (field: FormField) =>
+  field.ogrnIp ? "placeholders.ogrnIp" : "placeholders.ogrn";
+
+const getOgrnPlaceholder = (field: FormField) => "0".repeat(getOgrnMaxLength(field));
+
+const sanitizeOgrnValue = (value: string, maxLength: number) =>
+  value.replace(/\D/g, "").slice(0, maxLength);
+
 function SortableItem({ id, disabled }: SortableItemProps) {
   const {
     attributes,
@@ -279,6 +292,7 @@ export function FormPreview({ form }: FormPreviewProps) {
   const [phoneErrors, setPhoneErrors] = useState<Record<string, boolean>>({});
   const [snilsErrors, setSnilsErrors] = useState<Record<string, boolean>>({});
   const [innErrors, setInnErrors] = useState<Record<string, boolean>>({});
+  const [ogrnErrors, setOgrnErrors] = useState<Record<string, boolean>>({});
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -650,6 +664,58 @@ export function FormPreview({ form }: FormPreviewProps) {
           </div>
         )}
 
+        {field.type === "ogrn" && (
+          <div className="space-y-1">
+            <Label className="text-sm text-muted-foreground">
+              {t(getOgrnLabelKey(field))}
+              {field.required && <span className="text-destructive ml-1">*</span>}
+            </Label>
+            <div className="relative">
+              <Input
+                type="text"
+                inputMode="numeric"
+                placeholder={getOgrnPlaceholder(field)}
+                value={(answers[field.id] as string) || ""}
+                onChange={(e) => {
+                  const maxLength = getOgrnMaxLength(field);
+                  updateAnswer(field.id, sanitizeOgrnValue(e.target.value, maxLength));
+                }}
+                onBlur={(e) => {
+                  const maxLength = getOgrnMaxLength(field);
+                  const nextLen = e.target.value.length;
+                  const isInvalid = nextLen > 0 && nextLen !== maxLength;
+                  setOgrnErrors((prev) => ({ ...prev, [field.id]: isInvalid }));
+                }}
+                onFocus={() => {
+                  setOgrnErrors((prev) => ({ ...prev, [field.id]: false }));
+                }}
+                disabled={results !== null}
+                maxLength={getOgrnMaxLength(field)}
+                className={cn(
+                  "pr-20",
+                  ogrnErrors[field.id] ? "border-destructive focus-visible:ring-destructive/20" : ""
+                )}
+              />
+              {(() => {
+                const limit = getOgrnMaxLength(field);
+                const value = (answers[field.id] as string) || "";
+                const len = value.length;
+                const isComplete = len > 0 && len === limit;
+                const isError = ogrnErrors[field.id];
+
+                return (
+                  <LengthIndicator
+                    len={len}
+                    limit={limit}
+                    isError={isError}
+                    isComplete={isComplete}
+                  />
+                );
+              })()}
+            </div>
+          </div>
+        )}
+
         {field.type === "snils" && (() => {
           const value = (answers[field.id] as string) || "";
           const len = value.replace(/\D/g, "").length;
@@ -697,7 +763,7 @@ export function FormPreview({ form }: FormPreviewProps) {
           );
         })()}
 
-        {["email", "ogrn", "bik", "account"].includes(field.type) && (
+        {["email", "bik", "account"].includes(field.type) && (
           <Input
             placeholder={field.placeholder}
             value={(answers[field.id] as string) || ""}

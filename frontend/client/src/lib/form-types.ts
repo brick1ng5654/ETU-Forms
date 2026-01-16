@@ -51,6 +51,7 @@ export interface FormField {
   hidePassportDepartmentCode?: boolean; // For passport - hide department code field
   hidePassportBirthPlace?: boolean; // For passport - hide birth place field
   innLegalEntity?: boolean; // For INN - legal entity (10 digits) vs individual (12 digits)
+  ogrnIp?: boolean; // For OGRN - legal entity (13 digits) vs individual entrepreneur (15 digits)
   conditionalLogic?: ConditionalLogic;
 }
 
