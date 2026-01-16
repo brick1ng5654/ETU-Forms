@@ -6,7 +6,7 @@ on:
 
 permissions:
   contents: read
-  
+
 jobs:
   test-merge:
     runs-on: ubuntu-latest
@@ -18,7 +18,7 @@ jobs:
       - name: Checkout Merge Commit
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
           fetch-depth: 0
 
       - name: Set up Docker
