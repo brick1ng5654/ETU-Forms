@@ -137,7 +137,6 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
         );
       case "email":
       case "number":
-      case "snils":
       case "ogrn":
       case "bik":
       case "account":
@@ -176,6 +175,29 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
           />
         );
       }
+      case "snils":
+        return editingElement === "placeholder" ? (
+          <Input
+            value={editingValue}
+            onChange={(e) => setEditingValue(e.target.value)}
+            onBlur={saveEditing}
+            onKeyDown={handleKeyDown}
+            className="bg-white border border-primary"
+            type="text"
+            autoFocus
+          />
+        ) : (
+          <Input
+            placeholder={field.placeholder || t("placeholders.snils")}
+            disabled
+            className="bg-white/50 pointer-events-none cursor-pointer"
+            type="text"
+            onClick={(e) => {
+              e.stopPropagation();
+              startEditing("placeholder", field.placeholder || "");
+            }}
+          />
+        );
       case "phone":
         return (
           <Input
