@@ -576,6 +576,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
           form={activeForm}
           setForm={setForm}
           selectedIds={selectedIds}
+          moveSelected={moveSelected}
           onSelectField={handleSelectField}
           clearSelection={clearSelection}
           deleteField={deleteField}
@@ -595,7 +596,6 @@ export default function Builder({ params }: { params: { id?: string } }) {
              updateField={updateField}
              deleteField={deleteField}
              deleteSelected={deleteSelected}
-             moveSelected={moveSelected}
              fields={fields}
            />
         </div>

@@ -23,7 +23,6 @@ interface PropertiesPanelProps {
   updateField: (id: string, updates: Partial<FormField>) => void;
   deleteField: (id: string) => void;
   deleteSelected: () => void;
-  moveSelected: (direction: "up" | "down") => void;
   fields: FormField[];
 }
 
@@ -68,7 +67,7 @@ function SortableOptionItem({ id, option, disabled }: SortableOptionItemProps) {
   );
 }
 
-export function PropertiesPanel({ selectedField, selectedIds, updateField, deleteField, deleteSelected, moveSelected, fields }: PropertiesPanelProps) {
+export function PropertiesPanel({ selectedField, selectedIds, updateField, deleteField, deleteSelected, fields }: PropertiesPanelProps) {
   const { t, i18n } = useTranslation()
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -101,12 +100,6 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
           </p>
         </div>
         <div className="grid gap-2">
-          <Button variant="outline" onClick={() => moveSelected("up")}>
-            {t("builder.moveUp")}
-          </Button>
-          <Button variant="outline" onClick={() => moveSelected("down")}>
-            {t("builder.moveDown")}
-          </Button>
           <Button variant="destructive" onClick={deleteSelected}>
             {t("builder.deleteSelected")}
           </Button>
