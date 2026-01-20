@@ -24,7 +24,6 @@ interface PropertiesPanelProps {
   updateField: (id: string, updates: Partial<FormField>) => void;
   deleteField: (id: string) => void;
   deleteSelected: () => void;
-  moveSelected: (direction: "up" | "down") => void;
   fields: FormField[];
 }
 
@@ -69,7 +68,7 @@ function SortableOptionItem({ id, option, disabled }: SortableOptionItemProps) {
   );
 }
 
-export function PropertiesPanel({ selectedField, selectedIds, updateField, deleteField, deleteSelected, moveSelected, fields }: PropertiesPanelProps) {
+export function PropertiesPanel({ selectedField, selectedIds, updateField, deleteField, deleteSelected, fields }: PropertiesPanelProps) {
   const { t, i18n } = useTranslation()
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -102,12 +101,6 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
           </p>
         </div>
         <div className="grid gap-2">
-          <Button variant="outline" onClick={() => moveSelected("up")}>
-            {t("builder.moveUp")}
-          </Button>
-          <Button variant="outline" onClick={() => moveSelected("down")}>
-            {t("builder.moveDown")}
-          </Button>
           <Button variant="destructive" onClick={deleteSelected}>
             {t("builder.deleteSelected")}
           </Button>
@@ -134,6 +127,19 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
   const isPassport = selectedField.type === "passport";
   const isInn = selectedField.type === "inn";
   const isOgrn = selectedField.type === "ogrn";
+  const showRequiredToggle = !isHeader && !isDatetime && selectedField.type !== "fullname";
+  const hasIntermediateSettings =
+    isText ||
+    isNumber ||
+    isFile ||
+    isRating ||
+    isEmail ||
+    selectedField.type === "select" ||
+    isDatetime ||
+    isPassport ||
+    showRequiredToggle;
+  const showPostLogicSeparator = hasIntermediateSettings || hasOptions;
+  const showOptionsSeparator = hasOptions && hasIntermediateSettings;
   const passportVisibleCount = isPassport
     ? [
         !selectedField.hidePassportSeriesNumber,
@@ -568,7 +574,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
             </>
           )}
         </div>
-        <hr className="border-t border-border my-4" />
+        {showPostLogicSeparator && <hr className="border-t border-border my-4" />}
         {isText && (
           <>
             <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm mt-4">
@@ -711,7 +717,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
         )}
 
         {isDatetime && (
-          <div className="space-y-3 pt-2 border-t">
+          <div className="space-y-3 pt-2">
             <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
               <div className="space-y-0.5">
                 <Label>{t("propert.hideDate")}</Label>
@@ -751,7 +757,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
         )}
 
         {isPassport && (
-          <div className="space-y-3 pt-2 border-t">
+          <div className="space-y-3 pt-2">
             <Label>{t("propert.passportFields")}</Label>
             <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
               <div className="space-y-0.5">
@@ -834,7 +840,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
           </div>
         )}
 
-        {!isHeader && !isDatetime && selectedField.type !== "fullname" && (
+        {showRequiredToggle && (
           <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
             <div className="space-y-0.5">
               <Label>{t("propert.requered")}</Label>
@@ -845,7 +851,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
             />
           </div>
         )}
-        <hr className="border-t border-border my-1" />
+        {showOptionsSeparator && <hr className="border-t border-border my-1" />}
         {hasOptions && (
           <div className="space-y-3 pt-2">
             <Label>{t("propert.variabl")}</Label>

@@ -23,7 +23,7 @@ import { FormField, FieldType, FormSchema } from "@/lib/form-types";
 import { SortableField } from "./SortableField";
 import { nanoid } from "nanoid";
 import { 
-  Type, AlignLeft, Hash, Calendar, Mail, List, CheckSquare, CircleDot, Heading, Star, ListOrdered, Upload, FolderTree, User, Phone, FileText, CreditCard, Globe, Clock, FileDigit, Undo2, Redo2
+  Type, AlignLeft, Hash, Calendar, Mail, List, CheckSquare, CircleDot, Heading, Star, ListOrdered, Upload, FolderTree, User, Phone, FileText, CreditCard, Globe, Clock, FileDigit, Undo2, Redo2, ArrowUp, ArrowDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -45,6 +45,7 @@ interface FormCanvasProps {
   canUndo: boolean;
   canRedo: boolean;
   fields: FormField[];
+  moveSelected: (direction: "up" | "down") => void;
 }
 
 /**
@@ -108,6 +109,7 @@ export function FormCanvas({
   canUndo,
   canRedo,
   fields,
+  moveSelected,
 }: FormCanvasProps) {
 
   const { t, i18n } = useTranslation()  // Хук для локализации
@@ -190,6 +192,27 @@ export function FormCanvas({
     adjustTextareaHeight(descriptionTextareaRef.current);
   }, [form.title, form.description]);
 
+  const selectedSet = new Set(selectedIds);
+  const canMoveUp = (() => {
+    if (selectedIds.length === 0) return false;
+    for (let i = 1; i < form.fields.length; i += 1) {
+      if (selectedSet.has(form.fields[i].id) && !selectedSet.has(form.fields[i - 1].id)) {
+        return true;
+      }
+    }
+    return false;
+  })();
+
+  const canMoveDown = (() => {
+    if (selectedIds.length === 0) return false;
+    for (let i = form.fields.length - 2; i >= 0; i -= 1) {
+      if (selectedSet.has(form.fields[i].id) && !selectedSet.has(form.fields[i + 1].id)) {
+        return true;
+      }
+    }
+    return false;
+  })();
+
   return (
     // DndContext - компонент для Drag & Drop функциональности
     <DndContext
@@ -200,7 +223,10 @@ export function FormCanvas({
     >
     {/* Основная область холста формы */}
       <div className="flex-1 bg-muted/30 px-8 pb-8 pt-0 overflow-y-auto h-full builder-scroll" onClick={() => { console.log('FormCanvas background click, clearing selection'); clearSelection(); }}>
-        <div className="sticky top-0 z-20 -mx-8 mb-0 bg-white/95 backdrop-blur border-b border-border">
+        <div
+          className="sticky top-0 z-20 -mx-8 mb-0 bg-white/95 backdrop-blur border-b border-border"
+          onClick={(event) => event.stopPropagation()}
+        >
           <div className="h-[52px] px-4 flex items-center gap-2">
             <Button
               variant="ghost"
@@ -221,6 +247,26 @@ export function FormCanvas({
             >
               <Redo2 className={cn("h-4 w-4", !canRedo && "text-muted-foreground")} />
               {t("builder.redo")}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => moveSelected("up")}
+              disabled={!canMoveUp}
+              className={cn("gap-2", !canMoveUp && "text-muted-foreground")}
+            >
+              <ArrowUp className={cn("h-4 w-4", !canMoveUp && "text-muted-foreground")} />
+              {t("builder.moveUp")}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => moveSelected("down")}
+              disabled={!canMoveDown}
+              className={cn("gap-2", !canMoveDown && "text-muted-foreground")}
+            >
+              <ArrowDown className={cn("h-4 w-4", !canMoveDown && "text-muted-foreground")} />
+              {t("builder.moveDown")}
             </Button>
           </div>
         </div>
