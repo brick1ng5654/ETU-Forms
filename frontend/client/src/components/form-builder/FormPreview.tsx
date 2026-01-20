@@ -265,7 +265,10 @@ export function FormPreview({ form }: FormPreviewProps) {
   const [results, setResults] = useState<Results | null>(null);
   const [totalScore, setTotalScore] = useState<number>(0);
   const [maxScore, setMaxScore] = useState<number>(0);
-  const [passportErrors, setPassportErrors, phoneErrors, setPhoneErrors, snilsErrors, setSnilsErrors, innErrors, setInnErrors] = useState<Record<string, boolean>>({});
+  const [passportErrors, setPassportErrors] = useState<Record<string, boolean>>({});
+  const [phoneErrors, setPhoneErrors] = useState<Record<string, boolean>>({});
+  const [snilsErrors, setSnilsErrors] = useState<Record<string, boolean>>({});
+  const [innErrors, setInnErrors] = useState<Record<string, boolean>>({});
 
   const sensors = useSensors(
     useSensor(PointerSensor),
