@@ -1,0 +1,57 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
+import logging
+
+from app.config import settings
+from app.database import init_db, close_db
+from app.api.v1.routers import api_router
+
+# Запуск логера сообщений
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+# Запуск жизненного цикла приложения
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Запуск Form Constructor")
+    logger.info(f"Окружение: {settings.ENVIRONMENT}")
+    logger.info(f"CORS разпрешены для {settings.CORS_ORIGINS}")
+
+    try:
+        await init_db()
+        logger.info("База данных готова к работе")
+    except Exception as e:
+        logger.error(f"Ошибка инициализации бд: {e}")
+        raise
+
+    yield
+
+    logger.info("Остановка Form Constructor")
+    await close_db()
+    logger.info("Приложение остановлено корректно")
+
+app = FastAPI(
+    title="Form Constructor",
+    description="Бэкенд для конструктора форм",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+#CORS нужны, чтобы frontend мог обращаться к бэкенду
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS_LIST,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(api_router, prefix="/api/v1")
+
+@app.get("/ping")
+def ping():
+    return {"status": "ok"}
