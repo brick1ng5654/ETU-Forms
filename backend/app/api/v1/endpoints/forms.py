@@ -3,6 +3,9 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 from datetime import datetime
+from app.database import AsyncSessionLocal
+from sqlalchemy import select, func
+from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.models import Form, AppUser
@@ -18,9 +21,7 @@ router = APIRouter(prefix="/forms", tags=["forms"])
 # Функции заглушки(Потом будет добавлена проверка JWT токена)
 async def get_current_user():
     # Пока что возвращаем первого пользователя из бд
-    from app.database import AsyncSessionLocal
     async with AsyncSessionLocal() as session:
-        from sqlalchemy import select
         result = await session.execute(select(AppUser).limit(1))
         user = result.scalar_one_or_none()
 
@@ -73,8 +74,6 @@ async def get_my_forms(
     db: AsyncSession = Depends(get_db),
     current_user: AppUser = Depends(get_current_user)
 ):
-    from sqlalchemy import select, func
-    from sqlalchemy.orm import selectinload
 
     count_querry = select(func.count()).select_from(Form).where(
         Form.user_id == current_user.user_id
