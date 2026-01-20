@@ -124,6 +124,19 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
   const isDatetime = selectedField.type === "datetime";
   const isText = selectedField.type === "text";
   const isPassport = selectedField.type === "passport";
+  const showRequiredToggle = !isHeader && !isDatetime && selectedField.type !== "fullname";
+  const hasIntermediateSettings =
+    isText ||
+    isNumber ||
+    isFile ||
+    isRating ||
+    isEmail ||
+    selectedField.type === "select" ||
+    isDatetime ||
+    isPassport ||
+    showRequiredToggle;
+  const showPostLogicSeparator = hasIntermediateSettings || hasOptions;
+  const showOptionsSeparator = hasOptions && hasIntermediateSettings;
   const passportVisibleCount = isPassport
     ? [
         !selectedField.hidePassportSeriesNumber,
@@ -558,7 +571,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
             </>
           )}
         </div>
-        <hr className="border-t border-border my-4" />
+        {showPostLogicSeparator && <hr className="border-t border-border my-4" />}
         {isText && (
           <>
             <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm mt-4">
@@ -647,7 +660,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
         )}
 
         {isDatetime && (
-          <div className="space-y-3 pt-2 border-t">
+          <div className="space-y-3 pt-2">
             <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
               <div className="space-y-0.5">
                 <Label>{t("propert.hideDate")}</Label>
@@ -687,7 +700,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
         )}
 
         {isPassport && (
-          <div className="space-y-3 pt-2 border-t">
+          <div className="space-y-3 pt-2">
             <Label>{t("propert.passportFields")}</Label>
             <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
               <div className="space-y-0.5">
@@ -770,7 +783,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
           </div>
         )}
 
-        {!isHeader && !isDatetime && selectedField.type !== "fullname" && (
+        {showRequiredToggle && (
           <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
             <div className="space-y-0.5">
               <Label>{t("propert.requered")}</Label>
@@ -781,7 +794,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
             />
           </div>
         )}
-        <hr className="border-t border-border my-1" />
+        {showOptionsSeparator && <hr className="border-t border-border my-1" />}
         {hasOptions && (
           <div className="space-y-3 pt-2">
             <Label>{t("propert.variabl")}</Label>
