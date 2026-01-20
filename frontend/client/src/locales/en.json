@@ -93,6 +93,9 @@
   "placeholders": {
     "folderName": "Folder Name",
     "search": "Search...",
+    "inn": "Enter INN",
+    "ogrn": "Enter OGRN",
+    "ogrnIp": "Enter OGRNIP",
     "snils": "Enter SNILS"
   },
 
