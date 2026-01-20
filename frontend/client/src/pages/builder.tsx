@@ -498,7 +498,6 @@ export default function Builder({ params }: { params: { id?: string } }) {
             </div>
           </div>
         </div>
-
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2">
             <Button

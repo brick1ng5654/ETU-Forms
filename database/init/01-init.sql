@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS Response (
         ON DELETE CASCADE,
         
     CONSTRAINT fk_response_form
-        FOREIGN KEY form_id 
+        FOREIGN KEY (form_id) 
         REFERENCES Form(form_id) 
         ON DELETE CASCADE
 );
@@ -100,7 +100,6 @@ CREATE TABLE IF NOT EXISTS Response (
 COMMENT ON TABLE Response IS 'Таблица ответов на формы';
 COMMENT ON COLUMN Response.response_id IS 'Уникальный идентификатор ответа';
 COMMENT ON COLUMN Response.form_id IS 'ID формы (ссылка на forms.form_id)';
-COMMENT ON COLUMN Response.form_version IS 'ID версии формы, на которую был дан ответ (ссылка на form_versions.version_id)';
 COMMENT ON COLUMN Response.user_id IS 'ID пользователя, который отправил ответ (ссылка на users.user_id)';
 COMMENT ON COLUMN Response.response_json IS 'JSON-структура с данными ответа';
 COMMENT ON COLUMN Response.created_at IS 'Дата и время создания ответа';

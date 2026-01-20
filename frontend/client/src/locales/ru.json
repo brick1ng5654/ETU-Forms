@@ -45,7 +45,8 @@
     "moveUp": "Переместить выше",
     "moveDown": "Переместить ниже",
     "deleteSelected": "Удалить элементы",
-    "selectedCount": "Выбрано элементов: {{count}}"
+    "selectedCount": "Выбрано элементов: {{count}}",
+    "noActiveForm": "Нет активной формы для сохранения"
   },
 
   "categories": {

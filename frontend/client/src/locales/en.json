@@ -45,7 +45,8 @@
     "moveUp": "Move up",
     "moveDown": "Move down",
     "deleteSelected": "Delete selected",
-    "selectedCount": "Selected items: {{count}}"
+    "selectedCount": "Selected items: {{count}}",
+    "noActiveForm": "No active Form to save"
   },
 
   "categories": {

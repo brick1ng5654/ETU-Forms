@@ -29,9 +29,38 @@ export default function Home() {
     refreshData();
   }, []);
 
-  const createNewForm = () => {
+  const createNewForm = async () => {
+    try{
+      const formData = {
+        title: "Новая форма",
+        description: "",
+        structure_json: {fields: [] },
+        access_mode: "private"
+      };
+
+      const response = await fetch('http://localhost:8000/api/v1/forms', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // Токена пока что нет, на бэке заглушка
+        },
+        body: JSON.stringify(formData)
+      });
+
+      if (!response.ok){
+        const errorText = await response.text();
+        throw new Error(`Ошибка создания формы: ${response.status} - ${errorText}`);
+      }
+
+      const newForm = await response.json()
+
+      window.location.href = `/builder/${newForm.id}`;
+    } catch (error){
+      console.error('Ошибка создания формы:', error);
+      alert('Не удалось создать форму')
+    }
     const newForm = storage.createForm(selectedFolderId || undefined);
-    window.location.href = `/builder/${newForm.id}`;
+    
   };
 
   const createFolder = () => {
