@@ -77,7 +77,10 @@ const OGRN_LEGAL_ENTITY_LENGTH = 13;
 const OGRN_IP_LENGTH = 15;
 const SNILS_REQUIRED_DIGITS = 11;
 const SNILS_MAX_CHARS = 14;
+const BIK_REQUIRED_DIGITS = 9;
 const PHONE_REQUIRED_DIGITS = 11;
+const DEFAULT_SNILS_PLACEHOLDER = "000-000-000 00";
+const DEFAULT_BIK_PLACEHOLDER = "000000000";
 
 const formatRuPhoneDigits = (digits: string) => {
   if (!digits) return "";
@@ -222,6 +225,9 @@ const getInnPlaceholder = (field: FormField) => "0".repeat(getInnMaxLength(field
 const sanitizeInnValue = (value: string, maxLength: number) =>
   value.replace(/\D/g, "").slice(0, maxLength);
 
+const sanitizeBikValue = (value: string) =>
+  value.replace(/\D/g, "").slice(0, BIK_REQUIRED_DIGITS);
+
 const getOgrnMaxLength = (field: FormField) =>
   field.ogrnIp ? OGRN_IP_LENGTH : OGRN_LEGAL_ENTITY_LENGTH;
 
@@ -291,6 +297,7 @@ export function FormPreview({ form }: FormPreviewProps) {
   const [passportErrors, setPassportErrors] = useState<Record<string, boolean>>({});
   const [phoneErrors, setPhoneErrors] = useState<Record<string, boolean>>({});
   const [snilsErrors, setSnilsErrors] = useState<Record<string, boolean>>({});
+  const [bikErrors, setBikErrors] = useState<Record<string, boolean>>({});
   const [innErrors, setInnErrors] = useState<Record<string, boolean>>({});
   const [ogrnErrors, setOgrnErrors] = useState<Record<string, boolean>>({});
 
@@ -733,7 +740,7 @@ export function FormPreview({ form }: FormPreviewProps) {
                 <Input
                   type="text"
                   inputMode="numeric"
-                  placeholder={field.placeholder || "000-000-000 00"}
+                  placeholder={DEFAULT_SNILS_PLACEHOLDER}
                   value={value}
                   onChange={(e) => updateAnswer(field.id, formatSnils(e.target.value))}
                   onBlur={(e) => {
@@ -763,7 +770,54 @@ export function FormPreview({ form }: FormPreviewProps) {
           );
         })()}
 
-        {["email", "bik", "account"].includes(field.type) && (
+        {field.type === "bik" && (() => {
+          const value = (answers[field.id] as string) || "";
+          const len = value.length;
+          const limit = BIK_REQUIRED_DIGITS;
+          const isComplete = len > 0 && len === limit;
+          const isError = bikErrors[field.id];
+
+          return (
+            <div className="space-y-1">
+              <Label className="text-sm text-muted-foreground">
+                {t("placeholders.bik")}
+                {field.required && <span className="text-destructive ml-1">*</span>}
+              </Label>
+              <div className="relative">
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder={DEFAULT_BIK_PLACEHOLDER}
+                  value={value}
+                  onChange={(e) => updateAnswer(field.id, sanitizeBikValue(e.target.value))}
+                  onBlur={(e) => {
+                    const nextLen = e.target.value.length;
+                    const isInvalid = nextLen > 0 && nextLen !== limit;
+                    setBikErrors((prev) => ({ ...prev, [field.id]: isInvalid }));
+                  }}
+                  onFocus={() => {
+                    setBikErrors((prev) => ({ ...prev, [field.id]: false }));
+                  }}
+                  disabled={results !== null}
+                  maxLength={BIK_REQUIRED_DIGITS}
+                  pattern="\\d{9}"
+                  className={cn(
+                    "pr-20",
+                    isError ? "border-destructive focus-visible:ring-destructive/20" : ""
+                  )}
+                />
+                <LengthIndicator
+                  len={len}
+                  limit={limit}
+                  isError={isError}
+                  isComplete={isComplete}
+                />
+              </div>
+            </div>
+          );
+        })()}
+
+        {["email", "account"].includes(field.type) && (
           <Input
             placeholder={field.placeholder}
             value={(answers[field.id] as string) || ""}
