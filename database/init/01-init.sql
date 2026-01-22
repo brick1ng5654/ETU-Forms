@@ -96,7 +96,6 @@ COMMENT ON COLUMN Form.form_id IS 'Уникальный идентификато
 COMMENT ON COLUMN Form.user_id IS 'ID владельца формы (ссылка на users.user_id)';
 COMMENT ON COLUMN Form.title IS 'Название формы';
 COMMENT ON COLUMN Form.description IS 'Описание формы';
-COMMENT ON COLUMN Form.structure_json IS 'JSON с структурой формы (вопросы, настройки)';
 COMMENT ON COLUMN Form.start_at IS 'Дата и время начала приема ответов';
 COMMENT ON COLUMN Form.end_at IS 'Дата и время окончания приема ответов';
 COMMENT ON COLUMN Form.access_mode IS 'Режим доступа к форме';
