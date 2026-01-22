@@ -192,7 +192,7 @@ CREATE TABLE IF NOT EXISTS Form_Element_Condition(
 
     CONSTRAINT fk_condition_target
         FOREIGN KEY (target_element_id)
-        REFERENCES Form_Element(element_id),
+        REFERENCES Form_Element(element_id)
         ON DELETE CASCADE,
 
     CONSTRAINT no_self_condition
