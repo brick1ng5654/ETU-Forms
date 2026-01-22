@@ -32,27 +32,146 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
-interface AutoResizeTextareaProps extends React.ComponentProps<typeof Textarea> {}
+interface CollapsibleTextareaProps extends React.ComponentProps<typeof Textarea> {
+  textareaRef?: React.RefObject<HTMLTextAreaElement>;
+  collapsedLines?: number;
+  indicator?: React.ReactNode;
+}
 
-function AutoResizeTextarea({ value, onChange, ...props }: AutoResizeTextareaProps) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+const DEFAULT_TEXTAREA_LINE_HEIGHT = 20;
+
+const getTextareaMetrics = (textarea: HTMLTextAreaElement) => {
+  const computed = window.getComputedStyle(textarea);
+  const lineHeight = parseFloat(computed.lineHeight);
+  const fontSize = parseFloat(computed.fontSize);
+  const resolvedLineHeight = Number.isFinite(lineHeight)
+    ? lineHeight
+    : Number.isFinite(fontSize)
+      ? fontSize * 1.5
+      : DEFAULT_TEXTAREA_LINE_HEIGHT;
+  const paddingTop = parseFloat(computed.paddingTop) || 0;
+  const paddingBottom = parseFloat(computed.paddingBottom) || 0;
+
+  return {
+    lineHeight: resolvedLineHeight,
+    paddingTop,
+    paddingBottom,
+    lineCount: Math.ceil(textarea.scrollHeight / resolvedLineHeight),
+  };
+};
+
+function CollapsibleTextarea({
+  value,
+  onChange,
+  className,
+  textareaRef,
+  collapsedLines = 10,
+  indicator,
+  onFocus,
+  onBlur,
+  disabled,
+  ...props
+}: CollapsibleTextareaProps) {
+  const { i18n } = useTranslation();
+  const localRef = useRef<HTMLTextAreaElement>(null);
+  const resolvedRef = textareaRef ?? localRef;
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [hasOverflow, setHasOverflow] = useState(false);
+  const hasOverflowRef = useRef(false);
 
   useEffect(() => {
-    const textarea = textareaRef.current;
+    const textarea = resolvedRef.current;
     if (textarea) {
+      const currentScrollTop = textarea.scrollTop;
+      const prevHeight = textarea.offsetHeight;
+      textarea.style.transition = "height 440ms ease";
       textarea.style.height = 'auto';
-      textarea.style.height = `${textarea.scrollHeight}px`;
+      const { lineHeight, paddingTop, paddingBottom, lineCount } = getTextareaMetrics(textarea);
+      const overflow = lineCount > collapsedLines;
+      if (hasOverflowRef.current !== overflow) {
+        hasOverflowRef.current = overflow;
+        setHasOverflow(overflow);
+      }
+      const collapsedHeight = Math.ceil(lineHeight * collapsedLines + paddingTop + paddingBottom + 4);
+      const targetHeight = overflow && !isExpanded
+        ? collapsedHeight
+        : textarea.scrollHeight;
+      const startHeight = `${prevHeight}px`;
+      const endHeight = `${targetHeight}px`;
+      if (startHeight === endHeight) {
+        textarea.style.height = endHeight;
+        textarea.scrollTop = currentScrollTop;
+        return;
+      }
+      textarea.style.height = startHeight;
+      // Force reflow before applying the target height to trigger transition
+      void textarea.offsetHeight;
+      requestAnimationFrame(() => {
+        textarea.style.height = endHeight;
+        textarea.scrollTop = currentScrollTop;
+      });
     }
-  }, [value]);
+  }, [value, resolvedRef, collapsedLines, isExpanded]);
 
   return (
-    <Textarea
-      ref={textareaRef}
-      value={value}
-      onChange={onChange}
-      className="resize-none overflow-hidden"
-      {...props}
-    />
+    <div className="space-y-1.5">
+      <div className="relative">
+        <Textarea
+          ref={resolvedRef}
+          value={value}
+          onChange={onChange}
+          onFocus={(event) => {
+            setIsExpanded(true);
+            onFocus?.(event);
+          }}
+          onBlur={(event) => {
+            setIsExpanded(false);
+            onBlur?.(event);
+          }}
+          disabled={disabled}
+          className={cn("resize-none overflow-hidden", className)}
+          {...props}
+        />
+      </div>
+      {(indicator || hasOverflow) && (
+        <div className="flex items-center justify-between px-1 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2">
+            {hasOverflow && (
+              isExpanded ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto px-2 py-1 text-muted-foreground"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => {
+                    setIsExpanded(false);
+                    resolvedRef.current?.blur();
+                  }}
+                >
+                  {i18n.language.startsWith("ru") ? "Скрыть" : "Hide"}
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto px-2 py-1 text-muted-foreground"
+                  onClick={() => {
+                    setIsExpanded(true);
+                  }}
+                >
+                  {i18n.language.startsWith("ru") ? "Показать полностью" : "Show full text"}
+                </Button>
+              )
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            {indicator}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -68,6 +187,13 @@ interface LengthIndicatorProps {
   isComplete: boolean;
 }
 
+interface TextLengthIndicatorProps {
+  len: number;
+  limit: number;
+  className?: string;
+  staticPosition?: boolean;
+}
+
 const FULLNAME_MAX_CHARS = 50;
 const DEFAULT_PHONE_PLACEHOLDER = "+7 (000) 000-00-00";
 const PHONE_MAX_DIGITS = 15;
@@ -81,6 +207,15 @@ const BIK_REQUIRED_DIGITS = 9;
 const PHONE_REQUIRED_DIGITS = 11;
 const DEFAULT_SNILS_PLACEHOLDER = "000-000-000 00";
 const DEFAULT_BIK_PLACEHOLDER = "000000000";
+const TEXT_SINGLELINE_MAX_CHARS = 255;
+const TEXT_MULTILINE_MAX_CHARS = 10000;
+
+const getTextMaxChars = (field: FormField) => {
+  const limit = field.multiline ? TEXT_MULTILINE_MAX_CHARS : TEXT_SINGLELINE_MAX_CHARS;
+  const rawMax = typeof field.maxChars === "number" ? field.maxChars : limit;
+  const normalized = rawMax > 0 ? rawMax : 1;
+  return Math.min(normalized, limit);
+};
 
 const formatRuPhoneDigits = (digits: string) => {
   if (!digits) return "";
@@ -159,6 +294,46 @@ function LengthIndicator({ len, limit, isError, isComplete }: LengthIndicatorPro
           isError ? "text-destructive" : isComplete ? "text-green-600" : "text-muted-foreground"
         )}
       >
+        {`${len}/${limit}`}
+      </div>
+      <svg className="h-3 w-3" viewBox="0 0 12 12" aria-hidden="true">
+        <circle
+          cx="6"
+          cy="6"
+          r={ringRadius}
+          fill="none"
+          stroke={trackColor}
+          strokeWidth="2"
+        />
+        <circle
+          cx="6"
+          cy="6"
+          r={ringRadius}
+          fill="none"
+          stroke={progressColor}
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeDasharray={ringCircumference}
+          strokeDashoffset={ringCircumference * (1 - progress)}
+          style={{ transition: "stroke-dashoffset 240ms ease-out" }}
+          transform="rotate(-90 6 6)"
+        />
+      </svg>
+    </div>
+  );
+}
+
+function TextLengthIndicator({ len, limit, className, staticPosition }: TextLengthIndicatorProps) {
+  const isOverLimit = len > limit;
+  const progress = limit ? Math.min(len / limit, 1) : 0;
+  const progressColor = isOverLimit ? "#ef4444" : "#94a3b8";
+  const trackColor = "#e2e8f0";
+  const ringRadius = 5;
+  const ringCircumference = 2 * Math.PI * ringRadius;
+
+  return (
+    <div className={cn(staticPosition ? "flex items-center gap-2" : "absolute flex items-center gap-2", className)}>
+      <div className={cn("text-xs font-medium text-muted-foreground")}>
         {`${len}/${limit}`}
       </div>
       <svg className="h-3 w-3" viewBox="0 0 12 12" aria-hidden="true">
@@ -509,23 +684,49 @@ export function FormPreview({ form }: FormPreviewProps) {
           <h2 className="text-xl font-bold pb-2 border-b">{field.label}</h2>
         )}
 
-        {field.type === "text" && (
-          field.multiline ? (
-            <AutoResizeTextarea
+        {field.type === "text" && (() => {
+          const maxChars = getTextMaxChars(field);
+          const value = (answers[field.id] as string) || "";
+          const handleChange = (nextValue: string) => {
+            const trimmedValue = nextValue.slice(0, maxChars);
+            updateAnswer(field.id, trimmedValue);
+          };
+
+          return field.multiline ? (
+            <CollapsibleTextarea
               placeholder={field.placeholder}
-              value={(answers[field.id] as string) || ""}
-              onChange={(e) => updateAnswer(field.id, e.target.value)}
+              value={value}
+              onChange={(e) => handleChange(e.target.value)}
               disabled={results !== null}
+              maxLength={maxChars}
+              className="pb-6"
+              indicator={(
+                <TextLengthIndicator
+                  len={value.length}
+                  limit={maxChars}
+                  staticPosition
+                  className="bg-white px-1.5 py-0.5 rounded-sm"
+                />
+              )}
             />
           ) : (
-            <Input
-              placeholder={field.placeholder}
-              value={(answers[field.id] as string) || ""}
-              onChange={(e) => updateAnswer(field.id, e.target.value)}
-              disabled={results !== null}
-            />
-          )
-        )}
+            <div className="relative">
+              <Input
+                placeholder={field.placeholder}
+                value={value}
+                onChange={(e) => handleChange(e.target.value)}
+                disabled={results !== null}
+                maxLength={maxChars}
+                className="pr-20"
+              />
+              <TextLengthIndicator
+                len={value.length}
+                limit={maxChars}
+                className="right-3 top-1/2 -translate-y-1/2"
+              />
+            </div>
+          );
+        })()}
 
         {field.type === "fullname" && (() => {
           const lastNameKey = `${field.id}_lastName`;
