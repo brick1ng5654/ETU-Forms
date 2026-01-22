@@ -32,6 +32,33 @@ BEGIN
             'participant'
         );
     END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'form_element_type') THEN
+        CREATE TYPE form_element_type AS ENUM (
+            'text',
+            'textarea',
+            'number',
+            'email',
+            'select',
+            'radio',
+            'checkbox',
+            'data',
+            'file',
+            'confidential data'
+        );
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'condition_operator') THEN
+        CREATE TYPE condition_operator AS ENUM (
+            'equals',
+            'not_equals',
+            'in',
+            'not_in',
+            'greater_than',
+            'less_than',
+            'contains'
+        );
+    END IF;
 END$$;
 
 -- Создаем таблицу форм
@@ -129,4 +156,45 @@ COMMENT ON TABLE AccessControl IS 'Таблица контроля доступ�
 COMMENT ON COLUMN AccessControl.access_id IS 'Уникальный идентификатор доступа';
 COMMENT ON COLUMN AccessControl.form_id IS 'ID формы';
 COMMENT ON COLUMN AccessControl.user_id IS 'ID пользователя';
-COMMENT ON COLUMN AccessControl.role IS 'Роль пользователя (editor или participant)';
+COMMENT ON COLUMN AccessControl.role IS 'Роль пользователя (editor или participant)'
+
+CREATE TABLE IF NOT EXISTS Form_Element (
+    element_id SERIAL PRIMARY KEY,
+    form_id INT NOT NULL,
+
+    type form_element_type NOT NULL,
+    label VARCHAR(255) NOT NULL,
+    description TEXT,
+
+    correct_answer JSONB NULL,
+
+    CONSTRAINT fr_element_form
+        FOREIGN KEY (form_id)
+        REFERENCES Form(form_id)
+        ON DELETE CASCADE
+);
+
+COMMENT ON TABLE Form_Element IS 'Элементы (поля) формы';
+
+CREATE TABLE IF NOT EXISTS Form_Element_Condition(
+    condition_id SERIAL PRIMARY KEY,
+
+    source_element_id INT NOT NULL,
+    target_element_id INT NOT NULL,
+
+    operator condition_operator NOT NULL,
+    value JSONB NOT NULL,
+
+    CONSTRAINT fk_condition_source
+        FOREIGN KEY (source_element_id)
+        REFERENCES Form_Element(element_id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_condition_target
+        FOREIGN KEY (target_element_id)
+        REFERENCES Form_Element(element_id),
+        ON DELETE CASCADE,
+
+    CONSTRAINT no_self_condition
+        CHECK (source_element_id <> target_element_id)
+)
