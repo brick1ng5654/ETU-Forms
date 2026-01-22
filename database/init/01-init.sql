@@ -156,7 +156,7 @@ COMMENT ON TABLE AccessControl IS 'Таблица контроля доступ�
 COMMENT ON COLUMN AccessControl.access_id IS 'Уникальный идентификатор доступа';
 COMMENT ON COLUMN AccessControl.form_id IS 'ID формы';
 COMMENT ON COLUMN AccessControl.user_id IS 'ID пользователя';
-COMMENT ON COLUMN AccessControl.role IS 'Роль пользователя (editor или participant)'
+COMMENT ON COLUMN AccessControl.role IS 'Роль пользователя (editor или participant)';
 
 CREATE TABLE IF NOT EXISTS Form_Element (
     element_id SERIAL PRIMARY KEY,
