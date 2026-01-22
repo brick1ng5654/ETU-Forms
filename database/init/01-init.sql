@@ -176,6 +176,9 @@ CREATE TABLE IF NOT EXISTS Form_Element (
     description TEXT,
 
     correct_answer JSONB NULL,
+    text_hint TEXT NULL,
+    supportive_text TEXT NULL,
+    other_settings JSONB,
 
     CONSTRAINT fk_element_form
         FOREIGN KEY (form_id)
