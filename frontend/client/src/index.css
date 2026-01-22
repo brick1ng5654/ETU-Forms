@@ -1,6 +1,14 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+@font-face {
+  font-family: "Glober";
+  src: url("/fonts/globersemiboldfree.otf") format("opentype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -34,7 +42,7 @@
   
   --radius: 0.5rem;
   
-  --font-sans: 'Inter', sans-serif;
+  --font-sans: 'Glober', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 }
 

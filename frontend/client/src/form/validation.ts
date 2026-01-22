@@ -1,0 +1,86 @@
+import type { AnswersById, FormElementModel } from "@/form/types";
+import { presets } from "@/form/presets";
+
+export type ValidationErrorsById = Record<string, string[]>;
+
+const isEmptyValue = (value: unknown) => {
+  if (value == null) return true;
+  if (Array.isArray(value)) return value.length === 0;
+  if (typeof value === "string") return value.trim().length === 0;
+  return false;
+};
+
+const isOptionValue = (value: string, options: string[]) =>
+  options.some((option) => option === value);
+
+export const validateForm = (elements: FormElementModel[], answers: AnswersById): ValidationErrorsById => {
+  const errors: ValidationErrorsById = {};
+
+  elements.forEach((element) => {
+    const value = answers[element.id];
+    const elementErrors: string[] = [];
+    const props = element.props as Record<string, unknown>;
+    const preset = element.semanticType ? presets[element.semanticType] : undefined;
+
+    if (preset?.parts) {
+      const composite = (value as Record<string, string | null>) || {};
+      preset.parts.forEach((part) => {
+        if (part.hiddenProp && props[part.hiddenProp]) {
+          return;
+        }
+        const partValue = composite[part.key] ?? "";
+        const required = part.required ?? element.required ?? false;
+        if (required && isEmptyValue(partValue)) {
+          elementErrors.push(`${part.key}: Required`);
+          return;
+        }
+        if (part.validate) {
+          const partErrors = part.validate(partValue ?? "", required);
+          partErrors.forEach((err) => elementErrors.push(`${part.key}: ${err}`));
+        }
+      });
+    } else {
+      if (element.required && isEmptyValue(value)) {
+        elementErrors.push("Required");
+      }
+
+      if (element.widgetType === "select" || element.widgetType === "radio") {
+        const options = (props.options as string[]) || [];
+        if (!isEmptyValue(value) && typeof value === "string" && !isOptionValue(value, options)) {
+          elementErrors.push("Invalid selection");
+        }
+      }
+
+      if (element.widgetType === "checkbox") {
+        const options = (props.options as string[]) || [];
+        const selected = Array.isArray(value) ? value : [];
+        selected.forEach((item) => {
+          if (!isOptionValue(item, options)) {
+            elementErrors.push("Invalid selection");
+          }
+        });
+      }
+
+      if (element.widgetType === "number_input" && !isEmptyValue(value)) {
+        const numeric = typeof value === "number" ? value : Number(value);
+        if (Number.isNaN(numeric)) {
+          elementErrors.push("Invalid number");
+        }
+      }
+
+      if (preset?.validate && typeof value === "string") {
+        const presetErrors = preset.validate(value, {
+          required: element.required,
+          props,
+        });
+        elementErrors.push(...presetErrors);
+      }
+    }
+
+    if (elementErrors.length > 0) {
+      errors[element.id] = elementErrors;
+    }
+  });
+
+  return errors;
+};

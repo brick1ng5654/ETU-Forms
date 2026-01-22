@@ -1,0 +1,288 @@
+import type { SemanticType } from "@/form/types";
+
+export interface PresetPart {
+  key: string;
+  labelKey?: string;
+  placeholderKey?: string;
+  placeholder?: string;
+  inputMode?: string;
+  inputType?: string;
+  hiddenProp?: string;
+  required?: boolean;
+  maxChars?: number;
+  maxDigits?: number;
+  normalize?: (value: string) => string;
+  format?: (value: string) => string;
+  validate?: (value: string, required?: boolean) => string[];
+}
+
+export interface Preset {
+  normalize?: (value: string, ctx: { previous?: string; props: Record<string, unknown> }) => string;
+  format?: (value: string) => string;
+  validate?: (value: string, ctx: { required?: boolean; props: Record<string, unknown> }) => string[];
+  placeholder?: string;
+  placeholderKey?: string;
+  getPlaceholderKey?: (props: Record<string, unknown>) => string | undefined;
+  inputMode?: string;
+  inputType?: string;
+  helperText?: string;
+  maxChars?: number;
+  maxDigits?: number;
+  parts?: PresetPart[];
+}
+
+const digitsOnly = (value: string, max?: number) => {
+  const normalized = value.replace(/\D/g, "");
+  return typeof max === "number" ? normalized.slice(0, max) : normalized;
+};
+
+const formatRuPhoneDigits = (digits: string) => {
+  if (!digits) return "";
+  const normalized = digits.slice(0, 11);
+  const rest = normalized.slice(1);
+  let output = "+7";
+  if (rest.length === 0) return output;
+
+  const area = rest.slice(0, 3);
+  output += ` (${area}`;
+  if (area.length === 3) {
+    output += ")";
+  }
+  if (rest.length <= 3) return output;
+
+  const main = rest.slice(3);
+  const part1 = main.slice(0, 3);
+  output += ` ${part1}`;
+  if (main.length <= 3) return output;
+
+  const part2 = main.slice(3, 5);
+  output += `-${part2}`;
+  if (main.length <= 5) return output;
+
+  const part3 = main.slice(5, 7);
+  output += `-${part3}`;
+  return output;
+};
+
+const formatSnils = (value: string) => {
+  const digits = digitsOnly(value, 11);
+  const part1 = digits.slice(0, 3);
+  const part2 = digits.slice(3, 6);
+  const part3 = digits.slice(6, 9);
+  const part4 = digits.slice(9, 11);
+
+  let output = part1;
+  if (part2) {
+    output += `-${part2}`;
+  }
+  if (part3) {
+    output += `-${part3}`;
+  }
+  if (part4) {
+    output += ` ${part4}`;
+  }
+  return output;
+};
+
+const formatPassportSeries = (value: string) => {
+  const digits = digitsOnly(value, 10);
+  const part1 = digits.slice(0, 4);
+  const part2 = digits.slice(4, 10);
+  return part2 ? `${part1} ${part2}` : part1;
+};
+
+const formatPassportDepartmentCode = (value: string) => {
+  const digits = digitsOnly(value, 6);
+  const part1 = digits.slice(0, 3);
+  const part2 = digits.slice(3, 6);
+  return part2 ? `${part1}-${part2}` : part1;
+};
+
+const normalizeNamePart = (value: string, maxChars = 50) =>
+  value.replace(/\s+/g, " ").trim().slice(0, maxChars);
+
+const innLength = (props: Record<string, unknown>) =>
+  props.innLegalEntity ? 10 : 12;
+
+const ogrnLength = (props: Record<string, unknown>) =>
+  props.ogrnIp ? 15 : 13;
+
+export const presets: Record<SemanticType, Preset> = {
+  phone: {
+    normalize: (value) => {
+      let digits = digitsOnly(value);
+      if (!digits) return "";
+      if (digits.startsWith("8")) {
+        digits = `7${digits.slice(1)}`;
+      }
+      if (!digits.startsWith("7")) {
+        digits = `7${digits}`;
+      }
+      return digits.slice(0, 11);
+    },
+    format: formatRuPhoneDigits,
+    validate: (value, { required }) => {
+      const len = digitsOnly(value).length;
+      if (!value && !required) return [];
+      if (len !== 11) return ["Phone number must be 11 digits"];
+      return [];
+    },
+    placeholder: "+7 (000) 000-00-00",
+    inputMode: "tel",
+    maxDigits: 11,
+  },
+  inn: {
+    normalize: (value, { props }) => digitsOnly(value, innLength(props)),
+    validate: (value, { required, props }) => {
+      const len = digitsOnly(value).length;
+      const expected = innLength(props);
+      if (!value && !required) return [];
+      if (len !== expected) return [`INN must be ${expected} digits`];
+      return [];
+    },
+    placeholderKey: "placeholders.inn",
+    inputMode: "numeric",
+  },
+  snils: {
+    normalize: (value) => digitsOnly(value, 11),
+    format: formatSnils,
+    validate: (value, { required }) => {
+      const len = digitsOnly(value).length;
+      if (!value && !required) return [];
+      if (len !== 11) return ["SNILS must be 11 digits"];
+      return [];
+    },
+    placeholder: "000-000-000 00",
+    inputMode: "numeric",
+    maxDigits: 11,
+  },
+  ogrn: {
+    normalize: (value, { props }) => digitsOnly(value, ogrnLength(props)),
+    validate: (value, { required, props }) => {
+      const len = digitsOnly(value).length;
+      const expected = ogrnLength(props);
+      if (!value && !required) return [];
+      if (len !== expected) return [`OGRN must be ${expected} digits`];
+      return [];
+    },
+    getPlaceholderKey: (props) => (props.ogrnIp ? "placeholders.ogrnIp" : "placeholders.ogrn"),
+    inputMode: "numeric",
+  },
+  bik: {
+    normalize: (value) => digitsOnly(value, 9),
+    validate: (value, { required }) => {
+      const len = digitsOnly(value).length;
+      if (!value && !required) return [];
+      if (len !== 9) return ["BIK must be 9 digits"];
+      return [];
+    },
+    placeholderKey: "placeholders.bik",
+    inputMode: "numeric",
+    maxDigits: 9,
+  },
+  bank_account: {
+    normalize: (value) => digitsOnly(value, 20),
+    validate: (value, { required }) => {
+      const len = digitsOnly(value).length;
+      if (!value && !required) return [];
+      if (len !== 20) return ["Account must be 20 digits"];
+      return [];
+    },
+    inputMode: "numeric",
+    maxDigits: 20,
+  },
+  full_name: {
+    parts: [
+      {
+        key: "lastName",
+        labelKey: "formParts.fullName.lastName",
+        placeholderKey: "formParts.fullName.lastName",
+        maxChars: 50,
+        required: true,
+        normalize: (value) => normalizeNamePart(value, 50),
+        validate: (value, required) => {
+          if (!required) return [];
+          return value ? [] : ["Required"];
+        },
+      },
+      {
+        key: "firstName",
+        labelKey: "formParts.fullName.firstName",
+        placeholderKey: "formParts.fullName.firstName",
+        maxChars: 50,
+        required: true,
+        normalize: (value) => normalizeNamePart(value, 50),
+        validate: (value, required) => {
+          if (!required) return [];
+          return value ? [] : ["Required"];
+        },
+      },
+      {
+        key: "patronymic",
+        labelKey: "formParts.fullName.patronymic",
+        placeholderKey: "formParts.fullName.patronymic",
+        maxChars: 50,
+        normalize: (value) => normalizeNamePart(value, 50),
+      },
+    ],
+  },
+  passport: {
+    parts: [
+      {
+        key: "seriesNumber",
+        labelKey: "formParts.passport.seriesNumber",
+        placeholderKey: "formParts.passport.seriesNumber",
+        inputMode: "numeric",
+        hiddenProp: "hidePassportSeriesNumber",
+        maxChars: 11,
+        normalize: (value) => digitsOnly(value, 10),
+        format: formatPassportSeries,
+        validate: (value, required) => {
+          const len = digitsOnly(value).length;
+          if (!required && !value) return [];
+          if (len !== 10) return ["Series and number must be 10 digits"];
+          return [];
+        },
+      },
+      {
+        key: "issuedBy",
+        labelKey: "formParts.passport.issuedBy",
+        placeholderKey: "formParts.passport.issuedBy",
+        hiddenProp: "hidePassportIssuedBy",
+        maxChars: 60,
+        normalize: (value) => value.slice(0, 60),
+      },
+      {
+        key: "issueDate",
+        labelKey: "formParts.passport.issueDate",
+        placeholderKey: "formParts.passport.issueDate",
+        hiddenProp: "hidePassportIssueDate",
+        inputType: "date",
+      },
+      {
+        key: "departmentCode",
+        labelKey: "formParts.passport.departmentCode",
+        placeholderKey: "formParts.passport.departmentCode",
+        inputMode: "numeric",
+        hiddenProp: "hidePassportDepartmentCode",
+        maxChars: 7,
+        normalize: (value) => digitsOnly(value, 6),
+        format: formatPassportDepartmentCode,
+        validate: (value, required) => {
+          const len = digitsOnly(value).length;
+          if (!required && !value) return [];
+          if (len !== 6) return ["Department code must be 6 digits"];
+          return [];
+        },
+      },
+      {
+        key: "birthPlace",
+        labelKey: "formParts.passport.birthPlace",
+        placeholderKey: "formParts.passport.birthPlace",
+        hiddenProp: "hidePassportBirthPlace",
+        maxChars: 60,
+        normalize: (value) => value.slice(0, 60),
+      },
+    ],
+  },
+};

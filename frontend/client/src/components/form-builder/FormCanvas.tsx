@@ -19,11 +19,11 @@ import {
 } from "@dnd-kit/sortable";
 import { useState, useEffect, useRef } from "react";
 import type { MouseEvent } from "react";
-import { FormField, FieldType, FormSchema } from "@/lib/form-types";
+import type { FormElementModel, FormSchema, SemanticType, WidgetType } from "@/form/types";
 import { SortableField } from "./SortableField";
 import { nanoid } from "nanoid";
 import { 
-  Type, AlignLeft, Hash, Calendar, Mail, List, CheckSquare, CircleDot, Heading, Star, ListOrdered, Upload, FolderTree, User, Phone, FileText, CreditCard, Globe, Clock, FileDigit, Undo2, Redo2, ArrowUp, ArrowDown
+  Type, AlignLeft, Hash, Calendar, List, CheckSquare, CircleDot, Heading, Star, ListOrdered, Upload, User, Phone, FileText, CreditCard, Undo2, Redo2, ArrowUp, ArrowDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -39,12 +39,12 @@ interface FormCanvasProps {
   onSelectField: (id: string, event: MouseEvent<HTMLDivElement>) => void;
   clearSelection: () => void;
   deleteField: (id: string) => void;
-  updateField: (id: string, updates: Partial<FormField>) => void;
+  updateField: (id: string, updates: Partial<FormElementModel>) => void;
   onUndo: () => void;
   onRedo: () => void;
   canUndo: boolean;
   canRedo: boolean;
-  fields: FormField[];
+  fields: FormElementModel[];
   moveSelected: (direction: "up" | "down") => void;
 }
 
@@ -53,36 +53,42 @@ interface FormCanvasProps {
  * @param type - тип поля (text, number, email и т.д.)
  * @returns React-компонент иконки из библиотеки lucide-react
 */
-export const getIconForType = (type: FieldType) => {
-  switch (type) {
-    // Базовые типы полей
-    case "text": return Type;
-    case "number": return Hash;
+export const getIconForElement = (widgetType: WidgetType, semanticType?: SemanticType) => {
+  if (semanticType) {
+    switch (semanticType) {
+      case "full_name":
+        return User;
+      case "phone":
+        return Phone;
+      case "bank_account":
+        return CreditCard;
+      case "passport":
+      case "inn":
+      case "snils":
+      case "ogrn":
+      case "bik":
+        return FileText;
+      default:
+        return Type;
+    }
+  }
+  switch (widgetType) {
+    // ?????????????? ???????? ??????????
+    case "text_input": return Type;
+    case "textarea": return AlignLeft;
+    case "number_input": return Hash;
     case "header": return Heading;
     
-    // Поля с возможностью выбора
+    // ???????? ?? ???????????????????????? ????????????
     case "select": return List;
     case "checkbox": return CheckSquare;
     case "radio": return CircleDot;
     
-    // Расширенные поля
+    // ?????????????????????? ????????
     case "datetime": return Calendar;
-    case "email": return Mail;
     case "rating": return Star;
     case "ranking": return ListOrdered;
-    case "file": return Upload;
-    case "category": return FolderTree;
-    
-    // Специализированные поля
-    case "fullname": return User;
-    case "phone": return Phone;
-    case "passport": return FileText;
-    case "inn": return FileText;
-    case "snils": return FileText;
-    case "ogrn": return FileText;
-    case "bik": return FileText;
-    case "account": return CreditCard;
-    case "country": return Globe;
+    case "file_upload": return Upload;
     
     default: return Type;
   }
@@ -155,7 +161,10 @@ export function FormCanvas({
       const newIndex = form.fields.findIndex(f => f.id === over?.id);
       
       // Перемещаем элемент в массиве
-      const newFields = arrayMove(form.fields, oldIndex, newIndex);
+      const newFields = arrayMove(form.fields, oldIndex, newIndex).map((field, index) => ({
+        ...field,
+        sortIndex: index,
+      }));
       setForm({ ...form, fields: newFields });
     }
     
@@ -324,7 +333,7 @@ export function FormCanvas({
 
             {/* SortableContext управляет сортируемыми элементами внутри */}
             <SortableContext 
-            items={form.fields}   // Массив ID элементов для сортировки
+            items={form.fields.map((field) => field.id)}   // Массив ID элементов для сортировки
             strategy={verticalListSortingStrategy}  // Стратегия вертикальной сортировки
             > 
               {form.fields.length === 0 ? (
@@ -362,7 +371,8 @@ export function FormCanvas({
               <div className="p-2 rounded-sm bg-primary/10 text-primary">
 
                 {/* Динамическое отображение иконки типа поля */}
-                {getIconForType(activeDragItem.type) && React.createElement(getIconForType(activeDragItem.type), { className: "h-4 w-4" })}
+                {getIconForElement(activeDragItem.widgetType, activeDragItem.semanticType) &&
+                  React.createElement(getIconForElement(activeDragItem.widgetType, activeDragItem.semanticType), { className: "h-4 w-4" })}
               </div>
               <span className="text-sm font-medium">{activeDragItem.label}</span>
             </div>

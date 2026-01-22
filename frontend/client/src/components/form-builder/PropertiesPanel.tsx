@@ -1,4 +1,4 @@
-import { FormField } from "@/lib/form-types";
+import type { FormElementModel, SemanticType, WidgetType } from "@/form/types";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -8,8 +8,7 @@ import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { X, Plus, Trash2, Check } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useTranslation } from 'react-i18next';
-import { Languages } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { restrictToVerticalAxis, restrictToParentElement } from "@dnd-kit/modifiers";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -19,12 +18,12 @@ import { GripVertical } from "lucide-react";
 import { useState, useEffect } from "react";
 
 interface PropertiesPanelProps {
-  selectedField: FormField | null;
+  selectedField: FormElementModel | null;
   selectedIds: string[];
-  updateField: (id: string, updates: Partial<FormField>) => void;
+  updateField: (id: string, updates: Partial<FormElementModel>) => void;
   deleteField: (id: string) => void;
   deleteSelected: () => void;
-  fields: FormField[];
+  fields: FormElementModel[];
 }
 
 interface SortableOptionItemProps {
@@ -34,14 +33,7 @@ interface SortableOptionItemProps {
 }
 
 function SortableOptionItem({ id, option, disabled }: SortableOptionItemProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id, disabled });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -56,11 +48,7 @@ function SortableOptionItem({ id, option, disabled }: SortableOptionItemProps) {
         disabled ? "bg-gray-50 border-gray-200 opacity-60" : "bg-white border-gray-200 hover:bg-gray-50"
       } ${isDragging ? "shadow-lg z-50" : ""}`}
     >
-      <div
-        {...attributes}
-        {...listeners}
-        className={`cursor-grab ${disabled ? "cursor-not-allowed" : ""}`}
-      >
+      <div {...attributes} {...listeners} className={`cursor-grab ${disabled ? "cursor-not-allowed" : ""}`}>
         <GripVertical className="h-4 w-4 text-gray-400" />
       </div>
       <span className="flex-1 text-sm">{option}</span>
@@ -68,8 +56,345 @@ function SortableOptionItem({ id, option, disabled }: SortableOptionItemProps) {
   );
 }
 
+type PropertyFieldType = "text" | "textarea" | "switch" | "number" | "slider" | "tags";
+
+type PropertyFieldDef = {
+  key: string;
+  labelKey: string;
+  type: PropertyFieldType;
+  target: "label" | "description" | "required" | `props.${string}`;
+  maxLength?: number;
+  placeholder?: string;
+  min?: number;
+  max?: number;
+  step?: number;
+  tooltipKey?: string;
+  helperKey?: string;
+  visible?: (field: FormElementModel) => boolean;
+  disabled?: (field: FormElementModel) => boolean;
+  guard?: (field: FormElementModel, value: unknown) => boolean;
+};
+
+const widgetTypeLabelKey: Record<WidgetType, string> = {
+  header: "header",
+  text_input: "text",
+  textarea: "text",
+  number_input: "number",
+  select: "select",
+  checkbox: "checkbox",
+  radio: "radio",
+  datetime: "datetime",
+  file_upload: "file",
+  rating: "rating",
+  ranking: "ranking",
+};
+
+const semanticTypeLabelKey: Record<SemanticType, string> = {
+  phone: "phone",
+  inn: "inn",
+  snils: "snils",
+  full_name: "fullname",
+  ogrn: "ogrn",
+  bik: "bik",
+  bank_account: "account",
+  passport: "passport",
+};
+
+const baseLabelField: PropertyFieldDef = {
+  key: "label",
+  labelKey: "propert.label",
+  type: "textarea",
+  target: "label",
+  maxLength: 120,
+};
+
+const helperTextField: PropertyFieldDef = {
+  key: "description",
+  labelKey: "propert.helper",
+  type: "textarea",
+  target: "description",
+  maxLength: 1200,
+};
+
+const requiredField: PropertyFieldDef = {
+  key: "required",
+  labelKey: "propert.requered",
+  type: "switch",
+  target: "required",
+};
+
+const placeholderField: PropertyFieldDef = {
+  key: "placeholder",
+  labelKey: "propert.placeholder",
+  type: "textarea",
+  target: "props.placeholder",
+  maxLength: 80,
+};
+
+const propertiesSchemaByWidgetType: Record<WidgetType, PropertyFieldDef[]> = {
+  header: [baseLabelField],
+  text_input: [baseLabelField, placeholderField, helperTextField, requiredField],
+  textarea: [baseLabelField, placeholderField, helperTextField, requiredField],
+  number_input: [
+    baseLabelField,
+    placeholderField,
+    helperTextField,
+    requiredField,
+    {
+      key: "allowDecimals",
+      labelKey: "propert.allowdec",
+      type: "switch",
+      target: "props.allowDecimals",
+    },
+  ],
+  select: [
+    baseLabelField,
+    helperTextField,
+    requiredField,
+    {
+      key: "multiple",
+      labelKey: "propert.allowmult",
+      type: "switch",
+      target: "props.multiple",
+    },
+  ],
+  checkbox: [baseLabelField, helperTextField, requiredField],
+  radio: [baseLabelField, helperTextField, requiredField],
+  datetime: [
+    baseLabelField,
+    helperTextField,
+    {
+      key: "hideDate",
+      labelKey: "propert.hideDate",
+      type: "switch",
+      target: "props.hideDate",
+      disabled: (field) => Boolean((field.props as Record<string, any>).hideTime),
+    },
+    {
+      key: "hideTime",
+      labelKey: "propert.hideTime",
+      type: "switch",
+      target: "props.hideTime",
+      disabled: (field) => Boolean((field.props as Record<string, any>).hideDate),
+    },
+  ],
+  file_upload: [
+    baseLabelField,
+    helperTextField,
+    {
+      key: "maxFileSize",
+      labelKey: "propert.sizefile",
+      type: "number",
+      target: "props.maxFileSize",
+      min: 1,
+      max: 100,
+      step: 1,
+    },
+    {
+      key: "acceptedFileTypes",
+      labelKey: "propert.accepfile",
+      type: "tags",
+      target: "props.acceptedFileTypes",
+      placeholder: ".pdf, .jpg, .png",
+    },
+  ],
+  rating: [
+    baseLabelField,
+    helperTextField,
+    {
+      key: "maxRating",
+      labelKey: "propert.maxrati",
+      type: "slider",
+      target: "props.maxRating",
+      min: 3,
+      max: 10,
+      step: 1,
+    },
+  ],
+  ranking: [baseLabelField, helperTextField, requiredField],
+};
+
+const propertiesSchemaBySemanticType: Partial<Record<SemanticType, PropertyFieldDef[]>> = {
+  inn: [
+    {
+      key: "innLegalEntity",
+      labelKey: "propert.innLegalEntity",
+      type: "switch",
+      target: "props.innLegalEntity",
+      tooltipKey: "propert.innLegalEntityHelp",
+    },
+  ],
+  ogrn: [
+    {
+      key: "ogrnIp",
+      labelKey: "propert.ogrnIp",
+      type: "switch",
+      target: "props.ogrnIp",
+      tooltipKey: "propert.ogrnHelp",
+    },
+  ],
+  passport: [
+    {
+      key: "hidePassportSeriesNumber",
+      labelKey: "propert.hidePassportSeriesNumber",
+      type: "switch",
+      target: "props.hidePassportSeriesNumber",
+      disabled: (field) => {
+        const props = field.props as Record<string, any>;
+        const visible = [
+          !props.hidePassportSeriesNumber,
+          !props.hidePassportIssuedBy,
+          !props.hidePassportIssueDate,
+          !props.hidePassportDepartmentCode,
+          !props.hidePassportBirthPlace,
+        ].filter(Boolean).length;
+        return !props.hidePassportSeriesNumber && visible === 1;
+      },
+      guard: (field, value) => {
+        if (!value) return true;
+        const props = field.props as Record<string, any>;
+        const visible = [
+          !props.hidePassportSeriesNumber,
+          !props.hidePassportIssuedBy,
+          !props.hidePassportIssueDate,
+          !props.hidePassportDepartmentCode,
+          !props.hidePassportBirthPlace,
+        ].filter(Boolean).length;
+        return visible > 1;
+      },
+    },
+    {
+      key: "hidePassportIssuedBy",
+      labelKey: "propert.hidePassportIssuedBy",
+      type: "switch",
+      target: "props.hidePassportIssuedBy",
+      disabled: (field) => {
+        const props = field.props as Record<string, any>;
+        const visible = [
+          !props.hidePassportSeriesNumber,
+          !props.hidePassportIssuedBy,
+          !props.hidePassportIssueDate,
+          !props.hidePassportDepartmentCode,
+          !props.hidePassportBirthPlace,
+        ].filter(Boolean).length;
+        return !props.hidePassportIssuedBy && visible === 1;
+      },
+      guard: (field, value) => {
+        if (!value) return true;
+        const props = field.props as Record<string, any>;
+        const visible = [
+          !props.hidePassportSeriesNumber,
+          !props.hidePassportIssuedBy,
+          !props.hidePassportIssueDate,
+          !props.hidePassportDepartmentCode,
+          !props.hidePassportBirthPlace,
+        ].filter(Boolean).length;
+        return visible > 1;
+      },
+    },
+    {
+      key: "hidePassportIssueDate",
+      labelKey: "propert.hidePassportIssueDate",
+      type: "switch",
+      target: "props.hidePassportIssueDate",
+      disabled: (field) => {
+        const props = field.props as Record<string, any>;
+        const visible = [
+          !props.hidePassportSeriesNumber,
+          !props.hidePassportIssuedBy,
+          !props.hidePassportIssueDate,
+          !props.hidePassportDepartmentCode,
+          !props.hidePassportBirthPlace,
+        ].filter(Boolean).length;
+        return !props.hidePassportIssueDate && visible === 1;
+      },
+      guard: (field, value) => {
+        if (!value) return true;
+        const props = field.props as Record<string, any>;
+        const visible = [
+          !props.hidePassportSeriesNumber,
+          !props.hidePassportIssuedBy,
+          !props.hidePassportIssueDate,
+          !props.hidePassportDepartmentCode,
+          !props.hidePassportBirthPlace,
+        ].filter(Boolean).length;
+        return visible > 1;
+      },
+    },
+    {
+      key: "hidePassportDepartmentCode",
+      labelKey: "propert.hidePassportDepartmentCode",
+      type: "switch",
+      target: "props.hidePassportDepartmentCode",
+      disabled: (field) => {
+        const props = field.props as Record<string, any>;
+        const visible = [
+          !props.hidePassportSeriesNumber,
+          !props.hidePassportIssuedBy,
+          !props.hidePassportIssueDate,
+          !props.hidePassportDepartmentCode,
+          !props.hidePassportBirthPlace,
+        ].filter(Boolean).length;
+        return !props.hidePassportDepartmentCode && visible === 1;
+      },
+      guard: (field, value) => {
+        if (!value) return true;
+        const props = field.props as Record<string, any>;
+        const visible = [
+          !props.hidePassportSeriesNumber,
+          !props.hidePassportIssuedBy,
+          !props.hidePassportIssueDate,
+          !props.hidePassportDepartmentCode,
+          !props.hidePassportBirthPlace,
+        ].filter(Boolean).length;
+        return visible > 1;
+      },
+    },
+    {
+      key: "hidePassportBirthPlace",
+      labelKey: "propert.hidePassportBirthPlace",
+      type: "switch",
+      target: "props.hidePassportBirthPlace",
+      disabled: (field) => {
+        const props = field.props as Record<string, any>;
+        const visible = [
+          !props.hidePassportSeriesNumber,
+          !props.hidePassportIssuedBy,
+          !props.hidePassportIssueDate,
+          !props.hidePassportDepartmentCode,
+          !props.hidePassportBirthPlace,
+        ].filter(Boolean).length;
+        return !props.hidePassportBirthPlace && visible === 1;
+      },
+      guard: (field, value) => {
+        if (!value) return true;
+        const props = field.props as Record<string, any>;
+        const visible = [
+          !props.hidePassportSeriesNumber,
+          !props.hidePassportIssuedBy,
+          !props.hidePassportIssueDate,
+          !props.hidePassportDepartmentCode,
+          !props.hidePassportBirthPlace,
+        ].filter(Boolean).length;
+        return visible > 1;
+      },
+    },
+  ],
+};
+
+const getValueByTarget = (field: FormElementModel, target: PropertyFieldDef["target"]) => {
+  if (target === "label") return field.label;
+  if (target === "description") return field.description || "";
+  if (target === "required") return Boolean(field.required);
+  if (target.startsWith("props.")) {
+    const key = target.replace("props.", "");
+    return (field.props as Record<string, any>)[key];
+  }
+  return undefined;
+};
+
 export function PropertiesPanel({ selectedField, selectedIds, updateField, deleteField, deleteSelected, fields }: PropertiesPanelProps) {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation();
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -77,17 +402,13 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
     })
   );
 
-  // Local state for ranking order configuration
   const [rankingOrderOptions, setRankingOrderOptions] = useState<string[]>([]);
 
-  // Sync local state with selectedField options when field changes
   useEffect(() => {
-    if (selectedField?.options) {
-      setRankingOrderOptions([...selectedField.options]);
-    } else {
-      setRankingOrderOptions([]);
-    }
-  }, [selectedField?.options]);
+    if (!selectedField) return;
+    const options = (selectedField.props as Record<string, any>).options as string[] | undefined;
+    setRankingOrderOptions(options ? [...options] : []);
+  }, [selectedField?.id, selectedField?.props]);
 
   if (selectedIds.length > 1) {
     return (
@@ -96,9 +417,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
           <h3 className="font-semibold text-lg">{t("propert.propet")}</h3>
         </div>
         <div className="space-y-1">
-          <p className="text-sm text-muted-foreground">
-            {t("builder.selectedCount", { count: selectedIds.length })}
-          </p>
+          <p className="text-sm text-muted-foreground">{t("builder.selectedCount", { count: selectedIds.length })}</p>
         </div>
         <div className="grid gap-2">
           <Button variant="destructive" onClick={deleteSelected}>
@@ -116,422 +435,276 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
     );
   }
 
-  const hasOptions = ["select", "radio", "checkbox", "ranking"].includes(selectedField.type);
-  const isRating = selectedField.type === "rating";
-  const isNumber = selectedField.type === "number";
-  const isEmail = selectedField.type === "email";
-  const isFile = selectedField.type === "file";
-  const isHeader = selectedField.type === "header";
-  const isDatetime = selectedField.type === "datetime";
-  const isText = selectedField.type === "text";
-  const isPassport = selectedField.type === "passport";
-  const isInn = selectedField.type === "inn";
-  const isOgrn = selectedField.type === "ogrn";
-  const showRequiredToggle = !isHeader && !isDatetime && selectedField.type !== "fullname";
-  const hasIntermediateSettings =
-    isText ||
-    isNumber ||
-    isFile ||
-    isRating ||
-    isEmail ||
-    selectedField.type === "select" ||
-    isDatetime ||
-    isPassport ||
-    showRequiredToggle;
-  const showOptionsSeparator = hasOptions && hasIntermediateSettings;
-  const passportVisibleCount = isPassport
-    ? [
-        !selectedField.hidePassportSeriesNumber,
-        !selectedField.hidePassportIssuedBy,
-        !selectedField.hidePassportIssueDate,
-        !selectedField.hidePassportDepartmentCode,
-        !selectedField.hidePassportBirthPlace,
-      ].filter(Boolean).length
-    : 0;
-  
-  // Specialized field types that should not have correct answers
-  const specializedTypes = ["fullname", "phone", "passport", "inn", "snils", "account", "country", "ogrn", "bik"];
-  const isSpecialized = specializedTypes.includes(selectedField.type);
-  
-  // Fields that can have "Correct Answers"
-  const canHaveCorrectAnswers = !isHeader && !isFile && selectedField.type !== "category" && !isDatetime && !isSpecialized;
+  const props = selectedField.props as Record<string, any>;
+  const hideDate = Boolean(props.hideDate);
+  const hideTime = Boolean(props.hideTime);
+  const hasOptions = ["select", "radio", "checkbox", "ranking"].includes(selectedField.widgetType);
+  const isHeader = selectedField.widgetType === "header";
+  const isDatetime = selectedField.widgetType === "datetime";
+  const showRequiredToggle = !isHeader && !isDatetime && selectedField.semanticType !== "full_name";
+  const schemaFields = propertiesSchemaByWidgetType[selectedField.widgetType].filter((fieldDef) => {
+    if (fieldDef.key === "required" && !showRequiredToggle) return false;
+    return !fieldDef.visible || fieldDef.visible(selectedField);
+  });
+  const semanticFields = selectedField.semanticType
+    ? (propertiesSchemaBySemanticType[selectedField.semanticType] || [])
+    : [];
+
+  const specialized = Boolean(selectedField.semanticType);
+  const canHaveCorrectAnswers = !isHeader && selectedField.widgetType !== "file_upload" && !isDatetime && !specialized;
+
+  const updateByTarget = (target: PropertyFieldDef["target"], value: unknown) => {
+    if (target === "label") {
+      updateField(selectedField.id, { label: value as string });
+      return;
+    }
+    if (target === "description") {
+      updateField(selectedField.id, { description: value as string });
+      return;
+    }
+    if (target === "required") {
+      updateField(selectedField.id, { required: Boolean(value) });
+      return;
+    }
+    if (target.startsWith("props.")) {
+      const key = target.replace("props.", "");
+      updateField(selectedField.id, { props: { [key]: value } });
+    }
+  };
+
+  const renderPropertyField = (fieldDef: PropertyFieldDef) => {
+    const value = getValueByTarget(selectedField, fieldDef.target);
+    const isDisabled = fieldDef.disabled?.(selectedField) ?? false;
+    const showTooltip = Boolean(fieldDef.tooltipKey);
+
+    const label = (
+      <div className="flex items-center gap-2">
+        <Label>{t(fieldDef.labelKey)}</Label>
+        {showTooltip && (
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                aria-label={t(fieldDef.tooltipKey!)}
+                className="h-5 w-5 rounded-full border border-muted-foreground/40 text-muted-foreground text-[11px] leading-none flex items-center justify-center hover:bg-muted"
+              >
+                ?
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">
+              {t(fieldDef.tooltipKey!)}
+            </TooltipContent>
+          </Tooltip>
+        )}
+      </div>
+    );
+
+    if (fieldDef.type === "textarea") {
+      return (
+        <div key={fieldDef.key} className="space-y-2">
+          {label}
+          <Textarea
+            value={String(value ?? "")}
+            onChange={(e) => {
+              const nextValue = fieldDef.maxLength ? e.target.value.slice(0, fieldDef.maxLength) : e.target.value;
+              updateByTarget(fieldDef.target, nextValue);
+            }}
+            maxLength={fieldDef.maxLength}
+            className="min-h-[60px] resize-y break-all"
+          />
+        </div>
+      );
+    }
+
+    if (fieldDef.type === "text") {
+      return (
+        <div key={fieldDef.key} className="space-y-2">
+          {label}
+          <Input
+            value={String(value ?? "")}
+            onChange={(e) => {
+              const nextValue = fieldDef.maxLength ? e.target.value.slice(0, fieldDef.maxLength) : e.target.value;
+              updateByTarget(fieldDef.target, nextValue);
+            }}
+            placeholder={fieldDef.placeholder}
+          />
+        </div>
+      );
+    }
+
+    if (fieldDef.type === "number") {
+      return (
+        <div key={fieldDef.key} className="space-y-2">
+          {label}
+          <Input
+            type="number"
+            min={fieldDef.min}
+            max={fieldDef.max}
+            step={fieldDef.step}
+            value={Number(value ?? fieldDef.min ?? 0)}
+            onChange={(e) => updateByTarget(fieldDef.target, parseInt(e.target.value, 10) || fieldDef.min || 0)}
+          />
+        </div>
+      );
+    }
+
+    if (fieldDef.type === "slider") {
+      const sliderValue = typeof value === "number" ? value : fieldDef.min || 0;
+      return (
+        <div key={fieldDef.key} className="space-y-2">
+          <Label>
+            {t(fieldDef.labelKey)} ({sliderValue})
+          </Label>
+          <Slider
+            value={[sliderValue]}
+            min={fieldDef.min}
+            max={fieldDef.max}
+            step={fieldDef.step}
+            onValueChange={(val) => updateByTarget(fieldDef.target, val[0])}
+          />
+        </div>
+      );
+    }
+
+    if (fieldDef.type === "tags") {
+      const tagValue = Array.isArray(value) ? (value as string[]).join(", ") : String(value ?? "");
+      return (
+        <div key={fieldDef.key} className="space-y-2">
+          {label}
+          <Input
+            placeholder={fieldDef.placeholder}
+            value={tagValue}
+            onChange={(e) => {
+              const nextValue = e.target.value
+                .split(",")
+                .map((entry) => entry.trim())
+                .filter(Boolean);
+              updateByTarget(fieldDef.target, nextValue);
+            }}
+          />
+        </div>
+      );
+    }
+
+    if (fieldDef.type === "switch") {
+      return (
+        <div key={fieldDef.key} className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+          <div className="space-y-0.5">{label}</div>
+          <Switch
+            checked={Boolean(value)}
+            onCheckedChange={(checked) => {
+              if (fieldDef.guard && !fieldDef.guard(selectedField, checked)) {
+                return;
+              }
+              updateByTarget(fieldDef.target, checked);
+            }}
+            disabled={isDisabled}
+          />
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  const typeLabelKey = selectedField.semanticType
+    ? semanticTypeLabelKey[selectedField.semanticType]
+    : widgetTypeLabelKey[selectedField.widgetType];
+
+  const options = (props.options as string[]) || [];
+
+  const correctAnswers = (props.correctAnswers as string[]) || [];
+  const hasCorrectAnswers = correctAnswers.length > 0;
 
   return (
     <div className="p-4 space-y-6 overflow-y-auto h-full pb-20">
       <div className="flex items-center justify-between border-b pb-4">
         <h3 className="font-semibold text-lg">{t("propert.propet")}</h3>
-        <Button 
-          variant="destructive" 
-          size="icon" 
+        <Button
+          variant="destructive"
+          size="icon"
           className="h-8 w-8"
           onClick={() => deleteField(selectedField.id)}
         >
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
-        <div className="space-y-2">
-          <Label>{t("propert.fieldType")}</Label>
-            <div className="text-sm text-muted-foreground font-medium">
-              {t(`fields.${selectedField.type}`)}
-            </div>
-        </div>
+
+      <div className="space-y-2">
+        <Label>{t("propert.fieldType")}</Label>
+        <div className="text-sm text-muted-foreground font-medium">{t(`fields.${typeLabelKey}`)}</div>
+      </div>
 
       <div className="space-y-4">
-        <div className="space-y-2">
-          <Label>{t("propert.label")}</Label>
-          <Textarea 
-            value={selectedField.label} 
-            onChange={(e) => {
-              console.log('Updating label, e.target.value:', e.target.value, 'type:', typeof e.target.value);
-              const value = e.target.value ? e.target.value.slice(0, 120) : '';
-              console.log('New label value:', value);
-              updateField(selectedField.id, { label: value });
-            }}
-            maxLength={120}
-            className="min-h-[80px]"
-          />
-        </div>
-
-        {!isHeader && !["checkbox", "radio", "rating", "file", "datetime", "fullname", "phone", "passport", "inn", "ogrn", "snils", "bik"].includes(selectedField.type) && (
-          <div className="space-y-2">
-            <Label>{t("propert.placeholder")}</Label>
-            <Textarea
-              value={selectedField.placeholder || ""}
-              onChange={(e) => {
-                const value = e.target.value.slice(0, 80);
-                updateField(selectedField.id, { placeholder: value });
-              }}
-              maxLength={80}
-              className="min-h-[44px] resize-y break-all"
-            />
-          </div>
-        )}
-        
-        {!isHeader && (
-          <div className="space-y-2">
-            <Label>{t("propert.helper")}</Label>
-            <Textarea
-              value={selectedField.helperText || ""}
-              onChange={(e) => {
-                const value = e.target.value.slice(0, 1200);
-                updateField(selectedField.id, { helperText: value });
-              }}
-              maxLength={1200}
-              className="min-h-[60px] resize-y break-all"
-            />
-          </div>
-        )}
-
-        {isText && (
-          <>
-            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm mt-4">
-              <div className="space-y-0.5">
-                <Label>{t("propert.longtxt")}</Label>
-              </div>
-              <Switch 
-                checked={selectedField.multiline}
-                onCheckedChange={(checked) => updateField(selectedField.id, { multiline: checked })}
-              />
-            </div>
-          </>
-        )}
-
-        {isNumber && (
+        {schemaFields.map(renderPropertyField)}
+        {(selectedField.widgetType === "text_input" || selectedField.widgetType === "textarea") && (
           <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
             <div className="space-y-0.5">
-              <Label>{t("propert.allowdec")}</Label>
-            </div>
-            <Switch 
-              checked={selectedField.allowDecimals}
-              onCheckedChange={(checked) => updateField(selectedField.id, { allowDecimals: checked })}
-            />
-          </div>
-        )}
-
-        {isFile && (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>{t("propert.sizefile")}</Label>
-              <Input 
-                type="number"
-                value={selectedField.maxFileSize || 10}
-                onChange={(e) => updateField(selectedField.id, { maxFileSize: parseInt(e.target.value) || 10 })}
-              />
-            </div>
-            <div className="space-y-2">
-               <Label>{t("propert.accepfile")}</Label>
-               <Input 
-                 placeholder=".pdf, .jpg, .png"
-                 value={selectedField.acceptedFileTypes?.join(", ") || ""}
-                 onChange={(e) => updateField(selectedField.id, { 
-                   acceptedFileTypes: e.target.value.split(",").map(d => d.trim()).filter(Boolean) 
-                 })}
-               />
-            </div>
-          </div>
-        )}
-
-        {isRating && (
-           <div className="space-y-2">
-            <Label>{t("propert.maxrati")} ({selectedField.maxRating || 5})</Label>
-            <Slider 
-              value={[selectedField.maxRating || 5]}
-              min={3}
-              max={10}
-              step={1}
-              onValueChange={(val) => updateField(selectedField.id, { maxRating: val[0] })}
-            />
-           </div>
-        )}
-
-        {isEmail && (
-          <div className="space-y-2">
-             <Label>{t("propert.domains")}</Label>
-             <Input 
-               placeholder="example.com, company.org"
-               value={selectedField.allowedDomains?.join(", ") || ""}
-               onChange={(e) => updateField(selectedField.id, { 
-                 allowedDomains: e.target.value.split(",").map(d => d.trim()).filter(Boolean) 
-               })}
-             />
-          </div>
-        )}
-
-        {isInn && (
-          <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2">
-                <Label>Юридическое лицо</Label>
-                <Tooltip delayDuration={0}>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      aria-label="\u041F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0430 \u043F\u043E \u0418\u041D\u041D"
-                      className="h-5 w-5 rounded-full border border-muted-foreground/40 text-muted-foreground text-[11px] leading-none flex items-center justify-center hover:bg-muted"
-                    >
-                      ?
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">{"\u042D\u0442\u043E \u0441\u0432\u043E\u0439\u0441\u0442\u0432\u043E \u043F\u0440\u0435\u0434\u043D\u0430\u0437\u043D\u0430\u0447\u0435\u043D\u043E \u0434\u043B\u044F \u0432\u0432\u043E\u0434\u0430 \u0418\u041D\u041D \u044E\u0440\u0438\u0434\u0438\u0447\u0435\u0441\u043A\u0438\u0445 \u043B\u0438\u0446. \u0414\u043B\u0438\u043D\u0430 \u0418\u041D\u041D \u0434\u043B\u044F \u044E\u0440. \u043B\u0438\u0446\u0430 - 10 \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432, \u0434\u043B\u044F \u0444\u0438\u0437. \u043B\u0438\u0446\u0430 - 12."}</TooltipContent>
-                </Tooltip>
-              </div>
+              <Label>{t("propert.longtxt")}</Label>
             </div>
             <Switch
-              checked={selectedField.innLegalEntity || false}
-              onCheckedChange={(checked) => updateField(selectedField.id, { innLegalEntity: checked })}
+              checked={selectedField.widgetType === "textarea"}
+              onCheckedChange={(checked) => {
+                updateField(selectedField.id, { widgetType: checked ? "textarea" : "text_input" });
+              }}
             />
           </div>
         )}
-
-        {isOgrn && (
-          <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2">
-                <Label>ОГРНИП</Label>
-                <Tooltip delayDuration={0}>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      aria-label="Подсказка по ОГРН"
-                      className="h-5 w-5 rounded-full border border-muted-foreground/40 text-muted-foreground text-[11px] leading-none flex items-center justify-center hover:bg-muted"
-                    >
-                      ?
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">
-                    {"ОГРН — основной государственный регистрационный номер юридического лица (13 цифр). ОГРНИП — основной государственный регистрационный номер ИП (15 цифр)."}
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-            </div>
-            <Switch
-              checked={selectedField.ogrnIp || false}
-              onCheckedChange={(checked) => updateField(selectedField.id, { ogrnIp: checked })}
-            />
-          </div>
-        )}
-        
-        {selectedField.type === "select" && (
-           <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-            <div className="space-y-0.5">
-              <Label>{t("propert.allowmult")}</Label>
-            </div>
-            <Switch 
-              checked={selectedField.multiple}
-              onCheckedChange={(checked) => updateField(selectedField.id, { multiple: checked })}
-            />
-          </div>
-        )}
-
-        {isDatetime && (
+        {semanticFields.length > 0 && (
           <div className="space-y-3 pt-2">
-            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-              <div className="space-y-0.5">
-                <Label>{t("propert.hideDate")}</Label>
-              </div>
-              <Switch 
-                checked={selectedField.hideDate || false}
-                onCheckedChange={(checked) => {
-                  // Prevent hiding both date and time
-                  if (checked && selectedField.hideTime) {
-                    return;
-                  }
-                  updateField(selectedField.id, { hideDate: checked });
-                }}
-                disabled={selectedField.hideTime}
-              />
-            </div>
-            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-              <div className="space-y-0.5">
-                <Label>{t("propert.hideTime")}</Label>
-              </div>
-              <Switch 
-                checked={selectedField.hideTime || false}
-                onCheckedChange={(checked) => {
-                  // Prevent hiding both date and time
-                  if (checked && selectedField.hideDate) {
-                    return;
-                  }
-                  updateField(selectedField.id, { hideTime: checked });
-                }}
-                disabled={selectedField.hideDate}
-              />
-            </div>
-            {(selectedField.hideDate && selectedField.hideTime) && (
-              <p className="text-xs text-destructive">{t("propert.datetimeWarning")}</p>
+            {selectedField.semanticType === "passport" && (
+              <Label>{t("propert.passportFields")}</Label>
             )}
-          </div>
-        )}
-
-        {isPassport && (
-          <div className="space-y-3 pt-2">
-            <Label>{t("propert.passportFields")}</Label>
-            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-              <div className="space-y-0.5">
-                <Label>{t("propert.hidePassportSeriesNumber")}</Label>
-              </div>
-              <Switch
-                checked={selectedField.hidePassportSeriesNumber || false}
-                onCheckedChange={(checked) => {
-                  if (checked && passportVisibleCount === 1) {
-                    return;
-                  }
-                  updateField(selectedField.id, { hidePassportSeriesNumber: checked });
-                }}
-                disabled={!selectedField.hidePassportSeriesNumber && passportVisibleCount === 1}
-              />
-            </div>
-            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-              <div className="space-y-0.5">
-                <Label>{t("propert.hidePassportIssuedBy")}</Label>
-              </div>
-              <Switch
-                checked={selectedField.hidePassportIssuedBy || false}
-                onCheckedChange={(checked) => {
-                  if (checked && passportVisibleCount === 1) {
-                    return;
-                  }
-                  updateField(selectedField.id, { hidePassportIssuedBy: checked });
-                }}
-                disabled={!selectedField.hidePassportIssuedBy && passportVisibleCount === 1}
-              />
-            </div>
-            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-              <div className="space-y-0.5">
-                <Label>{t("propert.hidePassportIssueDate")}</Label>
-              </div>
-              <Switch
-                checked={selectedField.hidePassportIssueDate || false}
-                onCheckedChange={(checked) => {
-                  if (checked && passportVisibleCount === 1) {
-                    return;
-                  }
-                  updateField(selectedField.id, { hidePassportIssueDate: checked });
-                }}
-                disabled={!selectedField.hidePassportIssueDate && passportVisibleCount === 1}
-              />
-            </div>
-            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-              <div className="space-y-0.5">
-                <Label>{t("propert.hidePassportDepartmentCode")}</Label>
-              </div>
-              <Switch
-                checked={selectedField.hidePassportDepartmentCode || false}
-                onCheckedChange={(checked) => {
-                  if (checked && passportVisibleCount === 1) {
-                    return;
-                  }
-                  updateField(selectedField.id, { hidePassportDepartmentCode: checked });
-                }}
-                disabled={!selectedField.hidePassportDepartmentCode && passportVisibleCount === 1}
-              />
-            </div>
-            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-              <div className="space-y-0.5">
-                <Label>{t("propert.hidePassportBirthPlace")}</Label>
-              </div>
-              <Switch
-                checked={selectedField.hidePassportBirthPlace || false}
-                onCheckedChange={(checked) => {
-                  if (checked && passportVisibleCount === 1) {
-                    return;
-                  }
-                  updateField(selectedField.id, { hidePassportBirthPlace: checked });
-                }}
-                disabled={!selectedField.hidePassportBirthPlace && passportVisibleCount === 1}
-              />
-            </div>
-            {passportVisibleCount === 1 && (
+            {semanticFields.map(renderPropertyField)}
+            {selectedField.semanticType === "passport" && (
               <p className="text-xs text-muted-foreground">{t("propert.passportFieldWarning")}</p>
             )}
           </div>
         )}
 
-        {showRequiredToggle && (
-          <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-            <div className="space-y-0.5">
-              <Label>{t("propert.requered")}</Label>
-            </div>
-            <Switch 
-              checked={selectedField.required}
-              onCheckedChange={(checked) => updateField(selectedField.id, { required: checked })}
+        {(selectedField.widgetType === "text_input" && props.inputType === "email") && (
+          <div className="space-y-2">
+            <Label>{t("propert.domains")}</Label>
+            <Input
+              placeholder="example.com, company.org"
+              value={Array.isArray(props.allowedDomains) ? props.allowedDomains.join(", ") : ""}
+              onChange={(e) => {
+                const nextValue = e.target.value
+                  .split(",")
+                  .map((entry) => entry.trim())
+                  .filter(Boolean);
+                updateField(selectedField.id, { props: { allowedDomains: nextValue } });
+              }}
             />
           </div>
         )}
-        {showOptionsSeparator && <hr className="border-t border-border my-1" />}
+
+        {selectedField.widgetType === "datetime" && hideDate && hideTime && (
+          <p className="text-xs text-destructive">{t("propert.datetimeWarning")}</p>
+        )}
+
         {hasOptions && (
-          <div className="space-y-3 pt-2">
+          <div className="space-y-3 pt-2 border-t">
             <Label>{t("propert.variabl")}</Label>
-            {selectedField.type === "ranking" && selectedField.correctAnswers && selectedField.correctAnswers.length > 0 && (
-              <div className="p-3 bg-orange-50 border border-orange-200 rounded-md">
-                <p className="text-sm text-orange-700 font-medium">
-                  {t("propert.rankingOrderFixed")}
-                </p>
-                <p className="text-xs text-orange-600 mt-1">
-                  {t("propert.rankingOrderFixedDesc")}
-                </p>
-              </div>
-            )}
             <div className="space-y-2">
-              {selectedField.options?.map((option, index) => (
+              {options.map((option, index) => (
                 <div key={index} className="flex items-center gap-2">
                   <Input
                     value={option}
-                    disabled={selectedField.type === "ranking" && selectedField.correctAnswers && selectedField.correctAnswers.length > 0}
                     onChange={(e) => {
-                      const newOptions = [...(selectedField.options || [])];
+                      const newOptions = [...options];
                       newOptions[index] = e.target.value;
-                      updateField(selectedField.id, { options: newOptions });
+                      updateField(selectedField.id, { props: { options: newOptions } });
                     }}
+                    className="flex-1"
                   />
                   <Button
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                    disabled={selectedField.type === "ranking" && selectedField.correctAnswers && selectedField.correctAnswers.length > 0}
                     onClick={() => {
-                      const newOptions = selectedField.options?.filter((_, i) => i !== index);
-                      updateField(selectedField.id, { options: newOptions });
+                      const newOptions = options.filter((_, i) => i !== index);
+                      updateField(selectedField.id, { props: { options: newOptions } });
                     }}
                   >
                     <X className="h-4 w-4" />
@@ -542,10 +715,10 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                 variant="outline"
                 size="sm"
                 className="w-full mt-2"
-                disabled={selectedField.type === "ranking" && selectedField.correctAnswers && selectedField.correctAnswers.length > 0}
+                disabled={selectedField.widgetType === "ranking" && hasCorrectAnswers}
                 onClick={() => {
-                  const newOptions = [...(selectedField.options || []), `Option ${(selectedField.options?.length || 0) + 1}`];
-                  updateField(selectedField.id, { options: newOptions });
+                  const newOptions = [...options, `Option ${options.length + 1}`];
+                  updateField(selectedField.id, { props: { options: newOptions } });
                 }}
               >
                 <Plus className="h-4 w-4 mr-2" /> {t("propert.addopti")}
@@ -554,30 +727,26 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
           </div>
         )}
 
-        {/* Correct Answers Section */}
         {canHaveCorrectAnswers && (
           <div className="space-y-3 pt-2 border-t mt-2">
             <Label className="text-green-600 flex items-center gap-1">
               <Check className="h-4 w-4" /> {t("propert.corransw")}
             </Label>
             <p className="text-xs text-muted-foreground">
-              {hasOptions 
-                ? (selectedField.type === "ranking" 
-                    ? t("propert.subranj")
-                    : t("propert.corranopt"))
-                    : t("propert.subtxt")}
+              {hasOptions
+                ? selectedField.widgetType === "ranking"
+                  ? t("propert.subranj")
+                  : t("propert.corranopt")
+                : t("propert.subtxt")}
             </p>
-            
-            {/* For fields with options (select, radio, checkbox, ranking) - show checkboxes to select from options */}
-            {hasOptions && selectedField.options && selectedField.options.length > 0 ? (
+
+            {hasOptions && options.length > 0 ? (
               <div className="space-y-2">
-                {selectedField.type === "ranking" ? (
+                {selectedField.widgetType === "ranking" ? (
                   <div className="space-y-2">
-                    {!selectedField.correctAnswers || selectedField.correctAnswers.length === 0 ? (
+                    {!hasCorrectAnswers ? (
                       <div className="space-y-2">
-                        <p className="text-xs text-muted-foreground font-medium">
-                          {t("propert.dragToOrder")}
-                        </p>
+                        <p className="text-xs text-muted-foreground font-medium">{t("propert.dragToOrder")}</p>
                         <DndContext
                           sensors={sensors}
                           collisionDetection={closestCenter}
@@ -600,11 +769,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                           >
                             <div className="space-y-2 max-h-40 overflow-y-auto border rounded p-2">
                               {rankingOrderOptions.map((option, index) => (
-                                <SortableOptionItem
-                                  key={`option-${index}`}
-                                  id={`option-${index}`}
-                                  option={option}
-                                />
+                                <SortableOptionItem key={`option-${index}`} id={`option-${index}`} option={option} />
                               ))}
                             </div>
                           </SortableContext>
@@ -614,7 +779,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                           size="sm"
                           className="w-full border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
                           onClick={() => {
-                            updateField(selectedField.id, { correctAnswers: [...rankingOrderOptions] });
+                            updateField(selectedField.id, { props: { correctAnswers: [...rankingOrderOptions] } });
                           }}
                           disabled={rankingOrderOptions.length === 0}
                         >
@@ -626,7 +791,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                         <div className="p-2 bg-green-50 rounded border border-green-200">
                           <p className="text-xs text-green-700 font-medium mb-1">{t("propert.correctorder")}:</p>
                           <ol className="list-decimal list-inside text-sm text-green-800">
-                            {selectedField.correctAnswers.map((answer, idx) => (
+                            {correctAnswers.map((answer, idx) => (
                               <li key={idx}>{answer}</li>
                             ))}
                           </ol>
@@ -636,7 +801,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                           size="sm"
                           className="w-full border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
                           onClick={() => {
-                            updateField(selectedField.id, { correctAnswers: undefined });
+                            updateField(selectedField.id, { props: { correctAnswers: undefined } });
                           }}
                         >
                           <X className="h-4 w-4 mr-2" /> {t("propert.cancelorder")}
@@ -645,34 +810,34 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                     )}
                   </div>
                 ) : (
-                  selectedField.options.map((option, index) => {
-                    const isSelected = selectedField.correctAnswers?.includes(option) || false;
+                  options.map((option, index) => {
+                    const isSelected = correctAnswers.includes(option);
                     return (
-                      <div key={index} className="flex items-center gap-2 p-2 rounded border border-green-100 hover:bg-green-50">
+                      <div
+                        key={index}
+                        className="flex items-center gap-2 p-2 rounded border border-green-100 hover:bg-green-50"
+                      >
                         <input
                           type="checkbox"
                           id={`correct-${selectedField.id}-${index}`}
                           checked={isSelected}
                           onChange={(e) => {
-                            const currentAnswers = selectedField.correctAnswers || [];
+                            const currentAnswers = correctAnswers || [];
                             let newAnswers: string[];
                             if (e.target.checked) {
-                              if (selectedField.type === "radio" || selectedField.type === "select") {
+                              if (selectedField.widgetType === "radio" || selectedField.widgetType === "select") {
                                 newAnswers = [option];
                               } else {
                                 newAnswers = [...currentAnswers, option];
                               }
                             } else {
-                              newAnswers = currentAnswers.filter(a => a !== option);
+                              newAnswers = currentAnswers.filter((a) => a !== option);
                             }
-                            updateField(selectedField.id, { correctAnswers: newAnswers });
+                            updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
                           }}
                           className="h-4 w-4 text-green-600 border-green-300 rounded focus:ring-green-500"
                         />
-                        <label 
-                          htmlFor={`correct-${selectedField.id}-${index}`}
-                          className="flex-1 text-sm cursor-pointer"
-                        >
+                        <label htmlFor={`correct-${selectedField.id}-${index}`} className="flex-1 text-sm cursor-pointer">
                           {option}
                         </label>
                         {isSelected && <Check className="h-4 w-4 text-green-600" />}
@@ -680,22 +845,19 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                     );
                   })
                 )}
-                {selectedField.options.length === 0 && (
-                  <p className="text-xs text-muted-foreground italic">Add options first to select correct answers.</p>
-                )}
               </div>
             ) : hasOptions ? (
               <p className="text-xs text-muted-foreground italic">Add options first to select correct answers.</p>
             ) : (
               <div className="space-y-2">
-                {selectedField.correctAnswers?.map((answer, index) => (
+                {correctAnswers.map((answer, index) => (
                   <div key={index} className="flex items-center gap-2">
-                    <Input 
-                      value={answer} 
+                    <Input
+                      value={answer}
                       onChange={(e) => {
-                        const newAnswers = [...(selectedField.correctAnswers || [])];
+                        const newAnswers = [...correctAnswers];
                         newAnswers[index] = e.target.value;
-                        updateField(selectedField.id, { correctAnswers: newAnswers });
+                        updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
                       }}
                       placeholder="Enter correct answer"
                       className="border-green-200 focus-visible:ring-green-500"
@@ -705,8 +867,8 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                       size="icon"
                       className="h-8 w-8 text-muted-foreground hover:text-destructive"
                       onClick={() => {
-                        const newAnswers = selectedField.correctAnswers?.filter((_, i) => i !== index);
-                        updateField(selectedField.id, { correctAnswers: newAnswers });
+                        const newAnswers = correctAnswers.filter((_, i) => i !== index);
+                        updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
                       }}
                     >
                       <X className="h-4 w-4" />
@@ -718,22 +880,22 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                   size="sm"
                   className="w-full mt-2 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
                   onClick={() => {
-                    const newAnswers = [...(selectedField.correctAnswers || []), ""];
-                    updateField(selectedField.id, { correctAnswers: newAnswers });
+                    const newAnswers = [...correctAnswers, ""];
+                    updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
                   }}
                 >
                   <Plus className="h-4 w-4 mr-2" /> {t("propert.addcorransw")}
                 </Button>
               </div>
             )}
-            
+
             <div className="space-y-2 mt-3">
               <Label className="text-green-600">{t("propert.pointcorr")}</Label>
-              <Input 
+              <Input
                 type="number"
                 min="0"
-                value={selectedField.points ?? ""}
-                onChange={(e) => updateField(selectedField.id, { points: e.target.value ? parseInt(e.target.value) : undefined })}
+                value={props.points ?? ""}
+                onChange={(e) => updateField(selectedField.id, { props: { points: e.target.value ? parseInt(e.target.value, 10) : undefined } })}
                 placeholder="0"
                 className="border-green-200 focus-visible:ring-green-500"
               />
@@ -742,7 +904,6 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
           </div>
         )}
 
-        {/* Conditional Logic Section */}
         <div className="space-y-3 pt-2 border-t mt-2">
           <Label className="text-blue-600 flex items-center gap-1">
             <Check className="h-4 w-4" /> {t("logic.conditional")}
@@ -750,11 +911,13 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
           <div className="space-y-2">
             <Label>{t("logic.dependsOn")}</Label>
             <Select
-              value={selectedField.conditionalLogic?.dependsOn || "__none__"}
+              value={(props.conditionalLogic as Record<string, any> | undefined)?.dependsOn || "__none__"}
               onValueChange={(value) => {
-                const logic = selectedField.conditionalLogic || { condition: "equals" };
+                const logic = (props.conditionalLogic as Record<string, any>) || { condition: "equals" };
                 updateField(selectedField.id, {
-                  conditionalLogic: value === "__none__" ? undefined : { ...logic, dependsOn: value }
+                  props: {
+                    conditionalLogic: value === "__none__" ? undefined : { ...logic, dependsOn: value },
+                  },
                 });
               }}
             >
@@ -763,25 +926,27 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__none__">{t("logic.none")}</SelectItem>
-                {fields?.filter(f => f.id !== selectedField.id).map((field) => (
+                {fields?.filter((field) => field.id !== selectedField.id).map((field) => (
                   <SelectItem key={field.id} value={field.id}>
-                    {field.label} ({t(`fields.${field.type}`)})
+                    {field.label} ({t(`fields.${field.semanticType ? semanticTypeLabelKey[field.semanticType] : widgetTypeLabelKey[field.widgetType]}`)})
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-          
-          {selectedField.conditionalLogic?.dependsOn && (
+
+          {(props.conditionalLogic as Record<string, any> | undefined)?.dependsOn && (
             <>
               <div className="space-y-2">
                 <Label>{t("logic.condition")}</Label>
                 <Select
-                  value={selectedField.conditionalLogic.condition || ""}
+                  value={(props.conditionalLogic as Record<string, any>).condition as string}
                   onValueChange={(value) => {
-                    const logic = selectedField.conditionalLogic!;
+                    const logic = props.conditionalLogic as Record<string, any>;
                     updateField(selectedField.id, {
-                      conditionalLogic: { ...logic, condition: value as any }
+                      props: {
+                        conditionalLogic: { ...logic, condition: value },
+                      },
                     });
                   }}
                 >
@@ -796,20 +961,30 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                 </Select>
               </div>
 
-              {(selectedField.conditionalLogic.condition === "equals" || selectedField.conditionalLogic.condition === "not_equals") && (
+              {(["equals", "not_equals"].includes((props.conditionalLogic as Record<string, any>).condition as string)) && (
                 <div className="space-y-2">
                   <Label>{t("logic.expectedValue")}</Label>
                   {(() => {
-                    const dependsOnField = fields.find(f => f.id === selectedField.conditionalLogic!.dependsOn);
-                    const hasOptions = dependsOnField && dependsOnField.options && dependsOnField.options.length > 0;
-                    if (hasOptions && dependsOnField && dependsOnField.options) {
-                      if (dependsOnField.multiple) {
-                        // Multiple selection with checkboxes
+                    const dependsOnField = fields.find(
+                      (field) => field.id === (props.conditionalLogic as Record<string, any>).dependsOn
+                    );
+                    const dependsOnOptions = (dependsOnField?.props as Record<string, any>)?.options as string[] | undefined;
+                    const hasOptions = dependsOnOptions && dependsOnOptions.length > 0;
+                    const dependsOnMultiple = Boolean(
+                      (dependsOnField?.props as Record<string, any>)?.multiple
+                    );
+                    const expectedValue = (props.conditionalLogic as Record<string, any>).expectedValue;
+
+                    if (hasOptions && dependsOnField && dependsOnOptions) {
+                      if (dependsOnMultiple) {
+                        const currentValues = Array.isArray(expectedValue)
+                          ? expectedValue
+                          : expectedValue
+                          ? [expectedValue]
+                          : [];
                         return (
                           <div className="space-y-2">
-                            {dependsOnField.options.filter(Boolean).map((option, index) => {
-                              const expectedValue = selectedField.conditionalLogic!.expectedValue;
-                              const currentValues = Array.isArray(expectedValue) ? expectedValue : expectedValue ? [expectedValue] : [];
+                            {dependsOnOptions.filter(Boolean).map((option, index) => {
                               const isSelected = currentValues.includes(option);
                               return (
                                 <div key={index} className="flex items-center gap-2 p-2 rounded border border-blue-100 hover:bg-blue-50">
@@ -818,24 +993,28 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                                     id={`expected-${selectedField.id}-${index}`}
                                     checked={isSelected}
                                     onChange={(e) => {
-                                      const logic = selectedField.conditionalLogic!;
+                                      const logic = props.conditionalLogic as Record<string, any>;
                                       let newExpectedValue: string | string[];
                                       if (e.target.checked) {
                                         newExpectedValue = [...currentValues, option];
                                       } else {
-                                        newExpectedValue = currentValues.filter(v => v !== option);
+                                        newExpectedValue = currentValues.filter((v) => v !== option);
                                         if (newExpectedValue.length === 1) newExpectedValue = newExpectedValue[0];
                                       }
                                       updateField(selectedField.id, {
-                                        conditionalLogic: { ...logic, expectedValue: newExpectedValue.length > 0 ? newExpectedValue : undefined }
+                                        props: {
+                                          conditionalLogic: {
+                                            ...logic,
+                                            expectedValue: Array.isArray(newExpectedValue) && newExpectedValue.length === 0
+                                              ? undefined
+                                              : newExpectedValue,
+                                          },
+                                        },
                                       });
                                     }}
                                     className="h-4 w-4 text-blue-600 border-blue-300 rounded focus:ring-blue-500"
                                   />
-                                  <label
-                                    htmlFor={`expected-${selectedField.id}-${index}`}
-                                    className="flex-1 text-sm cursor-pointer"
-                                  >
+                                  <label htmlFor={`expected-${selectedField.id}-${index}`} className="flex-1 text-sm cursor-pointer">
                                     {option}
                                   </label>
                                 </div>
@@ -843,71 +1022,72 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                             })}
                           </div>
                         );
-                      } else {
-                        // Single selection with select
-                        const expectedValue = selectedField.conditionalLogic!.expectedValue;
-                        return (
-                          <Select
-                            value={Array.isArray(expectedValue)
-                              ? expectedValue[0] || ""
-                              : (expectedValue || "")}
-                            onValueChange={(value) => {
-                              const logic = selectedField.conditionalLogic!;
-                              updateField(selectedField.id, {
-                                conditionalLogic: { ...logic, expectedValue: value || undefined }
-                              });
-                            }}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Выберите значение" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {dependsOnField.options.filter(Boolean).map((option) => (
-                                <SelectItem key={option} value={option}>
-                                  {option}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        );
                       }
-                    } else {
-                      // Fallback to input
-                      const expectedValue = selectedField.conditionalLogic!.expectedValue;
+
+                      const selectedValue = Array.isArray(expectedValue)
+                        ? expectedValue[0] || ""
+                        : (expectedValue as string) || "";
                       return (
-                        <>
-                          <Input
-                            value={Array.isArray(expectedValue)
-                              ? expectedValue.join(", ")
-                              : (expectedValue || "")}
-                            onChange={(e) => {
-                              const logic = selectedField.conditionalLogic!;
-                              const value = e.target.value;
-                              // Для множественных значений разделять по запятой
-                              const newExpectedValue = value.includes(",")
-                                ? value.split(",").map(v => v.trim()).filter(Boolean)
-                                : value;
-                              updateField(selectedField.id, {
-                                conditionalLogic: { ...logic, expectedValue: value ? newExpectedValue : undefined }
-                              });
-                            }}
-                            placeholder="Введите ожидаемое значение"
-                          />
-                          <p className="text-xs text-muted-foreground">
-                            Для множественных значений разделяйте запятой
-                          </p>
-                        </>
+                        <Select
+                          value={selectedValue}
+                          onValueChange={(value) => {
+                            const logic = props.conditionalLogic as Record<string, any>;
+                            updateField(selectedField.id, {
+                              props: {
+                                conditionalLogic: { ...logic, expectedValue: value || undefined },
+                              },
+                            });
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Выберите значение" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {dependsOnOptions.filter(Boolean).map((option) => (
+                              <SelectItem key={option} value={option}>
+                                {option}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       );
                     }
+
+                    return (
+                      <>
+                        <Input
+                          value={Array.isArray(expectedValue)
+                            ? expectedValue.join(", ")
+                            : (expectedValue as string) || ""}
+                          onChange={(e) => {
+                            const logic = props.conditionalLogic as Record<string, any>;
+                            const value = e.target.value;
+                            const newExpectedValue = value.includes(",")
+                              ? value.split(",").map((entry) => entry.trim()).filter(Boolean)
+                              : value;
+                            updateField(selectedField.id, {
+                              props: {
+                                conditionalLogic: {
+                                  ...logic,
+                                  expectedValue: value ? newExpectedValue : undefined,
+                                },
+                              },
+                            });
+                          }}
+                          placeholder="Введите ожидаемое значение"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Для множественных значений разделяйте запятой
+                        </p>
+                      </>
+                    );
                   })()}
                 </div>
               )}
             </>
           )}
         </div>
-
       </div>
     </div>
   );
 }
-
