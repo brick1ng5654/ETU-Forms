@@ -42,9 +42,9 @@ BEGIN
             'select',
             'radio',
             'checkbox',
-            'data',
+            'date',
             'file',
-            'confidential data'
+            'confidential_data'
         );
     END IF;
 
@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS Form (
     description TEXT,
     
     -- Данные формы
-    structure_json JSONB NOT NULL DEFAULT '{}',
+    settings_json JSONB NOT NULL DEFAULT '{}',
     start_at TIMESTAMP,
     end_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -128,7 +128,7 @@ COMMENT ON TABLE Response IS 'Таблица ответов на формы';
 COMMENT ON COLUMN Response.response_id IS 'Уникальный идентификатор ответа';
 COMMENT ON COLUMN Response.form_id IS 'ID формы (ссылка на forms.form_id)';
 COMMENT ON COLUMN Response.user_id IS 'ID пользователя, который отправил ответ (ссылка на users.user_id)';
-COMMENT ON COLUMN Response.response_json IS 'JSON-структура с данными ответа';
+COMMENT ON COLUMN Response.response_JSON IS 'JSON-структура с данными ответа';
 COMMENT ON COLUMN Response.created_at IS 'Дата и время создания ответа';
 COMMENT ON COLUMN Response.completed_at IS 'Дата и время завершения ответа';
 
@@ -168,7 +168,7 @@ CREATE TABLE IF NOT EXISTS Form_Element (
 
     correct_answer JSONB NULL,
 
-    CONSTRAINT fr_element_form
+    CONSTRAINT fk_element_form
         FOREIGN KEY (form_id)
         REFERENCES Form(form_id)
         ON DELETE CASCADE
@@ -197,4 +197,4 @@ CREATE TABLE IF NOT EXISTS Form_Element_Condition(
 
     CONSTRAINT no_self_condition
         CHECK (source_element_id <> target_element_id)
-)
+);
