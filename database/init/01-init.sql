@@ -35,16 +35,26 @@ BEGIN
 
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'form_element_type') THEN
         CREATE TYPE form_element_type AS ENUM (
-            'text',
-            'textarea',
+            'heading', -- заголовок
+            'text', 
             'number',
+            'select', -- выпадающий список
+            'radio', -- переключатель (один из вариантов)
+            'checkbox', -- флажок 
+            'datetime',
             'email',
-            'select',
-            'radio',
-            'checkbox',
-            'date',
-            'file',
-            'confidential_data'
+            'rating',
+            'ranking', -- ранжирование
+            'file_upload', -- загрузка файла
+            'full_name', -- фио
+            'phone', -- номер телефона
+            'passport', -- паспорт
+            'inn',
+            'snils',
+            'bank_account', -- банковский счет
+            'country',
+            'orgn', -- ОГРН
+            'bik' -- БИК
         );
     END IF;
 
