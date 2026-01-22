@@ -52,6 +52,9 @@ jobs:
           POSTGRES_PORT=${DB_PORT}
           EOF
 
+      - name: Reset docker volumes
+        run: docker compose -f "docker-compose.yml" down -v
+        
       - name: Start containers with Docker Compose
         run: docker compose -f "docker-compose.yml" up -d --build
 
