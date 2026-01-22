@@ -8,10 +8,10 @@
     "load": "Загрузить",
     "save": "Сохранить",
     "close": "Закрыть",
-    "descriptionf": "Описание",
-    "selectopt": "Выбрать вариант",
-    "showMore": "Показать полностью",
-    "showLess": "Свернуть"
+    "descriptionf":"Описание",
+    "selectopt":"Выбрать вариант",
+    "showMore":"Показать полностью",
+    "showLess":"Свернуть"
   },
   "navigation": {
     "allForms": "Все формы",
