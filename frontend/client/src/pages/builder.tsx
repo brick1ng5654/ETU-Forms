@@ -271,7 +271,15 @@ export default function Builder({ params }: { params: { id?: string } }) {
       ...defaultProps
     };
 
-    const newFields = [...fields, newField];
+    const lastSelectedIndex = lastSelectedId
+      ? fields.findIndex(f => f.id === lastSelectedId)
+      : -1;
+    const insertIndex = lastSelectedIndex === -1 ? fields.length : lastSelectedIndex + 1;
+    const newFields = [
+      ...fields.slice(0, insertIndex),
+      newField,
+      ...fields.slice(insertIndex),
+    ];
     setFields(newFields);
     setSelectedIds([newField.id]);
     setLastSelectedId(newField.id);
