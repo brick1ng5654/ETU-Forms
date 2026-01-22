@@ -18,6 +18,8 @@ import { Languages } from "lucide-react";
 
 const FULLNAME_MAX_CHARS = 50;
 const DEFAULT_PHONE_PLACEHOLDER = "+7 (000) 000-00-00";
+const DEFAULT_SNILS_PLACEHOLDER = "000-000-000 00";
+const DEFAULT_BIK_PLACEHOLDER = "000000000";
 const PASSPORT_SERIES_NUMBER_MAX_CHARS = 11;
 const PASSPORT_ISSUED_BY_MAX_CHARS = 120;
 const PASSPORT_DEPARTMENT_CODE_MAX_CHARS = 7;
@@ -135,9 +137,19 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
             }}
           />
         );
+      case "bik":
+        return (
+          <Input
+            placeholder={DEFAULT_BIK_PLACEHOLDER}
+            disabled
+            className="bg-white/50 pointer-events-none"
+            type="text"
+            inputMode="numeric"
+            maxLength={9}
+          />
+        );
       case "email":
       case "number":
-      case "bik":
       case "account":
         return editingElement === "placeholder" ? (
           <Input
@@ -189,26 +201,14 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
         );
       }
       case "snils":
-        return editingElement === "placeholder" ? (
+        return (
           <Input
-            value={editingValue}
-            onChange={(e) => setEditingValue(e.target.value)}
-            onBlur={saveEditing}
-            onKeyDown={handleKeyDown}
-            className="bg-white border border-primary"
-            type="text"
-            autoFocus
-          />
-        ) : (
-          <Input
-            placeholder={field.placeholder || t("placeholders.snils")}
+            placeholder={DEFAULT_SNILS_PLACEHOLDER}
             disabled
-            className="bg-white/50 pointer-events-none cursor-pointer"
+            className="bg-white/50 pointer-events-none"
             type="text"
-            onClick={(e) => {
-              e.stopPropagation();
-              startEditing("placeholder", field.placeholder || "");
-            }}
+            inputMode="numeric"
+            maxLength={14}
           />
         );
       case "phone":
