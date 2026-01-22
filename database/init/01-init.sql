@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS Form (
     description TEXT,
     
     -- Данные формы
-    settings_json JSONB NOT NULL DEFAULT '{}',
+    settings_json JSONB NULL,
     start_at TIMESTAMP,
     end_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
