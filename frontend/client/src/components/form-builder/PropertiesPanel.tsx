@@ -138,7 +138,6 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
     isDatetime ||
     isPassport ||
     showRequiredToggle;
-  const showPostLogicSeparator = hasIntermediateSettings || hasOptions;
   const showOptionsSeparator = hasOptions && hasIntermediateSettings;
   const passportVisibleCount = isPassport
     ? [
@@ -220,6 +219,338 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
               maxLength={1200}
               className="min-h-[60px] resize-y break-all"
             />
+          </div>
+        )}
+
+        {isText && (
+          <>
+            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm mt-4">
+              <div className="space-y-0.5">
+                <Label>{t("propert.longtxt")}</Label>
+              </div>
+              <Switch 
+                checked={selectedField.multiline}
+                onCheckedChange={(checked) => updateField(selectedField.id, { multiline: checked })}
+              />
+            </div>
+          </>
+        )}
+
+        {isNumber && (
+          <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+            <div className="space-y-0.5">
+              <Label>{t("propert.allowdec")}</Label>
+            </div>
+            <Switch 
+              checked={selectedField.allowDecimals}
+              onCheckedChange={(checked) => updateField(selectedField.id, { allowDecimals: checked })}
+            />
+          </div>
+        )}
+
+        {isFile && (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>{t("propert.sizefile")}</Label>
+              <Input 
+                type="number"
+                value={selectedField.maxFileSize || 10}
+                onChange={(e) => updateField(selectedField.id, { maxFileSize: parseInt(e.target.value) || 10 })}
+              />
+            </div>
+            <div className="space-y-2">
+               <Label>{t("propert.accepfile")}</Label>
+               <Input 
+                 placeholder=".pdf, .jpg, .png"
+                 value={selectedField.acceptedFileTypes?.join(", ") || ""}
+                 onChange={(e) => updateField(selectedField.id, { 
+                   acceptedFileTypes: e.target.value.split(",").map(d => d.trim()).filter(Boolean) 
+                 })}
+               />
+            </div>
+          </div>
+        )}
+
+        {isRating && (
+           <div className="space-y-2">
+            <Label>{t("propert.maxrati")} ({selectedField.maxRating || 5})</Label>
+            <Slider 
+              value={[selectedField.maxRating || 5]}
+              min={3}
+              max={10}
+              step={1}
+              onValueChange={(val) => updateField(selectedField.id, { maxRating: val[0] })}
+            />
+           </div>
+        )}
+
+        {isEmail && (
+          <div className="space-y-2">
+             <Label>{t("propert.domains")}</Label>
+             <Input 
+               placeholder="example.com, company.org"
+               value={selectedField.allowedDomains?.join(", ") || ""}
+               onChange={(e) => updateField(selectedField.id, { 
+                 allowedDomains: e.target.value.split(",").map(d => d.trim()).filter(Boolean) 
+               })}
+             />
+          </div>
+        )}
+
+        {isInn && (
+          <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <Label>Юридическое лицо</Label>
+                <Tooltip delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label="\u041F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0430 \u043F\u043E \u0418\u041D\u041D"
+                      className="h-5 w-5 rounded-full border border-muted-foreground/40 text-muted-foreground text-[11px] leading-none flex items-center justify-center hover:bg-muted"
+                    >
+                      ?
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">{"\u042D\u0442\u043E \u0441\u0432\u043E\u0439\u0441\u0442\u0432\u043E \u043F\u0440\u0435\u0434\u043D\u0430\u0437\u043D\u0430\u0447\u0435\u043D\u043E \u0434\u043B\u044F \u0432\u0432\u043E\u0434\u0430 \u0418\u041D\u041D \u044E\u0440\u0438\u0434\u0438\u0447\u0435\u0441\u043A\u0438\u0445 \u043B\u0438\u0446. \u0414\u043B\u0438\u043D\u0430 \u0418\u041D\u041D \u0434\u043B\u044F \u044E\u0440. \u043B\u0438\u0446\u0430 - 10 \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432, \u0434\u043B\u044F \u0444\u0438\u0437. \u043B\u0438\u0446\u0430 - 12."}</TooltipContent>
+                </Tooltip>
+              </div>
+            </div>
+            <Switch
+              checked={selectedField.innLegalEntity || false}
+              onCheckedChange={(checked) => updateField(selectedField.id, { innLegalEntity: checked })}
+            />
+          </div>
+        )}
+
+        {isOgrn && (
+          <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <Label>ОГРНИП</Label>
+                <Tooltip delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label="Подсказка по ОГРН"
+                      className="h-5 w-5 rounded-full border border-muted-foreground/40 text-muted-foreground text-[11px] leading-none flex items-center justify-center hover:bg-muted"
+                    >
+                      ?
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">
+                    {"ОГРН — основной государственный регистрационный номер юридического лица (13 цифр). ОГРНИП — основной государственный регистрационный номер ИП (15 цифр)."}
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            </div>
+            <Switch
+              checked={selectedField.ogrnIp || false}
+              onCheckedChange={(checked) => updateField(selectedField.id, { ogrnIp: checked })}
+            />
+          </div>
+        )}
+        
+        {selectedField.type === "select" && (
+           <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+            <div className="space-y-0.5">
+              <Label>{t("propert.allowmult")}</Label>
+            </div>
+            <Switch 
+              checked={selectedField.multiple}
+              onCheckedChange={(checked) => updateField(selectedField.id, { multiple: checked })}
+            />
+          </div>
+        )}
+
+        {isDatetime && (
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+              <div className="space-y-0.5">
+                <Label>{t("propert.hideDate")}</Label>
+              </div>
+              <Switch 
+                checked={selectedField.hideDate || false}
+                onCheckedChange={(checked) => {
+                  // Prevent hiding both date and time
+                  if (checked && selectedField.hideTime) {
+                    return;
+                  }
+                  updateField(selectedField.id, { hideDate: checked });
+                }}
+                disabled={selectedField.hideTime}
+              />
+            </div>
+            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+              <div className="space-y-0.5">
+                <Label>{t("propert.hideTime")}</Label>
+              </div>
+              <Switch 
+                checked={selectedField.hideTime || false}
+                onCheckedChange={(checked) => {
+                  // Prevent hiding both date and time
+                  if (checked && selectedField.hideDate) {
+                    return;
+                  }
+                  updateField(selectedField.id, { hideTime: checked });
+                }}
+                disabled={selectedField.hideDate}
+              />
+            </div>
+            {(selectedField.hideDate && selectedField.hideTime) && (
+              <p className="text-xs text-destructive">{t("propert.datetimeWarning")}</p>
+            )}
+          </div>
+        )}
+
+        {isPassport && (
+          <div className="space-y-3 pt-2">
+            <Label>{t("propert.passportFields")}</Label>
+            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+              <div className="space-y-0.5">
+                <Label>{t("propert.hidePassportSeriesNumber")}</Label>
+              </div>
+              <Switch
+                checked={selectedField.hidePassportSeriesNumber || false}
+                onCheckedChange={(checked) => {
+                  if (checked && passportVisibleCount === 1) {
+                    return;
+                  }
+                  updateField(selectedField.id, { hidePassportSeriesNumber: checked });
+                }}
+                disabled={!selectedField.hidePassportSeriesNumber && passportVisibleCount === 1}
+              />
+            </div>
+            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+              <div className="space-y-0.5">
+                <Label>{t("propert.hidePassportIssuedBy")}</Label>
+              </div>
+              <Switch
+                checked={selectedField.hidePassportIssuedBy || false}
+                onCheckedChange={(checked) => {
+                  if (checked && passportVisibleCount === 1) {
+                    return;
+                  }
+                  updateField(selectedField.id, { hidePassportIssuedBy: checked });
+                }}
+                disabled={!selectedField.hidePassportIssuedBy && passportVisibleCount === 1}
+              />
+            </div>
+            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+              <div className="space-y-0.5">
+                <Label>{t("propert.hidePassportIssueDate")}</Label>
+              </div>
+              <Switch
+                checked={selectedField.hidePassportIssueDate || false}
+                onCheckedChange={(checked) => {
+                  if (checked && passportVisibleCount === 1) {
+                    return;
+                  }
+                  updateField(selectedField.id, { hidePassportIssueDate: checked });
+                }}
+                disabled={!selectedField.hidePassportIssueDate && passportVisibleCount === 1}
+              />
+            </div>
+            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+              <div className="space-y-0.5">
+                <Label>{t("propert.hidePassportDepartmentCode")}</Label>
+              </div>
+              <Switch
+                checked={selectedField.hidePassportDepartmentCode || false}
+                onCheckedChange={(checked) => {
+                  if (checked && passportVisibleCount === 1) {
+                    return;
+                  }
+                  updateField(selectedField.id, { hidePassportDepartmentCode: checked });
+                }}
+                disabled={!selectedField.hidePassportDepartmentCode && passportVisibleCount === 1}
+              />
+            </div>
+            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+              <div className="space-y-0.5">
+                <Label>{t("propert.hidePassportBirthPlace")}</Label>
+              </div>
+              <Switch
+                checked={selectedField.hidePassportBirthPlace || false}
+                onCheckedChange={(checked) => {
+                  if (checked && passportVisibleCount === 1) {
+                    return;
+                  }
+                  updateField(selectedField.id, { hidePassportBirthPlace: checked });
+                }}
+                disabled={!selectedField.hidePassportBirthPlace && passportVisibleCount === 1}
+              />
+            </div>
+            {passportVisibleCount === 1 && (
+              <p className="text-xs text-muted-foreground">{t("propert.passportFieldWarning")}</p>
+            )}
+          </div>
+        )}
+
+        {showRequiredToggle && (
+          <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+            <div className="space-y-0.5">
+              <Label>{t("propert.requered")}</Label>
+            </div>
+            <Switch 
+              checked={selectedField.required}
+              onCheckedChange={(checked) => updateField(selectedField.id, { required: checked })}
+            />
+          </div>
+        )}
+        {showOptionsSeparator && <hr className="border-t border-border my-1" />}
+        {hasOptions && (
+          <div className="space-y-3 pt-2">
+            <Label>{t("propert.variabl")}</Label>
+            {selectedField.type === "ranking" && selectedField.correctAnswers && selectedField.correctAnswers.length > 0 && (
+              <div className="p-3 bg-orange-50 border border-orange-200 rounded-md">
+                <p className="text-sm text-orange-700 font-medium">
+                  {t("propert.rankingOrderFixed")}
+                </p>
+                <p className="text-xs text-orange-600 mt-1">
+                  {t("propert.rankingOrderFixedDesc")}
+                </p>
+              </div>
+            )}
+            <div className="space-y-2">
+              {selectedField.options?.map((option, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <Input
+                    value={option}
+                    disabled={selectedField.type === "ranking" && selectedField.correctAnswers && selectedField.correctAnswers.length > 0}
+                    onChange={(e) => {
+                      const newOptions = [...(selectedField.options || [])];
+                      newOptions[index] = e.target.value;
+                      updateField(selectedField.id, { options: newOptions });
+                    }}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                    disabled={selectedField.type === "ranking" && selectedField.correctAnswers && selectedField.correctAnswers.length > 0}
+                    onClick={() => {
+                      const newOptions = selectedField.options?.filter((_, i) => i !== index);
+                      updateField(selectedField.id, { options: newOptions });
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full mt-2"
+                disabled={selectedField.type === "ranking" && selectedField.correctAnswers && selectedField.correctAnswers.length > 0}
+                onClick={() => {
+                  const newOptions = [...(selectedField.options || []), `Option ${(selectedField.options?.length || 0) + 1}`];
+                  updateField(selectedField.id, { options: newOptions });
+                }}
+              >
+                <Plus className="h-4 w-4 mr-2" /> {t("propert.addopti")}
+              </Button>
+            </div>
           </div>
         )}
 
@@ -574,338 +905,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
             </>
           )}
         </div>
-        {showPostLogicSeparator && <hr className="border-t border-border my-4" />}
-        {isText && (
-          <>
-            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm mt-4">
-              <div className="space-y-0.5">
-                <Label>{t("propert.longtxt")}</Label>
-              </div>
-              <Switch 
-                checked={selectedField.multiline}
-                onCheckedChange={(checked) => updateField(selectedField.id, { multiline: checked })}
-              />
-            </div>
-          </>
-        )}
 
-        {isNumber && (
-          <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-            <div className="space-y-0.5">
-              <Label>{t("propert.allowdec")}</Label>
-            </div>
-            <Switch 
-              checked={selectedField.allowDecimals}
-              onCheckedChange={(checked) => updateField(selectedField.id, { allowDecimals: checked })}
-            />
-          </div>
-        )}
-
-        {isFile && (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>{t("propert.sizefile")}</Label>
-              <Input 
-                type="number"
-                value={selectedField.maxFileSize || 10}
-                onChange={(e) => updateField(selectedField.id, { maxFileSize: parseInt(e.target.value) || 10 })}
-              />
-            </div>
-            <div className="space-y-2">
-               <Label>{t("propert.accepfile")}</Label>
-               <Input 
-                 placeholder=".pdf, .jpg, .png"
-                 value={selectedField.acceptedFileTypes?.join(", ") || ""}
-                 onChange={(e) => updateField(selectedField.id, { 
-                   acceptedFileTypes: e.target.value.split(",").map(d => d.trim()).filter(Boolean) 
-                 })}
-               />
-            </div>
-          </div>
-        )}
-
-        {isRating && (
-           <div className="space-y-2">
-            <Label>{t("propert.maxrati")} ({selectedField.maxRating || 5})</Label>
-            <Slider 
-              value={[selectedField.maxRating || 5]}
-              min={3}
-              max={10}
-              step={1}
-              onValueChange={(val) => updateField(selectedField.id, { maxRating: val[0] })}
-            />
-           </div>
-        )}
-
-        {isEmail && (
-          <div className="space-y-2">
-             <Label>{t("propert.domains")}</Label>
-             <Input 
-               placeholder="example.com, company.org"
-               value={selectedField.allowedDomains?.join(", ") || ""}
-               onChange={(e) => updateField(selectedField.id, { 
-                 allowedDomains: e.target.value.split(",").map(d => d.trim()).filter(Boolean) 
-               })}
-             />
-          </div>
-        )}
-
-        {isInn && (
-          <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2">
-                <Label>Юридическое лицо</Label>
-                <Tooltip delayDuration={0}>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      aria-label="\u041F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0430 \u043F\u043E \u0418\u041D\u041D"
-                      className="h-5 w-5 rounded-full border border-muted-foreground/40 text-muted-foreground text-[11px] leading-none flex items-center justify-center hover:bg-muted"
-                    >
-                      ?
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">{"\u042D\u0442\u043E \u0441\u0432\u043E\u0439\u0441\u0442\u0432\u043E \u043F\u0440\u0435\u0434\u043D\u0430\u0437\u043D\u0430\u0447\u0435\u043D\u043E \u0434\u043B\u044F \u0432\u0432\u043E\u0434\u0430 \u0418\u041D\u041D \u044E\u0440\u0438\u0434\u0438\u0447\u0435\u0441\u043A\u0438\u0445 \u043B\u0438\u0446. \u0414\u043B\u0438\u043D\u0430 \u0418\u041D\u041D \u0434\u043B\u044F \u044E\u0440. \u043B\u0438\u0446\u0430 - 10 \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432, \u0434\u043B\u044F \u0444\u0438\u0437. \u043B\u0438\u0446\u0430 - 12."}</TooltipContent>
-                </Tooltip>
-              </div>
-            </div>
-            <Switch
-              checked={selectedField.innLegalEntity || false}
-              onCheckedChange={(checked) => updateField(selectedField.id, { innLegalEntity: checked })}
-            />
-          </div>
-        )}
-
-        {isOgrn && (
-          <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2">
-                <Label>ОГРНИП</Label>
-                <Tooltip delayDuration={0}>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      aria-label="Подсказка по ОГРН"
-                      className="h-5 w-5 rounded-full border border-muted-foreground/40 text-muted-foreground text-[11px] leading-none flex items-center justify-center hover:bg-muted"
-                    >
-                      ?
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">
-                    {"ОГРН — основной государственный регистрационный номер юридического лица (13 цифр). ОГРНИП — основной государственный регистрационный номер ИП (15 цифр)."}
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-            </div>
-            <Switch
-              checked={selectedField.ogrnIp || false}
-              onCheckedChange={(checked) => updateField(selectedField.id, { ogrnIp: checked })}
-            />
-          </div>
-        )}
-        
-        {selectedField.type === "select" && (
-           <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-            <div className="space-y-0.5">
-              <Label>{t("propert.allowmult")}</Label>
-            </div>
-            <Switch 
-              checked={selectedField.multiple}
-              onCheckedChange={(checked) => updateField(selectedField.id, { multiple: checked })}
-            />
-          </div>
-        )}
-
-        {isDatetime && (
-          <div className="space-y-3 pt-2">
-            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-              <div className="space-y-0.5">
-                <Label>{t("propert.hideDate")}</Label>
-              </div>
-              <Switch 
-                checked={selectedField.hideDate || false}
-                onCheckedChange={(checked) => {
-                  // Prevent hiding both date and time
-                  if (checked && selectedField.hideTime) {
-                    return;
-                  }
-                  updateField(selectedField.id, { hideDate: checked });
-                }}
-                disabled={selectedField.hideTime}
-              />
-            </div>
-            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-              <div className="space-y-0.5">
-                <Label>{t("propert.hideTime")}</Label>
-              </div>
-              <Switch 
-                checked={selectedField.hideTime || false}
-                onCheckedChange={(checked) => {
-                  // Prevent hiding both date and time
-                  if (checked && selectedField.hideDate) {
-                    return;
-                  }
-                  updateField(selectedField.id, { hideTime: checked });
-                }}
-                disabled={selectedField.hideDate}
-              />
-            </div>
-            {(selectedField.hideDate && selectedField.hideTime) && (
-              <p className="text-xs text-destructive">{t("propert.datetimeWarning")}</p>
-            )}
-          </div>
-        )}
-
-        {isPassport && (
-          <div className="space-y-3 pt-2">
-            <Label>{t("propert.passportFields")}</Label>
-            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-              <div className="space-y-0.5">
-                <Label>{t("propert.hidePassportSeriesNumber")}</Label>
-              </div>
-              <Switch
-                checked={selectedField.hidePassportSeriesNumber || false}
-                onCheckedChange={(checked) => {
-                  if (checked && passportVisibleCount === 1) {
-                    return;
-                  }
-                  updateField(selectedField.id, { hidePassportSeriesNumber: checked });
-                }}
-                disabled={!selectedField.hidePassportSeriesNumber && passportVisibleCount === 1}
-              />
-            </div>
-            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-              <div className="space-y-0.5">
-                <Label>{t("propert.hidePassportIssuedBy")}</Label>
-              </div>
-              <Switch
-                checked={selectedField.hidePassportIssuedBy || false}
-                onCheckedChange={(checked) => {
-                  if (checked && passportVisibleCount === 1) {
-                    return;
-                  }
-                  updateField(selectedField.id, { hidePassportIssuedBy: checked });
-                }}
-                disabled={!selectedField.hidePassportIssuedBy && passportVisibleCount === 1}
-              />
-            </div>
-            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-              <div className="space-y-0.5">
-                <Label>{t("propert.hidePassportIssueDate")}</Label>
-              </div>
-              <Switch
-                checked={selectedField.hidePassportIssueDate || false}
-                onCheckedChange={(checked) => {
-                  if (checked && passportVisibleCount === 1) {
-                    return;
-                  }
-                  updateField(selectedField.id, { hidePassportIssueDate: checked });
-                }}
-                disabled={!selectedField.hidePassportIssueDate && passportVisibleCount === 1}
-              />
-            </div>
-            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-              <div className="space-y-0.5">
-                <Label>{t("propert.hidePassportDepartmentCode")}</Label>
-              </div>
-              <Switch
-                checked={selectedField.hidePassportDepartmentCode || false}
-                onCheckedChange={(checked) => {
-                  if (checked && passportVisibleCount === 1) {
-                    return;
-                  }
-                  updateField(selectedField.id, { hidePassportDepartmentCode: checked });
-                }}
-                disabled={!selectedField.hidePassportDepartmentCode && passportVisibleCount === 1}
-              />
-            </div>
-            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-              <div className="space-y-0.5">
-                <Label>{t("propert.hidePassportBirthPlace")}</Label>
-              </div>
-              <Switch
-                checked={selectedField.hidePassportBirthPlace || false}
-                onCheckedChange={(checked) => {
-                  if (checked && passportVisibleCount === 1) {
-                    return;
-                  }
-                  updateField(selectedField.id, { hidePassportBirthPlace: checked });
-                }}
-                disabled={!selectedField.hidePassportBirthPlace && passportVisibleCount === 1}
-              />
-            </div>
-            {passportVisibleCount === 1 && (
-              <p className="text-xs text-muted-foreground">{t("propert.passportFieldWarning")}</p>
-            )}
-          </div>
-        )}
-
-        {showRequiredToggle && (
-          <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-            <div className="space-y-0.5">
-              <Label>{t("propert.requered")}</Label>
-            </div>
-            <Switch 
-              checked={selectedField.required}
-              onCheckedChange={(checked) => updateField(selectedField.id, { required: checked })}
-            />
-          </div>
-        )}
-        {showOptionsSeparator && <hr className="border-t border-border my-1" />}
-        {hasOptions && (
-          <div className="space-y-3 pt-2">
-            <Label>{t("propert.variabl")}</Label>
-            {selectedField.type === "ranking" && selectedField.correctAnswers && selectedField.correctAnswers.length > 0 && (
-              <div className="p-3 bg-orange-50 border border-orange-200 rounded-md">
-                <p className="text-sm text-orange-700 font-medium">
-                  {t("propert.rankingOrderFixed")}
-                </p>
-                <p className="text-xs text-orange-600 mt-1">
-                  {t("propert.rankingOrderFixedDesc")}
-                </p>
-              </div>
-            )}
-            <div className="space-y-2">
-              {selectedField.options?.map((option, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <Input
-                    value={option}
-                    disabled={selectedField.type === "ranking" && selectedField.correctAnswers && selectedField.correctAnswers.length > 0}
-                    onChange={(e) => {
-                      const newOptions = [...(selectedField.options || [])];
-                      newOptions[index] = e.target.value;
-                      updateField(selectedField.id, { options: newOptions });
-                    }}
-                  />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                    disabled={selectedField.type === "ranking" && selectedField.correctAnswers && selectedField.correctAnswers.length > 0}
-                    onClick={() => {
-                      const newOptions = selectedField.options?.filter((_, i) => i !== index);
-                      updateField(selectedField.id, { options: newOptions });
-                    }}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full mt-2"
-                disabled={selectedField.type === "ranking" && selectedField.correctAnswers && selectedField.correctAnswers.length > 0}
-                onClick={() => {
-                  const newOptions = [...(selectedField.options || []), `Option ${(selectedField.options?.length || 0) + 1}`];
-                  updateField(selectedField.id, { options: newOptions });
-                }}
-              >
-                <Plus className="h-4 w-4 mr-2" /> {t("propert.addopti")}
-              </Button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
