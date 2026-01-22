@@ -43,27 +43,144 @@ import { presets } from "@/form/presets";
 import { validateForm } from "@/form/validation";
 import { buildAnswersPayload } from "@/form/answers";
 
-interface AutoResizeTextareaProps extends React.ComponentProps<typeof Textarea> {}
+interface CollapsibleTextareaProps extends React.ComponentProps<typeof Textarea> {
+  textareaRef?: React.RefObject<HTMLTextAreaElement>;
+  collapsedLines?: number;
+  indicator?: React.ReactNode;
+}
 
-function AutoResizeTextarea({ value, onChange, ...props }: AutoResizeTextareaProps) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+const DEFAULT_TEXTAREA_LINE_HEIGHT = 20;
+
+const getTextareaMetrics = (textarea: HTMLTextAreaElement) => {
+  const computed = window.getComputedStyle(textarea);
+  const lineHeight = parseFloat(computed.lineHeight);
+  const fontSize = parseFloat(computed.fontSize);
+  const resolvedLineHeight = Number.isFinite(lineHeight)
+    ? lineHeight
+    : Number.isFinite(fontSize)
+      ? fontSize * 1.5
+      : DEFAULT_TEXTAREA_LINE_HEIGHT;
+  const paddingTop = parseFloat(computed.paddingTop) || 0;
+  const paddingBottom = parseFloat(computed.paddingBottom) || 0;
+
+  return {
+    lineHeight: resolvedLineHeight,
+    paddingTop,
+    paddingBottom,
+    lineCount: Math.ceil(textarea.scrollHeight / resolvedLineHeight),
+  };
+};
+
+function CollapsibleTextarea({
+  value,
+  onChange,
+  className,
+  textareaRef,
+  collapsedLines = 10,
+  indicator,
+  onFocus,
+  onBlur,
+  disabled,
+  ...props
+}: CollapsibleTextareaProps) {
+  const { t } = useTranslation();
+  const localRef = useRef<HTMLTextAreaElement>(null);
+  const resolvedRef = textareaRef ?? localRef;
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [hasOverflow, setHasOverflow] = useState(false);
+  const hasOverflowRef = useRef(false);
 
   useEffect(() => {
-    const textarea = textareaRef.current;
+    const textarea = resolvedRef.current;
     if (textarea) {
+      const currentScrollTop = textarea.scrollTop;
+      const prevHeight = textarea.offsetHeight;
+      textarea.style.transition = "height 440ms ease";
       textarea.style.height = "auto";
-      textarea.style.height = `${textarea.scrollHeight}px`;
+      const { lineHeight, paddingTop, paddingBottom, lineCount } = getTextareaMetrics(textarea);
+      const overflow = lineCount > collapsedLines;
+      if (hasOverflowRef.current !== overflow) {
+        hasOverflowRef.current = overflow;
+        setHasOverflow(overflow);
+      }
+      const collapsedHeight = Math.ceil(lineHeight * collapsedLines + paddingTop + paddingBottom + 4);
+      const targetHeight = overflow && !isExpanded ? collapsedHeight : textarea.scrollHeight;
+      const startHeight = `${prevHeight}px`;
+      const endHeight = `${targetHeight}px`;
+      if (startHeight === endHeight) {
+        textarea.style.height = endHeight;
+        textarea.scrollTop = currentScrollTop;
+        return;
+      }
+      textarea.style.height = startHeight;
+      // Force reflow before applying the target height to trigger transition
+      void textarea.offsetHeight;
+      requestAnimationFrame(() => {
+        textarea.style.height = endHeight;
+        textarea.scrollTop = currentScrollTop;
+      });
     }
-  }, [value]);
+  }, [value, resolvedRef, collapsedLines, isExpanded]);
 
   return (
-    <Textarea
-      ref={textareaRef}
-      value={value}
-      onChange={onChange}
-      className="resize-none overflow-hidden"
-      {...props}
-    />
+    <div className="space-y-1.5">
+      <div className="relative">
+        <Textarea
+          ref={resolvedRef}
+          value={value}
+          onChange={onChange}
+          onFocus={(event) => {
+            setIsExpanded(true);
+            onFocus?.(event);
+          }}
+          onBlur={(event) => {
+            setIsExpanded(false);
+            onBlur?.(event);
+          }}
+          disabled={disabled}
+          className={cn("resize-none overflow-hidden", className)}
+          {...props}
+        />
+      </div>
+      {(indicator || hasOverflow) && (
+        <div className="flex items-center justify-between px-1 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2">
+            {hasOverflow && (
+              isExpanded ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto px-2 py-1 text-muted-foreground"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => {
+                    setIsExpanded(false);
+                    resolvedRef.current?.blur();
+                  }}
+                >
+                  {t("common.showLess")}
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto px-2 py-1 text-muted-foreground"
+                  onClick={() => {
+                    setIsExpanded(true);
+                  }}
+                >
+                  {t("common.showMore")}
+                </Button>
+              )
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            {indicator}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -79,6 +196,26 @@ interface LengthIndicatorProps {
   isComplete: boolean;
 }
 
+interface TextLengthIndicatorProps {
+  len: number;
+  limit: number;
+  className?: string;
+  staticPosition?: boolean;
+}
+
+const TEXT_SINGLELINE_MAX_CHARS = 255;
+const TEXT_MULTILINE_MAX_CHARS = 10000;
+
+const getTextMaxLimit = (field: FormElementModel) =>
+  field.widgetType === "textarea" ? TEXT_MULTILINE_MAX_CHARS : TEXT_SINGLELINE_MAX_CHARS;
+
+const getTextMaxChars = (field: FormElementModel) => {
+  const limit = getTextMaxLimit(field);
+  const props = field.props as Record<string, unknown>;
+  const rawMax = typeof props.maxChars === "number" ? props.maxChars : limit;
+  const normalized = rawMax > 0 ? rawMax : 1;
+  return Math.min(normalized, limit);
+};
 function LengthIndicator({ len, limit, isError, isComplete }: LengthIndicatorProps) {
   const progress = limit ? Math.min(len / limit, 1) : 0;
   const progressColor = isError ? "#ef4444" : isComplete ? "#22c55e" : "#94a3b8";
@@ -116,6 +253,45 @@ function LengthIndicator({ len, limit, isError, isComplete }: LengthIndicatorPro
   );
 }
 
+function TextLengthIndicator({ len, limit, className, staticPosition }: TextLengthIndicatorProps) {
+  const isOverLimit = len > limit;
+  const progress = limit ? Math.min(len / limit, 1) : 0;
+  const progressColor = isOverLimit ? "#ef4444" : "#94a3b8";
+  const trackColor = "#e2e8f0";
+  const ringRadius = 5;
+  const ringCircumference = 2 * Math.PI * ringRadius;
+
+  return (
+    <div className={cn(staticPosition ? "flex items-center gap-2" : "absolute flex items-center gap-2", className)}>
+      <div className={cn("text-xs font-medium text-muted-foreground")}>
+        {`${len}/${limit}`}
+      </div>
+      <svg className="h-3 w-3" viewBox="0 0 12 12" aria-hidden="true">
+        <circle
+          cx="6"
+          cy="6"
+          r={ringRadius}
+          fill="none"
+          stroke={trackColor}
+          strokeWidth="2"
+        />
+        <circle
+          cx="6"
+          cy="6"
+          r={ringRadius}
+          fill="none"
+          stroke={progressColor}
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeDasharray={ringCircumference}
+          strokeDashoffset={ringCircumference * (1 - progress)}
+          style={{ transition: "stroke-dashoffset 240ms ease-out" }}
+          transform="rotate(-90 6 6)"
+        />
+      </svg>
+    </div>
+  );
+}
 function SortableItem({ id, disabled }: SortableItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
@@ -457,8 +633,7 @@ export function FormPreview({ form }: FormPreviewProps) {
     const placeholder = placeholderKey
       ? t(placeholderKey)
       : preset?.placeholder || (props.placeholder as string) || "";
-    const maxLength =
-      (preset?.maxChars as number | undefined) ?? (props.maxChars as number | undefined);
+    const maxLength = (preset?.maxChars as number | undefined) ?? getTextMaxChars(field);
     const dynamicMaxDigits = preset?.getMaxDigits ? preset.getMaxDigits(props) : undefined;
     const maxDigits = (dynamicMaxDigits ?? preset?.maxDigits) as number | undefined;
     const len = maxDigits ? canonicalValue.replace(/\D/g, "").length : canonicalValue.length;
@@ -560,15 +735,33 @@ export function FormPreview({ form }: FormPreviewProps) {
 
         {field.widgetType === "text_input" && renderTextInput(field, results !== null)}
 
-        {field.widgetType === "textarea" && (
-          <AutoResizeTextarea
-            placeholder={(field.props as Record<string, unknown>).placeholder as string}
-            value={(answers[field.id] as string) || ""}
-            onChange={(e) => updateAnswer(field.id, e.target.value)}
-            onBlur={() => markTouched(field.id)}
-            disabled={results !== null}
-          />
-        )}
+        {field.widgetType === "textarea" && (() => {
+          const maxChars = getTextMaxChars(field);
+          const value = (answers[field.id] as string) || "";
+
+          return (
+            <CollapsibleTextarea
+              placeholder={(props.placeholder as string) || ""}
+              value={value}
+              onChange={(e) => {
+                const nextValue = e.target.value.slice(0, maxChars);
+                updateAnswer(field.id, nextValue);
+              }}
+              onBlur={() => markTouched(field.id)}
+              disabled={results !== null}
+              maxLength={maxChars}
+              className="pb-6"
+              indicator={(
+                <TextLengthIndicator
+                  len={value.length}
+                  limit={maxChars}
+                  staticPosition
+                  className="bg-white px-1.5 py-0.5 rounded-sm"
+                />
+              )}
+            />
+          );
+        })()}
 
         {field.widgetType === "number_input" && (
           <Input

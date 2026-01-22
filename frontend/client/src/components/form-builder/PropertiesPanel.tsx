@@ -382,6 +382,15 @@ const propertiesSchemaBySemanticType: Partial<Record<SemanticType, PropertyField
   ],
 };
 
+const TEXT_SINGLELINE_MAX_CHARS = 255;
+const TEXT_MULTILINE_MAX_CHARS = 10000;
+
+const getTextMaxLimit = (widgetType: WidgetType) =>
+  widgetType === "textarea" ? TEXT_MULTILINE_MAX_CHARS : TEXT_SINGLELINE_MAX_CHARS;
+
+const clampTextMaxChars = (value: number, limit: number) =>
+  Math.min(Math.max(value, 1), limit);
+
 const getValueByTarget = (field: FormElementModel, target: PropertyFieldDef["target"]) => {
   if (target === "label") return field.label;
   if (target === "description") return field.description || "";
@@ -458,6 +467,12 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
 
   const specialized = Boolean(selectedField.semanticType);
   const canHaveCorrectAnswers = !isHeader && selectedField.widgetType !== "file_upload" && !isDatetime && !specialized;
+  const isPlainText =
+    (selectedField.widgetType === "text_input" || selectedField.widgetType === "textarea") &&
+    !selectedField.semanticType;
+  const textMaxLimit = getTextMaxLimit(selectedField.widgetType);
+  const rawTextMaxChars = typeof props.maxChars === "number" ? props.maxChars : undefined;
+  const textMaxChars = clampTextMaxChars(rawTextMaxChars ?? textMaxLimit, textMaxLimit);
 
   const updateByTarget = (target: PropertyFieldDef["target"], value: unknown) => {
     if (target === "label") {
@@ -648,18 +663,65 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
 
       <div className="space-y-4">
         {schemaFields.map(renderPropertyField)}
-        {(selectedField.widgetType === "text_input" || selectedField.widgetType === "textarea") && (
-          <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-            <div className="space-y-0.5">
-              <Label>{t("propert.longtxt")}</Label>
+        {isPlainText && (
+          <>
+            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <Label>{t("propert.longtxt")}</Label>
+                  <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={t("propert.longtxtHelp")}
+                        className="h-5 w-5 rounded-full border border-muted-foreground/40 text-muted-foreground text-[11px] leading-none flex items-center justify-center hover:bg-muted"
+                      >
+                        ?
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">
+                      {t("propert.longtxtHelp")}
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
+              <Switch
+                checked={selectedField.widgetType === "textarea"}
+                onCheckedChange={(checked) => {
+                  const nextWidgetType = checked ? "textarea" : "text_input";
+                  const nextLimit = getTextMaxLimit(nextWidgetType);
+                  const nextMaxChars = typeof rawTextMaxChars === "number"
+                    ? rawTextMaxChars === textMaxLimit
+                      ? nextLimit
+                      : clampTextMaxChars(rawTextMaxChars, nextLimit)
+                    : nextLimit;
+                  updateField(selectedField.id, {
+                    widgetType: nextWidgetType,
+                    props: { maxChars: nextMaxChars },
+                  });
+                }}
+              />
             </div>
-            <Switch
-              checked={selectedField.widgetType === "textarea"}
-              onCheckedChange={(checked) => {
-                updateField(selectedField.id, { widgetType: checked ? "textarea" : "text_input" });
-              }}
-            />
-          </div>
+            <div className="space-y-2">
+              <Label>{t("propert.maxChars")}</Label>
+              <Input
+                type="number"
+                min={1}
+                max={textMaxLimit}
+                value={textMaxChars}
+                onChange={(e) => {
+                  const nextValue = Number.parseInt(e.target.value, 10);
+                  if (Number.isNaN(nextValue)) return;
+                  updateField(selectedField.id, {
+                    props: { maxChars: clampTextMaxChars(nextValue, textMaxLimit) },
+                  });
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                {t("propert.maxCharsHint", { limit: textMaxLimit })}
+              </p>
+            </div>
+          </>
         )}
         {semanticFields.length > 0 && (
           <div className="space-y-3 pt-2">
