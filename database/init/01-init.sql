@@ -125,7 +125,7 @@ CREATE TABLE IF NOT EXISTS Response (
     form_id INT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     completed_at TIMESTAMP NULL,
-    response_JSON JSONB NOT NULL DEFAULT '{}',
+    response_json JSONB NOT NULL DEFAULT '{}',
 
     CONSTRAINT fk_response_user
         FOREIGN KEY (user_id) 
@@ -143,7 +143,7 @@ COMMENT ON TABLE Response IS 'Таблица ответов на формы';
 COMMENT ON COLUMN Response.response_id IS 'Уникальный идентификатор ответа';
 COMMENT ON COLUMN Response.form_id IS 'ID формы (ссылка на forms.form_id)';
 COMMENT ON COLUMN Response.user_id IS 'ID пользователя, который отправил ответ (ссылка на users.user_id)';
-COMMENT ON COLUMN Response.response_JSON IS 'JSON-структура с данными ответа';
+COMMENT ON COLUMN Response.response_json IS 'JSON-структура с данными ответа';
 COMMENT ON COLUMN Response.created_at IS 'Дата и время создания ответа';
 COMMENT ON COLUMN Response.completed_at IS 'Дата и время завершения ответа';
 
@@ -249,12 +249,12 @@ CREATE TABLE IF NOT EXISTS Form_Element_Condition(
             (form_id IS NULL AND template_id IS NOT NULL)
         ),
     
-    CONSTRAINT fk_element_form
+    CONSTRAINT fk_condition_form
         FOREIGN KEY (form_id)
         REFERENCES Form(form_id)
         ON DELETE CASCADE,
 
-    CONSTRAINT fk_element_template
+    CONSTRAINT fk_condition_template
         FOREIGN KEY (template_id)
         REFERENCES Template(template_id)
         ON DELETE CASCADE,
