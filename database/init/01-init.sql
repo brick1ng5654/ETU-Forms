@@ -33,19 +33,25 @@ BEGIN
         );
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'form_element_type') THEN
-        CREATE TYPE form_element_type AS ENUM (
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'widget_type') THEN
+        CREATE TYPE widget_type AS ENUM (
             'heading', -- заголовок
-            'text', 
-            'number',
+            'static_text',
+            'text_input',
+            'number_input',
             'select', -- выпадающий список
             'radio', -- переключатель (один из вариантов)
             'checkbox', -- флажок 
             'datetime',
-            'email',
+            'email_input',
             'rating',
             'ranking', -- ранжирование
-            'file_upload', -- загрузка файла
+            'file_upload' -- загрузка файла
+        );
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'semantic_type') THEN
+        CREATE TYPE semantic_type AS ENUM(
             'full_name', -- фио
             'phone', -- номер телефона
             'passport', -- паспорт
@@ -53,7 +59,7 @@ BEGIN
             'snils',
             'bank_account', -- банковский счет
             'country',
-            'orgn', -- ОГРН
+            'ogrn', -- ОГРН
             'bik' -- БИК
         );
     END IF;
@@ -119,7 +125,7 @@ CREATE TABLE IF NOT EXISTS Response (
     form_id INT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     completed_at TIMESTAMP NULL,
-    response_JSON JSONB NOT NULL DEFAULT '{}',
+    response_json JSONB NOT NULL DEFAULT '{}',
 
     CONSTRAINT fk_response_user
         FOREIGN KEY (user_id) 
@@ -137,7 +143,7 @@ COMMENT ON TABLE Response IS 'Таблица ответов на формы';
 COMMENT ON COLUMN Response.response_id IS 'Уникальный идентификатор ответа';
 COMMENT ON COLUMN Response.form_id IS 'ID формы (ссылка на forms.form_id)';
 COMMENT ON COLUMN Response.user_id IS 'ID пользователя, который отправил ответ (ссылка на users.user_id)';
-COMMENT ON COLUMN Response.response_JSON IS 'JSON-структура с данными ответа';
+COMMENT ON COLUMN Response.response_json IS 'JSON-структура с данными ответа';
 COMMENT ON COLUMN Response.created_at IS 'Дата и время создания ответа';
 COMMENT ON COLUMN Response.completed_at IS 'Дата и время завершения ответа';
 
@@ -167,30 +173,68 @@ COMMENT ON COLUMN AccessControl.form_id IS 'ID формы';
 COMMENT ON COLUMN AccessControl.user_id IS 'ID пользователя';
 COMMENT ON COLUMN AccessControl.role IS 'Роль пользователя (editor или participant)';
 
+CREATE TABLE IF NOT EXISTS Template(
+    template_id SERIAL PRIMARY KEY,
+    owner_id INT NOT NULL,
+
+    template_name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_template_owner
+        FOREIGN KEY (owner_id)
+        REFERENCES App_User(user_id)
+        ON DELETE CASCADE
+);
+
+COMMENT ON TABLE Template IS 'Шаблоны';
+
 CREATE TABLE IF NOT EXISTS Form_Element (
     element_id SERIAL PRIMARY KEY,
-    form_id INT NOT NULL,
-
-    type form_element_type NOT NULL,
+    form_id INT NULL,
+    template_id INT NULL,
+    
+    widget widget_type NOT NULL,
+    semantic semantic_type NULL,
     label VARCHAR(255) NOT NULL,
-    description TEXT,
 
     correct_answer JSONB NULL,
     text_hint TEXT NULL,
     supportive_text TEXT NULL,
-    required_field BOOLEAN NULL,
-    other_settings JSONB,
+    required_field BOOLEAN NOT NULL,
+    other_settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+    position INT NOT NULL,
 
     CONSTRAINT fk_element_form
         FOREIGN KEY (form_id)
         REFERENCES Form(form_id)
-        ON DELETE CASCADE
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_element_template
+        FOREIGN KEY (template_id)
+        REFERENCES Template(template_id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT chk_non_input_semantic
+        CHECK(
+            widget NOT IN ('heading', 'static_text')
+            OR semantic IS NULL
+        ),
+
+    CONSTRAINT chk_element_owner
+        CHECK(
+            (form_id IS NOT NULL AND template_id IS NULL)
+            OR
+            (form_id IS NULL AND template_id IS NOT NULL)
+        )
 );
 
 COMMENT ON TABLE Form_Element IS 'Элементы (поля) формы';
 
 CREATE TABLE IF NOT EXISTS Form_Element_Condition(
     condition_id SERIAL PRIMARY KEY,
+    template_id INT NULL,
+    form_id INT NULL,
 
     source_element_id INT NOT NULL,
     target_element_id INT NOT NULL,
@@ -198,6 +242,23 @@ CREATE TABLE IF NOT EXISTS Form_Element_Condition(
     operator condition_operator NOT NULL,
     value JSONB NOT NULL,
 
+    CONSTRAINT chk_condition_scope
+        CHECK(
+            (form_id IS NOT NULL AND template_id IS NULL)
+            OR
+            (form_id IS NULL AND template_id IS NOT NULL)
+        ),
+    
+    CONSTRAINT fk_condition_form
+        FOREIGN KEY (form_id)
+        REFERENCES Form(form_id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_condition_template
+        FOREIGN KEY (template_id)
+        REFERENCES Template(template_id)
+        ON DELETE CASCADE,
+    
     CONSTRAINT fk_condition_source
         FOREIGN KEY (source_element_id)
         REFERENCES Form_Element(element_id)
