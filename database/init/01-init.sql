@@ -212,6 +212,8 @@ CREATE TABLE IF NOT EXISTS Form_Element_Condition(
         CHECK (source_element_id <> target_element_id)
 );
 
+COMMENT ON TABLE Form_Element_Condition IS 'Условия ветвления (зависимости)';
+
 CREATE TABLE IF NOT EXISTS Uploaded_file(
     file_id SERIAL PRIMARY KEY,
 
