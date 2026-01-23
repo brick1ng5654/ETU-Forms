@@ -70,6 +70,31 @@ export const validateForm = (elements: FormElementModel[], answers: AnswersById)
         }
       }
 
+      if (element.widgetType === "matrix") {
+        const rows = (props.rows as string[]) || [];
+        const columns = (props.columns as string[]) || [];
+        const selected = Array.isArray(value) ? value : [];
+        selected.forEach((cellKey) => {
+          if (typeof cellKey !== "string") {
+            elementErrors.push("Invalid selection");
+            return;
+          }
+          const [rowIdxStr, colIdxStr] = cellKey.split(":");
+          const rowIdx = parseInt(rowIdxStr, 10);
+          const colIdx = parseInt(colIdxStr, 10);
+          if (
+            Number.isNaN(rowIdx) ||
+            Number.isNaN(colIdx) ||
+            rowIdx < 0 ||
+            rowIdx >= rows.length ||
+            colIdx < 0 ||
+            colIdx >= columns.length
+          ) {
+            elementErrors.push("Invalid selection");
+          }
+        });
+      }
+
       if (preset?.validate && typeof value === "string") {
         const presetErrors = preset.validate(value, {
           required: element.required,

@@ -102,6 +102,24 @@
   @apply bg-muted-foreground/30;
 }
 
+/* Custom Scrollbar for matrix tables */
+.overflow-x-auto::-webkit-scrollbar,
+.matrix-scroll-container::-webkit-scrollbar {
+  height: 8px;
+}
+.overflow-x-auto::-webkit-scrollbar-track,
+.matrix-scroll-container::-webkit-scrollbar-track {
+  @apply bg-muted/30 rounded;
+}
+.overflow-x-auto::-webkit-scrollbar-thumb,
+.matrix-scroll-container::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground/40 rounded-full;
+}
+.overflow-x-auto::-webkit-scrollbar-thumb:hover,
+.matrix-scroll-container::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground/60;
+}
+
 .color-txt {
   color: #05336e;
 }

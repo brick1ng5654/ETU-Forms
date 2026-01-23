@@ -76,7 +76,8 @@
     "account": "Bank Account",
     "country": "Country",
     "ogrn": "OGRN",
-    "bik": "BIK"
+    "bik": "BIK",
+    "matrix": "Choice Matrix"
   },
 
   "actions": {
@@ -177,7 +178,10 @@
     "datetimeWarning": "Cannot hide both date and time at the same time",
     "selectDate": "Select date",
     "selectTime": "Select time",
-    "selectDateTime": "Select date and time"
+    "selectDateTime": "Select date and time",
+    "matrixRows": "Matrix rows (statements)",
+    "matrixColumns": "Matrix columns (options)",
+    "matrixMultiplePerRow": "Allow multiple selections per row"
   },
   "errors": {
     "required": "Required",

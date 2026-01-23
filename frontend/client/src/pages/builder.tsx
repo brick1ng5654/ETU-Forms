@@ -48,6 +48,7 @@ const TOOLBOX_ITEMS: ToolboxItemDefinition[] = [
   { widgetType: "text_input", labelKey: "email", category: "Advanced", props: { inputType: "email" } },
   { widgetType: "rating", labelKey: "rating", category: "Advanced" },
   { widgetType: "ranking", labelKey: "ranking", category: "Advanced" },
+  { widgetType: "matrix", labelKey: "matrix", category: "Advanced" },
   { widgetType: "file_upload", labelKey: "file", category: "Advanced" },
 
   // Specialized
@@ -260,6 +261,11 @@ export default function Builder({ params }: { params: { id?: string } }) {
     }
     if (item.widgetType === "rating") {
       widgetDefaults.maxRating = 5;
+    }
+    if (item.widgetType === "matrix") {
+      widgetDefaults.rows = ["Row 1", "Row 2"];
+      widgetDefaults.columns = ["Column 1", "Column 2"];
+      widgetDefaults.multiplePerRow = false;
     }
 
     const newField: FormElementModel = {

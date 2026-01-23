@@ -285,6 +285,12 @@ export function FormPreview({ form }: FormPreviewProps) {
         isCorrect =
           userAnswersArr.length === correctAnswersArr.length &&
           userAnswersArr.every((ans, idx) => ans.toLowerCase() === correctAnswersArr[idx].toLowerCase());
+      } else if (field.widgetType === "matrix") {
+        const userAnswersArr = ((userAnswer as string[]) || []).sort();
+        const correctAnswersArr = correctAnswers.slice().sort();
+        isCorrect =
+          userAnswersArr.length === correctAnswersArr.length &&
+          userAnswersArr.every((ans, idx) => ans === correctAnswersArr[idx]);
       } else {
         const userAnswerStr = typeof userAnswer === "string" || typeof userAnswer === "number"
           ? String(userAnswer || "").toLowerCase().trim()
@@ -516,7 +522,7 @@ export function FormPreview({ form }: FormPreviewProps) {
     return (
       <div
         key={field.id}
-        className={fieldWrapperClass}
+        className={cn(fieldWrapperClass, field.widgetType === "matrix" && "overflow-hidden max-w-full")}
         onFocusCapture={() => setFocusedFieldId(field.id)}
         onBlurCapture={(event) => {
           const nextTarget = event.relatedTarget as Node | null;
@@ -789,6 +795,119 @@ export function FormPreview({ form }: FormPreviewProps) {
             ))}
           </div>
         )}
+
+        {field.widgetType === "matrix" && (() => {
+          const rows = (props.rows as string[]) || [];
+          const columns = (props.columns as string[]) || [];
+          const multiplePerRow = Boolean(props.multiplePerRow);
+          const matrixAnswer = (answers[field.id] as string[]) || [];
+          const isCellSelected = (rowIdx: number, colIdx: number) => {
+            return matrixAnswer.includes(`${rowIdx}:${colIdx}`);
+          };
+          const toggleCell = (rowIdx: number, colIdx: number) => {
+            const cellKey = `${rowIdx}:${colIdx}`;
+            let newAnswer: string[];
+            if (multiplePerRow) {
+              if (isCellSelected(rowIdx, colIdx)) {
+                newAnswer = matrixAnswer.filter((key) => key !== cellKey);
+              } else {
+                newAnswer = [...matrixAnswer, cellKey];
+              }
+            } else {
+              // Single selection per row - remove all other selections in this row
+              newAnswer = matrixAnswer.filter((key) => !key.startsWith(`${rowIdx}:`));
+              if (!isCellSelected(rowIdx, colIdx)) {
+                newAnswer.push(cellKey);
+              }
+            }
+            updateAnswer(field.id, newAnswer);
+            markTouched(field.id);
+          };
+          return (
+            <div 
+              className="matrix-scroll-container overflow-x-auto overflow-y-visible" 
+              style={{ 
+                width: '100%',
+                maxWidth: '100%',
+                contain: 'layout',
+                isolation: 'isolate'
+              }}
+              onWheel={(e) => {
+                const element = e.currentTarget;
+                const { scrollLeft, scrollWidth, clientWidth } = element;
+                const deltaX = e.deltaX;
+                const deltaY = e.deltaY;
+                
+                // Если есть горизонтальный скролл и мы не на краю, останавливаем распространение
+                if (Math.abs(deltaX) > Math.abs(deltaY)) {
+                  const isScrollingRight = deltaX > 0;
+                  const isScrollingLeft = deltaX < 0;
+                  const isAtRightEdge = scrollLeft + clientWidth >= scrollWidth - 1;
+                  const isAtLeftEdge = scrollLeft <= 1;
+                  
+                  if ((isScrollingRight && !isAtRightEdge) || (isScrollingLeft && !isAtLeftEdge)) {
+                    e.preventDefault();
+                    element.scrollLeft += deltaX;
+                    e.stopPropagation();
+                    return;
+                  }
+                }
+              }}
+            >
+              <table className="border-collapse border border-muted-foreground/20 text-sm" style={{ minWidth: 'max-content', width: 'max-content' }}>
+                <thead>
+                  <tr>
+                    <th className="border border-muted-foreground/20 p-2 text-left bg-muted/30 font-medium sticky left-0 z-10 min-w-[120px] bg-muted/30">
+                    </th>
+                    {columns.map((col, idx) => (
+                      <th key={idx} className="border border-muted-foreground/20 p-2 text-center bg-muted/30 font-medium min-w-[100px] whitespace-nowrap">
+                        {col || `Column ${idx + 1}`}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row, rowIdx) => (
+                    <tr key={rowIdx}>
+                      <td className="border border-muted-foreground/20 p-2 text-left bg-muted/10 font-medium sticky left-0 z-10 min-w-[120px] whitespace-nowrap bg-muted/10">
+                        {row || `Row ${rowIdx + 1}`}
+                      </td>
+                      {columns.map((_, colIdx) => {
+                        const selected = isCellSelected(rowIdx, colIdx);
+                        return (
+                          <td key={colIdx} className="border border-muted-foreground/20 p-2 text-center min-w-[100px]">
+                            {multiplePerRow ? (
+                              <Checkbox
+                                id={`${field.id}-${rowIdx}-${colIdx}`}
+                                checked={selected}
+                                disabled={results !== null}
+                                onCheckedChange={() => toggleCell(rowIdx, colIdx)}
+                                className="mx-auto"
+                              />
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={results !== null}
+                                onClick={() => toggleCell(rowIdx, colIdx)}
+                                className={cn(
+                                  "w-5 h-5 rounded-full border-2 mx-auto transition-colors",
+                                  selected
+                                    ? "bg-primary border-primary"
+                                    : "border-muted-foreground/40 hover:border-primary",
+                                  results !== null && "cursor-not-allowed opacity-50"
+                                )}
+                              />
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        })()}
 
         {field.widgetType === "file_upload" && (
           <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 flex flex-col items-center justify-center text-center bg-muted/5">

@@ -502,6 +502,47 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
             )}
           </div>
         );
+      case "matrix":
+        const rows = (props.rows as string[]) || [];
+        const columns = (props.columns as string[]) || [];
+        const multiplePerRow = Boolean(props.multiplePerRow);
+        return (
+          <div className="overflow-x-auto overflow-y-visible max-w-full">
+            <div className="inline-block min-w-full">
+              <table className="border-collapse border border-muted-foreground/20 text-sm min-w-full">
+                <thead>
+                  <tr>
+                    <th className="border border-muted-foreground/20 p-2 text-left bg-muted/30 font-medium sticky left-0 z-10 min-w-[120px]">
+                    </th>
+                    {columns.map((col, idx) => (
+                      <th key={idx} className="border border-muted-foreground/20 p-2 text-center bg-muted/30 font-medium min-w-[100px] whitespace-nowrap">
+                        {col || `Column ${idx + 1}`}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row, rowIdx) => (
+                    <tr key={rowIdx}>
+                      <td className="border border-muted-foreground/20 p-2 text-left bg-muted/10 font-medium sticky left-0 z-10 min-w-[120px] whitespace-nowrap">
+                        {row || `Row ${rowIdx + 1}`}
+                      </td>
+                      {columns.map((_, colIdx) => (
+                        <td key={colIdx} className="border border-muted-foreground/20 p-2 text-center min-w-[100px]">
+                          {multiplePerRow ? (
+                            <Checkbox disabled className="mx-auto" />
+                          ) : (
+                            <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30 mx-auto"></div>
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
       case "header":
         return null;
       default:

@@ -9,7 +9,8 @@ export type WidgetType =
   | "datetime"
   | "file_upload"
   | "rating"
-  | "ranking";
+  | "ranking"
+  | "matrix";
 
 export type SemanticType =
   | "phone"
@@ -82,6 +83,9 @@ export type PassportAnswer = {
   birthPlace?: string | null;
 };
 
+// Matrix answer is stored as an array of "rowIndex:colIndex" keys
+export type MatrixAnswer = string[];
+
 export type AnswerValue =
   | string
   | string[]
@@ -90,6 +94,7 @@ export type AnswerValue =
   | FullNameAnswer
   | PassportAnswer
   | DateTimeAnswer
+  | MatrixAnswer
   | null;
 
 export type AnswersById = Record<string, AnswerValue>;

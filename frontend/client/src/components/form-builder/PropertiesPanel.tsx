@@ -87,6 +87,7 @@ const widgetTypeLabelKey: Record<WidgetType, string> = {
   file_upload: "file",
   rating: "rating",
   ranking: "ranking",
+  matrix: "matrix",
 };
 
 const semanticTypeLabelKey: Record<SemanticType, string> = {
@@ -212,6 +213,17 @@ const propertiesSchemaByWidgetType: Record<WidgetType, PropertyFieldDef[]> = {
     },
   ],
   ranking: [baseLabelField, helperTextField, requiredField],
+  matrix: [
+    baseLabelField,
+    helperTextField,
+    requiredField,
+    {
+      key: "multiplePerRow",
+      labelKey: "propert.matrixMultiplePerRow",
+      type: "switch",
+      target: "props.multiplePerRow",
+    },
+  ],
 };
 
 const propertiesSchemaBySemanticType: Partial<Record<SemanticType, PropertyFieldDef[]>> = {
@@ -445,6 +457,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
   const hideDate = Boolean(props.hideDate);
   const hideTime = Boolean(props.hideTime);
   const hasOptions = ["select", "radio", "checkbox", "ranking"].includes(selectedField.widgetType);
+  const isMatrix = selectedField.widgetType === "matrix";
   const isHeader = selectedField.widgetType === "header";
   const isDatetime = selectedField.widgetType === "datetime";
   const showRequiredToggle = !isHeader && !isDatetime && selectedField.semanticType !== "full_name";
@@ -457,7 +470,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
     : [];
 
   const specialized = Boolean(selectedField.semanticType);
-  const canHaveCorrectAnswers = !isHeader && selectedField.widgetType !== "file_upload" && !isDatetime && !specialized;
+  const canHaveCorrectAnswers = !isHeader && selectedField.widgetType !== "file_upload" && !isDatetime && !specialized && !isMatrix;
 
   const updateByTarget = (target: PropertyFieldDef["target"], value: unknown) => {
     if (target === "label") {
@@ -736,6 +749,94 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
               </Button>
             </div>
           </div>
+        )}
+
+        {isMatrix && (
+          <>
+            <div className="space-y-3 pt-2 border-t">
+              <Label>{t("propert.matrixRows")}</Label>
+              <div className="space-y-2">
+                {((props.rows as string[]) || []).map((row, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <Input
+                      value={row}
+                      onChange={(e) => {
+                        const newRows = [...((props.rows as string[]) || [])];
+                        newRows[index] = e.target.value;
+                        updateField(selectedField.id, { props: { rows: newRows } });
+                      }}
+                      className="flex-1"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      onClick={() => {
+                        const newRows = ((props.rows as string[]) || []).filter((_, i) => i !== index);
+                        updateField(selectedField.id, { props: { rows: newRows } });
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full mt-2"
+                  onClick={() => {
+                    const currentRows = (props.rows as string[]) || [];
+                    const newRows = [...currentRows, `Row ${currentRows.length + 1}`];
+                    updateField(selectedField.id, { props: { rows: newRows } });
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-2" /> {t("propert.addopti")}
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-2 border-t">
+              <Label>{t("propert.matrixColumns")}</Label>
+              <div className="space-y-2">
+                {((props.columns as string[]) || []).map((column, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <Input
+                      value={column}
+                      onChange={(e) => {
+                        const newColumns = [...((props.columns as string[]) || [])];
+                        newColumns[index] = e.target.value;
+                        updateField(selectedField.id, { props: { columns: newColumns } });
+                      }}
+                      className="flex-1"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      onClick={() => {
+                        const newColumns = ((props.columns as string[]) || []).filter((_, i) => i !== index);
+                        updateField(selectedField.id, { props: { columns: newColumns } });
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full mt-2"
+                  onClick={() => {
+                    const currentColumns = (props.columns as string[]) || [];
+                    const newColumns = [...currentColumns, `Column ${currentColumns.length + 1}`];
+                    updateField(selectedField.id, { props: { columns: newColumns } });
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-2" /> {t("propert.addopti")}
+                </Button>
+              </div>
+            </div>
+          </>
         )}
 
         {canHaveCorrectAnswers && (
