@@ -218,7 +218,7 @@ const getTextMaxChars = (field: FormElementModel) => {
 };
 function LengthIndicator({ len, limit, isError, isComplete }: LengthIndicatorProps) {
   const progress = limit ? Math.min(len / limit, 1) : 0;
-  const progressColor = isError ? "#ef4444" : isComplete ? "#22c55e" : "#94a3b8";
+  const progressColor = isError ? "#ef4444" : "#94a3b8";
   const trackColor = "#e2e8f0";
   const ringRadius = 5;
   const ringCircumference = 2 * Math.PI * ringRadius;
@@ -228,7 +228,7 @@ function LengthIndicator({ len, limit, isError, isComplete }: LengthIndicatorPro
       <div
         className={cn(
           "text-xs font-medium",
-          isError ? "text-destructive" : isComplete ? "text-green-600" : "text-muted-foreground"
+          isError ? "text-destructive" : "text-muted-foreground"
         )}
       >
         {`${len}/${limit}`}
