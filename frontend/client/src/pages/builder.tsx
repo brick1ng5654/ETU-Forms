@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import type { MouseEvent } from "react";
 import { nanoid } from "nanoid";
-import { FormField, FieldType, FormSchema } from "@/lib/form-types";
-import { FormCanvas, getIconForType } from "@/components/form-builder/FormCanvas";
+import type { FormElementModel, FormSchema } from "@/form/types";
+import { FormCanvas, getIconForElement } from "@/components/form-builder/FormCanvas";
 import { PropertiesPanel } from "@/components/form-builder/PropertiesPanel";
 import FormPreview from "@/components/form-builder/FormPreview";
-import { ToolboxItem } from "@/components/form-builder/ToolboxItem";
+import { ToolboxItem, ToolboxItemDefinition } from "@/components/form-builder/ToolboxItem";
 import { Button } from "@/components/ui/button";
 import { 
   Eye, Share2, Save, ChevronLeft, Upload, Download, FileJson, 
@@ -26,38 +26,40 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
+import type { UnknownTypeWarning } from "@/form/adapters/fromStructureJson";
+import { fromStructureJsonWithMeta, getLastUnknownTypeWarnings } from "@/form/adapters/fromStructureJson";
 
 import { useTranslation } from 'react-i18next';
 import { Languages } from "lucide-react";
 
-const TOOLBOX_ITEMS: { type: FieldType; label: string; category: string }[] = [
+const TOOLBOX_ITEMS: ToolboxItemDefinition[] = [
   // Basic
-  { type: "header", label: "Header", category: "Basic" },
-  { type: "text", label: "Text", category: "Basic" },
-  { type: "number", label: "Number", category: "Basic" },
-  
+  { widgetType: "header", labelKey: "header", category: "Basic" },
+  { widgetType: "textarea", labelKey: "text", category: "Basic" },
+  { widgetType: "number_input", labelKey: "number", category: "Basic" },
+
   // Choice
-  { type: "select", label: "Dropdown", category: "Choice" },
-  { type: "checkbox", label: "Checkbox", category: "Choice" },
-  { type: "radio", label: "Radio Group", category: "Choice" },
-  
+  { widgetType: "select", labelKey: "select", category: "Choice" },
+  { widgetType: "checkbox", labelKey: "checkbox", category: "Choice" },
+  { widgetType: "radio", labelKey: "radio", category: "Choice" },
+
   // Advanced
-  { type: "datetime", label: "Date & Time", category: "Advanced" },
-  { type: "email", label: "Email", category: "Advanced" },
-  { type: "rating", label: "Rating", category: "Advanced" },
-  { type: "ranking", label: "Ranking", category: "Advanced" },
-  { type: "file", label: "File Upload", category: "Advanced" },
-  
+  { widgetType: "datetime", labelKey: "datetime", category: "Advanced" },
+  { widgetType: "text_input", labelKey: "email", category: "Advanced", props: { inputType: "email" } },
+  { widgetType: "rating", labelKey: "rating", category: "Advanced" },
+  { widgetType: "ranking", labelKey: "ranking", category: "Advanced" },
+  { widgetType: "file_upload", labelKey: "file", category: "Advanced" },
+
   // Specialized
-  { type: "fullname", label: "Full Name", category: "Specialized" },
-  { type: "phone", label: "Phone Number", category: "Specialized" },
-  { type: "passport", label: "Passport Data", category: "Specialized" },
-  { type: "inn", label: "INN", category: "Specialized" },
-  { type: "snils", label: "SNILS", category: "Specialized" },
-  { type: "account", label: "Bank Account", category: "Specialized" },
-  { type: "country", label: "Country", category: "Specialized" },
-  { type: "ogrn", label: "OGRN", category: "Specialized" },
-  { type: "bik", label: "BIK", category: "Specialized" },
+  { widgetType: "text_input", semanticType: "full_name", labelKey: "fullname", category: "Specialized" },
+  { widgetType: "text_input", semanticType: "phone", labelKey: "phone", category: "Specialized" },
+  { widgetType: "text_input", semanticType: "passport", labelKey: "passport", category: "Specialized" },
+  { widgetType: "text_input", semanticType: "inn", labelKey: "inn", category: "Specialized" },
+  { widgetType: "text_input", semanticType: "snils", labelKey: "snils", category: "Specialized" },
+  { widgetType: "text_input", semanticType: "bank_account", labelKey: "account", category: "Specialized" },
+  { widgetType: "select", labelKey: "country", category: "Specialized", props: { options: ["Russia", "USA", "China", "Germany", "France"] } },
+  { widgetType: "text_input", semanticType: "ogrn", labelKey: "ogrn", category: "Specialized" },
+  { widgetType: "text_input", semanticType: "bik", labelKey: "bik", category: "Specialized" },
 ];
 
 export default function Builder({ params }: { params: { id?: string } }) {
@@ -75,6 +77,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
   const lastHistoryAtRef = useRef(0);
   const MAX_HISTORY = 50;
   const HISTORY_MERGE_WINDOW_MS = 2000;
+  const [unknownTypeWarnings, setUnknownTypeWarnings] = useState<UnknownTypeWarning[]>([]);
 
   const handleSelectField = (id: string, event: MouseEvent<HTMLDivElement>) => {
     console.log('Selecting field:', id);
@@ -128,6 +131,9 @@ export default function Builder({ params }: { params: { id?: string } }) {
       const newForm = storage.createForm();
       setForms([newForm]);
       setActiveFormId(newForm.id);
+    }
+    if (import.meta.env.DEV) {
+      setUnknownTypeWarnings(getLastUnknownTypeWarnings());
     }
   }, []);
 
@@ -195,9 +201,16 @@ export default function Builder({ params }: { params: { id?: string } }) {
     storage.saveForm(updatedForm);
   };
 
-  const setFields = (newFields: FormField[], options?: { historyKey?: string | null }) => {
+  const normalizeFields = (elements: FormElementModel[]) =>
+    elements.map((element, index) => ({
+      ...element,
+      props: element.props ?? {},
+      sortIndex: index,
+    }));
+
+  const setFields = (newFields: FormElementModel[], options?: { historyKey?: string | null }) => {
     if (activeForm) {
-      setForm({ ...activeForm, fields: newFields }, options);
+      setForm({ ...activeForm, fields: normalizeFields(newFields) }, options);
     }
   };
 
@@ -238,54 +251,39 @@ export default function Builder({ params }: { params: { id?: string } }) {
     }
   };
 
-  const addField = (type: string, label: string) => {
-    const fieldType = type as FieldType;
-    const defaultProps: Partial<FormField> = {};
-    
-    if (["checkbox", "radio", "select", "ranking"].includes(fieldType)) {
-      defaultProps.options = ["Option 1", "Option 2", "Option 3"];
+  const addField = (item: ToolboxItemDefinition, label: string) => {
+    const defaultProps: Record<string, unknown> = { ...(item.props ?? {}) };
+    const widgetDefaults: Record<string, unknown> = {};
+
+    if (["select", "radio", "checkbox", "ranking"].includes(item.widgetType)) {
+      widgetDefaults.options = ["Option 1", "Option 2"];
     }
-    if (fieldType === "rating") {
-      defaultProps.maxRating = 5;
-    }
-    if (fieldType === "country") {
-      defaultProps.options = ["Russia", "USA", "China", "Germany", "France"]; 
-    }
-    if (fieldType === "file") {
-      defaultProps.maxFileSize = 10;
-      defaultProps.acceptedFileTypes = [];
-    }
-    if (fieldType === "text") {
-      defaultProps.multiline = true;
-    }
-    if (fieldType === "phone") {
-      defaultProps.placeholder = "+7 (000) 000-00-00";
+    if (item.widgetType === "rating") {
+      widgetDefaults.maxRating = 5;
     }
 
-    const newField: FormField = {
+    const newField: FormElementModel = {
       id: nanoid(),
-      type: fieldType,
-      label: fieldType === "header" ? "Section Header" : `${label}`,
-      placeholder: "",
+      widgetType: item.widgetType,
+      semanticType: item.semanticType,
+      label,
+      description: "",
       required: false,
-      ...defaultProps
+      props: { ...widgetDefaults, ...defaultProps },
+      sortIndex: fields.length,
     };
 
-    const lastSelectedIndex = lastSelectedId
-      ? fields.findIndex(f => f.id === lastSelectedId)
-      : -1;
-    const insertIndex = lastSelectedIndex === -1 ? fields.length : lastSelectedIndex + 1;
-    const newFields = [
-      ...fields.slice(0, insertIndex),
-      newField,
-      ...fields.slice(insertIndex),
-    ];
-    setFields(newFields);
+    const anchorId = lastSelectedId ?? (selectedIds.length > 0 ? selectedIds[selectedIds.length - 1] : null);
+    const anchorIndex = anchorId ? fields.findIndex((field) => field.id === anchorId) : -1;
+    const insertIndex = anchorIndex >= 0 ? anchorIndex + 1 : fields.length;
+    const nextFields = [...fields];
+    nextFields.splice(insertIndex, 0, newField);
+    setFields(nextFields);
     setSelectedIds([newField.id]);
     setLastSelectedId(newField.id);
   };
 
-  const updateField = (id: string, updates: Partial<FormField>) => {
+  const updateField = (id: string, updates: Partial<FormElementModel>) => {
     const activeElement = document.activeElement;
     const isTextInput =
       activeElement instanceof HTMLInputElement ||
@@ -294,7 +292,13 @@ export default function Builder({ params }: { params: { id?: string } }) {
     const historyKey = isTextInput && updateKeys.length === 1
       ? `input:${id}:${updateKeys[0]}`
       : null;
-    setFields(fields.map(f => f.id === id ? { ...f, ...updates } : f), { historyKey });
+    setFields(fields.map(field => {
+      if (field.id !== id) return field;
+      const nextProps = updates.props
+        ? { ...field.props, ...updates.props }
+        : field.props;
+      return { ...field, ...updates, props: nextProps };
+    }), { historyKey });
   };
 
   const deleteField = (id: string) => {
@@ -424,12 +428,24 @@ export default function Builder({ params }: { params: { id?: string } }) {
       try {
         const content = e.target?.result as string;
         const schema = JSON.parse(content);
-        if (Array.isArray(schema.fields)) {
+        const rawFields = Array.isArray(schema.fields)
+          ? schema.fields
+          : Array.isArray(schema.structure_json?.fields)
+            ? schema.structure_json.fields
+            : [];
+        if (Array.isArray(rawFields)) {
+          const normalizedResult =
+            rawFields.length > 0 && !rawFields[0].widgetType && rawFields[0].type
+              ? fromStructureJsonWithMeta({ fields: rawFields })
+              : { fields: rawFields, warnings: [] };
+          if (import.meta.env.DEV) {
+            setUnknownTypeWarnings(normalizedResult.warnings);
+          }
           const newForm = {
              ...activeForm,
              title: schema.title || activeForm.title,
              description: schema.description || activeForm.description,
-             fields: schema.fields
+             fields: normalizeFields(normalizedResult.fields as FormElementModel[]),
           };
           setForm(newForm);
           toast({ title: t('builder.formLoaded'), description: t('builder.formLoadedDesc') });
@@ -450,7 +466,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
     if (!acc[item.category]) acc[item.category] = [];
     acc[item.category].push(item);
     return acc;
-  }, {} as Record<string, typeof TOOLBOX_ITEMS>);
+  }, {} as Record<string, ToolboxItemDefinition[]>);
 
   if (!activeForm) return <div>Loading...</div>;
 
@@ -554,6 +570,11 @@ export default function Builder({ params }: { params: { id?: string } }) {
           </div>
         </div>
       </header>
+      {import.meta.env.DEV && unknownTypeWarnings.length > 0 && (
+        <div className="bg-red-50 border-b border-red-200 text-red-700 text-sm px-4 py-2">
+          Unknown field types detected. Check console for details.
+        </div>
+      )}
 
       <div className="flex-1 flex overflow-hidden">
         <div className={cn("border-r border-border bg-white flex flex-col shrink-0 z-10 transition-all duration-300 ease-in-out overflow-hidden", isToolboxOpen ? "w-64" : "w-0 border-r-0")}>
@@ -565,11 +586,11 @@ export default function Builder({ params }: { params: { id?: string } }) {
               <div key={category} className="space-y-1">
                 <p className="text-xs font-medium text-muted-foreground mb-3 pl-1 uppercase">{t(`categories.${category}`)}</p>
                 {items.map((item) => (
-                  <ToolboxItem 
-                    key={item.type} 
-                    type={item.type as string} 
-                    label={t(`fields.${item.type}`)} 
-                    icon={getIconForType(item.type)}
+                  <ToolboxItem
+                    key={`${item.category}-${item.labelKey}`}
+                    item={item}
+                    label={t(`fields.${item.labelKey}`)}
+                    icon={getIconForElement(item.widgetType, item.semanticType)}
                     onAddField={addField}
                   />
                 ))}

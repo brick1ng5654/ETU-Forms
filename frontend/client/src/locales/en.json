@@ -100,6 +100,20 @@
     "snils": "Enter SNILS",
     "bik": "Enter BIK"
   },
+  "formParts": {
+    "fullName": {
+      "lastName": "Last name",
+      "firstName": "First name",
+      "patronymic": "Middle name (if any)"
+    },
+    "passport": {
+      "seriesNumber": "Series and number",
+      "issuedBy": "Issued by",
+      "issueDate": "Issue date",
+      "departmentCode": "Department code",
+      "birthPlace": "Place of birth"
+    }
+  },
 
   "language": {
     "switched": "Language Switched",
@@ -118,6 +132,9 @@
     "label":"Label",
     "placeholder":"Text hint",
     "helper":"Helper Text",
+    "addHelperText":"+ Add helper text",
+    "helperPlaceholder":"Enter helper text...",
+    "correctAnswerPlaceholder":"Enter correct answer",
     "addcorransw":"Add Correct Answer",
     "pointcorr":"Points for Correct Answer",
     "corransw":"Correct Answers",
@@ -132,6 +149,10 @@
     "accepfile":"Accepted Types (.pdf, .jpg, .png)",
     "maxrati":"Max Rating Value",
     "domains":"Allowed Domains (comma separated)",
+    "innLegalEntity": "Legal entity",
+    "innLegalEntityHelp": "For legal entities (10 digits) vs individuals (12 digits).",
+    "ogrnIp": "OGRNIP",
+    "ogrnHelp": "OGRN for legal entities (13 digits) vs OGRNIP (15 digits).",
     "curorder":"Set Current Order as Correct",
     "subranj":"Drag options in the correct order above, then mark as correct order",
     "subranji":"The correct order is the current order of options above",
@@ -157,6 +178,12 @@
     "selectDate": "Select date",
     "selectTime": "Select time",
     "selectDateTime": "Select date and time"
+  },
+  "errors": {
+    "required": "Required",
+    "invalidSelection": "Invalid selection",
+    "invalidNumber": "Invalid number",
+    "digitsExact": "Must be {{count}} digits"
   },
   
   "descerr":{

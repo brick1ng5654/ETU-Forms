@@ -2,7 +2,8 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { KeyboardEvent, MouseEvent } from "react";
 import { useState, useRef, useEffect } from "react";
-import { FormField } from "@/lib/form-types";
+import type { FormElementModel } from "@/form/types";
+import { presets } from "@/form/presets";
 import { cn } from "@/lib/utils";
 import { GripVertical, Star, Upload, GripHorizontal, CalendarDays, Clock, ChevronDown, ChevronUp, X, Plus, Check } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -12,26 +13,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverTrigger } from "@/components/ui/popover";
-import { useTranslation } from 'react-i18next';
-import { Languages } from "lucide-react";
-
-const FULLNAME_MAX_CHARS = 50;
-const DEFAULT_PHONE_PLACEHOLDER = "+7 (000) 000-00-00";
-const DEFAULT_SNILS_PLACEHOLDER = "000-000-000 00";
-const DEFAULT_BIK_PLACEHOLDER = "000000000";
-const PASSPORT_SERIES_NUMBER_MAX_CHARS = 11;
-const PASSPORT_ISSUED_BY_MAX_CHARS = 120;
-const PASSPORT_DEPARTMENT_CODE_MAX_CHARS = 7;
-const PASSPORT_BIRTH_PLACE_MAX_CHARS = 120;
+import { useTranslation } from "react-i18next";
 
 interface SortableFieldProps {
-  field: FormField;
+  field: FormElementModel;
   isSelected: boolean;
   onSelect: (id: string, event: MouseEvent<HTMLDivElement>) => void;
   onDelete: (id: string) => void;
-  updateField: (id: string, updates: Partial<FormField>) => void;
-  fields: FormField[];
+  updateField: (id: string, updates: Partial<FormElementModel>) => void;
+  fields: FormElementModel[];
 }
 
 export function SortableField({ field, isSelected, onSelect, onDelete, updateField, fields }: SortableFieldProps) {
@@ -42,23 +32,16 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    if  ((editingElement === "helperText" || editingElement === "label") 
-      && textareaRef.current) {
+    if ((editingElement === "helperText" || editingElement === "label") && textareaRef.current) {
       const len = editingValue.length;
       textareaRef.current.setSelectionRange(len, len);
       textareaRef.current.focus();
     }
   }, [editingElement, editingValue]);
 
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: field.id });
-  const { t, i18n } = useTranslation()
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.id });
+  const { t } = useTranslation();
+  const props = field.props as Record<string, any>;
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -68,7 +51,8 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
     setEditingElement(element);
     setEditingValue(initialValue || "");
     if (element === "options") {
-      setEditingOptions(field.options ? [...field.options] : []);
+      const options = (field.props as Record<string, unknown>).options as string[] | undefined;
+      setEditingOptions(options ? [...options] : []);
     }
   };
 
@@ -78,11 +62,11 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
     if (editingElement === "label") {
       updateField(field.id, { label: editingValue.slice(0, 120) });
     } else if (editingElement === "placeholder") {
-      updateField(field.id, { placeholder: editingValue.slice(0, 80) });
+      updateField(field.id, { props: { placeholder: editingValue.slice(0, 80) } });
     } else if (editingElement === "helperText") {
-      updateField(field.id, { helperText: editingValue.slice(0, 1200) });
+      updateField(field.id, { description: editingValue.slice(0, 1200) });
     } else if (editingElement === "options") {
-      updateField(field.id, { options: editingOptions.filter(Boolean) });
+      updateField(field.id, { props: { options: editingOptions.filter(Boolean) } });
     }
 
     setEditingElement(null);
@@ -105,18 +89,65 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
     }
   };
 
+  const renderTextInputPreview = () => {
+    const preset = field.semanticType ? presets[field.semanticType] : undefined;
+
+    if (preset?.parts) {
+      return (
+        <div className="grid gap-2">
+          {preset.parts.map((part) => {
+            if (part.hiddenProp && props[part.hiddenProp]) {
+              return null;
+            }
+            const placeholder = part.placeholderKey ? t(part.placeholderKey) : part.placeholder || "";
+            return (
+              <Input
+                key={part.key}
+                placeholder={placeholder}
+                disabled
+                maxLength={part.maxChars}
+                className="bg-white/50 pointer-events-none"
+              />
+            );
+          })}
+        </div>
+      );
+    }
+
+    const placeholderKey = preset?.getPlaceholderKey ? preset.getPlaceholderKey(props) : preset?.placeholderKey;
+    const placeholder = placeholderKey
+      ? t(placeholderKey)
+      : preset?.placeholder || (props.placeholder as string) || "";
+
+    return editingElement === "placeholder" ? (
+      <Input
+        value={editingValue}
+        onChange={(e) => setEditingValue(e.target.value)}
+        onBlur={saveEditing}
+        onKeyDown={handleKeyDown}
+        className="bg-white border border-primary"
+        autoFocus
+      />
+    ) : (
+      <Input
+        placeholder={placeholder}
+        disabled
+        className="bg-white/50 pointer-events-none cursor-pointer"
+        onClick={(e) => {
+          e.stopPropagation();
+          startEditing("placeholder", placeholder);
+        }}
+      />
+    );
+  };
+
   const renderFieldPreview = () => {
-    switch (field.type) {
-      case "text":
-        if (field.multiline) {
-          return (
-            <Textarea
-              placeholder={field.placeholder}
-              disabled
-              className="bg-white/50 pointer-events-none resize-none"
-            />
-          );
-        }
+    const options = (props.options as string[]) || [];
+
+    switch (field.widgetType) {
+      case "text_input":
+        return renderTextInputPreview();
+      case "textarea":
         return editingElement === "placeholder" ? (
           <Input
             value={editingValue}
@@ -127,30 +158,17 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
             autoFocus
           />
         ) : (
-          <Input
-            placeholder={field.placeholder}
+          <Textarea
+            placeholder={(props.placeholder as string) || ""}
             disabled
-            className="bg-white/50 pointer-events-none cursor-pointer"
+            className="bg-white/50 pointer-events-none resize-none cursor-pointer"
             onClick={(e) => {
               e.stopPropagation();
-              startEditing("placeholder", field.placeholder || "");
+              startEditing("placeholder", (props.placeholder as string) || "");
             }}
           />
         );
-      case "bik":
-        return (
-          <Input
-            placeholder={DEFAULT_BIK_PLACEHOLDER}
-            disabled
-            className="bg-white/50 pointer-events-none"
-            type="text"
-            inputMode="numeric"
-            maxLength={9}
-          />
-        );
-      case "email":
-      case "number":
-      case "account":
+      case "number_input":
         return editingElement === "placeholder" ? (
           <Input
             value={editingValue}
@@ -158,164 +176,22 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
             onBlur={saveEditing}
             onKeyDown={handleKeyDown}
             className="bg-white border border-primary"
-            type={field.type === "number" ? "number" : "text"}
+            type="number"
             autoFocus
           />
         ) : (
           <Input
-            placeholder={field.placeholder}
+            placeholder={(props.placeholder as string) || ""}
             disabled
             className="bg-white/50 pointer-events-none cursor-pointer"
-            type={field.type === "number" ? "number" : "text"}
+            type="number"
             onClick={(e) => {
               e.stopPropagation();
-              startEditing("placeholder", field.placeholder || "");
+              startEditing("placeholder", (props.placeholder as string) || "");
             }}
           />
         );
-      case "ogrn": {
-        const ogrnMaxLength = field.ogrnIp ? 15 : 13;
-        const placeholderKey = field.ogrnIp ? "placeholders.ogrnIp" : "placeholders.ogrn";
-        return (
-          <Input
-            placeholder={t(placeholderKey)}
-            disabled
-            className="bg-white/50 pointer-events-none"
-            type="text"
-            inputMode="numeric"
-            maxLength={ogrnMaxLength}
-          />
-        );
-      }
-      case "inn": {
-        const innMaxLength = field.innLegalEntity ? 10 : 12;
-        return (
-          <Input
-            placeholder={t("placeholders.inn")}
-            disabled
-            className="bg-white/50 pointer-events-none"
-            type="text"
-            inputMode="numeric"
-            maxLength={innMaxLength}
-          />
-        );
-      }
-      case "snils":
-        return (
-          <Input
-            placeholder={DEFAULT_SNILS_PLACEHOLDER}
-            disabled
-            className="bg-white/50 pointer-events-none"
-            type="text"
-            inputMode="numeric"
-            maxLength={14}
-          />
-        );
-      case "phone":
-        return (
-          <Input
-            placeholder={field.placeholder || DEFAULT_PHONE_PLACEHOLDER}
-            disabled
-            className="bg-white/50 pointer-events-none"
-            type="tel"
-          />
-        );
-      case "fullname": {
-        const isRu = i18n.language.startsWith("ru");
-        const labels = {
-          lastName: isRu ? "Фамилия" : "Last name",
-          firstName: isRu ? "Имя" : "First name",
-          patronymic: isRu ? "Отчество (при наличии)" : "Middle name (if any)",
-        };
-
-        return (
-          <div className="grid gap-2">
-            <Input
-              placeholder={labels.lastName}
-              disabled
-              maxLength={FULLNAME_MAX_CHARS}
-              className="bg-white/50 pointer-events-none"
-            />
-            <Input
-              placeholder={labels.firstName}
-              disabled
-              maxLength={FULLNAME_MAX_CHARS}
-              className="bg-white/50 pointer-events-none"
-            />
-            <Input
-              placeholder={labels.patronymic}
-              disabled
-              maxLength={FULLNAME_MAX_CHARS}
-              className="bg-white/50 pointer-events-none"
-            />
-          </div>
-        );
-      }
-      case "passport": {
-        const isRu = i18n.language.startsWith("ru");
-        const placeholders = {
-          seriesNumber: isRu ? "\u0421\u0435\u0440\u0438\u044f \u0438 \u043d\u043e\u043c\u0435\u0440" : "Series and number",
-          issuedBy: isRu ? "\u041a\u0435\u043c \u0432\u044b\u0434\u0430\u043d" : "Issued by",
-          issueDate: isRu ? "\u0414\u0430\u0442\u0430 \u0432\u044b\u0434\u0430\u0447\u0438" : "Issue date",
-          departmentCode: isRu ? "\u041a\u043e\u0434 \u043f\u043e\u0434\u0440\u0430\u0437\u0434\u0435\u043b\u0435\u043d\u0438\u044f" : "Department code",
-          birthPlace: isRu ? "\u041c\u0435\u0441\u0442\u043e \u0440\u043e\u0436\u0434\u0435\u043d\u0438\u044f" : "Place of birth",
-        };
-        const hidden = {
-          seriesNumber: field.hidePassportSeriesNumber,
-          issuedBy: field.hidePassportIssuedBy,
-          issueDate: field.hidePassportIssueDate,
-          departmentCode: field.hidePassportDepartmentCode,
-          birthPlace: field.hidePassportBirthPlace,
-        };
-
-        return (
-          <div className="grid gap-2">
-            {!hidden.seriesNumber && (
-              <Input
-                placeholder={placeholders.seriesNumber}
-                disabled
-                maxLength={PASSPORT_SERIES_NUMBER_MAX_CHARS}
-                className="bg-white/50 pointer-events-none"
-              />
-            )}
-            {!hidden.issuedBy && (
-              <Input
-                placeholder={placeholders.issuedBy}
-                disabled
-                maxLength={PASSPORT_ISSUED_BY_MAX_CHARS}
-                className="bg-white/50 pointer-events-none"
-              />
-            )}
-            {!hidden.issueDate && (
-              <Input
-                type="date"
-                placeholder={placeholders.issueDate}
-                disabled
-                className="bg-white/50 pointer-events-none text-muted-foreground"
-              />
-            )}
-            {!hidden.departmentCode && (
-              <Input
-                placeholder={placeholders.departmentCode}
-                disabled
-                maxLength={PASSPORT_DEPARTMENT_CODE_MAX_CHARS}
-                className="bg-white/50 pointer-events-none"
-              />
-            )}
-            {!hidden.birthPlace && (
-              <Input
-                placeholder={placeholders.birthPlace}
-                disabled
-                maxLength={PASSPORT_BIRTH_PLACE_MAX_CHARS}
-                className="bg-white/50 pointer-events-none"
-              />
-            )}
-          </div>
-        );
-      }
       case "select":
-      case "country":
-      case "category":
         return editingElement === "options" ? (
           <div className="space-y-2">
             {editingOptions.map((opt, index) => (
@@ -364,15 +240,20 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
           </div>
         ) : (
           <Select disabled>
-            <SelectTrigger className="bg-white/50 cursor-pointer" onClick={(e) => {
-              e.stopPropagation();
-              startEditing("options");
-            }}>
+            <SelectTrigger
+              className="bg-white/50 cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                startEditing("options");
+              }}
+            >
               <SelectValue placeholder={t("common.selectopt")} />
             </SelectTrigger>
             <SelectContent>
-              {field.options?.filter(Boolean).map((opt, i) => (
-                <SelectItem key={i} value={opt}>{opt}</SelectItem>
+              {options.filter(Boolean).map((opt, i) => (
+                <SelectItem key={i} value={opt}>
+                  {opt}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -426,11 +307,14 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
             </div>
           </div>
         ) : (
-          <div className="space-y-2 cursor-pointer" onClick={(e) => {
-            e.stopPropagation();
-            startEditing("options");
-          }}>
-            {field.options?.map((opt, i) => (
+          <div
+            className="space-y-2 cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              startEditing("options");
+            }}
+          >
+            {options.map((opt, i) => (
               <div key={i} className="flex items-center space-x-2">
                 <Checkbox id={`${field.id}-${i}`} disabled />
                 <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
@@ -490,11 +374,14 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
           </div>
         ) : (
           <RadioGroup disabled>
-            <div className="cursor-pointer" onClick={(e) => {
-              e.stopPropagation();
-              startEditing("options");
-            }}>
-              {field.options?.map((opt, i) => (
+            <div
+              className="cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                startEditing("options");
+              }}
+            >
+              {options.map((opt, i) => (
                 <div key={i} className="flex items-center space-x-2">
                   <RadioGroupItem value={opt} id={`${field.id}-${i}`} />
                   <Label htmlFor={`${field.id}-${i}`}>{opt}</Label>
@@ -506,7 +393,7 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
       case "rating":
         return (
           <div className="flex gap-2">
-            {Array.from({ length: field.maxRating || 5 }).map((_, i) => (
+            {Array.from({ length: (props.maxRating as number) || 5 }).map((_, i) => (
               <Star key={i} className="h-6 w-6 text-muted-foreground/30" fill="currentColor" />
             ))}
           </div>
@@ -562,33 +449,36 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
             </div>
           </div>
         ) : (
-          <div className="space-y-2 cursor-pointer" onClick={(e) => {
-            e.stopPropagation();
-            startEditing("options");
-          }}>
-            {field.options?.map((opt, i) => (
-               <div key={i} className="flex items-center justify-between p-3 bg-muted/30 rounded-md border border-transparent">
-                 <span className="text-sm font-medium">{opt}</span>
-                 <GripHorizontal className="h-4 w-4 text-muted-foreground" />
-               </div>
+          <div
+            className="space-y-2 cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              startEditing("options");
+            }}
+          >
+            {options.map((opt, i) => (
+              <div key={i} className="flex items-center justify-between p-3 bg-muted/30 rounded-md border border-transparent">
+                <span className="text-sm font-medium">{opt}</span>
+                <GripHorizontal className="h-4 w-4 text-muted-foreground" />
+              </div>
             ))}
           </div>
         );
-      case "file":
+      case "file_upload":
         return (
-           <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 flex flex-col items-center justify-center text-center bg-muted/5 hover:bg-muted/10 transition-colors">
-              <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-              <p className="text-sm text-muted-foreground font-medium">{t("back.loaddrag")}</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {t("propert.sizefile")} {field.maxFileSize || 10}MB
-                {field.acceptedFileTypes && field.acceptedFileTypes.length > 0 && ` (${field.acceptedFileTypes.join(", ")})`}
-              </p>
-           </div>
+          <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 flex flex-col items-center justify-center text-center bg-muted/5 hover:bg-muted/10 transition-colors">
+            <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+            <p className="text-sm text-muted-foreground font-medium">{t("back.loaddrag")}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {t("propert.sizefile")} {(props.maxFileSize as number) || 10}MB
+              {Array.isArray(props.acceptedFileTypes) && props.acceptedFileTypes.length > 0 && ` (${(props.acceptedFileTypes as string[]).join(", ")})`}
+            </p>
+          </div>
         );
       case "datetime":
         return (
           <div className="space-y-3">
-            {!field.hideDate && (
+            {!props.hideDate && (
               <div className="relative">
                 <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
                 <Input
@@ -599,7 +489,7 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
                 />
               </div>
             )}
-            {!field.hideTime && (
+            {!props.hideTime && (
               <div className="relative">
                 <Input
                   type="time"
@@ -613,7 +503,7 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
           </div>
         );
       case "header":
-        return null; // Rendered in header
+        return null;
       default:
         return <div className="text-sm text-muted-foreground">Select data-time</div>;
     }
@@ -626,7 +516,6 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
       tabIndex={0}
       onClick={(e) => {
         e.stopPropagation();
-        console.log('SortableField onClick for field:', field.id);
         onSelect(field.id, e);
       }}
       onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
@@ -643,9 +532,8 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
         isCollapsed ? "p-4" : "p-6"
       )}
     >
-      {/* Drag Handle */}
-      <div 
-        {...attributes} 
+      <div
+        {...attributes}
         {...listeners}
         className={cn(
           "absolute left-2 top-1/2 -translate-y-1/2 cursor-grab p-1.5 rounded-md text-muted-foreground/50 hover:text-foreground hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity",
@@ -656,10 +544,7 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
       </div>
 
       <div className="flex-1 space-y-3 pl-6 w-full overflow-hidden">
-        <div className={cn(
-          "flex items-baseline justify-between",
-          isCollapsed && "py-2"
-        )}>
+        <div className={cn("flex items-baseline justify-between", isCollapsed && "py-2")}>
           {editingElement === "label" ? (
             <Textarea
               value={editingValue}
@@ -669,7 +554,7 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
               onKeyDown={handleKeyDown}
               className={cn(
                 "mt-1 text-base font-medium border border-primary bg-white resize-none min-h-[2rem] px-2 py-1",
-                field.type === "header" ? "text-2xl font-bold" : ""
+                field.widgetType === "header" ? "text-2xl font-bold" : ""
               )}
               maxLength={120}
               autoFocus
@@ -679,7 +564,7 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
             <Label
               className={cn(
                 "mt-1 text-base font-medium whitespace-normal break-words w-full cursor-pointer hover:bg-muted/50 px-2 py-1 rounded transition-colors",
-                field.type === "header" ? "text-2xl font-bold" : ""
+                field.widgetType === "header" ? "text-2xl font-bold" : ""
               )}
               onClick={(e) => {
                 e.stopPropagation();
@@ -690,19 +575,19 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
               {field.required && <span className="text-destructive ml-1">*</span>}
             </Label>
           )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsCollapsed(!isCollapsed);
-              }}
-              className="p-1 ml-2 h-6 w-6 hover:bg-muted"
-            >
-              {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-            </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsCollapsed(!isCollapsed);
+            }}
+            className="p-1 ml-2 h-6 w-6 hover:bg-muted"
+          >
+            {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+          </Button>
         </div>
-        
+
         {!isCollapsed && (
           <>
             {editingElement === "helperText" ? (
@@ -716,17 +601,17 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
                 maxLength={1200}
                 autoFocus
                 rows={1}
-                placeholder="Введите вспомогательный текст..."
+                placeholder={t("propert.helperPlaceholder")}
               />
-            ) : field.helperText ? (
+            ) : field.description ? (
               <p
                 className="text-sm text-muted-foreground cursor-pointer hover:bg-muted/50 px-2 py-1 mr-8 rounded transition-colors"
                 onClick={(e) => {
                   e.stopPropagation();
-                  startEditing("helperText", field.helperText);
+                  startEditing("helperText", field.description || "");
                 }}
               >
-                {field.helperText}
+                {field.description}
               </p>
             ) : (
               <p
@@ -736,39 +621,35 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
                   startEditing("helperText", "");
                 }}
               >
-                + Добавить вспомогательный текст
+                {t("propert.addHelperText")}
               </p>
             )}
 
-        {field.conditionalLogic?.dependsOn && (
-          (() => {
-            const dependsOnField = fields.find(f => f.id === field.conditionalLogic!.dependsOn);
-            if (!dependsOnField) return null;
-            const condition = field.conditionalLogic!.condition;
-            const conditionText = condition === "equals" ? "Равно" :
-                                 condition === "not_equals" ? "Не равно" :
-                                 condition === "answered" ? "Дан ответ":
-                                 "пусто"; 
-            const expectedValue = field.conditionalLogic!.expectedValue;
-            const valueText = Array.isArray(expectedValue) ? expectedValue.join(", ") : expectedValue || "";
-            const showValue = condition === "equals";
-return (
-  <p className="text-xs text-muted-foreground italic -mt-1">
-    Зависит от "{dependsOnField.label}", при "{conditionText}"{showValue && valueText ? ` "${valueText}"` : ""}
-  </p>
-);
+            {props.conditionalLogic?.dependsOn && (() => {
+              const dependsOnField = fields.find((f) => f.id === props.conditionalLogic!.dependsOn);
+              if (!dependsOnField) return null;
+              const condition = props.conditionalLogic!.condition;
+              const conditionText = condition === "equals" ? "Equals" :
+                condition === "not_equals" ? "Not equals" :
+                condition === "answered" ? "Answered" :
+                "";
+              const expectedValue = props.conditionalLogic!.expectedValue as string | string[] | undefined;
+              const valueText = Array.isArray(expectedValue) ? expectedValue.join(", ") : expectedValue || "";
+              const showValue = condition === "equals";
+              return (
+                <p className="text-xs text-muted-foreground italic -mt-1">
+                  Depends on "{dependsOnField.label}", "{conditionText}"{showValue && valueText ? ` "${valueText}"` : ""}
+                </p>
+              );
+            })()}
 
-          })()
-        )}
-
-        <div className="pointer-events-none">
-          {renderFieldPreview()}
-        </div>
+            <div className="pointer-events-none">
+              {renderFieldPreview()}
+            </div>
           </>
         )}
       </div>
-      
-      {/* Selection Indicator */}
+
       {isSelected && (
         <div className={cn(
           "absolute -right-[1px] w-1 bg-primary rounded-r-lg",
@@ -778,4 +659,3 @@ return (
     </div>
   );
 }
-

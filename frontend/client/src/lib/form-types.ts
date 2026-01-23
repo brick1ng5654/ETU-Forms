@@ -1,78 +1,15 @@
-import { LucideIcon } from "lucide-react";
+export type {
+  AnswerValue,
+  AnswersById,
+  ConditionalLogic,
+  FormElementModel,
+  FormFolder,
+  FormSchema,
+  FullNameAnswer,
+  PassportAnswer,
+  SemanticType,
+  WidgetType,
+} from "@/form/types";
 
-export type FieldType = 
-  | "text" 
-  | "number" 
-  | "select" 
-  | "checkbox" 
-  | "radio" 
-  | "datetime"
-  | "email"
-  | "header"
-  | "rating"
-  | "ranking"
-  | "file"
-  | "category" // For category/subcategory
-  // Pre-validated text fields
-  | "fullname"
-  | "phone"
-  | "passport"
-  | "inn"
-  | "snils"
-  | "ogrn"
-  | "bik"
-  | "account" // Correspondent/Settlement account
-  | "country";
-
-export interface FormField {
-  id: string;
-  type: FieldType;
-  label: string;
-  placeholder?: string;
-  required?: boolean;
-  options?: string[]; // For select, radio, checkbox, ranking
-  helperText?: string;
-  maxRating?: number; // For rating
-  maxChars?: number; // For text limit
-  subCategories?: Record<string, string[]>; // For category/subcategory
-  allowedDomains?: string[]; // For email domain restriction
-  multiple?: boolean; // For select multiple
-  multiline?: boolean; // For text (merged textarea)
-  allowDecimals?: boolean; // For number
-  maxFileSize?: number; // For file (MB)
-  acceptedFileTypes?: string[]; // For file (.pdf, .jpg etc)
-  correctAnswers?: string[]; // For quiz mode - list of valid answers
-  points?: number; // Points for correct answer in quiz mode
-  hideDate?: boolean; // For datetime - hide date picker
-  hideTime?: boolean; // For datetime - hide time picker
-  hidePassportSeriesNumber?: boolean; // For passport - hide series/number field
-  hidePassportIssuedBy?: boolean; // For passport - hide issued by field
-  hidePassportIssueDate?: boolean; // For passport - hide issue date field
-  hidePassportDepartmentCode?: boolean; // For passport - hide department code field
-  hidePassportBirthPlace?: boolean; // For passport - hide birth place field
-  innLegalEntity?: boolean; // For INN - legal entity (10 digits) vs individual (12 digits)
-  ogrnIp?: boolean; // For OGRN - legal entity (13 digits) vs individual entrepreneur (15 digits)
-  conditionalLogic?: ConditionalLogic;
-}
-
-export interface FormFolder {
-  id: string;
-  name: string;
-}
-
-export interface FormSchema {
-  id: string;
-  folderId?: string; // Optional folder association
-  title: string;
-  description: string;
-  fields: FormField[];
-  updatedAt: number;
-}
-
-export interface ConditionalLogic {
-  dependsOn?: string; // ID поля-родителя
-  condition: "equals" | "not_equals" | "answered";
-  expectedValue?: string | string[]; // Для select с multiple - массив
-}
-
-
+export type FieldType = import("@/form/types").WidgetType;
+export type FormField = import("@/form/types").FormElementModel;
