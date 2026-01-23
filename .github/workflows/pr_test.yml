@@ -25,6 +25,9 @@ jobs:
       - name: Set up Docker
         uses: docker/setup-buildx-action@v3
 
+      - name: Dump docker logs
+        if: failure
+        
       - name: Create SSL files from GitHub Secrets
         env:
           SSL_CERT_CONTENT: ${{ secrets.NGINX_CRT }}
