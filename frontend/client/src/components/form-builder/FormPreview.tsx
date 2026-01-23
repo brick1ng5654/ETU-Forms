@@ -97,7 +97,11 @@ function CollapsibleTextarea({
       const currentScrollTop = textarea.scrollTop;
       const prevHeight = textarea.offsetHeight;
       textarea.style.transition = "height 440ms ease";
+<<<<<<< HEAD
       textarea.style.height = 'auto';
+=======
+      textarea.style.height = "auto";
+>>>>>>> 33b2739 (удален легаси код, фикс скобки)
       const { lineHeight, paddingTop, paddingBottom, lineCount } = getTextareaMetrics(textarea);
       const overflow = lineCount > collapsedLines;
       if (hasOverflowRef.current !== overflow) {
@@ -105,9 +109,13 @@ function CollapsibleTextarea({
         setHasOverflow(overflow);
       }
       const collapsedHeight = Math.ceil(lineHeight * collapsedLines + paddingTop + paddingBottom + 4);
+<<<<<<< HEAD
       const targetHeight = overflow && !isExpanded
         ? collapsedHeight
         : textarea.scrollHeight;
+=======
+      const targetHeight = overflow && !isExpanded ? collapsedHeight : textarea.scrollHeight;
+>>>>>>> 33b2739 (удален легаси код, фикс скобки)
       const startHeight = `${prevHeight}px`;
       const endHeight = `${targetHeight}px`;
       if (startHeight === endHeight) {
@@ -116,7 +124,10 @@ function CollapsibleTextarea({
         return;
       }
       textarea.style.height = startHeight;
+<<<<<<< HEAD
       // Force reflow before applying the target height to trigger transition
+=======
+>>>>>>> 33b2739 (удален легаси код, фикс скобки)
       void textarea.offsetHeight;
       requestAnimationFrame(() => {
         textarea.style.height = endHeight;
@@ -161,7 +172,11 @@ function CollapsibleTextarea({
                     resolvedRef.current?.blur();
                   }}
                 >
+<<<<<<< HEAD
                   {i18n.language.startsWith("ru") ? "Скрыть" : "Hide"}
+=======
+                  {t("common.showLess")}
+>>>>>>> 33b2739 (удален легаси код, фикс скобки)
                 </Button>
               ) : (
                 <Button
@@ -173,7 +188,11 @@ function CollapsibleTextarea({
                     setIsExpanded(true);
                   }}
                 >
+<<<<<<< HEAD
                   {i18n.language.startsWith("ru") ? "Показать полностью" : "Show full text"}
+=======
+                  {t("common.showMore")}
+>>>>>>> 33b2739 (удален легаси код, фикс скобки)
                 </Button>
               )
             )}
@@ -206,6 +225,7 @@ interface TextLengthIndicatorProps {
   staticPosition?: boolean;
 }
 
+<<<<<<< HEAD
 const FULLNAME_MAX_CHARS = 50;
 const DEFAULT_PHONE_PLACEHOLDER = "+7 (000) 000-00-00";
 const PHONE_MAX_DIGITS = 15;
@@ -228,6 +248,10 @@ const getTextMaxChars = (field: FormField) => {
   const normalized = rawMax > 0 ? rawMax : 1;
   return Math.min(normalized, limit);
 };
+=======
+const TEXT_SINGLELINE_MAX_CHARS = 255;
+const TEXT_MULTILINE_MAX_CHARS = 10000;
+>>>>>>> 33b2739 (удален легаси код, фикс скобки)
 
 const getTextMaxLimit = (field: FormElementModel) =>
   field.widgetType === "textarea" ? TEXT_MULTILINE_MAX_CHARS : TEXT_SINGLELINE_MAX_CHARS;
@@ -316,6 +340,7 @@ function TextLengthIndicator({ len, limit, className, staticPosition }: TextLeng
   );
 }
 
+<<<<<<< HEAD
 function TextLengthIndicator({ len, limit, className, staticPosition }: TextLengthIndicatorProps) {
   const isOverLimit = len > limit;
   const progress = limit ? Math.min(len / limit, 1) : 0;
@@ -407,6 +432,8 @@ const getOgrnPlaceholder = (field: FormField) => "0".repeat(getOgrnMaxLength(fie
 const sanitizeOgrnValue = (value: string, maxLength: number) =>
   value.replace(/\D/g, "").slice(0, maxLength);
 
+=======
+>>>>>>> 33b2739 (удален легаси код, фикс скобки)
 function SortableItem({ id, disabled }: SortableItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
@@ -637,51 +664,51 @@ export function FormPreview({ form }: FormPreviewProps) {
     }
   };
 
+  const getErrorsForField = (fieldId: string) => {
+    if (!touched[fieldId] || focusedFieldId === fieldId) return [];
+    return errorsById[fieldId] || [];
+  };
 
+  const localizeError = (raw: string, field: FormElementModel) => {
+    const preset = field.semanticType ? presets[field.semanticType] : undefined;
+    let partLabel: string | null = null;
+    let message = raw;
 
+    if (raw.includes(":")) {
+      const [partKey, ...rest] = raw.split(":");
+      const part = preset?.parts?.find((item) => item.key === partKey.trim());
+      if (part) {
+        partLabel = part.labelKey ? t(part.labelKey) : part.key;
+        message = rest.join(":").trim();
+      }
+    }
 
+    const normalized = message.trim();
+    let localized = normalized;
 
-  const renderField = (field: FormField) => {
-    const hasResult = results !== null && field.id in results;
-    const isCorrect = hasResult && results[field.id];
-    const isIncorrect = hasResult && !results[field.id];
-    const fieldWrapperClass = cn(
-      "space-y-2 p-3 rounded-lg transition-colors",
-      isCorrect && "bg-green-50 border border-green-200",
-      isIncorrect && "bg-red-50 border border-red-200"
-    );
+    if (normalized === "Required") {
+      localized = t("errors.required");
+    } else if (normalized === "Invalid selection") {
+      localized = t("errors.invalidSelection");
+    } else if (normalized === "Invalid number") {
+      localized = t("errors.invalidNumber");
+    } else {
+      const digitsMatch = normalized.match(/(\d+)\s*digits/);
+      if (digitsMatch) {
+        localized = t("errors.digitsExact", { count: Number(digitsMatch[1]) });
+      }
+    }
 
-    return (
-      <div key={field.id} className={fieldWrapperClass}>
-        {field.type !== "header" && (
-          <div className="flex items-center justify-between">
-            <Label className="flex items-center gap-2">
-              {field.label}
-              {field.required && <span className="text-destructive">*</span>}
-              {field.points && field.points > 0 && (
-                <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
-                  {field.points} pts
-                </span>
-              )}
-            </Label>
-            {hasResult && (
-              <div className="flex items-center gap-1">
-                {isCorrect ? (
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
-                ) : (
-                  <XCircle className="h-5 w-5 text-red-600" />
-                )}
-              </div>
-            )}
-          </div>
-        )}
+    return partLabel ? `${partLabel}: ${localized}` : localized;
+  };
 
-        {field.helperText && (
-          <p className="text-sm text-muted-foreground whitespace-pre-wrap break-all">
-            {field.helperText}
-          </p>
-        )}
+  const renderTextInput = (field: FormElementModel, isDisabled: boolean) => {
+    const props = field.props as Record<string, unknown>;
+    const preset = field.semanticType ? presets[field.semanticType] : undefined;
+    const fieldErrors = getErrorsForField(field.id);
+    const hasError = fieldErrors.length > 0;
 
+<<<<<<< HEAD
         {field.type === "header" && (
           <h2 className="text-xl font-bold pb-2 border-b">{field.label}</h2>
         )}
@@ -788,6 +815,28 @@ export function FormPreview({ form }: FormPreviewProps) {
           const limit = PHONE_REQUIRED_DIGITS;
           const isComplete = len > 0 && len === limit;
           const isError = phoneErrors[field.id];
+=======
+    if (preset?.parts) {
+      const composite = (answers[field.id] as FullNameAnswer | PassportAnswer | undefined) || {};
+      const compositeRecord = composite as Record<string, string | null>;
+      return (
+        <div className="grid gap-3">
+          {preset.parts.map((part) => {
+            if (part.hiddenProp && props[part.hiddenProp]) {
+              return null;
+            }
+            const rawValue = compositeRecord[part.key] ?? "";
+            const displayValue = part.format ? part.format(rawValue) : rawValue;
+            const label = part.labelKey ? t(part.labelKey) : part.key;
+            const placeholder = part.placeholderKey
+              ? t(part.placeholderKey)
+              : part.placeholder || "";
+            const maxLength = part.maxChars ?? part.maxDigits;
+            const len = part.maxDigits ? rawValue.replace(/\D/g, "").length : rawValue.length;
+            const limit = part.maxDigits ?? part.maxChars;
+            const showIndicator = Boolean(limit) && !part.hideLengthIndicator;
+            const partError = fieldErrors.some((err) => err.startsWith(`${part.key}:`));
+>>>>>>> 33b2739 (удален легаси код, фикс скобки)
 
             return (
               <div key={part.key} className="space-y-1">
@@ -874,6 +923,10 @@ export function FormPreview({ form }: FormPreviewProps) {
       </div>
     );
   };
+
+
+
+
 
   const renderField = (field: FormElementModel) => {
     const props = field.props as Record<string, unknown>;
