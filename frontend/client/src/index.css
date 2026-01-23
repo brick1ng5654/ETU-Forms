@@ -85,7 +85,15 @@
   }
 }
 
-
+.matrix-scroll-container {
+  display: block; /* или flex, если нужно */
+  overflow: auto;
+  max-height: 500px; /* или нужная высота */
+  max-width: 100%;
+  contain: layout;
+  isolation: isolate;
+  position: relative; /* важно для правильного позиционирования */
+}
 
 /* Custom Scrollbar for the builder canvas */
 .builder-scroll::-webkit-scrollbar {

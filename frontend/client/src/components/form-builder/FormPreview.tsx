@@ -166,6 +166,7 @@ export function FormPreview({ form }: FormPreviewProps) {
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [focusedFieldId, setFocusedFieldId] = useState<string | null>(null);
   const payloadRef = useRef<ReturnType<typeof buildAnswersPayload> | null>(null);
+  const matrixContainerRef = useRef<HTMLDivElement>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -774,8 +775,8 @@ export function FormPreview({ form }: FormPreviewProps) {
           <div className="flex items-center gap-1">
             {Array.from({ length: (props.maxRating as number) || 5 }, (_, i) => i + 1).map((value) => (
               <button
-                key={value}
                 type="button"
+                key={value}
                 disabled={results !== null}
                 onClick={() => {
                   updateAnswer(field.id, value);
@@ -800,6 +801,8 @@ export function FormPreview({ form }: FormPreviewProps) {
           const rows = (props.rows as string[]) || [];
           const columns = (props.columns as string[]) || [];
           const multiplePerRow = Boolean(props.multiplePerRow);
+          const [isScrolling, setIsScrolling] = useState(false);
+const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
           const matrixAnswer = (answers[field.id] as string[]) || [];
           const isCellSelected = (rowIdx: number, colIdx: number) => {
             return matrixAnswer.includes(`${rowIdx}:${colIdx}`);
@@ -823,44 +826,45 @@ export function FormPreview({ form }: FormPreviewProps) {
             updateAnswer(field.id, newAnswer);
             markTouched(field.id);
           };
+          
           return (
             <div 
-              className="matrix-scroll-container overflow-x-auto overflow-y-visible" 
+              className="matrix-scroll-container overflow-x-auto overflow-y-visible scroll-smooth relative" 
               style={{ 
-                width: '100%',
-                maxWidth: '100%',
-                contain: 'layout',
-                isolation: 'isolate'
+                maxHeight: '500px',
               }}
-              onWheel={(e) => {
-                const element = e.currentTarget;
-                const { scrollLeft, scrollWidth, clientWidth } = element;
-                const deltaX = e.deltaX;
-                const deltaY = e.deltaY;
-                
-                // Если есть горизонтальный скролл и мы не на краю, останавливаем распространение
-                if (Math.abs(deltaX) > Math.abs(deltaY)) {
-                  const isScrollingRight = deltaX > 0;
-                  const isScrollingLeft = deltaX < 0;
-                  const isAtRightEdge = scrollLeft + clientWidth >= scrollWidth - 1;
-                  const isAtLeftEdge = scrollLeft <= 1;
-                  
-                  if ((isScrollingRight && !isAtRightEdge) || (isScrollingLeft && !isAtLeftEdge)) {
-                    e.preventDefault();
-                    element.scrollLeft += deltaX;
-                    e.stopPropagation();
-                    return;
-                  }
+              onScroll={(e) => {
+                const el = e.currentTarget;
+                if (el.scrollLeft > 0) {
+                  setIsScrolling(true);
                 }
+
+                if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
+                scrollTimeout.current = setTimeout(() => setIsScrolling(false), 150);
               }}
             >
-              <table className="border-collapse border border-muted-foreground/20 text-sm" style={{ minWidth: 'max-content', width: 'max-content' }}>
+              <table 
+                className="border-collapse border border-muted-foreground/20 text-sm min-w-full" 
+              >
                 <thead>
                   <tr>
-                    <th className="border border-muted-foreground/20 p-2 text-left bg-muted/30 font-medium sticky left-0 z-10 min-w-[120px] bg-muted/30">
+                    <th 
+                      className={cn(
+                          "relative sticky left-0 z-20 min-w-[120px] whitespace-nowrap",
+                          "bg-white p-2 font-medium",
+                          "border border-muted-foreground/20",
+                          "after:absolute after:top-0 after:right-[-2px] after:h-full after:w-[4px]",
+                          "after:bg-white after:shadow-[2px_0_4px_rgba(0,0,0,0.12)]",
+                          
+                          isScrolling && "ring-2 ring-primary/40 shadow-lg"
+                        )}
+                    >
                     </th>
                     {columns.map((col, idx) => (
-                      <th key={idx} className="border border-muted-foreground/20 p-2 text-center bg-muted/30 font-medium min-w-[100px] whitespace-nowrap">
+                      <th 
+                        key={idx} 
+                        className="border border-muted-foreground/20 p-2 text-center bg-muted/30 font-medium min-w-[100px] whitespace-nowrap"
+                      >
                         {col || `Column ${idx + 1}`}
                       </th>
                     ))}
@@ -869,13 +873,26 @@ export function FormPreview({ form }: FormPreviewProps) {
                 <tbody>
                   {rows.map((row, rowIdx) => (
                     <tr key={rowIdx}>
-                      <td className="border border-muted-foreground/20 p-2 text-left bg-muted/10 font-medium sticky left-0 z-10 min-w-[120px] whitespace-nowrap bg-muted/10">
+                      <td 
+                        className={cn(
+                          "relative sticky left-0 z-20 min-w-[100px] whitespace-nowrap",
+                          "bg-white p-2 font-medium",
+                          "border border-muted-foreground/20",
+                          "after:absolute after:top-0 after:right-[-2px] after:h-full after:w-[4px]",
+                          "after:bg-white after:shadow-[2px_0_4px_rgba(0,0,0,0.12)]",
+
+                          isScrolling && "before:opacity-100 after:opacity-100"
+                        )}
+                      >
                         {row || `Row ${rowIdx + 1}`}
                       </td>
                       {columns.map((_, colIdx) => {
                         const selected = isCellSelected(rowIdx, colIdx);
                         return (
-                          <td key={colIdx} className="border border-muted-foreground/20 p-2 text-center min-w-[100px]">
+                          <td 
+                            key={colIdx} 
+                            className="border border-muted-foreground/20 p-2 text-center min-w-[100px]"
+                          >
                             {multiplePerRow ? (
                               <Checkbox
                                 id={`${field.id}-${rowIdx}-${colIdx}`}
@@ -905,6 +922,7 @@ export function FormPreview({ form }: FormPreviewProps) {
                   ))}
                 </tbody>
               </table>
+              
             </div>
           );
         })()}
@@ -953,7 +971,10 @@ export function FormPreview({ form }: FormPreviewProps) {
   };
 
   return (
-    <div className="space-y-6 py-4">
+    <div 
+      className="space-y-6 py-4"
+      style={{ overflowX: 'hidden' }}
+    >
       {results !== null && (
         <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-4 mb-6">
           <div className="flex items-center justify-between">
