@@ -202,8 +202,8 @@ CREATE TABLE IF NOT EXISTS Form_Element (
     correct_answer JSONB NULL,
     text_hint TEXT NULL,
     supportive_text TEXT NULL,
-    required_field BOOLEAN NULL,
-    other_settings JSONB,
+    required_field BOOLEAN NOT NULL,
+    other_settings JSONB NOT NULL DEFAULT '{}'::jsonb,
 
     CONSTRAINT fk_element_form
         FOREIGN KEY (form_id)
