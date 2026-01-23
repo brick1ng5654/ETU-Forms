@@ -1,14 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@font-face {
-  font-family: "Glober";
-  src: url("/fonts/globersemiboldfree.otf") format("opentype");
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
-
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -42,7 +34,7 @@
   
   --radius: 0.5rem;
   
-  --font-sans: 'Glober', sans-serif;
+  --font-sans: "Gill Sans", "Gill Sans MT", "Gill Sans Nova", Calibri, "Trebuchet MS", sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 }
 
@@ -81,7 +73,8 @@
     @apply border-border;
   }
   body {
-    font-family: 'Glober', sans-serif;
+    font-family: var(--font-sans);
+    font-weight: 400;
   }
 }
 

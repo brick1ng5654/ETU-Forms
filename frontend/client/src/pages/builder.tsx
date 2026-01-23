@@ -268,7 +268,12 @@ export default function Builder({ params }: { params: { id?: string } }) {
       sortIndex: fields.length,
     };
 
-    setFields([...fields, newField]);
+    const anchorId = lastSelectedId ?? (selectedIds.length > 0 ? selectedIds[selectedIds.length - 1] : null);
+    const anchorIndex = anchorId ? fields.findIndex((field) => field.id === anchorId) : -1;
+    const insertIndex = anchorIndex >= 0 ? anchorIndex + 1 : fields.length;
+    const nextFields = [...fields];
+    nextFields.splice(insertIndex, 0, newField);
+    setFields(nextFields);
     setSelectedIds([newField.id]);
     setLastSelectedId(newField.id);
   };

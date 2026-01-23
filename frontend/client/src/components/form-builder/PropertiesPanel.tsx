@@ -403,6 +403,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
   );
 
   const [rankingOrderOptions, setRankingOrderOptions] = useState<string[]>([]);
+  const [isConditionalSelectOpen, setIsConditionalSelectOpen] = useState(false);
 
   useEffect(() => {
     if (!selectedField) return;
@@ -411,8 +412,12 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
   }, [selectedField?.id, selectedField?.props]);
 
   if (selectedIds.length > 1) {
+    const panelClassName = isConditionalSelectOpen
+      ? "p-4 space-y-6 overflow-y-auto h-full pb-[40vh]"
+      : "p-4 space-y-6 overflow-y-auto h-full pb-32";
+    const spacerClassName = isConditionalSelectOpen ? "h-[40vh]" : "h-24";
     return (
-      <div className="p-4 space-y-6 overflow-y-auto h-full pb-20">
+      <div className={panelClassName}>
         <div className="flex items-center justify-between border-b pb-4">
           <h3 className="font-semibold text-lg">{t("propert.propet")}</h3>
         </div>
@@ -424,6 +429,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
             {t("builder.deleteSelected")}
           </Button>
         </div>
+        <div className={spacerClassName} />
       </div>
     );
   }
@@ -616,8 +622,13 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
   const correctAnswers = (props.correctAnswers as string[]) || [];
   const hasCorrectAnswers = correctAnswers.length > 0;
 
+  const panelClassName = isConditionalSelectOpen
+    ? "p-4 space-y-6 overflow-y-auto h-full pb-[40vh]"
+    : "p-4 space-y-6 overflow-y-auto h-full pb-32";
+  const spacerClassName = isConditionalSelectOpen ? "h-[40vh]" : "h-24";
+
   return (
-    <div className="p-4 space-y-6 overflow-y-auto h-full pb-20">
+    <div className={panelClassName}>
       <div className="flex items-center justify-between border-b pb-4">
         <h3 className="font-semibold text-lg">{t("propert.propet")}</h3>
         <Button
@@ -859,7 +870,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                         newAnswers[index] = e.target.value;
                         updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
                       }}
-                      placeholder="Enter correct answer"
+                      placeholder={t("propert.correctAnswerPlaceholder")}
                       className="border-green-200 focus-visible:ring-green-500"
                     />
                     <Button
@@ -909,9 +920,10 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
             <Check className="h-4 w-4" /> {t("logic.conditional")}
           </Label>
           <div className="space-y-2">
-            <Label>{t("logic.dependsOn")}</Label>
+          <Label>{t("logic.dependsOn")}</Label>
             <Select
               value={(props.conditionalLogic as Record<string, any> | undefined)?.dependsOn || "__none__"}
+              onOpenChange={setIsConditionalSelectOpen}
               onValueChange={(value) => {
                 const logic = (props.conditionalLogic as Record<string, any>) || { condition: "equals" };
                 updateField(selectedField.id, {
@@ -924,7 +936,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
               <SelectTrigger>
                 <SelectValue placeholder={t("logic.none")} />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-72 w-[var(--radix-select-trigger-width)] min-w-[var(--radix-select-trigger-width)]">
                 <SelectItem value="__none__">{t("logic.none")}</SelectItem>
                 {fields?.filter((field) => field.id !== selectedField.id).map((field) => (
                   <SelectItem key={field.id} value={field.id}>
@@ -1088,6 +1100,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
           )}
         </div>
       </div>
+      <div className={spacerClassName} />
     </div>
   );
 }

@@ -601,7 +601,7 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
                 maxLength={1200}
                 autoFocus
                 rows={1}
-                placeholder="Enter helper text..."
+                placeholder={t("propert.helperPlaceholder")}
               />
             ) : field.description ? (
               <p
@@ -621,7 +621,7 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
                   startEditing("helperText", "");
                 }}
               >
-                + Add helper text
+                {t("propert.addHelperText")}
               </p>
             )}
 

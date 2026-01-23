@@ -155,6 +155,7 @@ export function FormPreview({ form }: FormPreviewProps) {
   const [maxScore, setMaxScore] = useState<number>(0);
   const [errorsById, setErrorsById] = useState<Record<string, string[]>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [focusedFieldId, setFocusedFieldId] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -327,8 +328,41 @@ export function FormPreview({ form }: FormPreviewProps) {
   };
 
   const getErrorsForField = (fieldId: string) => {
-    if (!touched[fieldId]) return [];
+    if (!touched[fieldId] || focusedFieldId === fieldId) return [];
     return errorsById[fieldId] || [];
+  };
+
+  const localizeError = (raw: string, field: FormElementModel) => {
+    const preset = field.semanticType ? presets[field.semanticType] : undefined;
+    let partLabel: string | null = null;
+    let message = raw;
+
+    if (raw.includes(":")) {
+      const [partKey, ...rest] = raw.split(":");
+      const part = preset?.parts?.find((item) => item.key === partKey.trim());
+      if (part) {
+        partLabel = part.labelKey ? t(part.labelKey) : part.key;
+        message = rest.join(":").trim();
+      }
+    }
+
+    const normalized = message.trim();
+    let localized = normalized;
+
+    if (normalized === "Required") {
+      localized = t("errors.required");
+    } else if (normalized === "Invalid selection") {
+      localized = t("errors.invalidSelection");
+    } else if (normalized === "Invalid number") {
+      localized = t("errors.invalidNumber");
+    } else {
+      const digitsMatch = normalized.match(/(\d+)\s*digits/);
+      if (digitsMatch) {
+        localized = t("errors.digitsExact", { count: Number(digitsMatch[1]) });
+      }
+    }
+
+    return partLabel ? `${partLabel}: ${localized}` : localized;
   };
 
   const renderTextInput = (field: FormElementModel, isDisabled: boolean) => {
@@ -354,6 +388,7 @@ export function FormPreview({ form }: FormPreviewProps) {
             const maxLength = part.maxChars ?? part.maxDigits;
             const len = part.maxDigits ? rawValue.replace(/\D/g, "").length : rawValue.length;
             const limit = part.maxDigits ?? part.maxChars;
+            const showIndicator = Boolean(limit) && !part.hideLengthIndicator;
             const partError = fieldErrors.some((err) => err.startsWith(`${part.key}:`));
 
             return (
@@ -380,7 +415,7 @@ export function FormPreview({ form }: FormPreviewProps) {
                       partError ? "border-destructive focus-visible:ring-destructive/20" : ""
                     )}
                   />
-                  {limit && (
+                  {showIndicator && (
                     <LengthIndicator
                       len={len}
                       limit={limit}
@@ -404,7 +439,8 @@ export function FormPreview({ form }: FormPreviewProps) {
       : preset?.placeholder || (props.placeholder as string) || "";
     const maxLength =
       (preset?.maxChars as number | undefined) ?? (props.maxChars as number | undefined);
-    const maxDigits = preset?.maxDigits as number | undefined;
+    const dynamicMaxDigits = preset?.getMaxDigits ? preset.getMaxDigits(props) : undefined;
+    const maxDigits = (dynamicMaxDigits ?? preset?.maxDigits) as number | undefined;
     const len = maxDigits ? canonicalValue.replace(/\D/g, "").length : canonicalValue.length;
     const limit = maxDigits ?? maxLength;
 
@@ -458,7 +494,19 @@ export function FormPreview({ form }: FormPreviewProps) {
     const fieldErrors = getErrorsForField(field.id);
 
     return (
-      <div key={field.id} className={fieldWrapperClass}>
+      <div
+        key={field.id}
+        className={fieldWrapperClass}
+        onFocusCapture={() => setFocusedFieldId(field.id)}
+        onBlurCapture={(event) => {
+          const nextTarget = event.relatedTarget as Node | null;
+          if (nextTarget && event.currentTarget.contains(nextTarget)) {
+            return;
+          }
+          setFocusedFieldId((prev) => (prev === field.id ? null : prev));
+          markTouched(field.id);
+        }}
+      >
         {field.widgetType !== "header" && (
           <div className="flex items-center justify-between">
             <Label className="flex items-center gap-2">
@@ -739,7 +787,7 @@ export function FormPreview({ form }: FormPreviewProps) {
           <div className="space-y-1">
             {fieldErrors.map((error) => (
               <p key={error} className="text-sm text-destructive">
-                {error}
+                {localizeError(error, field)}
               </p>
             ))}
           </div>

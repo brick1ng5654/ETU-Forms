@@ -132,6 +132,9 @@
     "label":"Label",
     "placeholder":"Text hint",
     "helper":"Helper Text",
+    "addHelperText":"+ Add helper text",
+    "helperPlaceholder":"Enter helper text...",
+    "correctAnswerPlaceholder":"Enter correct answer",
     "addcorransw":"Add Correct Answer",
     "pointcorr":"Points for Correct Answer",
     "corransw":"Correct Answers",
@@ -175,6 +178,12 @@
     "selectDate": "Select date",
     "selectTime": "Select time",
     "selectDateTime": "Select date and time"
+  },
+  "errors": {
+    "required": "Required",
+    "invalidSelection": "Invalid selection",
+    "invalidNumber": "Invalid number",
+    "digitsExact": "Must be {{count}} digits"
   },
   
   "descerr":{

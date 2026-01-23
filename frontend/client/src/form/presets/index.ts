@@ -11,6 +11,7 @@ export interface PresetPart {
   required?: boolean;
   maxChars?: number;
   maxDigits?: number;
+  hideLengthIndicator?: boolean;
   normalize?: (value: string) => string;
   format?: (value: string) => string;
   validate?: (value: string, required?: boolean) => string[];
@@ -23,6 +24,7 @@ export interface Preset {
   placeholder?: string;
   placeholderKey?: string;
   getPlaceholderKey?: (props: Record<string, unknown>) => string | undefined;
+  getMaxDigits?: (props: Record<string, unknown>) => number | undefined;
   inputMode?: string;
   inputType?: string;
   helperText?: string;
@@ -38,8 +40,9 @@ const digitsOnly = (value: string, max?: number) => {
 
 const formatRuPhoneDigits = (digits: string) => {
   if (!digits) return "";
+
   const normalized = digits.slice(0, 11);
-  const rest = normalized.slice(1);
+  const rest = normalized.startsWith("7") ? normalized.slice(1) : normalized;
   let output = "+7";
   if (rest.length === 0) return output;
 
@@ -109,14 +112,18 @@ const ogrnLength = (props: Record<string, unknown>) =>
 
 export const presets: Record<SemanticType, Preset> = {
   phone: {
-    normalize: (value) => {
+    normalize: (value, { previous }) => {
       let digits = digitsOnly(value);
       if (!digits) return "";
-      if (digits.startsWith("8")) {
-        digits = `7${digits.slice(1)}`;
-      }
-      if (!digits.startsWith("7")) {
-        digits = `7${digits}`;
+      const prevDigits = previous ? digitsOnly(previous) : "";
+      const isDeleting = prevDigits && digits.length < prevDigits.length;
+      if (!isDeleting) {
+        if (digits.startsWith("8")) {
+          digits = `7${digits.slice(1)}`;
+        }
+        if (!digits.startsWith("7")) {
+          digits = `7${digits}`;
+        }
       }
       return digits.slice(0, 11);
     },
@@ -141,6 +148,7 @@ export const presets: Record<SemanticType, Preset> = {
       return [];
     },
     placeholderKey: "placeholders.inn",
+    getMaxDigits: (props) => innLength(props),
     inputMode: "numeric",
   },
   snils: {
@@ -166,6 +174,7 @@ export const presets: Record<SemanticType, Preset> = {
       return [];
     },
     getPlaceholderKey: (props) => (props.ogrnIp ? "placeholders.ogrnIp" : "placeholders.ogrn"),
+    getMaxDigits: (props) => ogrnLength(props),
     inputMode: "numeric",
   },
   bik: {
@@ -198,6 +207,7 @@ export const presets: Record<SemanticType, Preset> = {
         labelKey: "formParts.fullName.lastName",
         placeholderKey: "formParts.fullName.lastName",
         maxChars: 50,
+        hideLengthIndicator: true,
         required: true,
         normalize: (value) => normalizeNamePart(value, 50),
         validate: (value, required) => {
@@ -210,6 +220,7 @@ export const presets: Record<SemanticType, Preset> = {
         labelKey: "formParts.fullName.firstName",
         placeholderKey: "formParts.fullName.firstName",
         maxChars: 50,
+        hideLengthIndicator: true,
         required: true,
         normalize: (value) => normalizeNamePart(value, 50),
         validate: (value, required) => {
@@ -222,6 +233,7 @@ export const presets: Record<SemanticType, Preset> = {
         labelKey: "formParts.fullName.patronymic",
         placeholderKey: "formParts.fullName.patronymic",
         maxChars: 50,
+        hideLengthIndicator: true,
         normalize: (value) => normalizeNamePart(value, 50),
       },
     ],
@@ -235,6 +247,7 @@ export const presets: Record<SemanticType, Preset> = {
         inputMode: "numeric",
         hiddenProp: "hidePassportSeriesNumber",
         maxChars: 11,
+        maxDigits: 10,
         normalize: (value) => digitsOnly(value, 10),
         format: formatPassportSeries,
         validate: (value, required) => {
@@ -250,6 +263,7 @@ export const presets: Record<SemanticType, Preset> = {
         placeholderKey: "formParts.passport.issuedBy",
         hiddenProp: "hidePassportIssuedBy",
         maxChars: 60,
+        hideLengthIndicator: true,
         normalize: (value) => value.slice(0, 60),
       },
       {
@@ -266,6 +280,7 @@ export const presets: Record<SemanticType, Preset> = {
         inputMode: "numeric",
         hiddenProp: "hidePassportDepartmentCode",
         maxChars: 7,
+        maxDigits: 6,
         normalize: (value) => digitsOnly(value, 6),
         format: formatPassportDepartmentCode,
         validate: (value, required) => {
@@ -281,6 +296,7 @@ export const presets: Record<SemanticType, Preset> = {
         placeholderKey: "formParts.passport.birthPlace",
         hiddenProp: "hidePassportBirthPlace",
         maxChars: 60,
+        hideLengthIndicator: true,
         normalize: (value) => value.slice(0, 60),
       },
     ],
