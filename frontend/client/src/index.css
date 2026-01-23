@@ -34,7 +34,7 @@
   
   --radius: 0.5rem;
   
-  --font-sans: 'Inter', sans-serif;
+  --font-sans: "Gill Sans", "Gill Sans MT", "Gill Sans Nova", Calibri, "Trebuchet MS", sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 }
 
@@ -73,7 +73,8 @@
     @apply border-border;
   }
   body {
-    font-family: 'Glober', sans-serif;
+    font-family: var(--font-sans);
+    font-weight: 400;
   }
 }
 
