@@ -193,17 +193,17 @@ CREATE TABLE IF NOT EXISTS Form_Element (
     element_id SERIAL PRIMARY KEY,
     form_id INT NULL,
     template_id INT NULL,
-
+    
     widget widget_type NOT NULL,
     semantic semantic_type NULL,
     label VARCHAR(255) NOT NULL,
-    description TEXT,
 
     correct_answer JSONB NULL,
     text_hint TEXT NULL,
     supportive_text TEXT NULL,
     required_field BOOLEAN NOT NULL,
     other_settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+    position INT NOT NULL,
 
     CONSTRAINT fk_element_form
         FOREIGN KEY (form_id)
