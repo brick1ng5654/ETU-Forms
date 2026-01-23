@@ -39,28 +39,147 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { presets } from "@/form/presets";
+import { validateForm } from "@/form/validation";
+import { buildAnswersPayload } from "@/form/answers";
 
-interface AutoResizeTextareaProps extends React.ComponentProps<typeof Textarea> {}
+interface CollapsibleTextareaProps extends React.ComponentProps<typeof Textarea> {
+  textareaRef?: React.RefObject<HTMLTextAreaElement>;
+  collapsedLines?: number;
+  indicator?: React.ReactNode;
+}
 
-function AutoResizeTextarea({ value, onChange, ...props }: AutoResizeTextareaProps) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+const DEFAULT_TEXTAREA_LINE_HEIGHT = 20;
+
+const getTextareaMetrics = (textarea: HTMLTextAreaElement) => {
+  const computed = window.getComputedStyle(textarea);
+  const lineHeight = parseFloat(computed.lineHeight);
+  const fontSize = parseFloat(computed.fontSize);
+  const resolvedLineHeight = Number.isFinite(lineHeight)
+    ? lineHeight
+    : Number.isFinite(fontSize)
+      ? fontSize * 1.5
+      : DEFAULT_TEXTAREA_LINE_HEIGHT;
+  const paddingTop = parseFloat(computed.paddingTop) || 0;
+  const paddingBottom = parseFloat(computed.paddingBottom) || 0;
+
+  return {
+    lineHeight: resolvedLineHeight,
+    paddingTop,
+    paddingBottom,
+    lineCount: Math.ceil(textarea.scrollHeight / resolvedLineHeight),
+  };
+};
+
+function CollapsibleTextarea({
+  value,
+  onChange,
+  className,
+  textareaRef,
+  collapsedLines = 10,
+  indicator,
+  onFocus,
+  onBlur,
+  disabled,
+  ...props
+}: CollapsibleTextareaProps) {
+  const { t } = useTranslation();
+  const localRef = useRef<HTMLTextAreaElement>(null);
+  const resolvedRef = textareaRef ?? localRef;
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [hasOverflow, setHasOverflow] = useState(false);
+  const hasOverflowRef = useRef(false);
 
   useEffect(() => {
     const textarea = resolvedRef.current;
     if (textarea) {
-      textarea.style.height = 'auto';
-      textarea.style.height = `${textarea.scrollHeight}px`;
+      const currentScrollTop = textarea.scrollTop;
+      const prevHeight = textarea.offsetHeight;
+      textarea.style.transition = "height 440ms ease";
+      textarea.style.height = "auto";
+      const { lineHeight, paddingTop, paddingBottom, lineCount } = getTextareaMetrics(textarea);
+      const overflow = lineCount > collapsedLines;
+      if (hasOverflowRef.current !== overflow) {
+        hasOverflowRef.current = overflow;
+        setHasOverflow(overflow);
+      }
+      const collapsedHeight = Math.ceil(lineHeight * collapsedLines + paddingTop + paddingBottom + 4);
+      const targetHeight = overflow && !isExpanded ? collapsedHeight : textarea.scrollHeight;
+      const startHeight = `${prevHeight}px`;
+      const endHeight = `${targetHeight}px`;
+      if (startHeight === endHeight) {
+        textarea.style.height = endHeight;
+        textarea.scrollTop = currentScrollTop;
+        return;
+      }
+      textarea.style.height = startHeight;
+      void textarea.offsetHeight;
+      requestAnimationFrame(() => {
+        textarea.style.height = endHeight;
+        textarea.scrollTop = currentScrollTop;
+      });
     }
-  }, [value]);
+  }, [value, resolvedRef, collapsedLines, isExpanded]);
 
   return (
-    <Textarea
-      ref={textareaRef}
-      value={value}
-      onChange={onChange}
-      className="resize-none overflow-hidden"
-      {...props}
-    />
+    <div className="space-y-1.5">
+      <div className="relative">
+        <Textarea
+          ref={resolvedRef}
+          value={value}
+          onChange={onChange}
+          onFocus={(event) => {
+            setIsExpanded(true);
+            onFocus?.(event);
+          }}
+          onBlur={(event) => {
+            setIsExpanded(false);
+            onBlur?.(event);
+          }}
+          disabled={disabled}
+          className={cn("resize-none overflow-hidden", className)}
+          {...props}
+        />
+      </div>
+      {(indicator || hasOverflow) && (
+        <div className="flex items-center justify-between px-1 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2">
+            {hasOverflow && (
+              isExpanded ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto px-2 py-1 text-muted-foreground"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => {
+                    setIsExpanded(false);
+                    resolvedRef.current?.blur();
+                  }}
+                >
+                  {t("common.showLess")}
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto px-2 py-1 text-muted-foreground"
+                  onClick={() => {
+                    setIsExpanded(true);
+                  }}
+                >
+                  {t("common.showMore")}
+                </Button>
+              )
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            {indicator}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -83,19 +202,8 @@ interface TextLengthIndicatorProps {
   staticPosition?: boolean;
 }
 
-const FULLNAME_MAX_CHARS = 50;
-const DEFAULT_PHONE_PLACEHOLDER = "+7 (000) 000-00-00";
-const PHONE_MAX_DIGITS = 15;
-const INN_INDIVIDUAL_LENGTH = 12;
-const INN_LEGAL_ENTITY_LENGTH = 10;
-const OGRN_LEGAL_ENTITY_LENGTH = 13;
-const OGRN_IP_LENGTH = 15;
-const SNILS_REQUIRED_DIGITS = 11;
-const SNILS_MAX_CHARS = 14;
-const BIK_REQUIRED_DIGITS = 9;
-const PHONE_REQUIRED_DIGITS = 11;
-const DEFAULT_SNILS_PLACEHOLDER = "000-000-000 00";
-const DEFAULT_BIK_PLACEHOLDER = "000000000";
+const TEXT_SINGLELINE_MAX_CHARS = 255;
+const TEXT_MULTILINE_MAX_CHARS = 10000;
 
 const getTextMaxLimit = (field: FormElementModel) =>
   field.widgetType === "textarea" ? TEXT_MULTILINE_MAX_CHARS : TEXT_SINGLELINE_MAX_CHARS;
@@ -183,57 +291,6 @@ function TextLengthIndicator({ len, limit, className, staticPosition }: TextLeng
     </div>
   );
 }
-
-const formatPhoneInput = (value: string, previousValue: string) => {
-  const trimmed = value.trim();
-  const hasPlus = trimmed.startsWith("+");
-  const previousDigits = previousValue.replace(/\D/g, "");
-  let digits = trimmed.replace(/\D/g, "");
-  if (!digits) return "";
-
-  const isDeleting = value.length < previousValue.length;
-  if (isDeleting && digits.length === previousDigits.length) {
-    digits = digits.slice(0, -1);
-    if (!digits) return "";
-  }
-
-  const startsWithAllowed =
-    digits.startsWith("7") ||
-    digits.startsWith("8") ||
-    (hasPlus && digits.startsWith("7"));
-  if (!startsWithAllowed) {
-    return previousValue;
-  }
-  return formatRuPhoneDigits(digits);
-};
-const PASSPORT_SERIES_NUMBER_MAX_CHARS = 11;
-const PASSPORT_ISSUED_BY_MAX_CHARS = 60;
-const PASSPORT_DEPARTMENT_CODE_MAX_CHARS = 7;
-const PASSPORT_BIRTH_PLACE_MAX_CHARS = 60;
-const PASSPORT_SERIES_REQUIRED_DIGITS = 10;
-const PASSPORT_DEPARTMENT_REQUIRED_DIGITS = 6;
-
-const getInnMaxLength = (field: FormField) =>
-  field.innLegalEntity ? INN_LEGAL_ENTITY_LENGTH : INN_INDIVIDUAL_LENGTH;
-
-const getInnPlaceholder = (field: FormField) => "0".repeat(getInnMaxLength(field));
-
-const sanitizeInnValue = (value: string, maxLength: number) =>
-  value.replace(/\D/g, "").slice(0, maxLength);
-
-const sanitizeBikValue = (value: string) =>
-  value.replace(/\D/g, "").slice(0, BIK_REQUIRED_DIGITS);
-
-const getOgrnMaxLength = (field: FormField) =>
-  field.ogrnIp ? OGRN_IP_LENGTH : OGRN_LEGAL_ENTITY_LENGTH;
-
-const getOgrnLabelKey = (field: FormField) =>
-  field.ogrnIp ? "placeholders.ogrnIp" : "placeholders.ogrn";
-
-const getOgrnPlaceholder = (field: FormField) => "0".repeat(getOgrnMaxLength(field));
-
-const sanitizeOgrnValue = (value: string, maxLength: number) =>
-  value.replace(/\D/g, "").slice(0, maxLength);
 
 function SortableItem({ id, disabled }: SortableItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -465,131 +522,70 @@ export function FormPreview({ form }: FormPreviewProps) {
     }
   };
 
+  const getErrorsForField = (fieldId: string) => {
+    if (!touched[fieldId] || focusedFieldId === fieldId) return [];
+    return errorsById[fieldId] || [];
+  };
 
+  const localizeError = (raw: string, field: FormElementModel) => {
+    const preset = field.semanticType ? presets[field.semanticType] : undefined;
+    let partLabel: string | null = null;
+    let message = raw;
 
+    if (raw.includes(":")) {
+      const [partKey, ...rest] = raw.split(":");
+      const part = preset?.parts?.find((item) => item.key === partKey.trim());
+      if (part) {
+        partLabel = part.labelKey ? t(part.labelKey) : part.key;
+        message = rest.join(":").trim();
+      }
+    }
 
+    const normalized = message.trim();
+    let localized = normalized;
 
-  const renderField = (field: FormField) => {
-    const hasResult = results !== null && field.id in results;
-    const isCorrect = hasResult && results[field.id];
-    const isIncorrect = hasResult && !results[field.id];
-    const fieldWrapperClass = cn(
-      "space-y-2 p-3 rounded-lg transition-colors",
-      isCorrect && "bg-green-50 border border-green-200",
-      isIncorrect && "bg-red-50 border border-red-200"
-    );
+    if (normalized === "Required") {
+      localized = t("errors.required");
+    } else if (normalized === "Invalid selection") {
+      localized = t("errors.invalidSelection");
+    } else if (normalized === "Invalid number") {
+      localized = t("errors.invalidNumber");
+    } else {
+      const digitsMatch = normalized.match(/(\d+)\s*digits/);
+      if (digitsMatch) {
+        localized = t("errors.digitsExact", { count: Number(digitsMatch[1]) });
+      }
+    }
 
-    return (
-      <div key={field.id} className={fieldWrapperClass}>
-        {field.type !== "header" && (
-          <div className="flex items-center justify-between">
-            <Label className="flex items-center gap-2">
-              {field.label}
-              {field.required && <span className="text-destructive">*</span>}
-              {field.points && field.points > 0 && (
-                <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
-                  {field.points} pts
-                </span>
-              )}
-            </Label>
-            {hasResult && (
-              <div className="flex items-center gap-1">
-                {isCorrect ? (
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
-                ) : (
-                  <XCircle className="h-5 w-5 text-red-600" />
-                )}
-              </div>
-            )}
-          </div>
-        )}
+    return partLabel ? `${partLabel}: ${localized}` : localized;
+  };
 
-        {field.helperText && (
-          <p className="text-sm text-muted-foreground whitespace-pre-wrap break-all">
-            {field.helperText}
-          </p>
-        )}
+  const renderTextInput = (field: FormElementModel, isDisabled: boolean) => {
+    const props = field.props as Record<string, unknown>;
+    const preset = field.semanticType ? presets[field.semanticType] : undefined;
+    const fieldErrors = getErrorsForField(field.id);
+    const hasError = fieldErrors.length > 0;
 
-        {field.type === "header" && (
-          <h2 className="text-xl font-bold pb-2 border-b">{field.label}</h2>
-        )}
-
-        {field.type === "text" && (
-          field.multiline ? (
-            <AutoResizeTextarea
-              placeholder={field.placeholder}
-              value={(answers[field.id] as string) || ""}
-              onChange={(e) => updateAnswer(field.id, e.target.value)}
-              disabled={results !== null}
-            />
-          ) : (
-            <Input
-              placeholder={field.placeholder}
-              value={(answers[field.id] as string) || ""}
-              onChange={(e) => updateAnswer(field.id, e.target.value)}
-              disabled={results !== null}
-            />
-          )
-        )}
-
-        {field.type === "fullname" && (() => {
-          const lastNameKey = `${field.id}_lastName`;
-          const firstNameKey = `${field.id}_firstName`;
-          const patronymicKey = `${field.id}_patronymic`;
-          const isRu = i18n.language.startsWith("ru");
-          const labels = {
-            lastName: isRu ? "Фамилия" : "Last name",
-            firstName: isRu ? "Имя" : "First name",
-            patronymic: isRu ? "Отчество (при наличии)" : "Middle name (if any)",
-          };
-
-          return (
-            <div className="grid gap-3">
-              <div className="space-y-1">
-                <Label className="text-sm text-muted-foreground">
-                  {labels.lastName}
-                  <span className="text-destructive ml-1">*</span>
-                </Label>
-                <Input
-                  value={(answers[lastNameKey] as string) || ""}
-                  onChange={(e) => updateAnswer(lastNameKey, e.target.value.slice(0, FULLNAME_MAX_CHARS))}
-                  disabled={results !== null}
-                  required
-                  maxLength={FULLNAME_MAX_CHARS}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm text-muted-foreground">
-                  {labels.firstName}
-                  <span className="text-destructive ml-1">*</span>
-                </Label>
-                <Input
-                  value={(answers[firstNameKey] as string) || ""}
-                  onChange={(e) => updateAnswer(firstNameKey, e.target.value.slice(0, FULLNAME_MAX_CHARS))}
-                  disabled={results !== null}
-                  required
-                  maxLength={FULLNAME_MAX_CHARS}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm text-muted-foreground">{labels.patronymic}</Label>
-                <Input
-                  value={(answers[patronymicKey] as string) || ""}
-                  onChange={(e) => updateAnswer(patronymicKey, e.target.value.slice(0, FULLNAME_MAX_CHARS))}
-                  disabled={results !== null}
-                  maxLength={FULLNAME_MAX_CHARS}
-                />
-              </div>
-            </div>
-          );
-        })()}
-
-        {field.type === "phone" && (() => {
-          const value = (answers[field.id] as string) || "";
-          const len = value.replace(/\D/g, "").length;
-          const limit = PHONE_REQUIRED_DIGITS;
-          const isComplete = len > 0 && len === limit;
-          const isError = phoneErrors[field.id];
+    if (preset?.parts) {
+      const composite = (answers[field.id] as FullNameAnswer | PassportAnswer | undefined) || {};
+      const compositeRecord = composite as Record<string, string | null>;
+      return (
+        <div className="grid gap-3">
+          {preset.parts.map((part) => {
+            if (part.hiddenProp && props[part.hiddenProp]) {
+              return null;
+            }
+            const rawValue = compositeRecord[part.key] ?? "";
+            const displayValue = part.format ? part.format(rawValue) : rawValue;
+            const label = part.labelKey ? t(part.labelKey) : part.key;
+            const placeholder = part.placeholderKey
+              ? t(part.placeholderKey)
+              : part.placeholder || "";
+            const maxLength = part.maxChars ?? part.maxDigits;
+            const len = part.maxDigits ? rawValue.replace(/\D/g, "").length : rawValue.length;
+            const limit = part.maxDigits ?? part.maxChars;
+            const showIndicator = Boolean(limit) && !part.hideLengthIndicator;
+            const partError = fieldErrors.some((err) => err.startsWith(`${part.key}:`));
 
             return (
               <div key={part.key} className="space-y-1">
@@ -676,6 +672,10 @@ export function FormPreview({ form }: FormPreviewProps) {
       </div>
     );
   };
+
+
+
+
 
   const renderField = (field: FormElementModel) => {
     const props = field.props as Record<string, unknown>;
