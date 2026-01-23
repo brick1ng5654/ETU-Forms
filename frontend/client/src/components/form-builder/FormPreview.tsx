@@ -92,16 +92,11 @@ function CollapsibleTextarea({
 
   useEffect(() => {
     const textarea = resolvedRef.current;
-    const textarea = resolvedRef.current;
     if (textarea) {
       const currentScrollTop = textarea.scrollTop;
       const prevHeight = textarea.offsetHeight;
       textarea.style.transition = "height 440ms ease";
-<<<<<<< HEAD
-      textarea.style.height = 'auto';
-=======
       textarea.style.height = "auto";
->>>>>>> 33b2739 (удален легаси код, фикс скобки)
       const { lineHeight, paddingTop, paddingBottom, lineCount } = getTextareaMetrics(textarea);
       const overflow = lineCount > collapsedLines;
       if (hasOverflowRef.current !== overflow) {
@@ -109,13 +104,7 @@ function CollapsibleTextarea({
         setHasOverflow(overflow);
       }
       const collapsedHeight = Math.ceil(lineHeight * collapsedLines + paddingTop + paddingBottom + 4);
-<<<<<<< HEAD
-      const targetHeight = overflow && !isExpanded
-        ? collapsedHeight
-        : textarea.scrollHeight;
-=======
       const targetHeight = overflow && !isExpanded ? collapsedHeight : textarea.scrollHeight;
->>>>>>> 33b2739 (удален легаси код, фикс скобки)
       const startHeight = `${prevHeight}px`;
       const endHeight = `${targetHeight}px`;
       if (startHeight === endHeight) {
@@ -124,10 +113,6 @@ function CollapsibleTextarea({
         return;
       }
       textarea.style.height = startHeight;
-<<<<<<< HEAD
-      // Force reflow before applying the target height to trigger transition
-=======
->>>>>>> 33b2739 (удален легаси код, фикс скобки)
       void textarea.offsetHeight;
       requestAnimationFrame(() => {
         textarea.style.height = endHeight;
@@ -172,11 +157,7 @@ function CollapsibleTextarea({
                     resolvedRef.current?.blur();
                   }}
                 >
-<<<<<<< HEAD
-                  {i18n.language.startsWith("ru") ? "Скрыть" : "Hide"}
-=======
                   {t("common.showLess")}
->>>>>>> 33b2739 (удален легаси код, фикс скобки)
                 </Button>
               ) : (
                 <Button
@@ -188,11 +169,7 @@ function CollapsibleTextarea({
                     setIsExpanded(true);
                   }}
                 >
-<<<<<<< HEAD
-                  {i18n.language.startsWith("ru") ? "Показать полностью" : "Show full text"}
-=======
                   {t("common.showMore")}
->>>>>>> 33b2739 (удален легаси код, фикс скобки)
                 </Button>
               )
             )}
@@ -225,33 +202,8 @@ interface TextLengthIndicatorProps {
   staticPosition?: boolean;
 }
 
-<<<<<<< HEAD
-const FULLNAME_MAX_CHARS = 50;
-const DEFAULT_PHONE_PLACEHOLDER = "+7 (000) 000-00-00";
-const PHONE_MAX_DIGITS = 15;
-const INN_INDIVIDUAL_LENGTH = 12;
-const INN_LEGAL_ENTITY_LENGTH = 10;
-const OGRN_LEGAL_ENTITY_LENGTH = 13;
-const OGRN_IP_LENGTH = 15;
-const SNILS_REQUIRED_DIGITS = 11;
-const SNILS_MAX_CHARS = 14;
-const BIK_REQUIRED_DIGITS = 9;
-const PHONE_REQUIRED_DIGITS = 11;
-const DEFAULT_SNILS_PLACEHOLDER = "000-000-000 00";
-const DEFAULT_BIK_PLACEHOLDER = "000000000";
 const TEXT_SINGLELINE_MAX_CHARS = 255;
 const TEXT_MULTILINE_MAX_CHARS = 10000;
-
-const getTextMaxChars = (field: FormField) => {
-  const limit = field.multiline ? TEXT_MULTILINE_MAX_CHARS : TEXT_SINGLELINE_MAX_CHARS;
-  const rawMax = typeof field.maxChars === "number" ? field.maxChars : limit;
-  const normalized = rawMax > 0 ? rawMax : 1;
-  return Math.min(normalized, limit);
-};
-=======
-const TEXT_SINGLELINE_MAX_CHARS = 255;
-const TEXT_MULTILINE_MAX_CHARS = 10000;
->>>>>>> 33b2739 (удален легаси код, фикс скобки)
 
 const getTextMaxLimit = (field: FormElementModel) =>
   field.widgetType === "textarea" ? TEXT_MULTILINE_MAX_CHARS : TEXT_SINGLELINE_MAX_CHARS;
@@ -340,100 +292,6 @@ function TextLengthIndicator({ len, limit, className, staticPosition }: TextLeng
   );
 }
 
-<<<<<<< HEAD
-function TextLengthIndicator({ len, limit, className, staticPosition }: TextLengthIndicatorProps) {
-  const isOverLimit = len > limit;
-  const progress = limit ? Math.min(len / limit, 1) : 0;
-  const progressColor = isOverLimit ? "#ef4444" : "#94a3b8";
-  const trackColor = "#e2e8f0";
-  const ringRadius = 5;
-  const ringCircumference = 2 * Math.PI * ringRadius;
-
-  return (
-    <div className={cn(staticPosition ? "flex items-center gap-2" : "absolute flex items-center gap-2", className)}>
-      <div className={cn("text-xs font-medium text-muted-foreground")}>
-        {`${len}/${limit}`}
-      </div>
-      <svg className="h-3 w-3" viewBox="0 0 12 12" aria-hidden="true">
-        <circle
-          cx="6"
-          cy="6"
-          r={ringRadius}
-          fill="none"
-          stroke={trackColor}
-          strokeWidth="2"
-        />
-        <circle
-          cx="6"
-          cy="6"
-          r={ringRadius}
-          fill="none"
-          stroke={progressColor}
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeDasharray={ringCircumference}
-          strokeDashoffset={ringCircumference * (1 - progress)}
-          style={{ transition: "stroke-dashoffset 240ms ease-out" }}
-          transform="rotate(-90 6 6)"
-        />
-      </svg>
-    </div>
-  );
-}
-
-const formatPhoneInput = (value: string, previousValue: string) => {
-  const trimmed = value.trim();
-  const hasPlus = trimmed.startsWith("+");
-  const previousDigits = previousValue.replace(/\D/g, "");
-  let digits = trimmed.replace(/\D/g, "");
-  if (!digits) return "";
-
-  const isDeleting = value.length < previousValue.length;
-  if (isDeleting && digits.length === previousDigits.length) {
-    digits = digits.slice(0, -1);
-    if (!digits) return "";
-  }
-
-  const startsWithAllowed =
-    digits.startsWith("7") ||
-    digits.startsWith("8") ||
-    (hasPlus && digits.startsWith("7"));
-  if (!startsWithAllowed) {
-    return previousValue;
-  }
-  return formatRuPhoneDigits(digits);
-};
-const PASSPORT_SERIES_NUMBER_MAX_CHARS = 11;
-const PASSPORT_ISSUED_BY_MAX_CHARS = 60;
-const PASSPORT_DEPARTMENT_CODE_MAX_CHARS = 7;
-const PASSPORT_BIRTH_PLACE_MAX_CHARS = 60;
-const PASSPORT_SERIES_REQUIRED_DIGITS = 10;
-const PASSPORT_DEPARTMENT_REQUIRED_DIGITS = 6;
-
-const getInnMaxLength = (field: FormField) =>
-  field.innLegalEntity ? INN_LEGAL_ENTITY_LENGTH : INN_INDIVIDUAL_LENGTH;
-
-const getInnPlaceholder = (field: FormField) => "0".repeat(getInnMaxLength(field));
-
-const sanitizeInnValue = (value: string, maxLength: number) =>
-  value.replace(/\D/g, "").slice(0, maxLength);
-
-const sanitizeBikValue = (value: string) =>
-  value.replace(/\D/g, "").slice(0, BIK_REQUIRED_DIGITS);
-
-const getOgrnMaxLength = (field: FormField) =>
-  field.ogrnIp ? OGRN_IP_LENGTH : OGRN_LEGAL_ENTITY_LENGTH;
-
-const getOgrnLabelKey = (field: FormField) =>
-  field.ogrnIp ? "placeholders.ogrnIp" : "placeholders.ogrn";
-
-const getOgrnPlaceholder = (field: FormField) => "0".repeat(getOgrnMaxLength(field));
-
-const sanitizeOgrnValue = (value: string, maxLength: number) =>
-  value.replace(/\D/g, "").slice(0, maxLength);
-
-=======
->>>>>>> 33b2739 (удален легаси код, фикс скобки)
 function SortableItem({ id, disabled }: SortableItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
@@ -708,114 +566,6 @@ export function FormPreview({ form }: FormPreviewProps) {
     const fieldErrors = getErrorsForField(field.id);
     const hasError = fieldErrors.length > 0;
 
-<<<<<<< HEAD
-        {field.type === "header" && (
-          <h2 className="text-xl font-bold pb-2 border-b">{field.label}</h2>
-        )}
-
-        {field.type === "text" && (() => {
-          const maxChars = getTextMaxChars(field);
-          const value = (answers[field.id] as string) || "";
-          const handleChange = (nextValue: string) => {
-            const trimmedValue = nextValue.slice(0, maxChars);
-            updateAnswer(field.id, trimmedValue);
-          };
-
-          return field.multiline ? (
-            <CollapsibleTextarea
-              placeholder={field.placeholder}
-              value={value}
-              onChange={(e) => handleChange(e.target.value)}
-              disabled={results !== null}
-              maxLength={maxChars}
-              className="pb-6"
-              indicator={(
-                <TextLengthIndicator
-                  len={value.length}
-                  limit={maxChars}
-                  staticPosition
-                  className="bg-white px-1.5 py-0.5 rounded-sm"
-                />
-              )}
-            />
-          ) : (
-            <div className="relative">
-              <Input
-                placeholder={field.placeholder}
-                value={value}
-                onChange={(e) => handleChange(e.target.value)}
-                disabled={results !== null}
-                maxLength={maxChars}
-                className="pr-20"
-              />
-              <TextLengthIndicator
-                len={value.length}
-                limit={maxChars}
-                className="right-3 top-1/2 -translate-y-1/2"
-              />
-            </div>
-          );
-        })()}
-
-        {field.type === "fullname" && (() => {
-          const lastNameKey = `${field.id}_lastName`;
-          const firstNameKey = `${field.id}_firstName`;
-          const patronymicKey = `${field.id}_patronymic`;
-          const isRu = i18n.language.startsWith("ru");
-          const labels = {
-            lastName: isRu ? "Фамилия" : "Last name",
-            firstName: isRu ? "Имя" : "First name",
-            patronymic: isRu ? "Отчество (при наличии)" : "Middle name (if any)",
-          };
-
-          return (
-            <div className="grid gap-3">
-              <div className="space-y-1">
-                <Label className="text-sm text-muted-foreground">
-                  {labels.lastName}
-                  <span className="text-destructive ml-1">*</span>
-                </Label>
-                <Input
-                  value={(answers[lastNameKey] as string) || ""}
-                  onChange={(e) => updateAnswer(lastNameKey, e.target.value.slice(0, FULLNAME_MAX_CHARS))}
-                  disabled={results !== null}
-                  required
-                  maxLength={FULLNAME_MAX_CHARS}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm text-muted-foreground">
-                  {labels.firstName}
-                  <span className="text-destructive ml-1">*</span>
-                </Label>
-                <Input
-                  value={(answers[firstNameKey] as string) || ""}
-                  onChange={(e) => updateAnswer(firstNameKey, e.target.value.slice(0, FULLNAME_MAX_CHARS))}
-                  disabled={results !== null}
-                  required
-                  maxLength={FULLNAME_MAX_CHARS}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-sm text-muted-foreground">{labels.patronymic}</Label>
-                <Input
-                  value={(answers[patronymicKey] as string) || ""}
-                  onChange={(e) => updateAnswer(patronymicKey, e.target.value.slice(0, FULLNAME_MAX_CHARS))}
-                  disabled={results !== null}
-                  maxLength={FULLNAME_MAX_CHARS}
-                />
-              </div>
-            </div>
-          );
-        })()}
-
-        {field.type === "phone" && (() => {
-          const value = (answers[field.id] as string) || "";
-          const len = value.replace(/\D/g, "").length;
-          const limit = PHONE_REQUIRED_DIGITS;
-          const isComplete = len > 0 && len === limit;
-          const isError = phoneErrors[field.id];
-=======
     if (preset?.parts) {
       const composite = (answers[field.id] as FullNameAnswer | PassportAnswer | undefined) || {};
       const compositeRecord = composite as Record<string, string | null>;
@@ -836,7 +586,6 @@ export function FormPreview({ form }: FormPreviewProps) {
             const limit = part.maxDigits ?? part.maxChars;
             const showIndicator = Boolean(limit) && !part.hideLengthIndicator;
             const partError = fieldErrors.some((err) => err.startsWith(`${part.key}:`));
->>>>>>> 33b2739 (удален легаси код, фикс скобки)
 
             return (
               <div key={part.key} className="space-y-1">
