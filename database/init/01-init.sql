@@ -310,7 +310,7 @@ CREATE TABLE IF NOT EXISTS Uploaded_file(
     CONSTRAINT fk_file_element
         FOREIGN KEY (element_id)
         REFERENCES Form_Element(element_id)
-        ON DELETE CASCADE,
+        ON DELETE CASCADE
 );
 
 COMMENT ON TABLE Uploaded_file IS 'Метаданные загруженных файлов';
