@@ -211,3 +211,43 @@ CREATE TABLE IF NOT EXISTS Form_Element_Condition(
     CONSTRAINT no_self_condition
         CHECK (source_element_id <> target_element_id)
 );
+
+CREATE TABLE IF NOT EXISTS Uploaded_file(
+    file_id SERIAL PRIMARY KEY,
+
+    user_id INT NOT NULL,
+    form_id INT NOT NULL,
+    response_id INT NOT NULL,
+    element_id INT NOT NULL,
+
+    name VARCHAR(512) NOT NULL,
+    mime_type VARCHAR(255) NOT NULL,
+    size_bytes BIGINT NOT NULL CHECK (size_bytes >= 0),
+
+    storage_provider VARCHAR(50) NOT NULL DEFAULT 'local',
+    storage_path TEXT NOT NULL,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_file_user
+        FOREIGN KEY (user_id)
+        REFERENCES App_User(user_id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_file_form
+        FOREIGN KEY (form_id)
+        REFERENCES Form(form_id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_file_response
+        FOREIGN KEY (response_id)
+        REFERENCES Response(response_id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_file_element
+        FOREIGN KEY (element_id)
+        REFERENCES Form_Element(element_id)
+        ON DELETE CASCADE,
+);
+
+COMMENT ON TABLE Uploaded_file IS 'Метаданные загруженных файлов';
