@@ -5,6 +5,8 @@ export type {
   FormElementModel,
   FormFolder,
   FormSchema,
+  FullNameAnswer,
+  PassportAnswer,
   SemanticType,
   WidgetType,
 } from "@/form/types";

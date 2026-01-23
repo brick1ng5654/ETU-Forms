@@ -1,29 +1,14 @@
 import type { FormElementModel, FormFolder, FormSchema } from "@/form/types";
 import { nanoid } from "nanoid";
 import { t } from "i18next";
-import { fromStructureJson } from "@/form/adapters/fromStructureJson";
+import { fromStructureJsonWithMeta } from "@/form/adapters/fromStructureJson";
 
 const STORAGE_KEY_FORMS = "etu_forms";
 const STORAGE_KEY_FOLDERS = "etu_folders";
 
 export const storage = {
   normalizeFields: (fields: unknown): FormElementModel[] => {
-    if (!Array.isArray(fields)) return [];
-    const first = fields[0] as { widgetType?: string; type?: string } | undefined;
-    const normalized = first?.widgetType
-      ? (fields as FormElementModel[])
-      : first?.type
-        ? fromStructureJson({ fields: fields as any })
-        : (fields as FormElementModel[]);
-
-    return normalized.map((element, index) => ({
-      ...element,
-      props: (element as FormElementModel).props ?? {},
-      sortIndex:
-        typeof (element as FormElementModel).sortIndex === "number"
-          ? (element as FormElementModel).sortIndex
-          : index,
-    }));
+    return normalizeFieldsWithMeta(fields).fields;
   },
 
   getForms: (): FormSchema[] => {
@@ -31,17 +16,26 @@ export const storage = {
       const data = localStorage.getItem(STORAGE_KEY_FORMS);
       const parsed = data ? JSON.parse(data) : [];
       if (!Array.isArray(parsed)) return [];
-      return parsed.map((form: any) => {
+      let didMutate = false;
+      const normalizedForms = parsed.map((form: any) => {
         const rawFields = Array.isArray(form.fields)
           ? form.fields
           : Array.isArray(form.structure_json?.fields)
             ? form.structure_json.fields
             : [];
+        const normalized = normalizeFieldsWithMeta(rawFields);
+        if (normalized.didMutate) {
+          didMutate = true;
+        }
         return {
           ...form,
-          fields: storage.normalizeFields(rawFields),
+          fields: normalized.fields,
         } as FormSchema;
       });
+      if (didMutate) {
+        localStorage.setItem(STORAGE_KEY_FORMS, JSON.stringify(normalizedForms));
+      }
+      return normalizedForms;
     } catch (e) {
       return [];
     }
@@ -65,7 +59,8 @@ export const storage = {
     const forms = storage.getForms();
     const existingIndex = forms.findIndex(f => f.id === form.id);
 
-    const updatedForm = { ...form, fields: storage.normalizeFields(form.fields), updatedAt: Date.now() };
+    const normalized = normalizeFieldsWithMeta(form.fields);
+    const updatedForm = { ...form, fields: normalized.fields, updatedAt: Date.now() };
 
     if (existingIndex >= 0) {
       forms[existingIndex] = updatedForm;
@@ -121,4 +116,47 @@ export const storage = {
     storage.saveFolder(newFolder);
     return newFolder;
   }
+};
+
+const normalizeFieldsWithMeta = (fields: unknown): {
+  fields: FormElementModel[];
+  didMutate: boolean;
+} => {
+  if (!Array.isArray(fields)) return { fields: [], didMutate: false };
+  const first = fields[0] as { widgetType?: string; type?: string } | undefined;
+  const normalized = first?.widgetType
+    ? (fields as FormElementModel[])
+    : first?.type
+      ? fromStructureJsonWithMeta({ fields: fields as any }).fields
+      : (fields as FormElementModel[]);
+  let didMutate = Boolean(first?.type && !first?.widgetType);
+
+  const normalizedFields = normalized.map((element, index) => {
+    const nextProps = (element as FormElementModel).props ?? {};
+    const nextSortIndex =
+      typeof (element as FormElementModel).sortIndex === "number"
+        ? (element as FormElementModel).sortIndex
+        : index;
+    const rawId = (element as FormElementModel).id;
+    const nextId = rawId != null && String(rawId).trim() !== "" ? String(rawId).trim() : nanoid();
+
+    if ((element as FormElementModel).props !== nextProps) {
+      didMutate = true;
+    }
+    if ((element as FormElementModel).sortIndex !== nextSortIndex) {
+      didMutate = true;
+    }
+    if ((element as FormElementModel).id !== nextId) {
+      didMutate = true;
+    }
+
+    return {
+      ...element,
+      id: nextId,
+      props: nextProps,
+      sortIndex: nextSortIndex,
+    };
+  });
+
+  return { fields: normalizedFields, didMutate };
 };

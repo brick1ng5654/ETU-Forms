@@ -60,12 +60,35 @@ export type DateTimeAnswer = {
   time?: string | null;
 };
 
+// full_name canonical keys:
+// - lastName, firstName required
+// - patronymic optional
+export type FullNameAnswer = {
+  lastName: string;
+  firstName: string;
+  patronymic?: string | null;
+};
+
+// passport canonical keys:
+// - seriesNumber: 10 digits only
+// - departmentCode: 6 digits only
+// - issueDate: YYYY-MM-DD
+// - issuedBy, birthPlace optional strings
+export type PassportAnswer = {
+  seriesNumber: string;
+  issuedBy?: string | null;
+  issueDate?: string | null;
+  departmentCode?: string | null;
+  birthPlace?: string | null;
+};
+
 export type AnswerValue =
   | string
   | string[]
   | number
   | Date
-  | Record<string, string | null>
+  | FullNameAnswer
+  | PassportAnswer
   | DateTimeAnswer
   | null;
 

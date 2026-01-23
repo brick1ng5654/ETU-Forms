@@ -26,7 +26,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
-import { fromStructureJson } from "@/form/adapters/fromStructureJson";
+import type { UnknownTypeWarning } from "@/form/adapters/fromStructureJson";
+import { fromStructureJsonWithMeta, getLastUnknownTypeWarnings } from "@/form/adapters/fromStructureJson";
 
 import { useTranslation } from 'react-i18next';
 import { Languages } from "lucide-react";
@@ -76,6 +77,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
   const lastHistoryAtRef = useRef(0);
   const MAX_HISTORY = 50;
   const HISTORY_MERGE_WINDOW_MS = 2000;
+  const [unknownTypeWarnings, setUnknownTypeWarnings] = useState<UnknownTypeWarning[]>([]);
 
   const handleSelectField = (id: string, event: MouseEvent<HTMLDivElement>) => {
     console.log('Selecting field:', id);
@@ -129,6 +131,9 @@ export default function Builder({ params }: { params: { id?: string } }) {
       const newForm = storage.createForm();
       setForms([newForm]);
       setActiveFormId(newForm.id);
+    }
+    if (import.meta.env.DEV) {
+      setUnknownTypeWarnings(getLastUnknownTypeWarnings());
     }
   }, []);
 
@@ -429,15 +434,18 @@ export default function Builder({ params }: { params: { id?: string } }) {
             ? schema.structure_json.fields
             : [];
         if (Array.isArray(rawFields)) {
-          const normalizedFields =
+          const normalizedResult =
             rawFields.length > 0 && !rawFields[0].widgetType && rawFields[0].type
-              ? fromStructureJson({ fields: rawFields })
-              : rawFields;
+              ? fromStructureJsonWithMeta({ fields: rawFields })
+              : { fields: rawFields, warnings: [] };
+          if (import.meta.env.DEV) {
+            setUnknownTypeWarnings(normalizedResult.warnings);
+          }
           const newForm = {
              ...activeForm,
              title: schema.title || activeForm.title,
              description: schema.description || activeForm.description,
-             fields: normalizeFields(normalizedFields as FormElementModel[]),
+             fields: normalizeFields(normalizedResult.fields as FormElementModel[]),
           };
           setForm(newForm);
           toast({ title: t('builder.formLoaded'), description: t('builder.formLoadedDesc') });
@@ -562,6 +570,11 @@ export default function Builder({ params }: { params: { id?: string } }) {
           </div>
         </div>
       </header>
+      {import.meta.env.DEV && unknownTypeWarnings.length > 0 && (
+        <div className="bg-red-50 border-b border-red-200 text-red-700 text-sm px-4 py-2">
+          Unknown field types detected. Check console for details.
+        </div>
+      )}
 
       <div className="flex-1 flex overflow-hidden">
         <div className={cn("border-r border-border bg-white flex flex-col shrink-0 z-10 transition-all duration-300 ease-in-out overflow-hidden", isToolboxOpen ? "w-64" : "w-0 border-r-0")}>

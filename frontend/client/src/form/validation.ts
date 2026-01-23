@@ -1,4 +1,4 @@
-import type { AnswersById, FormElementModel } from "@/form/types";
+import type { AnswersById, FormElementModel, FullNameAnswer, PassportAnswer } from "@/form/types";
 import { presets } from "@/form/presets";
 
 export type ValidationErrorsById = Record<string, string[]>;
@@ -22,13 +22,15 @@ export const validateForm = (elements: FormElementModel[], answers: AnswersById)
     const props = element.props as Record<string, unknown>;
     const preset = element.semanticType ? presets[element.semanticType] : undefined;
 
+    // Composite answers (full_name, passport) are validated per part.key using preset.parts.
     if (preset?.parts) {
-      const composite = (value as Record<string, string | null>) || {};
+      const composite = (value as FullNameAnswer | PassportAnswer | undefined) || {};
+      const compositeRecord = composite as Record<string, string | null>;
       preset.parts.forEach((part) => {
         if (part.hiddenProp && props[part.hiddenProp]) {
           return;
         }
-        const partValue = composite[part.key] ?? "";
+        const partValue = compositeRecord[part.key] ?? "";
         const required = part.required ?? element.required ?? false;
         if (required && isEmptyValue(partValue)) {
           elementErrors.push(`${part.key}: Required`);

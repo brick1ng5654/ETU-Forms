@@ -20,6 +20,22 @@ export interface StructureJson {
   fields: StructureField[];
 }
 
+export type UnknownTypeSource = "type" | "widgetType" | "semanticType";
+
+export type UnknownTypeWarning = {
+  source: UnknownTypeSource;
+  raw: string;
+  index: number;
+  label?: string;
+};
+
+export type TypeNormalizationMode = "strict" | "lenient";
+
+export type StructureNormalizationResult = {
+  fields: FormElementModel[];
+  warnings: UnknownTypeWarning[];
+};
+
 const hashString = (value: string) => {
   let hash = 0;
   for (let i = 0; i < value.length; i += 1) {
@@ -35,6 +51,34 @@ const stableIdFromField = (field: StructureField, index: number) => {
   }
   const seed = `${field.type ?? field.widgetType ?? "field"}:${field.label ?? ""}:${index}`;
   return `tmp_${hashString(seed)}`;
+};
+
+let lastUnknownTypeWarnings: UnknownTypeWarning[] = [];
+
+export const getLastUnknownTypeWarnings = () => lastUnknownTypeWarnings;
+
+const reportUnknownTypes = (warnings: UnknownTypeWarning[], mode: TypeNormalizationMode) => {
+  lastUnknownTypeWarnings = warnings;
+  if (warnings.length === 0) return;
+
+  const message = `Unknown field types detected: ${warnings
+    .map((warning) => `${warning.source}="${warning.raw}"@${warning.index}`)
+    .join(", ")}`;
+
+  if (mode === "strict") {
+    console.error(message, warnings);
+    return;
+  }
+
+  console.warn(message, warnings);
+  if (typeof window !== "undefined") {
+    const win = window as Window & {
+      __etuUnknownTypeCount?: number;
+      __etuUnknownTypeLast?: UnknownTypeWarning[];
+    };
+    win.__etuUnknownTypeCount = (win.__etuUnknownTypeCount ?? 0) + warnings.length;
+    win.__etuUnknownTypeLast = warnings;
+  }
 };
 
 const extractProps = (field: StructureField) => {
@@ -60,12 +104,28 @@ const extractProps = (field: StructureField) => {
   };
 };
 
-export const fromStructureJson = (structure: StructureJson): FormElementModel[] => {
+export const fromStructureJsonWithMeta = (
+  structure: StructureJson,
+  options?: { mode?: TypeNormalizationMode }
+): StructureNormalizationResult => {
   const fields = Array.isArray(structure.fields) ? structure.fields : [];
-  return fields.map((field, index) => {
+  const warnings: UnknownTypeWarning[] = [];
+  const mode = options?.mode ?? (import.meta.env.DEV ? "strict" : "lenient");
+
+  const normalizedFields = fields.map((field, index) => {
     const explicitWidget = normalizeWidgetType(field.widgetType);
     const explicitSemantic = normalizeSemanticType(field.semanticType);
     const normalized = normalizeRawType(field.type);
+
+    if (field.widgetType && !explicitWidget) {
+      warnings.push({ source: "widgetType", raw: field.widgetType, index, label: field.label });
+    }
+    if (field.semanticType && !explicitSemantic) {
+      warnings.push({ source: "semanticType", raw: field.semanticType, index, label: field.label });
+    }
+    if (field.type && !normalizeWidgetType(field.type) && !normalizeSemanticType(field.type)) {
+      warnings.push({ source: "type", raw: field.type, index, label: field.label });
+    }
 
     const widgetType = explicitWidget ?? normalized.widgetType;
     const semanticType = explicitSemantic ?? normalized.semanticType;
@@ -100,4 +160,10 @@ export const fromStructureJson = (structure: StructureJson): FormElementModel[] 
       sortIndex: index,
     };
   });
+
+  reportUnknownTypes(warnings, mode);
+  return { fields: normalizedFields, warnings };
 };
+
+export const fromStructureJson = (structure: StructureJson): FormElementModel[] =>
+  fromStructureJsonWithMeta(structure).fields;

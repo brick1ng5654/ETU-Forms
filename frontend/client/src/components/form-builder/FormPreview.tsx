@@ -1,5 +1,13 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
-import type { AnswerValue, AnswersById, DateTimeAnswer, FormElementModel, FormSchema } from "@/form/types";
+import type {
+  AnswerValue,
+  AnswersById,
+  DateTimeAnswer,
+  FormElementModel,
+  FormSchema,
+  FullNameAnswer,
+  PassportAnswer,
+} from "@/form/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +41,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { presets } from "@/form/presets";
 import { validateForm } from "@/form/validation";
+import { buildAnswersPayload } from "@/form/answers";
 
 interface AutoResizeTextareaProps extends React.ComponentProps<typeof Textarea> {}
 
@@ -156,6 +165,7 @@ export function FormPreview({ form }: FormPreviewProps) {
   const [errorsById, setErrorsById] = useState<Record<string, string[]>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [focusedFieldId, setFocusedFieldId] = useState<string | null>(null);
+  const payloadRef = useRef<ReturnType<typeof buildAnswersPayload> | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -174,6 +184,10 @@ export function FormPreview({ form }: FormPreviewProps) {
 
   useEffect(() => {
     setErrorsById(validateForm(form.fields, answers));
+  }, [form.fields, answers]);
+
+  useEffect(() => {
+    payloadRef.current = buildAnswersPayload(form.fields, answers);
   }, [form.fields, answers]);
 
   const updateAnswer = (fieldId: string, value: AnswerValue) => {
@@ -240,6 +254,11 @@ export function FormPreview({ form }: FormPreviewProps) {
   }, [form.fields, answers]);
 
   const checkAnswers = () => {
+    const payload = payloadRef.current ?? buildAnswersPayload(form.fields, answers);
+    if (import.meta.env.DEV) {
+      console.debug("Answers payload", payload);
+    }
+
     const newResults: Results = {};
     let score = 0;
     let max = 0;
@@ -372,14 +391,15 @@ export function FormPreview({ form }: FormPreviewProps) {
     const hasError = fieldErrors.length > 0;
 
     if (preset?.parts) {
-      const composite = (answers[field.id] as Record<string, string | null>) || {};
+      const composite = (answers[field.id] as FullNameAnswer | PassportAnswer | undefined) || {};
+      const compositeRecord = composite as Record<string, string | null>;
       return (
         <div className="grid gap-3">
           {preset.parts.map((part) => {
             if (part.hiddenProp && props[part.hiddenProp]) {
               return null;
             }
-            const rawValue = composite[part.key] ?? "";
+            const rawValue = compositeRecord[part.key] ?? "";
             const displayValue = part.format ? part.format(rawValue) : rawValue;
             const label = part.labelKey ? t(part.labelKey) : part.key;
             const placeholder = part.placeholderKey
@@ -404,7 +424,7 @@ export function FormPreview({ form }: FormPreviewProps) {
                     value={displayValue}
                     onChange={(e) => {
                       const normalized = part.normalize ? part.normalize(e.target.value) : e.target.value;
-                      updateAnswer(field.id, { ...composite, [part.key]: normalized });
+                      updateAnswer(field.id, { ...compositeRecord, [part.key]: normalized } as AnswerValue);
                     }}
                     onBlur={() => markTouched(field.id)}
                     disabled={isDisabled}
