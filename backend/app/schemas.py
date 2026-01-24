@@ -33,7 +33,7 @@ class FormBase(BaseModel):
     # Optional[str] - означает, что переменной можно присвоить либо str, либо None
     description: Optional[str] = None
     # Dict[str, Any] - словарь, где ключи - строки, а значения любые
-    structure_json: Dict[str, Any] = Field(default_factory=dict)
+    settings_json: Dict[str, Any] = Field(default_factory=dict)
     start_at: Optional[datetime] = None
     end_at: Optional[datetime] = None
     access_mode: FormAccessMode = FormAccessMode.PRIVATE
@@ -44,7 +44,7 @@ class FormCreate(FormBase):
 class FormUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = None
-    structure_json: Optional[Dict[str, Any]] = None
+    settings_json: Optional[Dict[str, Any]] = None
     start_at: Optional[datetime] = None
     end_at: Optional[datetime] = None
     access_mode: Optional[FormAccessMode] = None

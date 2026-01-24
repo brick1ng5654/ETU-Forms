@@ -6,12 +6,12 @@ import logging
 from app.config import settings
 from app.database import init_db, close_db
 from app.api.v1.routers import api_router
+from app.logging_config import setup_logging
+from app.middlewares.error_logging import ServerErrorLoggingMiddleware
 
 # Запуск логера сообщений
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
+setup_logging(logs_dir="logs", level=getattr(settings, "LOG_LEVEL", "INFO"))
+
 logger = logging.getLogger(__name__)
 
 # Запуск жизненного цикла приложения
@@ -25,7 +25,7 @@ async def lifespan(app: FastAPI):
         await init_db()
         logger.info("База данных готова к работе")
     except Exception as e:
-        logger.error(f"Ошибка инициализации бд: {e}")
+        logger.exception("Ошибка инициализации бд")
         raise
 
     yield
@@ -40,6 +40,8 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+app.add_middleware(ServerErrorLoggingMiddleware)
 
 #CORS нужны, чтобы frontend мог обращаться к бэкенду
 app.add_middleware(

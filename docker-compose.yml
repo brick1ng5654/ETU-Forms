@@ -53,6 +53,8 @@ services:
       DEBUG: ${DEBUG:-false}
 
       CORS_ORIGINS: https://localhost,http://localhost:3000
+    volumes:
+      - ./backend/logs:/app/logs
     depends_on:
       postgres:
         condition: service_healthy
@@ -67,6 +69,7 @@ secrets:
 
 volumes:
   postgres_data:
+  
 
 networks:
   app-network:
