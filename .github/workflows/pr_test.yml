@@ -103,3 +103,21 @@ jobs:
       - name: Stop containers
         if: always()
         run: docker compose -f "docker-compose.yml" down
+
+      - name: Dump container status and logs (on failure)
+        if: failure()
+        run: |
+          echo "=== docker compose ps ==="
+          docker compose -f docker-compose.yml ps || true
+
+          echo ""
+          echo "=== docker ps -a ==="
+          docker ps -a || true
+
+          echo ""
+          echo "=== docker compose logs (last 300 lines) ==="
+          docker compose -f docker-compose.yml logs --no-color --tail=300 || true
+
+          echo ""
+          echo "=== docker events (last 50) ==="
+          docker events --since 30m --until 0s --filter type=container --filter event=die --format '{{.Time}} {{.Actor.Attributes.name}} {{.Status}} {{.Actor.Attributes.exitCode}}' | tail -50 || true
