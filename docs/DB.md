@@ -17,6 +17,9 @@
 | email | VARCHAR(100) |  | UNIQUE, NOT NULL | Email для связи или логина |
 | created_at | TIMESTAMP |  | DEFAULT | Дата создания записи |
 
+**Замечание**
+В базе данных таблица называется App_user
+
 **Правила целостности**
 - `user_id` уникален и обязателен.
 - `email` уникален и обязателен.
@@ -31,7 +34,6 @@
 | title | VARCHAR(255) |  | NOT NULL | Название формы |
 | description | TEXT |  | NULL | Описание формы |
 | version | INT |  | DEFAULT | Номер версии формы |
-| settings_JSON | JSONB |  | NULL | Настройки формы в JSON |
 | start_at | TIMESTAMP |  | NULL | Начало приема ответов |
 | end_at | TIMESTAMP |  | NULL | Конец приема ответов |
 | access_mode | FORM_ACCESS_MODE |  | DEFAULT | Режим доступа к форме |
