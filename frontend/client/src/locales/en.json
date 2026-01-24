@@ -181,7 +181,12 @@
     "selectDateTime": "Select date and time",
     "matrixRows": "Matrix rows (statements)",
     "matrixColumns": "Matrix columns (options)",
-    "matrixMultiplePerRow": "Allow multiple selections per row"
+    "matrixMultiplePerRow": "Allow multiple selections per row",
+    "matrixCorrectAnswers": "Matrix Correct Answers",
+    "matrixCorrectAnswersHelp": "Select the cells that are correct answers",
+    "matrixCorrectAnswersFormatHelp": "The correct answer can be written as row number:column number and only one cell per correct answer field",
+    "addMatrixRowsColumns": "Add matrix rows and columns to select correct answers",
+    "clearAll": "Clear All"
   },
   "errors": {
     "required": "Required",

@@ -963,31 +963,102 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
               <p className="text-xs text-muted-foreground italic">Add options first to select correct answers.</p>
             ) : (
               <div className="space-y-2">
-                {correctAnswers.map((answer, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <Input
-                      value={answer}
-                      onChange={(e) => {
-                        const newAnswers = [...correctAnswers];
-                        newAnswers[index] = e.target.value;
-                        updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
-                      }}
-                      placeholder={t("propert.correctAnswerPlaceholder")}
-                      className="border-green-200 focus-visible:ring-green-500"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      onClick={() => {
-                        const newAnswers = correctAnswers.filter((_, i) => i !== index);
-                        updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
-                      }}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
+                {correctAnswers.map((answer, index) => {
+                  // For matrix fields, validate the format and bounds
+                  let isInvalid = false;
+                  if (selectedField.widgetType === "matrix" && answer !== "") {
+                    // Validate format is "number:number"
+                    const formatRegex = /^\d+:\d+$/;
+                    if (!formatRegex.test(answer)) {
+                      isInvalid = true;
+                    } else {
+                      // Validate numbers are within matrix bounds
+                      const [rowStr, colStr] = answer.split(':');
+                      const row = parseInt(rowStr, 10);
+                      const col = parseInt(colStr, 10);
+                      
+                      const rows = (props.rows as string[]) || [];
+                      const columns = (props.columns as string[]) || [];
+                      
+                      if (row >= rows.length || col >= columns.length) {
+                        isInvalid = true;
+                      }
+                    }
+                  }
+                  
+                  return (
+                    <div key={index} className="flex items-center gap-2">
+                      <Input
+                        value={answer}
+                        onChange={(e) => {
+                          // For matrix fields, validate the format is "number:number" and within bounds
+                          const value = e.target.value;
+                          if (selectedField.widgetType === "matrix") {
+                            // Allow empty values
+                            if (value === "") {
+                              const newAnswers = [...correctAnswers];
+                              newAnswers[index] = value;
+                              updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
+                              return;
+                            }
+                            
+                            // Validate format is "number:number" and contains only digits and colon
+                            const formatRegex = /^\d+:\d+$/;
+                            const validCharacters = /^[0-9:]*$/.test(value);
+                            if (!validCharacters) {
+                              // Invalid characters, don't update
+                              return;
+                            }
+                            if (!formatRegex.test(value)) {
+                              // Invalid format, still update to allow typing
+                              const newAnswers = [...correctAnswers];
+                              newAnswers[index] = value;
+                              updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
+                              return;
+                            }
+                            
+                            // Validate numbers are within matrix bounds
+                            const [rowStr, colStr] = value.split(':');
+                            const row = parseInt(rowStr, 10);
+                            const col = parseInt(colStr, 10);
+                            
+                            const rows = (props.rows as string[]) || [];
+                            const columns = (props.columns as string[]) || [];
+                            
+                            if (row < rows.length && col < columns.length) {
+                              const newAnswers = [...correctAnswers];
+                              newAnswers[index] = value;
+                              updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
+                            } else {
+                              // Out of bounds, still update to allow typing
+                              const newAnswers = [...correctAnswers];
+                              newAnswers[index] = value;
+                              updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
+                            }
+                          } else {
+                            // For non-matrix fields, allow any value
+                            const newAnswers = [...correctAnswers];
+                            newAnswers[index] = value;
+                            updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
+                          }
+                        }}
+                        placeholder={t("propert.correctAnswerPlaceholder")}
+                        className={`focus-visible:ring-green-500 ${isInvalid ? "border-red-500" : "border-green-200"}`}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        onClick={() => {
+                          const newAnswers = correctAnswers.filter((_, i) => i !== index);
+                          updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  );
+                })}
                 <Button
                   variant="outline"
                   size="sm"
@@ -1032,7 +1103,23 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
       
       return (
         <div className="space-y-3">
-          <Label className="text-green-600">{t("propert.matrixCorrectAnswers")}</Label>
+          <Label className="text-green-600 flex items-center gap-1">
+            {t("propert.matrixCorrectAnswers")}
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={t("propert.matrixCorrectAnswersFormatHelp")}
+                  className="h-4 w-4 rounded-full border border-muted-foreground/40 text-muted-foreground text-[9px] leading-none flex items-center justify-center hover:bg-muted"
+                >
+                  ?
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">
+                {t("propert.matrixCorrectAnswersFormatHelp")}
+              </TooltipContent>
+            </Tooltip>
+          </Label>
           <p className="text-xs text-muted-foreground">
             {t("propert.matrixCorrectAnswersHelp")}
           </p>
@@ -1077,11 +1164,12 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                               } else {
                                 newAnswers = newAnswers.filter(key => key !== cellKey);
                               }
-                              updateField(selectedField.id, { 
-                                props: { correctAnswers: newAnswers } 
+                              updateField(selectedField.id, {
+                                props: { correctAnswers: newAnswers }
                               });
                             }}
                             className="mx-auto"
+                            simplifiedAnimation
                           />
                         </td>
                       );
