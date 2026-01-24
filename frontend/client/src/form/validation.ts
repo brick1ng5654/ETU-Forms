@@ -85,10 +85,10 @@ export const validateForm = (elements: FormElementModel[], answers: AnswersById)
           if (
             Number.isNaN(rowIdx) ||
             Number.isNaN(colIdx) ||
-            rowIdx < 0 ||
-            rowIdx >= rows.length ||
-            colIdx < 0 ||
-            colIdx >= columns.length
+            rowIdx < 1 ||
+            rowIdx > rows.length ||
+            colIdx < 1 ||
+            colIdx > columns.length
           ) {
             elementErrors.push("Invalid selection");
           }

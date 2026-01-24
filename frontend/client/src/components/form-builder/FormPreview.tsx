@@ -805,10 +805,10 @@ export function FormPreview({ form }: FormPreviewProps) {
           const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
           const matrixAnswer = (answers[field.id] as string[]) || [];
           const isCellSelected = (rowIdx: number, colIdx: number) => {
-            return matrixAnswer.includes(`${rowIdx}:${colIdx}`);
+            return matrixAnswer.includes(`${rowIdx + 1}:${colIdx + 1}`);
           };
           const toggleCell = (rowIdx: number, colIdx: number) => {
-            const cellKey = `${rowIdx}:${colIdx}`;
+            const cellKey = `${rowIdx + 1}:${colIdx + 1}`;
             let newAnswer: string[];
             if (multiplePerRow) {
               if (isCellSelected(rowIdx, colIdx)) {
@@ -818,7 +818,7 @@ export function FormPreview({ form }: FormPreviewProps) {
               }
             } else {
               // Single selection per row - remove all other selections in this row
-              newAnswer = matrixAnswer.filter((key) => !key.startsWith(`${rowIdx}:`));
+              newAnswer = matrixAnswer.filter((key) => !key.startsWith(`${rowIdx + 1}:`));
               if (!isCellSelected(rowIdx, colIdx)) {
                 newAnswer.push(cellKey);
               }
@@ -985,8 +985,8 @@ export function FormPreview({ form }: FormPreviewProps) {
         <div className="mt-1">
           {(props.correctAnswers as string[]).map((cellKey, idx) => {
             const [rowIdx, colIdx] = cellKey.split(':').map(Number);
-            const row = ((props.rows as string[]) || [])[rowIdx] || `Row ${rowIdx + 1}`;
-            const col = ((props.columns as string[]) || [])[colIdx] || `Column ${colIdx + 1}`;
+            const row = ((props.rows as string[]) || [])[rowIdx - 1] || `Row ${rowIdx}`;
+            const col = ((props.columns as string[]) || [])[colIdx - 1] || `Column ${colIdx}`;
             return (
               <p key={idx}>• Строка "{row}", Столбец "{col}"</p>
             );

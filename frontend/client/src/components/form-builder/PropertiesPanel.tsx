@@ -972,7 +972,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                     if (!formatRegex.test(answer)) {
                       isInvalid = true;
                     } else {
-                      // Validate numbers are within matrix bounds
+                      // Validate numbers are within matrix bounds (1-indexed)
                       const [rowStr, colStr] = answer.split(':');
                       const row = parseInt(rowStr, 10);
                       const col = parseInt(colStr, 10);
@@ -980,7 +980,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                       const rows = (props.rows as string[]) || [];
                       const columns = (props.columns as string[]) || [];
                       
-                      if (row >= rows.length || col >= columns.length) {
+                      if (row < 1 || row > rows.length || col < 1 || col > columns.length) {
                         isInvalid = true;
                       }
                     }
@@ -1017,7 +1017,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                               return;
                             }
                             
-                            // Validate numbers are within matrix bounds
+                            // Validate numbers are within matrix bounds (1-indexed)
                             const [rowStr, colStr] = value.split(':');
                             const row = parseInt(rowStr, 10);
                             const col = parseInt(colStr, 10);
@@ -1025,7 +1025,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                             const rows = (props.rows as string[]) || [];
                             const columns = (props.columns as string[]) || [];
                             
-                            if (row < rows.length && col < columns.length) {
+                            if (row >= 1 && row <= rows.length && col >= 1 && col <= columns.length) {
                               const newAnswers = [...correctAnswers];
                               newAnswers[index] = value;
                               updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
@@ -1145,7 +1145,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                       {row || `Row ${rowIdx + 1}`}
                     </td>
                     {columns.map((_, colIdx) => {
-                      const cellKey = `${rowIdx}:${colIdx}`;
+                      const cellKey = `${rowIdx + 1}:${colIdx + 1}`;
                       const isCorrect = matrixCorrectAnswers.includes(cellKey);
                       return (
                         <td key={colIdx} className="border border-muted-foreground/20 p-2 text-center">
@@ -1158,7 +1158,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                                   newAnswers.push(cellKey);
                                 } else {
                                   // Для single selection per row - удаляем другие ответы в этой строке
-                                  newAnswers = newAnswers.filter(key => !key.startsWith(`${rowIdx}:`));
+                                  newAnswers = newAnswers.filter(key => !key.startsWith(`${rowIdx + 1}:`));
                                   newAnswers.push(cellKey);
                                 }
                               } else {
