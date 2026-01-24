@@ -10,7 +10,7 @@ from app.logging_config import setup_logging
 from app.middlewares.error_logging import ServerErrorLoggingMiddleware
 
 # Запуск логера сообщений
-setup_logging(logs_dir="logs", level=getattr(settings, "LOG_LEVEL", "INFO"))
+setup_logging(logs_dir="logs/backend", level=getattr(settings, "LOG_LEVEL", "INFO"))
 
 logger = logging.getLogger(__name__)
 

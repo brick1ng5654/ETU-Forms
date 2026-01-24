@@ -4,7 +4,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 def setup_logging(
-        logs_dir: str = "logs",
+        logs_dir: str = "logs/backend",
         level: str = "INFO",
 ) -> None:
     # Логи будут в консоли для Docker, в папке logs app.log(ротация)

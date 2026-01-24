@@ -3,5 +3,5 @@ ssl/
 *.crt
 *.key
 
-backend/logs/*
-!backend/logs/.gitkeep
+logs/**
+!logs/**/.gitkeep

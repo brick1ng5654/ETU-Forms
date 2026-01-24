@@ -54,7 +54,7 @@ services:
 
       CORS_ORIGINS: https://localhost,http://localhost:3000
     volumes:
-      - ./backend/logs:/app/logs
+      - ./logs/backend:/app/logs/backend
     depends_on:
       postgres:
         condition: service_healthy
