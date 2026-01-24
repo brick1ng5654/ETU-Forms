@@ -14,6 +14,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
+import { MatrixCorrectAnswersModal } from "./MatrixCorrectAnswersModal";
 
 interface SortableFieldProps {
   field: FormElementModel;
@@ -29,6 +30,7 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
   const [editingElement, setEditingElement] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState<string>("");
   const [editingOptions, setEditingOptions] = useState<string[]>([]);
+  const [isMatrixModalOpen, setIsMatrixModalOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -606,6 +608,30 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
           Правильных ответов: {matrixCorrectAnswers.length}
         </div>
       )}
+      
+      {/* Кнопка для выбора правильных ответов */}
+      <div className="mt-3">
+        <Button
+          size="sm"
+          variant="outline"
+          className="w-full border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsMatrixModalOpen(true);
+          }}
+        >
+          <Check className="h-4 w-4 mr-2" />
+          Выбрать правильные ответы
+        </Button>
+      </div>
+      
+      {/* Модальное окно для выбора правильных ответов */}
+      <MatrixCorrectAnswersModal
+        field={field}
+        open={isMatrixModalOpen}
+        onOpenChange={setIsMatrixModalOpen}
+        updateField={updateField}
+      />
     </div>
   );
 }
