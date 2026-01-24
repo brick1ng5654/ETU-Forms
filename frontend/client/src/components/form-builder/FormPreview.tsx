@@ -900,6 +900,7 @@ export function FormPreview({ form }: FormPreviewProps) {
                                 disabled={results !== null}
                                 onCheckedChange={() => toggleCell(rowIdx, colIdx)}
                                 className="mx-auto"
+                                simplifiedAnimation
                                 
                               />
                             ) : (
