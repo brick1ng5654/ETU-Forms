@@ -325,8 +325,8 @@ CREATE TABLE IF NOT EXISTS Uploaded_file(
     storage_provider VARCHAR(50) NOT NULL DEFAULT 'local',
     storage_path TEXT NOT NULL,
 
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    expires_at TIMESTAMP NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP WITH TIME ZONE DEFAULT (CURRENT_TIMESTAMP + INTERVAL '1 day')
 
     status file_status NOT NULL,
 
