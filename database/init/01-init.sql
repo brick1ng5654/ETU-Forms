@@ -83,6 +83,14 @@ BEGIN
             'cancelled'
         );
     END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'file_status') THEN
+        CREATE TYPE file_status AS ENUM (
+            'temp',
+            'submitted',
+            'deleted'
+        );
+    END IF;
 END$$;
 
 -- Создаем таблицу форм
@@ -318,6 +326,9 @@ CREATE TABLE IF NOT EXISTS Uploaded_file(
     storage_path TEXT NOT NULL,
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NULL,
+
+    status file_status NOT NULL,
 
     CONSTRAINT fk_file_answer
         FOREIGN KEY (answer_id)
