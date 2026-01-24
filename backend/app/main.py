@@ -9,7 +9,7 @@ from app.api.v1.routers import api_router
 from app.logging_config import setup_logging
 from app.middlewares.error_logging import ServerErrorLoggingMiddleware
 
-# Запуск логера сообщений
+# Запуск логера сообщений, должна быть структура
 setup_logging(logs_dir="logs/backend", level=getattr(settings, "LOG_LEVEL", "INFO"))
 
 logger = logging.getLogger(__name__)
