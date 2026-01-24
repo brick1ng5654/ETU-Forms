@@ -83,6 +83,14 @@ BEGIN
             'cancelled'
         );
     END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'file_status') THEN
+        CREATE TYPE file_status AS ENUM (
+            'temp',
+            'submitted',
+            'deleted'
+        );
+    END IF;
 END$$;
 
 -- Создаем таблицу форм
@@ -301,8 +309,31 @@ CREATE TABLE IF NOT EXISTS Form_Element_Condition(
 
     CONSTRAINT no_self_condition
         CHECK (source_element_id <> target_element_id)
-
-    
 );
 
 COMMENT ON TABLE Form_Element_Condition IS 'Условия ветвления (зависимости)';
+
+CREATE TABLE IF NOT EXISTS Uploaded_file(
+    file_id SERIAL PRIMARY KEY,
+
+    answer_id INT NOT NULL,
+
+    name VARCHAR(512) NOT NULL,
+    mime_type VARCHAR(255) NOT NULL,
+    size_bytes BIGINT NOT NULL CHECK (size_bytes >= 0),
+
+    storage_provider VARCHAR(50) NOT NULL DEFAULT 'local',
+    storage_path TEXT NOT NULL,
+
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP WITH TIME ZONE DEFAULT (CURRENT_TIMESTAMP + INTERVAL '1 day'),
+
+    status file_status NOT NULL,
+
+    CONSTRAINT fk_file_answer
+        FOREIGN KEY (answer_id)
+        REFERENCES Response_Answer(answer_id)
+        ON DELETE CASCADE
+);
+
+COMMENT ON TABLE Uploaded_file IS 'Метаданные загруженных файлов';
