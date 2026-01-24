@@ -802,7 +802,7 @@ export function FormPreview({ form }: FormPreviewProps) {
           const columns = (props.columns as string[]) || [];
           const multiplePerRow = Boolean(props.multiplePerRow);
           const [isScrolling, setIsScrolling] = useState(false);
-const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
+          const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
           const matrixAnswer = (answers[field.id] as string[]) || [];
           const isCellSelected = (rowIdx: number, colIdx: number) => {
             return matrixAnswer.includes(`${rowIdx}:${colIdx}`);
@@ -850,7 +850,7 @@ const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
                   <tr>
                     <th 
                       className={cn(
-                          "relative sticky left-0 z-20 min-w-[120px] whitespace-nowrap",
+                          "relative sticky left-0 z-20 w-[100px] whitespace-nowrap",
                           "bg-white p-2 font-medium",
                           "border border-muted-foreground/20",
                           "after:absolute after:top-0 after:right-[-2px] after:h-full after:w-[4px]",
@@ -900,6 +900,7 @@ const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
                                 disabled={results !== null}
                                 onCheckedChange={() => toggleCell(rowIdx, colIdx)}
                                 className="mx-auto"
+                                
                               />
                             ) : (
                               <button
@@ -966,6 +967,36 @@ const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
             )}
           </div>
         ) : null}
+        {(hasResult && !results[field.id] && (props.correctAnswers as string[] | undefined)?.length) ? (
+  <div className="text-sm text-green-700 mt-2">
+    {field.widgetType === "ranking" ? (
+      <div>
+        <p className="font-medium">Правильный порядок:</p>
+        <ol className="list-decimal list-inside mt-1">
+          {(props.correctAnswers as string[]).map((answer, idx) => (
+            <li key={idx}>{answer}</li>
+          ))}
+        </ol>
+      </div>
+    ) : field.widgetType === "matrix" ? (
+      <div>
+        <p className="font-medium">Правильные ячейки:</p>
+        <div className="mt-1">
+          {(props.correctAnswers as string[]).map((cellKey, idx) => {
+            const [rowIdx, colIdx] = cellKey.split(':').map(Number);
+            const row = ((props.rows as string[]) || [])[rowIdx] || `Row ${rowIdx + 1}`;
+            const col = ((props.columns as string[]) || [])[colIdx] || `Column ${colIdx + 1}`;
+            return (
+              <p key={idx}>• Строка "{row}", Столбец "{col}"</p>
+            );
+          })}
+        </div>
+      </div>
+    ) : (
+      <p>Правильный ответ: {(props.correctAnswers as string[]).join(", ")}</p>
+    )}
+  </div>
+) : null}
       </div>
     );
   };

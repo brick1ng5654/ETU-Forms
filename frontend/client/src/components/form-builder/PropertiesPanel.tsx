@@ -16,6 +16,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 import { useState, useEffect } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface PropertiesPanelProps {
   selectedField: FormElementModel | null;
@@ -470,7 +471,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
     : [];
 
   const specialized = Boolean(selectedField.semanticType);
-  const canHaveCorrectAnswers = !isHeader && selectedField.widgetType !== "file_upload" && !isDatetime && !specialized && !isMatrix;
+  const canHaveCorrectAnswers = !isHeader && selectedField.widgetType !== "file_upload" && !isDatetime && !specialized;
 
   const updateByTarget = (target: PropertyFieldDef["target"], value: unknown) => {
     if (target === "label") {
@@ -998,6 +999,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                 >
                   <Plus className="h-4 w-4 mr-2" /> {t("propert.addcorransw")}
                 </Button>
+
               </div>
             )}
 
@@ -1013,7 +1015,101 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
               />
               <p className="text-xs text-muted-foreground">{t("propert.subpoint")}</p>
             </div>
+
+            {isMatrix && (() => {
+      const rows = (props.rows as string[]) || [];
+      const columns = (props.columns as string[]) || [];
+      const multiplePerRow = Boolean(props.multiplePerRow);
+      const matrixCorrectAnswers = (props.correctAnswers as string[]) || [];
+      
+      if (rows.length === 0 || columns.length === 0) {
+        return (
+          <p className="text-xs text-muted-foreground italic">
+            {t("propert.addMatrixRowsColumns")}
+          </p>
+        );
+      }
+      
+      return (
+        <div className="space-y-3">
+          <Label className="text-green-600">{t("propert.matrixCorrectAnswers")}</Label>
+          <p className="text-xs text-muted-foreground">
+            {t("propert.matrixCorrectAnswersHelp")}
+          </p>
+          
+          <div className="overflow-x-auto border rounded p-2 max-h-60 overflow-y-auto">
+            <table className="border-collapse border border-muted-foreground/20 text-sm w-full">
+              <thead>
+                <tr>
+                  <th className="border border-muted-foreground/20 p-2 text-center bg-muted/30 font-medium">
+                    {t("propert.matrixRows")}
+                  </th>
+                  {columns.map((col, colIdx) => (
+                    <th key={colIdx} className="border border-muted-foreground/20 p-2 text-center bg-muted/30 font-medium">
+                      {col || `Column ${colIdx + 1}`}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, rowIdx) => (
+                  <tr key={rowIdx}>
+                    <td className="border border-muted-foreground/20 p-2 font-medium">
+                      {row || `Row ${rowIdx + 1}`}
+                    </td>
+                    {columns.map((_, colIdx) => {
+                      const cellKey = `${rowIdx}:${colIdx}`;
+                      const isCorrect = matrixCorrectAnswers.includes(cellKey);
+                      return (
+                        <td key={colIdx} className="border border-muted-foreground/20 p-2 text-center">
+                          <Checkbox
+                            checked={isCorrect}
+                            onCheckedChange={(checked) => {
+                              let newAnswers = [...matrixCorrectAnswers];
+                              if (checked) {
+                                if (multiplePerRow) {
+                                  newAnswers.push(cellKey);
+                                } else {
+                                  // Для single selection per row - удаляем другие ответы в этой строке
+                                  newAnswers = newAnswers.filter(key => !key.startsWith(`${rowIdx}:`));
+                                  newAnswers.push(cellKey);
+                                }
+                              } else {
+                                newAnswers = newAnswers.filter(key => key !== cellKey);
+                              }
+                              updateField(selectedField.id, { 
+                                props: { correctAnswers: newAnswers } 
+                              });
+                            }}
+                            className="mx-auto"
+                          />
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
+          
+          {matrixCorrectAnswers.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+              onClick={() => {
+                updateField(selectedField.id, { props: { correctAnswers: [] } });
+              }}
+            >
+              <X className="h-4 w-4 mr-2" /> {t("propert.clearAll")}
+            </Button>
+          )}
+        </div>
+      );
+    })()}
+          </div>
+
+          
         )}
 
         <div className="space-y-3 pt-2 border-t mt-2">
