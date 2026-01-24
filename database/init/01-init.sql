@@ -278,10 +278,7 @@ COMMENT ON TABLE Form_Element_Condition IS 'Условия ветвления (�
 CREATE TABLE IF NOT EXISTS Uploaded_file(
     file_id SERIAL PRIMARY KEY,
 
-    user_id INT NOT NULL,
-    form_id INT NOT NULL,
-    response_id INT NOT NULL,
-    element_id INT NOT NULL,
+    answer_id INT NOT NULL,
 
     name VARCHAR(512) NOT NULL,
     mime_type VARCHAR(255) NOT NULL,
@@ -292,24 +289,9 @@ CREATE TABLE IF NOT EXISTS Uploaded_file(
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT fk_file_user
-        FOREIGN KEY (user_id)
-        REFERENCES App_User(user_id)
-        ON DELETE CASCADE,
-
-    CONSTRAINT fk_file_form
-        FOREIGN KEY (form_id)
-        REFERENCES Form(form_id)
-        ON DELETE CASCADE,
-
-    CONSTRAINT fk_file_response
-        FOREIGN KEY (response_id)
-        REFERENCES Response(response_id)
-        ON DELETE CASCADE,
-
-    CONSTRAINT fk_file_element
-        FOREIGN KEY (element_id)
-        REFERENCES Form_Element(element_id)
+    CONSTRAINT fk_file_answer
+        FOREIGN KEY (answer_id)
+        REFERENCES Response_Answer(answer_id)
         ON DELETE CASCADE
 );
 
