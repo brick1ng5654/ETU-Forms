@@ -40,12 +40,17 @@ export interface FormFolder {
   name: string;
 }
 
+export type FormAccessMode = "public" | "private" | "unauthenticated";
+
 export interface FormSchema {
   id: string;
   folderId?: string;
   title: string;
   description: string;
   fields: FormElementModel[];
+  startAt?: string | null;
+  endAt?: string | null;
+  accessMode?: FormAccessMode;
   updatedAt: number;
 }
 
