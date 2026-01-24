@@ -828,9 +828,9 @@ export function FormPreview({ form }: FormPreviewProps) {
           };
           
           return (
-            <div 
-              className="matrix-scroll-container overflow-x-auto overflow-y-visible scroll-smooth relative" 
-              style={{ 
+            <div
+              className="matrix-scroll-container overflow-auto scroll-smooth relative"
+              style={{
                 maxHeight: '500px',
               }}
               onScroll={(e) => {
@@ -848,22 +848,28 @@ export function FormPreview({ form }: FormPreviewProps) {
               >
                 <thead>
                   <tr>
-                    <th 
+                    <th
                       className={cn(
-                          "relative sticky left-0 z-20 w-[100px] whitespace-nowrap",
-                          "bg-white p-2 font-medium",
-                          "border border-muted-foreground/20",
-                          "after:absolute after:top-0 after:right-[-2px] after:h-full after:w-[4px]",
-                          "after:bg-white after:shadow-[2px_0_4px_rgba(0,0,0,0.12)]",
-                          
-                          isScrolling && "ring-2 ring-primary/40 shadow-lg"
-                        )}
+                        "relative sticky left-0 z-20 w-[100px] whitespace-nowrap",
+                        "bg-white p-2 font-medium",
+                        "border border-muted-foreground/20",
+                        "after:absolute after:top-0 after:right-[-2px] after:h-full after:w-[4px]",
+                        "after:bg-white after:shadow-[2px_0_4px_rgba(0,0,0,0.12)]",
+                        
+                        isScrolling && "ring-2 ring-primary/40 shadow-lg"
+                      )}
                     >
                     </th>
                     {columns.map((col, idx) => (
-                      <th 
-                        key={idx} 
-                        className="border border-muted-foreground/20 p-2 text-center bg-muted/30 font-medium min-w-[100px] whitespace-nowrap"
+                      <th
+                        key={idx}
+                        className={cn(
+                          "border border-muted-foreground/20 p-2 text-center bg-muted/30 font-medium min-w-[100px] whitespace-nowrap",
+                          "sticky top-0 z-10 bg-white",
+                          "after:absolute after:left-0 after:bottom-[-2px] after:w-full after:h-[4px]",
+                          "after:bg-white after:shadow-[0_2px_4px_rgba(0,0,0,0.12)]",
+                          isScrolling && "ring-2 ring-primary/40 shadow-lg"
+                        )}
                       >
                         {col || `Column ${idx + 1}`}
                       </th>

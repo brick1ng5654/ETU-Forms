@@ -514,8 +514,8 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
   
   return (
     <div className="space-y-3">
-      <div 
-        className="matrix-scroll-container overflow-x-auto overflow-y-visible scroll-smooth relative"
+      <div
+        className="matrix-scroll-container overflow-auto scroll-smooth relative"
         style={{ maxHeight: '500px' }}
         onScroll={(e) => {
           const el = e.currentTarget;
@@ -546,7 +546,13 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
               {columns.map((col, idx) => (
                 <th
                   key={idx}
-                  className="border border-muted-foreground/20 p-2 text-center bg-muted/30 font-medium whitespace-nowrap relative z-10"
+                  className={cn(
+                    "border border-muted-foreground/20 p-2 text-center bg-muted/30 font-medium whitespace-nowrap relative z-10",
+                    "sticky top-0 z-20 bg-white",
+                    "after:absolute after:left-0 after:bottom-[-0px] after:w-full after:h-[4px]",
+                    "after:bg-white after:shadow-[0_2px_4px_rgba(0,0,0,0.12)]",
+                    isScrolling && "ring-2 ring-primary/40 shadow-lg"
+                  )}
                   style={{ minWidth: '100px' }}
                 >
                   {col || `Column ${idx + 1}`}
