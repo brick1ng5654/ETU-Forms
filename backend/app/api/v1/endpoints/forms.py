@@ -45,27 +45,27 @@ async def create_form(
     current_user: AppUser = Depends(get_current_user)
 ):
     try:
+        payload = form_data.model_dump(exclude={"user_id"})  # <-- главное
         db_form = Form(
-            **form_data.model_dump(), #Берем все поля
-            user_id = current_user.user_id,
-            created_at = datetime.utcnow(),
-            updated_at = datetime.utcnow()
+            **payload,
+            user_id=current_user.user_id,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
         )
 
         db.add(db_form)
         await db.commit()
         await db.refresh(db_form)
 
-        # Преобразуем SQLAlchemy модель в pydantic схему для ответа
         return FormResponse.model_validate(db_form)
-    
+
     except Exception as e:
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f'Ошибка при создании формы: {str(e)}'
+            detail=f"Ошибка при создании формы: {str(e)}"
         )
-    
+
 # Получение списка моих форм с пагинацией
 @router.get("/", response_model=FormListResponse)
 async def get_my_forms(
