@@ -116,6 +116,10 @@
       "patronymic": "Отчество (при наличии)"
     },
     "passport": {
+      "gender": "Пол",
+      "genderMale": "Мужской",
+      "genderFemale": "Женский",
+      "birthDate": "Дата рождения",
       "seriesNumber": "Серия и номер",
       "issuedBy": "Кем выдан",
       "issueDate": "Дата выдачи",
@@ -174,6 +178,9 @@
     "hideDate": "Убрать дату",
     "hideTime": "Убрать время",
     "passportFields": "Поля паспорта",
+    "hidePassportFullName": "Скрыть ФИО",
+    "hidePassportGender": "Скрыть пол",
+    "hidePassportBirthDate": "Скрыть дату рождения",
     "hidePassportSeriesNumber": "Скрыть серию и номер",
     "hidePassportIssuedBy": "Скрыть кем выдан",
     "hidePassportIssueDate": "Скрыть дату выдачи",
