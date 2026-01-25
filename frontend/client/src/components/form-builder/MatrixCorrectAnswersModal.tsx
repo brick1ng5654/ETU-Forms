@@ -65,9 +65,22 @@ export function MatrixCorrectAnswersModal({
         newAnswers = newAnswers.filter(key => !key.startsWith(`${rowPrefix}:`));
         newAnswers.push(cellKey);
       }
+      
+      // Автоматически устанавливаем 1 балл для выбранной ячейки
+      setCellPoints(prev => ({
+        ...prev,
+        [cellKey]: 1
+      }));
     } else {
       // Удаляем ответ
       newAnswers = newAnswers.filter(key => key !== cellKey);
+      
+      // Удаляем баллы для отмененной ячейки
+      setCellPoints(prev => {
+        const updated = { ...prev };
+        delete updated[cellKey];
+        return updated;
+      });
     }
     
     setSelectedAnswers(newAnswers);
@@ -196,6 +209,14 @@ export function MatrixCorrectAnswersModal({
                           </td>
                           {columns.map((_, colIdx) => {
                             const cellKey = `${rowIdx + 1}:${colIdx + 1}`;
+                            // Отображаем только ячейки, которые выбраны как правильные ответы
+                            if (!selectedAnswers.includes(cellKey)) {
+                              return (
+                                <td key={colIdx} className="border border-muted-foreground/20 p-2 bg-muted/10">
+                                </td>
+                              );
+                            }
+                            
                             return (
                               <td key={colIdx} className="border border-muted-foreground/20 p-2">
                                 <Input
