@@ -271,7 +271,17 @@ export function FormPreview({ form }: FormPreviewProps) {
       if (!correctAnswers || correctAnswers.length === 0) return;
 
       const userAnswer = answers[field.id];
-      max += points;
+      
+      // Рассчитываем максимальное количество баллов для поля
+      if (field.widgetType === "matrix") {
+        const pointsPerCell = (props.pointsPerCell as Record<string, number> | undefined) || {};
+        // Максимальные баллы для матрицы - сумма баллов за все правильные ячейки
+        correctAnswers.forEach((cellKey) => {
+          max += pointsPerCell[cellKey] || points;
+        });
+      } else {
+        max += points;
+      }
 
       let isCorrect = false;
 
@@ -280,18 +290,49 @@ export function FormPreview({ form }: FormPreviewProps) {
         isCorrect =
           userOrder.length === correctAnswers.length &&
           userOrder.every((item, idx) => item === correctAnswers[idx]);
+        if (isCorrect) {
+          score += points;
+        }
       } else if (field.widgetType === "checkbox") {
         const userAnswersArr = ((userAnswer as string[]) || []).sort();
         const correctAnswersArr = correctAnswers.slice().sort();
         isCorrect =
           userAnswersArr.length === correctAnswersArr.length &&
           userAnswersArr.every((ans, idx) => ans.toLowerCase() === correctAnswersArr[idx].toLowerCase());
+        if (isCorrect) {
+          score += points;
+        }
       } else if (field.widgetType === "matrix") {
         const userAnswersArr = ((userAnswer as string[]) || []).sort();
         const correctAnswersArr = correctAnswers.slice().sort();
-        isCorrect =
-          userAnswersArr.length === correctAnswersArr.length &&
-          userAnswersArr.every((ans, idx) => ans === correctAnswersArr[idx]);
+        const multiplePerRow = Boolean(props.multiplePerRow);
+        const matrixValidationMode = props.matrixValidationMode || "all"; // "any" or "all"
+        
+        // Проверяем каждый правильный ответ отдельно и начисляем баллы за каждый
+        let correctCount = 0;
+        const pointsPerCell = (props.pointsPerCell as Record<string, number> | undefined) || {};
+        
+        // Для каждого правильного ответа проверяем, есть ли он в ответах пользователя
+        correctAnswersArr.forEach((correctCell) => {
+          if (userAnswersArr.includes(correctCell)) {
+            correctCount++;
+            // Добавляем баллы за этот правильный ответ
+            const pointsForCell = pointsPerCell[correctCell] || points;
+            score += pointsForCell;
+          }
+        });
+        
+        // isCorrect logic based on validation mode
+        if (multiplePerRow && matrixValidationMode === "any") {
+          // Для режима "хотя бы один" - true если выбран хотя бы один правильный ответ
+          isCorrect = correctCount > 0;
+        } else {
+          // По умолчанию (режим "все") - true если все правильные ответы выбраны
+          isCorrect = correctCount === correctAnswersArr.length;
+        }
+        
+        // Даже если не все правильные ответы выбраны, но есть частичное совпадение,
+        // баллы уже начислены выше
       } else {
         const userAnswerStr = typeof userAnswer === "string" || typeof userAnswer === "number"
           ? String(userAnswer || "").toLowerCase().trim()
@@ -299,12 +340,12 @@ export function FormPreview({ form }: FormPreviewProps) {
         isCorrect = correctAnswers.some(
           (correct) => correct.toLowerCase().trim() === userAnswerStr
         );
+        if (isCorrect) {
+          score += points;
+        }
       }
 
       newResults[field.id] = isCorrect;
-      if (isCorrect) {
-        score += points;
-      }
     });
 
     setResults(newResults);
@@ -655,8 +696,8 @@ export function FormPreview({ form }: FormPreviewProps) {
                       disabled={results !== null}
                     >
                       <Clock className="mr-2 h-4 w-4" />
-                      {timeValue ? <span>{timeValue}</span> : <span>{t("propert.selectTime")}</span>}
-                    </Button>
+                      {timeValue ? <span>{timeValue}</span> : <span>{t("propert.selectTime")}</span>
+        }</Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-4" align="start">
                     <Input

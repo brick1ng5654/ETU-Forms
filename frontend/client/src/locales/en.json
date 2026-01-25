@@ -186,7 +186,12 @@
     "matrixCorrectAnswersHelp": "Select the cells that are correct answers",
     "matrixCorrectAnswersFormatHelp": "The correct answer can be written as row number:column number and only one cell per correct answer field",
     "addMatrixRowsColumns": "Add matrix rows and columns to select correct answers",
-    "clearAll": "Clear All"
+    "clearAll": "Clear All",
+    "pointsPerCell": "Points per cell",
+    "pointsPerCellHelp": "Set points for each correct cell",
+    "matrixValidationMode": "Validation mode",
+    "matrixValidationModeAny": "At least one correct answer",
+    "matrixValidationModeAll": "All correct answers"
   },
   "errors": {
     "required": "Required",

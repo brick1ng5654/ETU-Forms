@@ -57,7 +57,7 @@ function SortableOptionItem({ id, option, disabled }: SortableOptionItemProps) {
   );
 }
 
-type PropertyFieldType = "text" | "textarea" | "switch" | "number" | "slider" | "tags";
+type PropertyFieldType = "text" | "textarea" | "switch" | "number" | "slider" | "tags" | "select";
 
 type PropertyFieldDef = {
   key: string;
@@ -223,6 +223,12 @@ const propertiesSchemaByWidgetType: Record<WidgetType, PropertyFieldDef[]> = {
       labelKey: "propert.matrixMultiplePerRow",
       type: "switch",
       target: "props.multiplePerRow",
+    },
+    {
+      key: "matrixValidationMode",
+      labelKey: "propert.matrixValidationMode",
+      type: "select",
+      target: "props.matrixValidationMode",
     },
   ],
 };
@@ -620,6 +626,40 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
             }}
             disabled={isDisabled}
           />
+        </div>
+      );
+    }
+
+    if (fieldDef.type === "select") {
+      const selectValue = String(value ?? "");
+      let selectOptions: { value: string; label: string }[] = [];
+      
+      // Special handling for matrixValidationMode
+      if (fieldDef.key === "matrixValidationMode") {
+        selectOptions = [
+          { value: "any", label: t("propert.matrixValidationModeAny") },
+          { value: "all", label: t("propert.matrixValidationModeAll") }
+        ];
+      }
+      
+      return (
+        <div key={fieldDef.key} className="space-y-2">
+          {label}
+          <Select
+            value={selectValue}
+            onValueChange={(value) => updateByTarget(fieldDef.target, value || undefined)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={t("common.selectopt")} />
+            </SelectTrigger>
+            <SelectContent>
+              {selectOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       );
     }

@@ -175,9 +175,14 @@
     "matrixMultiplePerRow": "Разрешить несколько выборов в строке",
     "matrixCorrectAnswers": "Правильные ответы матрицы",
     "matrixCorrectAnswersHelp": "Выберите ячейки, которые являются правильными ответами",
-    "matrixCorrectAnswersFormatHelp": "Правильный ответ можно записать в виде номер строки:номер столбца и что только одна клетка на одно поле правильного ответа",
+    "matrixCorrectAnswersFormatHelp": "Формат ответа: строка:столбец (например, 3:1). На каждом поле — только одна отмеченная клетка.",
     "addMatrixRowsColumns": "Добавьте строки и столбцы матрицы для выбора правильных ответов",
-    "clearAll": "Очистить все"
+    "clearAll": "Очистить все",
+    "pointsPerCell": "Баллы за ячейку",
+    "pointsPerCellHelp": "Установите баллы для каждой правильной ячейки",
+    "matrixValidationMode": "Режим проверки",
+    "matrixValidationModeAny": "Хотя бы один правильный ответ",
+    "matrixValidationModeAll": "Все правильные ответы"
   },
   "descerr": {
     "empty": "Имя папки не может быть пустым",
