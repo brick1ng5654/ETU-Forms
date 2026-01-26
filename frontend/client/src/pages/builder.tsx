@@ -527,16 +527,20 @@ export default function Builder({ params }: { params: { id?: string } }) {
       end_at: publishNoStart || publishNoEnd ? null : toIsoFromParts(publishEndDate, publishEndTime),
       settings_json: activeForm.settings_json ?? { client_form_id: activeForm.id },
 
-      elements: publishFields.map((f, index) => ({
-        client_id: f.id,                 // nanoid
-        widget: mapWidgetTypeForPublish(f.widgetType),
-        semantic: f.semanticType ?? null,
-        label: f.label,
-        description: f.description ?? null,
-        required_field: !!f.required,
-        other_settings: f.props ?? {},
-        sort_index: typeof f.sortIndex === "number" ? f.sortIndex : index
-      })),
+      elements: publishFields.map((f, index) => {
+        const { placeholder, ...otherSettings } = (f.props ?? {}) as Record<string, unknown>;
+        return {
+          client_id: f.id,                 // nanoid
+          widget: mapWidgetTypeForPublish(f.widgetType),
+          semantic: f.semanticType ?? null,
+          label: f.label,
+          description: f.description ?? null,
+          text_hint: typeof placeholder === "string" ? placeholder : null,
+          required_field: !!f.required,
+          other_settings: otherSettings,
+          sort_index: typeof f.sortIndex === "number" ? f.sortIndex : index
+        };
+      }),
 
       conditions: [] // если есть — добавишь
     };

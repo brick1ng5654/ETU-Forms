@@ -21,6 +21,10 @@ async def publish_form(db: AsyncSession, payload: FormPublishRequest) -> models.
     # элементы
     for el in sorted(payload.elements, key=lambda x: x.sort_index):
         other = dict(el.other_settings or {})
+        placeholder = other.pop("placeholder", None)
+        text_hint = el.text_hint
+        if text_hint is None and isinstance(placeholder, str):
+            text_hint = placeholder
         other["client_id"] = el.client_id
         other["sort_index"] = el.sort_index
 
@@ -31,7 +35,7 @@ async def publish_form(db: AsyncSession, payload: FormPublishRequest) -> models.
             semantic=(el.semantic.value if (el.semantic and hasattr(el.semantic, "value")) else el.semantic),
             label=el.label,
             correct_answer=el.correct_answer,
-            text_hint=el.text_hint,
+            text_hint=text_hint,
             supportive_text=el.supportive_text if el.supportive_text is not None else el.description,
             required_field=el.required_field,
             position=el.sort_index,
