@@ -40,6 +40,7 @@ export function MatrixCorrectAnswersModal({
   const pointsPerRow = (props.pointsPerRow as Record<string, number> | undefined) || {};
   const pointsPerColumn = (props.pointsPerColumn as Record<string, number> | undefined) || {};
   const matrixValidationMode = (props.matrixValidationMode as "any" | "all" | undefined) || undefined;
+  const matrixTotalPoints = (props.matrixTotalPoints as number | undefined) || 0;
   
   // Локальное состояние для выбранных ответов
   const [selectedAnswers, setSelectedAnswers] = useState<string[]>(matrixCorrectAnswers);
@@ -55,6 +56,8 @@ export function MatrixCorrectAnswersModal({
   const [enableColumnPoints, setEnableColumnPoints] = useState<boolean>(Object.keys(pointsPerColumn).length > 0);
   // Локальное состояние для режима проверки
   const [validationMode, setValidationMode] = useState<"any" | "all" | undefined>(matrixValidationMode);
+  // Локальное состояние для баллов всей матрицы
+  const [totalPoints, setTotalPoints] = useState<number>(matrixTotalPoints);
   
   // Обновление состояния при изменении props
   useEffect(() => {
@@ -65,6 +68,7 @@ export function MatrixCorrectAnswersModal({
     setEnableRowPoints(Object.keys(pointsPerRow).length > 0);
     setEnableColumnPoints(Object.keys(pointsPerColumn).length > 0);
     setValidationMode(matrixValidationMode);
+    setTotalPoints(matrixTotalPoints);
   }, [field.id, matrixCorrectAnswers.length, JSON.stringify(pointsPerCell), JSON.stringify(pointsPerRow), JSON.stringify(pointsPerColumn), matrixValidationMode]);
   
   // Обработчик изменения выбора
@@ -174,7 +178,8 @@ export function MatrixCorrectAnswersModal({
         pointsPerCell: Object.keys(allCellPoints).length >= 0 ? allCellPoints : undefined,
         pointsPerRow: enableRowPoints && Object.keys(nonZeroRowPoints).length > 0 ? nonZeroRowPoints : undefined,
         pointsPerColumn: enableColumnPoints && Object.keys(nonZeroColumnPoints).length > 0 ? nonZeroColumnPoints : undefined,
-        matrixValidationMode: validationMode
+        matrixValidationMode: validationMode,
+        matrixTotalPoints: totalPoints
       }
     });
     onOpenChange(false);
@@ -405,6 +410,31 @@ export function MatrixCorrectAnswersModal({
               )}
             </>
           )}
+        </div>
+        
+        {/* Баллы за всю матрицу */}
+        <div className="space-y-3 border-t pt-4">
+          <Label className="text-green-600">{t("propert.matrixTotalPoints")}</Label>
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              min="0"
+              max="1000"
+              value={totalPoints}
+              onChange={(e) => {
+                const value = e.target.value === "" ? 0 : parseInt(e.target.value, 10);
+                if (e.target.value === "" || (!isNaN(value) && value >= 0 && value <= 1000)) {
+                  setTotalPoints(value);
+                }
+              }}
+              className="w-[120px] border-green-200 focus-visible:ring-green-500"
+              placeholder="0"
+            />
+            <span className="text-sm text-muted-foreground">{t("propert.points")}</span>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {t("propert.matrixTotalPointsHelp")}
+          </p>
         </div>
               
         {multiplePerRow && (

@@ -192,7 +192,10 @@
     "pointsPerCellHelp": "Set points for each correct cell",
     "matrixValidationMode": "Validation mode",
     "matrixValidationModeAny": "At least one correct answer",
-    "matrixValidationModeAll": "All correct answers"
+    "matrixValidationModeAll": "All correct answers",
+    "matrixTotalPoints": "Points for entire matrix",
+    "matrixTotalPointsHelp": "Points are awarded if the entire matrix is filled correctly",
+    "points": "points"
   },
   "errors": {
     "required": "Required",

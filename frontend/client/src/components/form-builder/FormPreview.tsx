@@ -292,6 +292,12 @@ export function FormPreview({ form }: FormPreviewProps) {
         Object.values(pointsPerColumn).forEach((points) => {
           max += points;
         });
+        
+        // Добавляем максимальные баллы за всю матрицу
+        const matrixTotalPoints = (props.matrixTotalPoints as number | undefined) || 0;
+        if (matrixTotalPoints > 0) {
+          max += matrixTotalPoints;
+        }
       } else {
         max += points;
       }
@@ -479,6 +485,20 @@ export function FormPreview({ form }: FormPreviewProps) {
         
         // Даже если не все правильные ответы выбраны, но есть частичное совпадение,
         // баллы уже начислены выше
+        
+        // Проверяем, правильно ли заполнена вся матрица
+        const matrixTotalPoints = (props.matrixTotalPoints as number | undefined) || 0;
+        if (matrixTotalPoints > 0) {
+          // Проверяем, что все правильные ответы выбраны и ничего лишнего не выбрано
+          const isMatrixFullyCorrect =
+            userAnswersArr.length === correctAnswersArr.length &&
+            userAnswersArr.every(cellKey => correctAnswersArr.includes(cellKey)) &&
+            correctAnswersArr.every(cellKey => userAnswersArr.includes(cellKey));
+          
+          if (isMatrixFullyCorrect) {
+            score += matrixTotalPoints;
+          }
+        }
       } else {
         const userAnswerStr = typeof userAnswer === "string" || typeof userAnswer === "number"
           ? String(userAnswer || "").toLowerCase().trim()
@@ -729,6 +749,11 @@ export function FormPreview({ form }: FormPreviewProps) {
               {props.points && typeof props.points === "number" && props.points > 0 && (
                 <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
                   {props.points} pts
+                </span>
+              )}
+              {field.widgetType === "matrix" && props.matrixTotalPoints && typeof props.matrixTotalPoints === "number" && props.matrixTotalPoints > 0 && (
+                <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                  {props.matrixTotalPoints} pts (за всю матрицу)
                 </span>
               )}
             </Label>
