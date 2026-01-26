@@ -219,7 +219,7 @@ const propertiesSchemaByWidgetType: Record<WidgetType, PropertyFieldDef[]> = {
       labelKey: "propert.maxrati",
       type: "slider",
       target: "props.maxRating",
-      min: 3,
+      min: 1,
       max: 10,
       step: 1,
     },
@@ -600,6 +600,9 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
 
     if (fieldDef.type === "slider") {
       const sliderValue = typeof value === "number" ? value : fieldDef.min || 0;
+      const showRatingScale = fieldDef.key === "maxRating";
+      const minLabel = fieldDef.min ?? 0;
+      const maxLabel = fieldDef.max ?? 0;
       return (
         <div key={fieldDef.key} className="space-y-2">
           <Label>
@@ -612,6 +615,13 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
             step={fieldDef.step}
             onValueChange={(val) => updateByTarget(fieldDef.target, val[0])}
           />
+          {showRatingScale && (
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>{minLabel}</span>
+              <span>5</span>
+              <span>{maxLabel}</span>
+            </div>
+          )}
         </div>
       );
     }
@@ -765,6 +775,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
 
       <div className="space-y-4">
         {schemaFields.map(renderPropertyField)}
+<<<<<<< HEAD
         {isPlainText && (
           <>
             <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
@@ -803,6 +814,13 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                   });
                 }}
               />
+=======
+        {(selectedField.widgetType === "text_input" || selectedField.widgetType === "textarea") &&
+          selectedField.semanticType !== "full_name" && (
+          <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+            <div className="space-y-0.5">
+              <Label>{t("propert.longtxt")}</Label>
+>>>>>>> 94ff0ad (убрано свойство многострочного текста у элемента фио)
             </div>
             <div className="space-y-2 rounded-lg border p-3 shadow-sm">
               <Label>{t("propert.maxChars")}</Label>
