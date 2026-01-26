@@ -34,6 +34,7 @@ async def publish_form(db: AsyncSession, payload: FormPublishRequest) -> models.
             text_hint=el.text_hint,
             supportive_text=el.supportive_text if el.supportive_text is not None else el.description,
             required_field=el.required_field,
+            position=el.sort_index,
             other_settings=other,
         )
         db.add(row)

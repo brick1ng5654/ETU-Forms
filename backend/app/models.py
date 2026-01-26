@@ -148,6 +148,7 @@ class FormElement(Base):
     text_hint = Column(Text, nullable=True)
     supportive_text = Column(Text, nullable=True)
     required_field = Column(Boolean, nullable=False, server_default="false")
+    position = Column(Integer, nullable=False)
     other_settings = Column(JSON, nullable=True)
 
     @property
