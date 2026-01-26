@@ -14,6 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { FormElementModel } from "@/form/types";
+import { Check } from "lucide-react"; 
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"; 
 
 interface MatrixCorrectAnswersModalProps {
   field: FormElementModel;
@@ -407,8 +409,27 @@ export function MatrixCorrectAnswersModal({
               
         {multiplePerRow && (
           <div className="space-y-2 border-t pt-4">
-            <Label className="text-green-600">{t("propert.matrixValidationMode")}</Label>
-            <Select value={validationMode || ""} onValueChange={(value) => setValidationMode(value as "any" | "all" | undefined)}>
+            <div className="flex items-center gap-2">
+              <Label className="text-green-600">{t("propert.matrixValidationMode")}</Label>
+              <Tooltip delayDuration={0}>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label={t("propert.matrixCorrPoint")}
+                    className="h-4 w-4 rounded-full border border-muted-foreground/40 text-muted-foreground text-[9px] leading-none flex items-center justify-center hover:bg-muted"
+                  >
+                    ?
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">
+                  {t("propert.matrixCorrPoint")}
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <Select 
+              value={validationMode || ""} 
+              onValueChange={(value) => setValidationMode(value as "any" | "all" | undefined)}
+            >
               <SelectTrigger className="w-[300px]">
                 <SelectValue placeholder={t("propert.matrixValidationMode")} />
               </SelectTrigger>

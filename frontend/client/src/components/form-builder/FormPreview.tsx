@@ -338,6 +338,59 @@ export function FormPreview({ form }: FormPreviewProps) {
                 score += pointsForCell;
               }
             });
+            
+            // Начисляем баллы за строки, если все ячейки в строке выбраны правильно
+            const pointsPerRow = (props.pointsPerRow as Record<string, number> | undefined) || {};
+            if (Object.keys(pointsPerRow).length > 0) {
+              // Группируем правильные ответы по строкам
+              const correctAnswersByRow: Record<number, string[]> = {};
+              correctAnswersArr.forEach((cellKey) => {
+                const [rowIdx] = cellKey.split(':').map(Number);
+                if (!correctAnswersByRow[rowIdx]) {
+                  correctAnswersByRow[rowIdx] = [];
+                }
+                correctAnswersByRow[rowIdx].push(cellKey);
+              });
+              
+              // Проверяем каждую строку
+              Object.entries(correctAnswersByRow).forEach(([rowIdx, rowCorrectAnswers]) => {
+                // Проверяем, что все правильные ответы в строке выбраны
+                const allRowCorrectSelected = rowCorrectAnswers.every(cellKey =>
+                  userAnswersArr.includes(cellKey)
+                );
+                
+                if (allRowCorrectSelected && pointsPerRow[rowIdx]) {
+                  score += pointsPerRow[rowIdx];
+                }
+              });
+            }
+            
+            // Начисляем баллы за столбцы, если все ячейки в столбце выбраны правильно
+            const pointsPerColumn = (props.pointsPerColumn as Record<string, number> | undefined) || {};
+            if (Object.keys(pointsPerColumn).length > 0) {
+              // Группируем правильные ответы по столбцам
+              const correctAnswersByColumn: Record<number, string[]> = {};
+              correctAnswersArr.forEach((cellKey) => {
+                const [, colIdx] = cellKey.split(':').map(Number);
+                if (!correctAnswersByColumn[colIdx]) {
+                  correctAnswersByColumn[colIdx] = [];
+                }
+                correctAnswersByColumn[colIdx].push(cellKey);
+              });
+              
+              // Проверяем каждый столбец
+              Object.entries(correctAnswersByColumn).forEach(([colIdx, colCorrectAnswers]) => {
+                // Проверяем, что все правильные ответы в столбце выбраны
+                const allColumnCorrectSelected = colCorrectAnswers.every(cellKey =>
+                  userAnswersArr.includes(cellKey)
+                );
+                
+                if (allColumnCorrectSelected && pointsPerColumn[colIdx]) {
+                  score += pointsPerColumn[colIdx];
+                }
+              });
+            }
+            
             isCorrect = true;
           } else {
             // Если не все правильные ответы выбраны, начисляем 0 баллов
