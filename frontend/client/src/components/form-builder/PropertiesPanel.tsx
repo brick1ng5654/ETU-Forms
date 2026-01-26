@@ -17,13 +17,23 @@ import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
-
+import { MatrixCorrectAnswersModal } from "./MatrixCorrectAnswersModal";
+import { MouseEvent } from 'react';
 interface PropertiesPanelProps {
   selectedField: FormElementModel | null;
   selectedIds: string[];
   updateField: (id: string, updates: Partial<FormElementModel>) => void;
   deleteField: (id: string) => void;
   deleteSelected: () => void;
+  fields: FormElementModel[];
+}
+
+interface SortableFieldProps {
+  field: FormElementModel;
+  isSelected: boolean;
+  onSelect: (id: string, event: MouseEvent<HTMLDivElement>) => void;
+  onDelete: (id: string) => void;
+  updateField: (id: string, updates: Partial<FormElementModel>) => void;
   fields: FormElementModel[];
 }
 
@@ -35,7 +45,7 @@ interface SortableOptionItemProps {
 
 function SortableOptionItem({ id, option, disabled }: SortableOptionItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled });
-
+  
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -170,14 +180,14 @@ const propertiesSchemaByWidgetType: Record<WidgetType, PropertyFieldDef[]> = {
       labelKey: "propert.hideDate",
       type: "switch",
       target: "props.hideDate",
-      disabled: (field) => Boolean((field.props as Record<string, any>).hideTime),
+      disabled: (fieldParam) => Boolean((fieldParam.props as Record<string, any>).hideTime),
     },
     {
       key: "hideTime",
       labelKey: "propert.hideTime",
       type: "switch",
       target: "props.hideTime",
-      disabled: (field) => Boolean((field.props as Record<string, any>).hideDate),
+      disabled: (fieldParam) => Boolean((fieldParam.props as Record<string, any>).hideDate),
     },
   ],
   file_upload: [
@@ -224,12 +234,6 @@ const propertiesSchemaByWidgetType: Record<WidgetType, PropertyFieldDef[]> = {
       type: "switch",
       target: "props.multiplePerRow",
     },
-    {
-      key: "matrixValidationMode",
-      labelKey: "propert.matrixValidationMode",
-      type: "select",
-      target: "props.matrixValidationMode",
-    },
   ],
 };
 
@@ -258,8 +262,8 @@ const propertiesSchemaBySemanticType: Partial<Record<SemanticType, PropertyField
       labelKey: "propert.hidePassportSeriesNumber",
       type: "switch",
       target: "props.hidePassportSeriesNumber",
-      disabled: (field) => {
-        const props = field.props as Record<string, any>;
+      disabled: (fieldParam) => {
+        const props = fieldParam.props as Record<string, any>;
         const visible = [
           !props.hidePassportSeriesNumber,
           !props.hidePassportIssuedBy,
@@ -269,9 +273,9 @@ const propertiesSchemaBySemanticType: Partial<Record<SemanticType, PropertyField
         ].filter(Boolean).length;
         return !props.hidePassportSeriesNumber && visible === 1;
       },
-      guard: (field, value) => {
+      guard: (fieldParam, value) => {
         if (!value) return true;
-        const props = field.props as Record<string, any>;
+        const props = fieldParam.props as Record<string, any>;
         const visible = [
           !props.hidePassportSeriesNumber,
           !props.hidePassportIssuedBy,
@@ -287,8 +291,8 @@ const propertiesSchemaBySemanticType: Partial<Record<SemanticType, PropertyField
       labelKey: "propert.hidePassportIssuedBy",
       type: "switch",
       target: "props.hidePassportIssuedBy",
-      disabled: (field) => {
-        const props = field.props as Record<string, any>;
+      disabled: (fieldParam) => {
+        const props = fieldParam.props as Record<string, any>;
         const visible = [
           !props.hidePassportSeriesNumber,
           !props.hidePassportIssuedBy,
@@ -298,9 +302,9 @@ const propertiesSchemaBySemanticType: Partial<Record<SemanticType, PropertyField
         ].filter(Boolean).length;
         return !props.hidePassportIssuedBy && visible === 1;
       },
-      guard: (field, value) => {
+      guard: (fieldParam, value) => {
         if (!value) return true;
-        const props = field.props as Record<string, any>;
+        const props = fieldParam.props as Record<string, any>;
         const visible = [
           !props.hidePassportSeriesNumber,
           !props.hidePassportIssuedBy,
@@ -316,8 +320,8 @@ const propertiesSchemaBySemanticType: Partial<Record<SemanticType, PropertyField
       labelKey: "propert.hidePassportIssueDate",
       type: "switch",
       target: "props.hidePassportIssueDate",
-      disabled: (field) => {
-        const props = field.props as Record<string, any>;
+      disabled: (fieldParam) => {
+        const props = fieldParam.props as Record<string, any>;
         const visible = [
           !props.hidePassportSeriesNumber,
           !props.hidePassportIssuedBy,
@@ -327,9 +331,9 @@ const propertiesSchemaBySemanticType: Partial<Record<SemanticType, PropertyField
         ].filter(Boolean).length;
         return !props.hidePassportIssueDate && visible === 1;
       },
-      guard: (field, value) => {
+      guard: (fieldParam, value) => {
         if (!value) return true;
-        const props = field.props as Record<string, any>;
+        const props = fieldParam.props as Record<string, any>;
         const visible = [
           !props.hidePassportSeriesNumber,
           !props.hidePassportIssuedBy,
@@ -345,8 +349,8 @@ const propertiesSchemaBySemanticType: Partial<Record<SemanticType, PropertyField
       labelKey: "propert.hidePassportDepartmentCode",
       type: "switch",
       target: "props.hidePassportDepartmentCode",
-      disabled: (field) => {
-        const props = field.props as Record<string, any>;
+      disabled: (fieldParam) => {
+        const props = fieldParam.props as Record<string, any>;
         const visible = [
           !props.hidePassportSeriesNumber,
           !props.hidePassportIssuedBy,
@@ -356,9 +360,9 @@ const propertiesSchemaBySemanticType: Partial<Record<SemanticType, PropertyField
         ].filter(Boolean).length;
         return !props.hidePassportDepartmentCode && visible === 1;
       },
-      guard: (field, value) => {
+      guard: (fieldParam, value) => {
         if (!value) return true;
-        const props = field.props as Record<string, any>;
+        const props = fieldParam.props as Record<string, any>;
         const visible = [
           !props.hidePassportSeriesNumber,
           !props.hidePassportIssuedBy,
@@ -374,8 +378,8 @@ const propertiesSchemaBySemanticType: Partial<Record<SemanticType, PropertyField
       labelKey: "propert.hidePassportBirthPlace",
       type: "switch",
       target: "props.hidePassportBirthPlace",
-      disabled: (field) => {
-        const props = field.props as Record<string, any>;
+      disabled: (fieldParam) => {
+        const props = fieldParam.props as Record<string, any>;
         const visible = [
           !props.hidePassportSeriesNumber,
           !props.hidePassportIssuedBy,
@@ -385,9 +389,9 @@ const propertiesSchemaBySemanticType: Partial<Record<SemanticType, PropertyField
         ].filter(Boolean).length;
         return !props.hidePassportBirthPlace && visible === 1;
       },
-      guard: (field, value) => {
+      guard: (fieldParam, value) => {
         if (!value) return true;
-        const props = field.props as Record<string, any>;
+        const props = fieldParam.props as Record<string, any>;
         const visible = [
           !props.hidePassportSeriesNumber,
           !props.hidePassportIssuedBy,
@@ -423,7 +427,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
 
   const [rankingOrderOptions, setRankingOrderOptions] = useState<string[]>([]);
   const [isConditionalSelectOpen, setIsConditionalSelectOpen] = useState(false);
-
+  const [isMatrixModalOpen, setIsMatrixModalOpen] = useState(false);
   useEffect(() => {
     if (!selectedField) return;
     const options = (selectedField.props as Record<string, any>).options as string[] | undefined;
@@ -636,6 +640,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
       
       // Special handling for matrixValidationMode
       if (fieldDef.key === "matrixValidationMode") {
+        
         selectOptions = [
           { value: "any", label: t("propert.matrixValidationModeAny") },
           { value: "all", label: t("propert.matrixValidationModeAll") }
@@ -644,7 +649,24 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
       
       return (
         <div key={fieldDef.key} className="space-y-2">
-          {label}
+          <div className="flex items-center gap-2">
+            {label}
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={t("propert.matrixCorrPoint")}
+                  className="h-4 w-4 rounded-full border border-muted-foreground/40 text-muted-foreground text-[9px] leading-none flex items-center justify-center hover:bg-muted"
+                >
+                  ?
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">
+                {t("propert.matrixCorrPoint")}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+          
           <Select
             value={selectValue}
             onValueChange={(value) => updateByTarget(fieldDef.target, value || undefined)}
@@ -883,23 +905,23 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
         {canHaveCorrectAnswers && (
           <div className="space-y-3 pt-2 border-t mt-2">
             <Label className="text-green-600 flex items-center gap-1">
-              <Check className="h-4 w-4" /> {t("propert.corransw")}
-              <Label className="text-green-600 flex items-center gap-1">
-            <Tooltip delayDuration={0}>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  aria-label={t("propert.matrixCorrectAnswersFormatHelp")}
-                  className="h-4 w-4 rounded-full border border-muted-foreground/40 text-muted-foreground text-[9px] leading-none flex items-center justify-center hover:bg-muted"
-                >
-                  ?
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">
-                {t("propert.matrixCorrectAnswersFormatHelp")}
-              </TooltipContent>
-            </Tooltip>
-          </Label>
+                  <Check className="h-4 w-4" /> {t("propert.corransw")}
+                <Label className="text-green-600 flex items-center gap-1">
+                <Tooltip delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label={t("propert.matrixCorrectAnswersFormatHelp")}
+                      className="h-4 w-4 rounded-full border border-muted-foreground/40 text-muted-foreground text-[9px] leading-none flex items-center justify-center hover:bg-muted"
+                    >
+                      ?
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">
+                    {t("propert.matrixCorrectAnswersFormatHelp")}
+                  </TooltipContent>
+                </Tooltip>
+              </Label>
             </Label>
             <p className="text-xs text-muted-foreground">
               {hasOptions
@@ -1125,23 +1147,29 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                   }}
                 >
                   <Plus className="h-4 w-4 mr-2" /> {t("propert.addcorransw")}
-                  
                 </Button>
+                <MatrixCorrectAnswersModal
+                  field={selectedField}
+                  open={isMatrixModalOpen}
+                  onOpenChange={setIsMatrixModalOpen}
+                  updateField={updateField}
+                />
 
               </div>
             )}
 
             <div className="space-y-2 mt-3">
-              <Label className="text-green-600">{t("propert.pointcorr")}</Label>
-              <Input
-                type="number"
-                min="0"
-                value={props.points ?? ""}
-                onChange={(e) => updateField(selectedField.id, { props: { points: e.target.value ? parseInt(e.target.value, 10) : undefined } })}
-                placeholder="0"
-                className="border-green-200 focus-visible:ring-green-500"
-              />
-              <p className="text-xs text-muted-foreground">{t("propert.subpoint")}</p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsMatrixModalOpen(true);
+                }}
+              > 
+                {t("propert.distributePoints")}
+              </Button>
             </div>
 
             {isMatrix && (() => {
