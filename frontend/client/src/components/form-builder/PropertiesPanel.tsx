@@ -817,7 +817,13 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
 =======
         {(selectedField.widgetType === "text_input" || selectedField.widgetType === "textarea") &&
           selectedField.semanticType !== "full_name" &&
-          selectedField.semanticType !== "phone" && (
+          selectedField.semanticType !== "phone" &&
+          selectedField.semanticType !== "passport" &&
+          selectedField.semanticType !== "inn" &&
+          selectedField.semanticType !== "snils" &&
+          selectedField.semanticType !== "bank_account" &&
+          selectedField.semanticType !== "ogrn" &&
+          selectedField.semanticType !== "bik" && (
           <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
             <div className="space-y-0.5">
               <Label>{t("propert.longtxt")}</Label>
