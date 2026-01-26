@@ -30,10 +30,9 @@ async def publish_form(db: AsyncSession, payload: FormPublishRequest) -> models.
             widget=el.widget.value if hasattr(el.widget, "value") else el.widget,
             semantic=(el.semantic.value if (el.semantic and hasattr(el.semantic, "value")) else el.semantic),
             label=el.label,
-            description=el.description,
             correct_answer=el.correct_answer,
             text_hint=el.text_hint,
-            supportive_text=el.supportive_text,
+            supportive_text=el.supportive_text if el.supportive_text is not None else el.description,
             required_field=el.required_field,
             other_settings=other,
         )

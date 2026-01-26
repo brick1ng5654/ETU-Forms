@@ -144,12 +144,19 @@ class FormElement(Base):
     widget = Column(widget_type_enum, nullable=False)
     semantic = Column(semantic_type_enum, nullable=True)
     label = Column(String(255), nullable=False)
-    description = Column(Text, nullable=True)
     correct_answer = Column(JSON, nullable=True)
     text_hint = Column(Text, nullable=True)
     supportive_text = Column(Text, nullable=True)
     required_field = Column(Boolean, nullable=False, server_default="false")
     other_settings = Column(JSON, nullable=True)
+
+    @property
+    def description(self) -> str | None:
+        return self.supportive_text
+
+    @description.setter
+    def description(self, value: str | None) -> None:
+        self.supportive_text = value
 
     form = relationship("Form", back_populates="elements")
     template = relationship("Template", back_populates="elements")
