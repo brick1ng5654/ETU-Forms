@@ -579,7 +579,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
 
       elements: publishFields.map((f, index) => {
         // Преобразование из f.props (свойства элемента из фронта) в свойства в бд.
-        const { placeholder, correctAnswer, correctAnswers, points, ...otherSettings } = (f.props ?? {}) as Record<string, unknown>;
+        const { placeholder, correctAnswer, correctAnswers, points, conditionalLogic, ...otherSettings } = (f.props ?? {}) as Record<string, unknown>;
         const cleanedOtherSettings: Record<string, unknown> = { ...otherSettings };
         if (points !== undefined) cleanedOtherSettings.points = points;
         const rawCorrectAnswer = correctAnswer ?? correctAnswers;
