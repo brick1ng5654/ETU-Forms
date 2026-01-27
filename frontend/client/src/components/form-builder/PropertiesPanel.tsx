@@ -412,10 +412,18 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
   const canHaveCorrectAnswers = !isHeader && selectedField.widgetType !== "file_upload" && !isDatetime && !specialized;
   const isPlainText =
     (selectedField.widgetType === "text_input" || selectedField.widgetType === "textarea") &&
-    !selectedField.semanticType;
+    !selectedField.semanticType &&
+    !props.inputType;
+  const isMultiline = selectedField.widgetType === "textarea";
   const textMaxLimit = getTextMaxLimit(selectedField.widgetType);
   const rawTextMaxChars = typeof props.maxChars === "number" ? props.maxChars : undefined;
   const textMaxChars = clampTextMaxChars(rawTextMaxChars ?? textMaxLimit, textMaxLimit);
+  const [textMaxCharsInput, setTextMaxCharsInput] = useState<string>("");
+
+  useEffect(() => {
+    if (!isPlainText) return;
+    setTextMaxCharsInput(String(textMaxChars));
+  }, [isPlainText, selectedField.id, textMaxChars]);
 
   const updateByTarget = (target: PropertyFieldDef["target"], value: unknown) => {
     if (target === "label") {
@@ -605,25 +613,64 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
 
       <div className="space-y-4">
         {schemaFields.map(renderPropertyField)}
-        {(selectedField.widgetType === "text_input" || selectedField.widgetType === "textarea") &&
-          selectedField.semanticType !== "passport" && (
-          <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-            <div className="space-y-0.5">
-              <Label>{t("propert.longtxt")}</Label>
+        {isPlainText && (
+          <>
+            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <Label>{t("propert.longtxt")}</Label>
+                  <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={t("propert.longtxtHelp")}
+                        className="h-5 w-5 rounded-full border border-muted-foreground/40 text-muted-foreground text-[11px] leading-none flex items-center justify-center hover:bg-muted"
+                      >
+                        ?
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">
+                      {t("propert.longtxtHelp")}
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
+              <Switch
+                checked={isMultiline}
+                onCheckedChange={(checked) => {
+                  const nextLimit = checked ? TEXT_MULTILINE_MAX_CHARS : TEXT_SINGLELINE_MAX_CHARS;
+                  const nextMaxChars = rawTextMaxChars
+                    ? clampTextMaxChars(rawTextMaxChars, nextLimit)
+                    : nextLimit;
+                  updateField(selectedField.id, {
+                    widgetType: checked ? "textarea" : "text_input",
+                    props: {
+                      multiline: checked,
+                      maxChars: nextMaxChars,
+                    },
+                  });
+                }}
+              />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 rounded-lg border p-3 shadow-sm">
               <Label>{t("propert.maxChars")}</Label>
               <Input
                 type="number"
                 min={1}
                 max={textMaxLimit}
-                value={textMaxChars}
-                onChange={(e) => {
-                  const nextValue = Number.parseInt(e.target.value, 10);
-                  if (Number.isNaN(nextValue)) return;
+                value={textMaxCharsInput}
+                onChange={(e) => setTextMaxCharsInput(e.target.value)}
+                onBlur={() => {
+                  const nextValue = Number.parseInt(textMaxCharsInput, 10);
+                  if (Number.isNaN(nextValue)) {
+                    setTextMaxCharsInput(String(textMaxChars));
+                    return;
+                  }
+                  const clamped = clampTextMaxChars(nextValue, textMaxLimit);
                   updateField(selectedField.id, {
-                    props: { maxChars: clampTextMaxChars(nextValue, textMaxLimit) },
+                    props: { maxChars: clamped },
                   });
+                  setTextMaxCharsInput(String(clamped));
                 }}
               />
               <p className="text-xs text-muted-foreground">
