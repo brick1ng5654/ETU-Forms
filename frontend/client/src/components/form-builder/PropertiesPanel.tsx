@@ -214,6 +214,29 @@ const propertiesSchemaByWidgetType: Record<WidgetType, PropertyFieldDef[]> = {
   ranking: [baseLabelField, helperTextField, requiredField],
 };
 
+const getPassportVisibleCount = (props: Record<string, any>) =>
+  [
+    !props.hidePassportFullName,
+    !props.hidePassportGender,
+    !props.hidePassportBirthDate,
+    !props.hidePassportSeriesNumber,
+    !props.hidePassportIssuedBy,
+    !props.hidePassportIssueDate,
+    !props.hidePassportDepartmentCode,
+    !props.hidePassportBirthPlace,
+  ].filter(Boolean).length;
+
+const passportHideDisabled = (field: FormElementModel, key: string) => {
+  const props = field.props as Record<string, any>;
+  return !props[key] && getPassportVisibleCount(props) === 1;
+};
+
+const passportHideGuard = (field: FormElementModel, value: unknown) => {
+  if (!value) return true;
+  const props = field.props as Record<string, any>;
+  return getPassportVisibleCount(props) > 1;
+};
+
 const propertiesSchemaBySemanticType: Partial<Record<SemanticType, PropertyFieldDef[]>> = {
   inn: [
     {
@@ -235,149 +258,68 @@ const propertiesSchemaBySemanticType: Partial<Record<SemanticType, PropertyField
   ],
   passport: [
     {
+      key: "hidePassportFullName",
+      labelKey: "propert.hidePassportFullName",
+      type: "switch",
+      target: "props.hidePassportFullName",
+      disabled: (field) => passportHideDisabled(field, "hidePassportFullName"),
+      guard: passportHideGuard,
+    },
+    {
+      key: "hidePassportGender",
+      labelKey: "propert.hidePassportGender",
+      type: "switch",
+      target: "props.hidePassportGender",
+      disabled: (field) => passportHideDisabled(field, "hidePassportGender"),
+      guard: passportHideGuard,
+    },
+    {
+      key: "hidePassportBirthDate",
+      labelKey: "propert.hidePassportBirthDate",
+      type: "switch",
+      target: "props.hidePassportBirthDate",
+      disabled: (field) => passportHideDisabled(field, "hidePassportBirthDate"),
+      guard: passportHideGuard,
+    },
+    {
       key: "hidePassportSeriesNumber",
       labelKey: "propert.hidePassportSeriesNumber",
       type: "switch",
       target: "props.hidePassportSeriesNumber",
-      disabled: (field) => {
-        const props = field.props as Record<string, any>;
-        const visible = [
-          !props.hidePassportSeriesNumber,
-          !props.hidePassportIssuedBy,
-          !props.hidePassportIssueDate,
-          !props.hidePassportDepartmentCode,
-          !props.hidePassportBirthPlace,
-        ].filter(Boolean).length;
-        return !props.hidePassportSeriesNumber && visible === 1;
-      },
-      guard: (field, value) => {
-        if (!value) return true;
-        const props = field.props as Record<string, any>;
-        const visible = [
-          !props.hidePassportSeriesNumber,
-          !props.hidePassportIssuedBy,
-          !props.hidePassportIssueDate,
-          !props.hidePassportDepartmentCode,
-          !props.hidePassportBirthPlace,
-        ].filter(Boolean).length;
-        return visible > 1;
-      },
+      disabled: (field) => passportHideDisabled(field, "hidePassportSeriesNumber"),
+      guard: passportHideGuard,
     },
     {
       key: "hidePassportIssuedBy",
       labelKey: "propert.hidePassportIssuedBy",
       type: "switch",
       target: "props.hidePassportIssuedBy",
-      disabled: (field) => {
-        const props = field.props as Record<string, any>;
-        const visible = [
-          !props.hidePassportSeriesNumber,
-          !props.hidePassportIssuedBy,
-          !props.hidePassportIssueDate,
-          !props.hidePassportDepartmentCode,
-          !props.hidePassportBirthPlace,
-        ].filter(Boolean).length;
-        return !props.hidePassportIssuedBy && visible === 1;
-      },
-      guard: (field, value) => {
-        if (!value) return true;
-        const props = field.props as Record<string, any>;
-        const visible = [
-          !props.hidePassportSeriesNumber,
-          !props.hidePassportIssuedBy,
-          !props.hidePassportIssueDate,
-          !props.hidePassportDepartmentCode,
-          !props.hidePassportBirthPlace,
-        ].filter(Boolean).length;
-        return visible > 1;
-      },
+      disabled: (field) => passportHideDisabled(field, "hidePassportIssuedBy"),
+      guard: passportHideGuard,
     },
     {
       key: "hidePassportIssueDate",
       labelKey: "propert.hidePassportIssueDate",
       type: "switch",
       target: "props.hidePassportIssueDate",
-      disabled: (field) => {
-        const props = field.props as Record<string, any>;
-        const visible = [
-          !props.hidePassportSeriesNumber,
-          !props.hidePassportIssuedBy,
-          !props.hidePassportIssueDate,
-          !props.hidePassportDepartmentCode,
-          !props.hidePassportBirthPlace,
-        ].filter(Boolean).length;
-        return !props.hidePassportIssueDate && visible === 1;
-      },
-      guard: (field, value) => {
-        if (!value) return true;
-        const props = field.props as Record<string, any>;
-        const visible = [
-          !props.hidePassportSeriesNumber,
-          !props.hidePassportIssuedBy,
-          !props.hidePassportIssueDate,
-          !props.hidePassportDepartmentCode,
-          !props.hidePassportBirthPlace,
-        ].filter(Boolean).length;
-        return visible > 1;
-      },
+      disabled: (field) => passportHideDisabled(field, "hidePassportIssueDate"),
+      guard: passportHideGuard,
     },
     {
       key: "hidePassportDepartmentCode",
       labelKey: "propert.hidePassportDepartmentCode",
       type: "switch",
       target: "props.hidePassportDepartmentCode",
-      disabled: (field) => {
-        const props = field.props as Record<string, any>;
-        const visible = [
-          !props.hidePassportSeriesNumber,
-          !props.hidePassportIssuedBy,
-          !props.hidePassportIssueDate,
-          !props.hidePassportDepartmentCode,
-          !props.hidePassportBirthPlace,
-        ].filter(Boolean).length;
-        return !props.hidePassportDepartmentCode && visible === 1;
-      },
-      guard: (field, value) => {
-        if (!value) return true;
-        const props = field.props as Record<string, any>;
-        const visible = [
-          !props.hidePassportSeriesNumber,
-          !props.hidePassportIssuedBy,
-          !props.hidePassportIssueDate,
-          !props.hidePassportDepartmentCode,
-          !props.hidePassportBirthPlace,
-        ].filter(Boolean).length;
-        return visible > 1;
-      },
+      disabled: (field) => passportHideDisabled(field, "hidePassportDepartmentCode"),
+      guard: passportHideGuard,
     },
     {
       key: "hidePassportBirthPlace",
       labelKey: "propert.hidePassportBirthPlace",
       type: "switch",
       target: "props.hidePassportBirthPlace",
-      disabled: (field) => {
-        const props = field.props as Record<string, any>;
-        const visible = [
-          !props.hidePassportSeriesNumber,
-          !props.hidePassportIssuedBy,
-          !props.hidePassportIssueDate,
-          !props.hidePassportDepartmentCode,
-          !props.hidePassportBirthPlace,
-        ].filter(Boolean).length;
-        return !props.hidePassportBirthPlace && visible === 1;
-      },
-      guard: (field, value) => {
-        if (!value) return true;
-        const props = field.props as Record<string, any>;
-        const visible = [
-          !props.hidePassportSeriesNumber,
-          !props.hidePassportIssuedBy,
-          !props.hidePassportIssueDate,
-          !props.hidePassportDepartmentCode,
-          !props.hidePassportBirthPlace,
-        ].filter(Boolean).length;
-        return visible > 1;
-      },
+      disabled: (field) => passportHideDisabled(field, "hidePassportBirthPlace"),
+      guard: passportHideGuard,
     },
   ],
 };
@@ -450,6 +392,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
   const showRequiredToggle = !isHeader && !isDatetime && selectedField.semanticType !== "full_name";
   const schemaFields = propertiesSchemaByWidgetType[selectedField.widgetType].filter((fieldDef) => {
     if (fieldDef.key === "required" && !showRequiredToggle) return false;
+    if (selectedField.semanticType === "passport" && fieldDef.key === "placeholder") return false;
     return !fieldDef.visible || fieldDef.visible(selectedField);
   });
   const semanticFields = selectedField.semanticType
@@ -648,7 +591,8 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
 
       <div className="space-y-4">
         {schemaFields.map(renderPropertyField)}
-        {(selectedField.widgetType === "text_input" || selectedField.widgetType === "textarea") && (
+        {(selectedField.widgetType === "text_input" || selectedField.widgetType === "textarea") &&
+          selectedField.semanticType !== "passport" && (
           <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
             <div className="space-y-0.5">
               <Label>{t("propert.longtxt")}</Label>

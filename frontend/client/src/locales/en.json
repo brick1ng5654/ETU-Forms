@@ -122,6 +122,10 @@
       "patronymic": "Middle name (if any)"
     },
     "passport": {
+      "gender": "Gender",
+      "genderMale": "Male",
+      "genderFemale": "Female",
+      "birthDate": "Date of birth",
       "seriesNumber": "Series and number",
       "issuedBy": "Issued by",
       "issueDate": "Issue date",
@@ -183,6 +187,9 @@
     "hideDate": "Hide Date",
     "hideTime": "Hide Time",
     "passportFields": "Passport fields",
+    "hidePassportFullName": "Hide full name",
+    "hidePassportGender": "Hide gender",
+    "hidePassportBirthDate": "Hide date of birth",
     "hidePassportSeriesNumber": "Hide series and number",
     "hidePassportIssuedBy": "Hide issued by",
     "hidePassportIssueDate": "Hide issue date",
