@@ -41,7 +41,7 @@ import { Languages } from "lucide-react";
 const TOOLBOX_ITEMS: ToolboxItemDefinition[] = [
   // Basic
   { widgetType: "header", labelKey: "header", category: "Basic" },
-  { widgetType: "textarea", labelKey: "text", category: "Basic" },
+  { widgetType: "text_input", labelKey: "text", category: "Basic" },
   { widgetType: "number_input", labelKey: "number", category: "Basic" },
 
   // Choice

@@ -324,6 +324,15 @@ const propertiesSchemaBySemanticType: Partial<Record<SemanticType, PropertyField
   ],
 };
 
+const TEXT_SINGLELINE_MAX_CHARS = 255;
+const TEXT_MULTILINE_MAX_CHARS = 10000;
+
+const getTextMaxLimit = (widgetType: WidgetType) =>
+  widgetType === "textarea" ? TEXT_MULTILINE_MAX_CHARS : TEXT_SINGLELINE_MAX_CHARS;
+
+const clampTextMaxChars = (value: number, limit: number) =>
+  Math.min(Math.max(value, 1), limit);
+
 const getValueByTarget = (field: FormElementModel, target: PropertyFieldDef["target"]) => {
   if (target === "label") return field.label;
   if (target === "description") return field.description || "";
@@ -401,6 +410,20 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
 
   const specialized = Boolean(selectedField.semanticType);
   const canHaveCorrectAnswers = !isHeader && selectedField.widgetType !== "file_upload" && !isDatetime && !specialized;
+  const isPlainText =
+    (selectedField.widgetType === "text_input" || selectedField.widgetType === "textarea") &&
+    !selectedField.semanticType &&
+    !props.inputType;
+  const isMultiline = selectedField.widgetType === "textarea";
+  const textMaxLimit = getTextMaxLimit(selectedField.widgetType);
+  const rawTextMaxChars = typeof props.maxChars === "number" ? props.maxChars : undefined;
+  const textMaxChars = clampTextMaxChars(rawTextMaxChars ?? textMaxLimit, textMaxLimit);
+  const [textMaxCharsInput, setTextMaxCharsInput] = useState<string>("");
+
+  useEffect(() => {
+    if (!isPlainText) return;
+    setTextMaxCharsInput(String(textMaxChars));
+  }, [isPlainText, selectedField.id, textMaxChars]);
 
   const updateByTarget = (target: PropertyFieldDef["target"], value: unknown) => {
     if (target === "label") {
@@ -447,7 +470,6 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
         )}
       </div>
     );
-
     if (fieldDef.type === "textarea") {
       return (
         <div key={fieldDef.key} className="space-y-2">
@@ -591,19 +613,71 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
 
       <div className="space-y-4">
         {schemaFields.map(renderPropertyField)}
-        {(selectedField.widgetType === "text_input" || selectedField.widgetType === "textarea") &&
-          selectedField.semanticType !== "passport" && (
-          <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-            <div className="space-y-0.5">
-              <Label>{t("propert.longtxt")}</Label>
+        {isPlainText && (
+          <>
+            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <Label>{t("propert.longtxt")}</Label>
+                  <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={t("propert.longtxtHelp")}
+                        className="h-5 w-5 rounded-full border border-muted-foreground/40 text-muted-foreground text-[11px] leading-none flex items-center justify-center hover:bg-muted"
+                      >
+                        ?
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">
+                      {t("propert.longtxtHelp")}
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
+              <Switch
+                checked={isMultiline}
+                onCheckedChange={(checked) => {
+                  const nextLimit = checked ? TEXT_MULTILINE_MAX_CHARS : TEXT_SINGLELINE_MAX_CHARS;
+                  const nextMaxChars = rawTextMaxChars
+                    ? clampTextMaxChars(rawTextMaxChars, nextLimit)
+                    : nextLimit;
+                  updateField(selectedField.id, {
+                    widgetType: checked ? "textarea" : "text_input",
+                    props: {
+                      multiline: checked,
+                      maxChars: nextMaxChars,
+                    },
+                  });
+                }}
+              />
             </div>
-            <Switch
-              checked={selectedField.widgetType === "textarea"}
-              onCheckedChange={(checked) => {
-                updateField(selectedField.id, { widgetType: checked ? "textarea" : "text_input" });
-              }}
-            />
-          </div>
+            <div className="space-y-2 rounded-lg border p-3 shadow-sm">
+              <Label>{t("propert.maxChars")}</Label>
+              <Input
+                type="number"
+                min={1}
+                max={textMaxLimit}
+                value={textMaxCharsInput}
+                onChange={(e) => setTextMaxCharsInput(e.target.value)}
+                onBlur={() => {
+                  const nextValue = Number.parseInt(textMaxCharsInput, 10);
+                  if (Number.isNaN(nextValue)) {
+                    setTextMaxCharsInput(String(textMaxChars));
+                    return;
+                  }
+                  const clamped = clampTextMaxChars(nextValue, textMaxLimit);
+                  updateField(selectedField.id, {
+                    props: { maxChars: clamped },
+                  });
+                  setTextMaxCharsInput(String(clamped));
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                {t("propert.maxCharsHint", { limit: textMaxLimit })}
+              </p>
+            </div>
+          </>
         )}
         {semanticFields.length > 0 && (
           <div className="space-y-3 pt-2">
