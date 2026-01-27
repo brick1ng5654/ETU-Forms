@@ -528,7 +528,16 @@ export default function Builder({ params }: { params: { id?: string } }) {
       settings_json: activeForm.settings_json ?? { client_form_id: activeForm.id },
 
       elements: publishFields.map((f, index) => {
-        const { placeholder, ...otherSettings } = (f.props ?? {}) as Record<string, unknown>;
+        const { placeholder, correctAnswer, correctAnswers, points, ...otherSettings } = (f.props ?? {}) as Record<string, unknown>;
+        const cleanedOtherSettings: Record<string, unknown> = { ...otherSettings };
+        if (points !== undefined) cleanedOtherSettings.points = points;
+        const rawCorrectAnswer = correctAnswer ?? correctAnswers;
+        const normalizedCorrectAnswer = (() => {
+          if (rawCorrectAnswer == null) return null;
+          if (Array.isArray(rawCorrectAnswer)) return { values: rawCorrectAnswer };
+          if (typeof rawCorrectAnswer === "object") return rawCorrectAnswer;
+          return { value: rawCorrectAnswer };
+        })();
         return {
           client_id: f.id,                 // nanoid
           widget: mapWidgetTypeForPublish(f.widgetType),
@@ -536,8 +545,9 @@ export default function Builder({ params }: { params: { id?: string } }) {
           label: f.label,
           description: f.description ?? null,
           text_hint: typeof placeholder === "string" ? placeholder : null,
+          correct_answer: normalizedCorrectAnswer,
           required_field: !!f.required,
-          other_settings: otherSettings,
+          other_settings: cleanedOtherSettings,
           sort_index: typeof f.sortIndex === "number" ? f.sortIndex : index
         };
       }),
