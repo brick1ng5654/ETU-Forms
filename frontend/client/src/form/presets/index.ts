@@ -22,6 +22,8 @@ export interface Preset {
   normalize?: (value: string, ctx: { previous?: string; props: Record<string, unknown> }) => string;
   format?: (value: string) => string;
   validate?: (value: string, ctx: { required?: boolean; props: Record<string, unknown> }) => string[];
+  labelKey?: string;
+  getLabelKey?: (props: Record<string, unknown>) => string | undefined;
   placeholder?: string;
   placeholderKey?: string;
   getPlaceholderKey?: (props: Record<string, unknown>) => string | undefined;
@@ -148,7 +150,8 @@ export const presets: Record<SemanticType, Preset> = {
       if (len !== expected) return [`INN must be ${expected} digits`];
       return [];
     },
-    placeholderKey: "placeholders.inn",
+    labelKey: "inputLabels.inn",
+    getPlaceholderKey: (props) => (props.innLegalEntity ? "placeholders.inn10" : "placeholders.inn12"),
     getMaxDigits: (props) => innLength(props),
     inputMode: "numeric",
   },
@@ -161,7 +164,8 @@ export const presets: Record<SemanticType, Preset> = {
       if (len !== 11) return ["SNILS must be 11 digits"];
       return [];
     },
-    placeholder: "000-000-000 00",
+    labelKey: "inputLabels.snils",
+    placeholderKey: "placeholders.snils",
     inputMode: "numeric",
     maxDigits: 11,
   },
@@ -174,6 +178,7 @@ export const presets: Record<SemanticType, Preset> = {
       if (len !== expected) return [`OGRN must be ${expected} digits`];
       return [];
     },
+    getLabelKey: (props) => (props.ogrnIp ? "inputLabels.ogrnIp" : "inputLabels.ogrn"),
     getPlaceholderKey: (props) => (props.ogrnIp ? "placeholders.ogrnIp" : "placeholders.ogrn"),
     getMaxDigits: (props) => ogrnLength(props),
     inputMode: "numeric",
@@ -186,6 +191,7 @@ export const presets: Record<SemanticType, Preset> = {
       if (len !== 9) return ["BIK must be 9 digits"];
       return [];
     },
+    labelKey: "inputLabels.bik",
     placeholderKey: "placeholders.bik",
     inputMode: "numeric",
     maxDigits: 9,

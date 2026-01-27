@@ -152,7 +152,12 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
       );
     }
 
-    const placeholderKey = preset?.getPlaceholderKey ? preset.getPlaceholderKey(props) : preset?.placeholderKey;
+    const labelKey = preset?.getLabelKey ? preset.getLabelKey(props) : preset?.labelKey;
+    const placeholderKey = labelKey?.startsWith("inputLabels.")
+      ? labelKey
+      : preset?.getPlaceholderKey
+        ? preset.getPlaceholderKey(props)
+        : preset?.placeholderKey;
     const placeholder = placeholderKey
       ? t(placeholderKey)
       : preset?.placeholder || (props.placeholder as string) || "";
