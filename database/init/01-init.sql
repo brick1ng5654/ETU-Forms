@@ -180,7 +180,7 @@ COMMENT ON COLUMN Response.user_id IS 'ID пользователя, которы
 COMMENT ON COLUMN Response.created_at IS 'Дата и время создания ответа';
 COMMENT ON COLUMN Response.completed_at IS 'Дата и время завершения ответа';
 
-CREATE TABLE IF NOT EXISTS AccessControl (
+CREATE TABLE IF NOT EXISTS access_control (
     access_id SERIAL PRIMARY KEY,
     form_id INT NOT NULL,
     user_id INT NOT NULL,
@@ -204,11 +204,11 @@ CREATE TABLE IF NOT EXISTS AccessControl (
 CREATE INDEX IF NOT EXISTS idx_access_user
 ON AccessControl (user_id);
 
-COMMENT ON TABLE AccessControl IS 'Таблица контроля доступа к формам';
-COMMENT ON COLUMN AccessControl.access_id IS 'Уникальный идентификатор доступа';
-COMMENT ON COLUMN AccessControl.form_id IS 'ID формы';
-COMMENT ON COLUMN AccessControl.user_id IS 'ID пользователя';
-COMMENT ON COLUMN AccessControl.role IS 'Роль пользователя (editor или participant)';
+COMMENT ON TABLE access_control IS 'Таблица контроля доступа к формам';
+COMMENT ON COLUMN access_control.access_id IS 'Уникальный идентификатор доступа';
+COMMENT ON COLUMN access_control.form_id IS 'ID формы';
+COMMENT ON COLUMN access_control.user_id IS 'ID пользователя';
+COMMENT ON COLUMN access_control.role IS 'Роль пользователя (editor или participant)';
 
 CREATE TABLE IF NOT EXISTS Template(
     template_id SERIAL PRIMARY KEY,
