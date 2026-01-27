@@ -264,13 +264,12 @@ class BuilderElementIn(BaseModel):
     client_id: str
     widget: WidgetType
     semantic: Optional[SemanticType] = None
-    label: str = Field(..., min_lenght=1, max_length=255)
+    label: str = Field(..., min_lenght=1, max_lenght=255)
     description: Optional[str] = None
     required_field: bool = False
     correct_answer: Optional[Dict[str, Any]] = None
     text_hint: Optional[str] = None
     supportive_text: Optional[str] = None
-    required_field: bool = False
     other_settings: Optional[Dict[str, Any]] = None
     sort_index: int
 

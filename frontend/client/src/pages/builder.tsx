@@ -498,6 +498,55 @@ export default function Builder({ params }: { params: { id?: string } }) {
     return widgetType;
   };
 
+  type PublishCondition = {
+    source_client_id: string;
+    target_client_id: string;
+    operator: "equals" | "not_equals" | "in" | "not_in" | "greater_than" | "less_than" | "contains";
+    value: any;
+  };
+
+  const extractConditionsFromFields = (publishFields: FormElementModel[]): PublishCondition[] => {
+    const out: PublishCondition[] = [];
+
+    for (const target of publishFields) {
+      const logic = (target.props as any)?.conditionalLogic as
+        | { dependsOn?: string; condition?: "equals" | "not_equals" | "answered"; expectedValue?: string | string[] }
+        | undefined;
+      if (!logic?.dependsOn || !logic.condition) continue;
+
+      let operator: PublishCondition["operator"] | null = null;
+      let value: any = null;
+
+      if (logic.condition === "equals") {
+        operator = "equals";
+        if (logic.expectedValue === undefined) continue;
+        value = Array.isArray(logic.expectedValue)
+          ? { values: logic.expectedValue }
+          : { value: logic.expectedValue };
+      } else if (logic.condition === "not_equals") {
+        operator = "not_equals";
+        if (logic.expectedValue === undefined) continue;
+        value = Array.isArray(logic.expectedValue)
+          ? { values: logic.expectedValue }
+          : { value: logic.expectedValue };
+      } else if (logic.condition === "answered") {
+        operator = "not_equals";
+        value = { value: null };
+      }
+
+      if (!operator) continue;
+
+      out.push({
+        source_client_id: String(logic.dependsOn),
+        target_client_id: target.id,
+        operator,
+        value,
+      });
+    }
+
+    return out;
+  };
+
   const publishToServer = async () => {
     if (!activeForm) return;
 
@@ -505,6 +554,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
       if (Array.isArray(activeForm.fields) && activeForm.fields.length > 0) {
         return activeForm.fields;
       }
+      // structure_json - это пока что для старых форм из local_storage
       const raw = (activeForm as any)?.structure_json?.fields;
       if (Array.isArray(raw) && raw.length > 0) {
         const normalized =
@@ -554,7 +604,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
         };
       }),
 
-      conditions: [] // если есть — добавишь
+      conditions: extractConditionsFromFields(publishFields),
     };
 
     const res = await fetch("/api/v1/forms/publish", {
