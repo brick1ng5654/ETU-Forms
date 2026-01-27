@@ -7,6 +7,7 @@ export interface PresetPart {
   placeholder?: string;
   inputMode?: string;
   inputType?: string;
+  options?: Array<{ value: string; labelKey?: string; label?: string }>;
   hiddenProp?: string;
   required?: boolean;
   maxChars?: number;
@@ -234,12 +235,57 @@ export const presets: Record<SemanticType, Preset> = {
         placeholderKey: "formParts.fullName.patronymic",
         maxChars: 50,
         hideLengthIndicator: true,
+        required: false,
         normalize: (value) => normalizeNamePart(value, 50),
       },
     ],
   },
   passport: {
     parts: [
+      {
+        key: "lastName",
+        labelKey: "formParts.fullName.lastName",
+        placeholderKey: "formParts.fullName.lastName",
+        hiddenProp: "hidePassportFullName",
+        maxChars: 50,
+        hideLengthIndicator: true,
+        normalize: (value) => normalizeNamePart(value, 50),
+      },
+      {
+        key: "firstName",
+        labelKey: "formParts.fullName.firstName",
+        placeholderKey: "formParts.fullName.firstName",
+        hiddenProp: "hidePassportFullName",
+        maxChars: 50,
+        hideLengthIndicator: true,
+        normalize: (value) => normalizeNamePart(value, 50),
+      },
+      {
+        key: "patronymic",
+        labelKey: "formParts.fullName.patronymic",
+        placeholderKey: "formParts.fullName.patronymic",
+        hiddenProp: "hidePassportFullName",
+        maxChars: 50,
+        hideLengthIndicator: true,
+        required: false,
+        normalize: (value) => normalizeNamePart(value, 50),
+      },
+      {
+        key: "gender",
+        labelKey: "formParts.passport.gender",
+        hiddenProp: "hidePassportGender",
+        options: [
+          { value: "male", labelKey: "formParts.passport.genderMale" },
+          { value: "female", labelKey: "formParts.passport.genderFemale" },
+        ],
+      },
+      {
+        key: "birthDate",
+        labelKey: "formParts.passport.birthDate",
+        placeholderKey: "formParts.passport.birthDate",
+        hiddenProp: "hidePassportBirthDate",
+        inputType: "date",
+      },
       {
         key: "seriesNumber",
         labelKey: "formParts.passport.seriesNumber",

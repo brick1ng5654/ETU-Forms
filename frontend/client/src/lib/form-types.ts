@@ -2,6 +2,7 @@ export type {
   AnswerValue,
   AnswersById,
   ConditionalLogic,
+  FormAccessMode,
   FormElementModel,
   FormFolder,
   FormSchema,

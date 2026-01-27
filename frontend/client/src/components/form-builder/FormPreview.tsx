@@ -341,7 +341,10 @@ export function FormPreview({ form }: FormPreviewProps) {
   const [errorsById, setErrorsById] = useState<Record<string, string[]>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [focusedFieldId, setFocusedFieldId] = useState<string | null>(null);
+  const [calendarMonths, setCalendarMonths] = useState<Record<string, Date>>({});
   const payloadRef = useRef<ReturnType<typeof buildAnswersPayload> | null>(null);
+  const dateCacheRef = useRef<Map<string, Date | undefined>>(new Map());
+  const calendarInitialMonthRef = useRef<Map<string, Date>>(new Map());
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -395,6 +398,44 @@ export function FormPreview({ form }: FormPreviewProps) {
     if (!isValidDateString(value)) return undefined;
     const [y, m, d] = value.split("-").map(Number);
     return new Date(y, m - 1, d);
+  };
+
+  const getStableDate = (value: string | null | undefined) => {
+    if (!value) return undefined;
+    const cache = dateCacheRef.current;
+    if (cache.has(value)) {
+      return cache.get(value);
+    }
+    const parsed = parseDateFromString(value);
+    cache.set(value, parsed);
+    return parsed;
+  };
+
+  const getCalendarKey = (fieldId: string, partKey?: string) =>
+    partKey ? `${fieldId}:${partKey}` : `${fieldId}:date`;
+
+  const getCalendarMonth = (key: string, selectedValue?: string | null) => {
+    const stored = calendarMonths[key];
+    if (stored) return stored;
+    const initialCache = calendarInitialMonthRef.current;
+    if (initialCache.has(key)) {
+      return initialCache.get(key) as Date;
+    }
+    const parsed = selectedValue ? parseDateFromString(selectedValue) : undefined;
+    const initial = parsed ?? new Date();
+    initialCache.set(key, initial);
+    return initial;
+  };
+
+  const setCalendarMonth = (key: string, month: Date) => {
+    calendarInitialMonthRef.current.set(key, month);
+    setCalendarMonths((prev) => {
+      const prevMonth = prev[key];
+      if (prevMonth && prevMonth.getTime() === month.getTime()) {
+        return prev;
+      }
+      return { ...prev, [key]: month };
+    });
   };
 
   const handleRankingDragEnd = (fieldId: string, event: DragEndEvent) => {
@@ -586,6 +627,12 @@ export function FormPreview({ form }: FormPreviewProps) {
             const limit = part.maxDigits ?? part.maxChars;
             const showIndicator = Boolean(limit) && !part.hideLengthIndicator;
             const partError = fieldErrors.some((err) => err.startsWith(`${part.key}:`));
+            const isDatePart = part.inputType === "date";
+            const optionItems = part.options ?? [];
+            const hasOptions = optionItems.length > 0;
+            const optionValue = typeof rawValue === "string" ? rawValue : "";
+            const suppressPlaceholders = field.semanticType === "passport" || field.semanticType === "full_name";
+            const calendarKey = isDatePart ? getCalendarKey(field.id, part.key) : "";
 
             return (
               <div key={part.key} className="space-y-1">
@@ -593,33 +640,117 @@ export function FormPreview({ form }: FormPreviewProps) {
                   {label}
                   {(part.required ?? field.required) && <span className="text-destructive ml-1">*</span>}
                 </Label>
-                <div className="relative">
-                  <Input
-                    type={part.inputType || "text"}
-                    inputMode={part.inputMode}
-                    value={displayValue}
-                    onChange={(e) => {
-                      const normalized = part.normalize ? part.normalize(e.target.value) : e.target.value;
-                      updateAnswer(field.id, { ...compositeRecord, [part.key]: normalized } as AnswerValue);
+                {hasOptions ? (
+                  <RadioGroup
+                    className="flex flex-row flex-wrap gap-6"
+                    value={optionValue}
+                    onValueChange={(value) => {
+                      updateAnswer(field.id, { ...compositeRecord, [part.key]: value } as AnswerValue);
+                      markTouched(field.id);
                     }}
-                    onBlur={() => markTouched(field.id)}
                     disabled={isDisabled}
-                    maxLength={maxLength}
-                    placeholder={placeholder}
-                    className={cn(
-                      limit ? "pr-20" : "",
-                      partError ? "border-destructive focus-visible:ring-destructive/20" : ""
-                    )}
-                  />
-                  {showIndicator && (
-                    <LengthIndicator
-                      len={len}
-                      limit={limit}
-                      isError={partError}
-                      isComplete={len > 0 && len === limit}
+                  >
+                    {optionItems.map((option) => {
+                      const optionLabel = option.labelKey ? t(option.labelKey) : option.label || option.value;
+                      const optionId = `${field.id}-${part.key}-${option.value}`;
+                      return (
+                        <div key={option.value} className="flex items-center space-x-2">
+                          <RadioGroupItem value={option.value} id={optionId} />
+                          <Label htmlFor={optionId} className="cursor-pointer">
+                            {optionLabel}
+                          </Label>
+                        </div>
+                      );
+                    })}
+                  </RadioGroup>
+                ) : isDatePart ? (
+                  <div className="relative">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute left-0 top-0 h-10 w-10 hover:bg-transparent z-10"
+                          disabled={isDisabled}
+                          type="button"
+                        >
+                          <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start" portalled={false}>
+                        <Calendar
+                          mode="single"
+                          month={getCalendarMonth(calendarKey, rawValue)}
+                          onMonthChange={(month) => setCalendarMonth(calendarKey, month)}
+                          selected={getStableDate(rawValue)}
+                          onSelect={(date) => {
+                            if (date) {
+                              setCalendarMonth(calendarKey, date);
+                            }
+                            updateAnswer(field.id, {
+                              ...compositeRecord,
+                              [part.key]: date ? format(date, "yyyy-MM-dd") : null,
+                            } as AnswerValue);
+                          }}
+                          locale={ru}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <Input
+                      type="date"
+                      value={formatDateInput(rawValue)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "") {
+                          updateAnswer(field.id, { ...compositeRecord, [part.key]: null } as AnswerValue);
+                          return;
+                        }
+                        if (isValidDateString(val)) {
+                          const parsed = parseDateFromString(val);
+                          if (parsed) {
+                            setCalendarMonth(calendarKey, parsed);
+                          }
+                          updateAnswer(field.id, { ...compositeRecord, [part.key]: val } as AnswerValue);
+                        }
+                      }}
+                      onBlur={() => markTouched(field.id)}
+                      disabled={isDisabled}
+                      className={cn(
+                        "pl-10 h-10 text-muted-foreground",
+                        partError ? "border-destructive focus-visible:ring-destructive/20" : ""
+                      )}
+                      placeholder={placeholder || t("propert.selectDate")}
                     />
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <Input
+                      type={part.inputType || "text"}
+                      inputMode={part.inputMode}
+                      value={displayValue}
+                      onChange={(e) => {
+                        const normalized = part.normalize ? part.normalize(e.target.value) : e.target.value;
+                        updateAnswer(field.id, { ...compositeRecord, [part.key]: normalized } as AnswerValue);
+                      }}
+                      onBlur={() => markTouched(field.id)}
+                      disabled={isDisabled}
+                      maxLength={maxLength}
+                      placeholder={suppressPlaceholders ? "" : placeholder}
+                      className={cn(
+                        limit ? "pr-20" : "",
+                        partError ? "border-destructive focus-visible:ring-destructive/20" : ""
+                      )}
+                    />
+                    {showIndicator && (
+                      <LengthIndicator
+                        len={len}
+                        limit={limit}
+                        isError={partError}
+                        isComplete={len > 0 && len === limit}
+                      />
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -783,6 +914,7 @@ export function FormPreview({ form }: FormPreviewProps) {
           const dateTime = (answers[field.id] as DateTimeAnswer) || {};
           const dateValue = dateTime.date ?? null;
           const timeValue = dateTime.time ?? "";
+          const calendarKey = getCalendarKey(field.id);
           return (
             <div className="space-y-3">
               {!hideDate && (
@@ -799,11 +931,16 @@ export function FormPreview({ form }: FormPreviewProps) {
                         <CalendarDays className="h-4 w-4 text-muted-foreground" />
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
+                    <PopoverContent className="w-auto p-0" align="start" portalled={false}>
                       <Calendar
                         mode="single"
-                        selected={dateValue ? parseDateFromString(dateValue) : undefined}
+                        month={getCalendarMonth(calendarKey, dateValue)}
+                        onMonthChange={(month) => setCalendarMonth(calendarKey, month)}
+                        selected={getStableDate(dateValue)}
                         onSelect={(date) => {
+                          if (date) {
+                            setCalendarMonth(calendarKey, date);
+                          }
                           updateAnswer(field.id, {
                             ...dateTime,
                             date: date ? format(date, "yyyy-MM-dd") : null,
@@ -823,6 +960,10 @@ export function FormPreview({ form }: FormPreviewProps) {
                         return;
                       }
                       if (isValidDateString(val)) {
+                        const parsed = parseDateFromString(val);
+                        if (parsed) {
+                          setCalendarMonth(calendarKey, parsed);
+                        }
                         updateAnswer(field.id, { ...dateTime, date: val });
                       }
                     }}
@@ -848,7 +989,7 @@ export function FormPreview({ form }: FormPreviewProps) {
                       {timeValue ? <span>{timeValue}</span> : <span>{t("propert.selectTime")}</span>}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-4" align="start">
+                  <PopoverContent className="w-auto p-4" align="start" portalled={false}>
                     <Input
                       type="time"
                       value={timeValue}

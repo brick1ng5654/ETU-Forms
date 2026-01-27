@@ -75,6 +75,22 @@ BEGIN
             'contains'
         );
     END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'response_status') THEN
+        CREATE TYPE response_status AS ENUM (
+            'draft',
+            'submitted',
+            'cancelled'
+        );
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'file_status') THEN
+        CREATE TYPE file_status AS ENUM (
+            'temp',
+            'submitted',
+            'deleted'
+        );
+    END IF;
 END$$;
 
 -- Создаем таблицу форм
@@ -125,7 +141,7 @@ CREATE TABLE IF NOT EXISTS Response (
     form_id INT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     completed_at TIMESTAMP NULL,
-    response_json JSONB NOT NULL DEFAULT '{}',
+    status response_status NOT NULL,
 
     CONSTRAINT fk_response_user
         FOREIGN KEY (user_id) 
@@ -143,7 +159,6 @@ COMMENT ON TABLE Response IS 'Таблица ответов на формы';
 COMMENT ON COLUMN Response.response_id IS 'Уникальный идентификатор ответа';
 COMMENT ON COLUMN Response.form_id IS 'ID формы (ссылка на forms.form_id)';
 COMMENT ON COLUMN Response.user_id IS 'ID пользователя, который отправил ответ (ссылка на users.user_id)';
-COMMENT ON COLUMN Response.response_json IS 'JSON-структура с данными ответа';
 COMMENT ON COLUMN Response.created_at IS 'Дата и время создания ответа';
 COMMENT ON COLUMN Response.completed_at IS 'Дата и время завершения ответа';
 
@@ -231,6 +246,29 @@ CREATE TABLE IF NOT EXISTS Form_Element (
 
 COMMENT ON TABLE Form_Element IS 'Элементы (поля) формы';
 
+CREATE TABLE IF NOT EXISTS Response_Answer(
+    answer_id SERIAL PRIMARY KEY,
+    response_id INT NOT NULL,
+    element_id INT NOT NULL,
+
+    value_text TEXT NULL,
+    value_number NUMERIC NULL,
+    value_bool BOOLEAN NULL,
+    value_date DATE NULL,
+    value_time TIME NULL,
+    value_jsonb JSONB NULL,
+
+    CONSTRAINT fk_response_answer_response
+        FOREIGN KEY (response_id)
+        REFERENCES Response(response_id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_response_answer_element
+        FOREIGN KEY (element_id)
+        REFERENCES Form_Element(element_id)
+        ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS Form_Element_Condition(
     condition_id SERIAL PRIMARY KEY,
     template_id INT NULL,
@@ -271,8 +309,31 @@ CREATE TABLE IF NOT EXISTS Form_Element_Condition(
 
     CONSTRAINT no_self_condition
         CHECK (source_element_id <> target_element_id)
-
-    
 );
 
 COMMENT ON TABLE Form_Element_Condition IS 'Условия ветвления (зависимости)';
+
+CREATE TABLE IF NOT EXISTS Uploaded_file(
+    file_id SERIAL PRIMARY KEY,
+
+    answer_id INT NOT NULL,
+
+    name VARCHAR(512) NOT NULL,
+    mime_type VARCHAR(255) NOT NULL,
+    size_bytes BIGINT NOT NULL CHECK (size_bytes >= 0),
+
+    storage_provider VARCHAR(50) NOT NULL DEFAULT 'local',
+    storage_path TEXT NOT NULL,
+
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP WITH TIME ZONE DEFAULT (CURRENT_TIMESTAMP + INTERVAL '1 day'),
+
+    status file_status NOT NULL,
+
+    CONSTRAINT fk_file_answer
+        FOREIGN KEY (answer_id)
+        REFERENCES Response_Answer(answer_id)
+        ON DELETE CASCADE
+);
+
+COMMENT ON TABLE Uploaded_file IS 'Метаданные загруженных файлов';
