@@ -1,27 +1,33 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import type { MouseEvent } from "react";
 import { nanoid } from "nanoid";
-import type { FormElementModel, FormSchema } from "@/form/types";
+import type { FormAccessMode, FormElementModel, FormSchema } from "@/form/types";
 import { FormCanvas, getIconForElement } from "@/components/form-builder/FormCanvas";
 import { PropertiesPanel } from "@/components/form-builder/PropertiesPanel";
 import FormPreview from "@/components/form-builder/FormPreview";
 import { ToolboxItem, ToolboxItemDefinition } from "@/components/form-builder/ToolboxItem";
 import { Button } from "@/components/ui/button";
-import { 
-  Eye, Share2, Save, ChevronLeft, Upload, Download, FileJson, 
-  PanelLeftClose, PanelLeftOpen, Plus, X, Calendar as CalendarIcon
+import {
+  Eye,
+  Share2,
+  ClipboardList,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Plus,
+  X,
+  CalendarDays,
+  Clock,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { storage } from "@/lib/storage";
-import { useRoute, useLocation } from "wouter";
+import { useLocation } from "wouter";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
@@ -63,6 +69,55 @@ const TOOLBOX_ITEMS: ToolboxItemDefinition[] = [
   { widgetType: "text_input", semanticType: "bik", labelKey: "bik", category: "Specialized" },
 ];
 
+const formatDateInput = (value: string | null | undefined) => {
+  if (!value) return "";
+  return value;
+};
+
+const isValidDateString = (value: string) => {
+  if (value.length !== 10) return false;
+  const [y, m, d] = value.split("-").map(Number);
+  if (!y || !m || !d) return false;
+  if (m < 1 || m > 12) return false;
+  const parsed = new Date(y, m - 1, d);
+  return parsed.getFullYear() === y && parsed.getMonth() === m - 1 && parsed.getDate() === d;
+};
+
+const parseDateFromString = (value: string) => {
+  if (!isValidDateString(value)) return undefined;
+  const [y, m, d] = value.split("-").map(Number);
+  return new Date(y, m - 1, d);
+};
+
+const getLocalDatePart = (value: string | null | undefined) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return format(parsed, "yyyy-MM-dd");
+};
+
+const getLocalTimePart = (value: string | null | undefined) => {
+  if (!value) return "";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return format(parsed, "HH:mm");
+};
+
+const toIsoFromParts = (dateValue: string | null, timeValue: string) => {
+  if (!dateValue || !isValidDateString(dateValue)) return null;
+  const [y, m, d] = dateValue.split("-").map(Number);
+  let hours = 0;
+  let minutes = 0;
+  if (timeValue) {
+    const [rawHours, rawMinutes] = timeValue.split(":").map(Number);
+    if (!Number.isNaN(rawHours)) hours = rawHours;
+    if (!Number.isNaN(rawMinutes)) minutes = rawMinutes;
+  }
+  const parsed = new Date(y, m - 1, d, hours, minutes);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toISOString();
+};
+
 export default function Builder({ params }: { params: { id?: string } }) {
   const [location, setLocation] = useLocation();
   const [forms, setForms] = useState<FormSchema[]>([]);
@@ -79,6 +134,14 @@ export default function Builder({ params }: { params: { id?: string } }) {
   const MAX_HISTORY = 50;
   const HISTORY_MERGE_WINDOW_MS = 2000;
   const [unknownTypeWarnings, setUnknownTypeWarnings] = useState<UnknownTypeWarning[]>([]);
+  const [isPublishOpen, setIsPublishOpen] = useState(false);
+  const [publishStartDate, setPublishStartDate] = useState<string | null>(null);
+  const [publishStartTime, setPublishStartTime] = useState("");
+  const [publishEndDate, setPublishEndDate] = useState<string | null>(null);
+  const [publishEndTime, setPublishEndTime] = useState("");
+  const [publishAccessMode, setPublishAccessMode] = useState<FormAccessMode>("private");
+  const [publishNoStart, setPublishNoStart] = useState(false);
+  const [publishNoEnd, setPublishNoEnd] = useState(false);
 
   const handleSelectField = (id: string, event: MouseEvent<HTMLDivElement>) => {
     console.log('Selecting field:', id);
@@ -147,6 +210,23 @@ export default function Builder({ params }: { params: { id?: string } }) {
 
   const activeForm = forms.find(f => f.id === activeFormId) || forms[0];
   const fields = activeForm?.fields || [];
+
+  useEffect(() => {
+    if (!isPublishOpen || !activeForm) return;
+    setPublishAccessMode(activeForm.accessMode ?? "private");
+    const startDate = getLocalDatePart(activeForm.startAt);
+    const startTime = getLocalTimePart(activeForm.startAt);
+    const endDate = getLocalDatePart(activeForm.endAt);
+    const endTime = getLocalTimePart(activeForm.endAt);
+    const noStart = !startDate;
+    const noEnd = noStart ? true : !endDate;
+    setPublishStartDate(startDate);
+    setPublishStartTime(startTime);
+    setPublishEndDate(endDate);
+    setPublishEndTime(endTime);
+    setPublishNoStart(noStart);
+    setPublishNoEnd(noEnd);
+  }, [activeForm, isPublishOpen]);
 
   // Auto-save effect
   useEffect(() => {
@@ -413,16 +493,29 @@ export default function Builder({ params }: { params: { id?: string } }) {
     setFields(newFields);
   };
 
-  const saveFormJson = () => {
-    if (!activeForm) return;
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(activeForm, null, 2));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", `${activeForm.title.toLowerCase().replace(/\s+/g, '_')}_schema.json`);
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
-    toast({ title: t('builder.formSaved'), description: t('builder.formSavedDesc') });
+  const handlePublish = () => {
+    if (!activeForm) {
+      toast({ title: t("builder.error"), description: t("builder.noActiveForm"), variant: "destructive" });
+      return;
+    }
+    const startAt = publishNoStart ? null : toIsoFromParts(publishStartDate, publishStartTime);
+    const endAt = publishNoStart || publishNoEnd ? null : toIsoFromParts(publishEndDate, publishEndTime);
+    if (startAt && endAt) {
+      const startTime = new Date(startAt).getTime();
+      const endTime = new Date(endAt).getTime();
+      if (!Number.isNaN(startTime) && !Number.isNaN(endTime) && endTime < startTime) {
+        toast({ title: t("builder.error"), description: t("builder.publishDateError"), variant: "destructive" });
+        return;
+      }
+    }
+    setForm({
+      ...activeForm,
+      startAt,
+      endAt,
+      accessMode: publishAccessMode,
+    });
+    toast({ title: t("builder.published"), description: t("builder.publishedDesc") });
+    setIsPublishOpen(false);
   };
 
   const loadFormJson = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -567,12 +660,254 @@ export default function Builder({ params }: { params: { id?: string } }) {
           </Dialog>
 
           <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={loadFormJson} />
-          <Button variant="outline" size="sm" className="gap-2" onClick={() => fileInputRef.current?.click()}>
-            <Upload className="h-4 w-4" /> <span className="hidden sm:inline">{t('builder.load')}</span>
+          <Button variant="outline" size="sm" className="gap-2">
+            <ClipboardList className="h-4 w-4" /> <span className="hidden sm:inline">{t('builder.load')}</span>
           </Button>
-          <Button size="sm" className="gap-2" onClick={saveFormJson}>
-            <Download className="h-4 w-4" /> <span className="hidden sm:inline">{t('builder.save')}</span>
-          </Button>
+          <Popover open={isPublishOpen} onOpenChange={setIsPublishOpen}>
+            <PopoverTrigger asChild>
+              <Button size="sm" className="gap-2">
+                <Share2 className="h-4 w-4" /> <span className="hidden sm:inline">{t("builder.publish")}</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-[360px] p-4">
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <h4 className="text-sm font-semibold">{t("builder.publishTitle")}</h4>
+                  <p className="text-xs text-muted-foreground">{t("builder.publishHint")}</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{t("builder.accessMode")}</Label>
+                  <RadioGroup
+                    value={publishAccessMode}
+                    onValueChange={(value) => setPublishAccessMode(value as FormAccessMode)}
+                    className="space-y-2"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="public" id="access-public" />
+                      <Label htmlFor="access-public" className="cursor-pointer">
+                        {t("builder.accessModePublic")}
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="private" id="access-private" />
+                      <Label htmlFor="access-private" className="cursor-pointer">
+                        {t("builder.accessModePrivate")}
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="unauthenticated" id="access-unauthenticated" />
+                      <Label htmlFor="access-unauthenticated" className="cursor-pointer">
+                        {t("builder.accessModeUnauthenticated")}
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>{t("builder.publishStart")}</Label>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="publish-no-start"
+                        checked={publishNoStart}
+                        simplifiedAnimation
+                        onCheckedChange={(checked) => {
+                          const isChecked = checked === true;
+                          setPublishNoStart(isChecked);
+                          if (isChecked) {
+                            setPublishStartDate(null);
+                            setPublishStartTime("");
+                            setPublishNoEnd(true);
+                          } else {
+                            setPublishNoEnd(!publishEndDate);
+                          }
+                        }}
+                      />
+                      <Label htmlFor="publish-no-start" className="text-xs text-muted-foreground cursor-pointer">
+                        {t("builder.publishNoStart")}
+                      </Label>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute left-0 top-0 h-10 w-10 hover:bg-transparent z-10"
+                            disabled={publishNoStart}
+                            type="button"
+                          >
+                            <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={publishStartDate ? parseDateFromString(publishStartDate) : undefined}
+                            onSelect={(date) => {
+                              setPublishStartDate(date ? format(date, "yyyy-MM-dd") : null);
+                            }}
+                            locale={ru}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <Input
+                        type="date"
+                        value={formatDateInput(publishStartDate)}
+                        onChange={(event) => {
+                          const val = event.target.value;
+                          if (val === "") {
+                            setPublishStartDate(null);
+                            return;
+                          }
+                          if (isValidDateString(val)) {
+                            setPublishStartDate(val);
+                          }
+                        }}
+                        disabled={publishNoStart}
+                        className="pl-10 h-10 text-muted-foreground"
+                        placeholder={t("propert.selectDate")}
+                      />
+                    </div>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal h-10",
+                            !publishStartTime && "text-muted-foreground"
+                          )}
+                          disabled={publishNoStart}
+                          type="button"
+                        >
+                          <Clock className="mr-2 h-4 w-4" />
+                          {publishStartTime ? <span>{publishStartTime}</span> : <span>{t("propert.selectTime")}</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-4" align="start">
+                        <Input
+                          type="time"
+                          value={publishStartTime}
+                          onChange={(event) => setPublishStartTime(event.target.value)}
+                          disabled={publishNoStart}
+                          className="w-full"
+                          autoFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>{t("builder.publishEnd")}</Label>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="publish-no-end"
+                        checked={publishNoEnd}
+                        simplifiedAnimation
+                        disabled={publishNoStart}
+                        onCheckedChange={(checked) => {
+                          if (publishNoStart) return;
+                          const isChecked = checked === true;
+                          setPublishNoEnd(isChecked);
+                          if (isChecked) {
+                            setPublishEndDate(null);
+                            setPublishEndTime("");
+                          }
+                        }}
+                      />
+                      <Label htmlFor="publish-no-end" className="text-xs text-muted-foreground cursor-pointer">
+                        {t("builder.publishNoEnd")}
+                      </Label>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute left-0 top-0 h-10 w-10 hover:bg-transparent z-10"
+                            disabled={publishNoEnd || publishNoStart}
+                            type="button"
+                          >
+                            <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={publishEndDate ? parseDateFromString(publishEndDate) : undefined}
+                            onSelect={(date) => {
+                              setPublishEndDate(date ? format(date, "yyyy-MM-dd") : null);
+                            }}
+                            locale={ru}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <Input
+                        type="date"
+                        value={formatDateInput(publishEndDate)}
+                        onChange={(event) => {
+                          const val = event.target.value;
+                          if (val === "") {
+                            setPublishEndDate(null);
+                            return;
+                          }
+                          if (isValidDateString(val)) {
+                            setPublishEndDate(val);
+                          }
+                        }}
+                        disabled={publishNoEnd || publishNoStart}
+                        className="pl-10 h-10 text-muted-foreground"
+                        placeholder={t("propert.selectDate")}
+                      />
+                    </div>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal h-10",
+                            !publishEndTime && "text-muted-foreground"
+                          )}
+                          disabled={publishNoEnd || publishNoStart}
+                          type="button"
+                        >
+                          <Clock className="mr-2 h-4 w-4" />
+                          {publishEndTime ? <span>{publishEndTime}</span> : <span>{t("propert.selectTime")}</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-4" align="start">
+                        <Input
+                          type="time"
+                          value={publishEndTime}
+                          onChange={(event) => setPublishEndTime(event.target.value)}
+                          disabled={publishNoEnd || publishNoStart}
+                          className="w-full"
+                          autoFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button variant="outline" size="sm" onClick={() => setIsPublishOpen(false)}>
+                    {t("actions.cancel")}
+                  </Button>
+                  <Button size="sm" onClick={handlePublish}>
+                    {t("builder.publish")}
+                  </Button>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
           </div>
         </div>
       </header>

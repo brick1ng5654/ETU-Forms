@@ -41,12 +41,17 @@ export interface FormFolder {
   name: string;
 }
 
+export type FormAccessMode = "public" | "private" | "unauthenticated";
+
 export interface FormSchema {
   id: string;
   folderId?: string;
   title: string;
   description: string;
   fields: FormElementModel[];
+  startAt?: string | null;
+  endAt?: string | null;
+  accessMode?: FormAccessMode;
   updatedAt: number;
 }
 
@@ -74,8 +79,14 @@ export type FullNameAnswer = {
 // - seriesNumber: 10 digits only
 // - departmentCode: 6 digits only
 // - issueDate: YYYY-MM-DD
+// - birthDate: YYYY-MM-DD
 // - issuedBy, birthPlace optional strings
 export type PassportAnswer = {
+  lastName?: string | null;
+  firstName?: string | null;
+  patronymic?: string | null;
+  gender?: string | null;
+  birthDate?: string | null;
   seriesNumber: string;
   issuedBy?: string | null;
   issueDate?: string | null;

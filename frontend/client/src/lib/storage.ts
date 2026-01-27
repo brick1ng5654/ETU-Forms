@@ -105,6 +105,9 @@ export const storage = {
       title: t("common.untitled"),
       description: "",
       fields: [],
+      startAt: null,
+      endAt: null,
+      accessMode: "private",
       updatedAt: Date.now(),
     };
     storage.saveForm(newForm);
