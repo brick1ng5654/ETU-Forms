@@ -76,7 +76,8 @@ BEGIN
             'not_in',
             'greater_than',
             'less_than',
-            'contains'
+            'contains',
+            'answered'
         );
     END IF;
 

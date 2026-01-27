@@ -135,7 +135,7 @@
 | value | JSONB |  | NULL | Значение для сравнения |
 
 **Домены и перечисления**
-- CONDITION_OPERATOR: equals, not_equals, in, not_in, greater_than, less_than, contains. (Больше значений можем появится из-за задачи #25)
+- CONDITION_OPERATOR: equals, not_equals, in, not_in, greater_than, less_than, contains, answered. (Больше значений можем появится из-за задачи #25)
 
 **Правила целостности**
 - `form_id`, `source_element_id`, `target_element_id` ссылаются на соответствующие таблицы.

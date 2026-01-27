@@ -41,7 +41,7 @@ semantic_type_enum = ENUM(
 )
 
 condition_operator_enum = ENUM(
-    'equals','not_equals','in','not_in','greater_than','less_than','contains',
+    'equals','not_equals','in','not_in','greater_than','less_than','contains','answered',
     name='condition_operator'
 )
 

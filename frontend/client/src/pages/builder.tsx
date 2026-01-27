@@ -501,7 +501,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
   type PublishCondition = {
     source_client_id: string;
     target_client_id: string;
-    operator: "equals" | "not_equals" | "in" | "not_in" | "greater_than" | "less_than" | "contains";
+    operator: "equals" | "not_equals" | "in" | "not_in" | "greater_than" | "less_than" | "contains" | "answered";
     value: any;
   };
 
@@ -530,8 +530,8 @@ export default function Builder({ params }: { params: { id?: string } }) {
           ? { values: logic.expectedValue }
           : { value: logic.expectedValue };
       } else if (logic.condition === "answered") {
-        operator = "not_equals";
-        value = { value: null };
+        operator = "answered";
+        value = { value: true };
       }
 
       if (!operator) continue;

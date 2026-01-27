@@ -53,6 +53,7 @@ class ConditionOperator(str, Enum):
     GREATER_THAN = 'greater_than'
     LESS_THAN = 'less_than'
     CONTAINS = 'contains'
+    ANSWERED = 'answered'
 
 class FileStatus(str, Enum):
     TEMP = 'temp'
