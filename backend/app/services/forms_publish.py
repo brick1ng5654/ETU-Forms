@@ -27,6 +27,23 @@ async def publish_form(db: AsyncSession, payload: FormPublishRequest) -> models.
             text_hint = placeholder
         other["client_id"] = el.client_id
         other["sort_index"] = el.sort_index
+        # Здесь происходит изменение в зависимостях с client_id (временный id елемента) на element_id из бд
+        if "dependsOn" in other:
+            depends_on_client = other.get("dependsOn")
+            if isinstance(depends_on_client, str):
+                depends_on_id = client_to_db_id.get(depends_on_client)
+                if depends_on_id is None:
+                    raise ValueError(f"Unknown dependsOn client_id: {depends_on_client}")
+                other["dependsOn"] = depends_on_id
+        if isinstance(other.get("conditionalLogic"), dict):
+            cond = other.get("conditionalLogic") or {}
+            depends_on_client = cond.get("dependsOn")
+            if isinstance(depends_on_client, str):
+                depends_on_id = client_to_db_id.get(depends_on_client)
+                if depends_on_id is None:
+                    raise ValueError(f"Unknown conditionalLogic.dependsOn client_id: {depends_on_client}")
+                cond["dependsOn"] = depends_on_id
+                other["conditionalLogic"] = cond
 
         row = models.FormElement(
             form_id=form.form_id,

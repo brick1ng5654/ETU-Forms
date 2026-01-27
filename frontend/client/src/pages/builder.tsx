@@ -528,10 +528,12 @@ export default function Builder({ params }: { params: { id?: string } }) {
       settings_json: activeForm.settings_json ?? { client_form_id: activeForm.id },
 
       elements: publishFields.map((f, index) => {
+        // Преобразование из f.props (свойства элемента из фронта) в свойства в бд.
         const { placeholder, correctAnswer, correctAnswers, points, ...otherSettings } = (f.props ?? {}) as Record<string, unknown>;
         const cleanedOtherSettings: Record<string, unknown> = { ...otherSettings };
         if (points !== undefined) cleanedOtherSettings.points = points;
         const rawCorrectAnswer = correctAnswer ?? correctAnswers;
+        // Парсинг правильного ответа в поле правильного ответа
         const normalizedCorrectAnswer = (() => {
           if (rawCorrectAnswer == null) return null;
           if (Array.isArray(rawCorrectAnswer)) return { values: rawCorrectAnswer };
