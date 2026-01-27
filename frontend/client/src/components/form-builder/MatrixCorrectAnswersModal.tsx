@@ -39,7 +39,7 @@ export function MatrixCorrectAnswersModal({
   const pointsPerCell = (props.pointsPerCell as Record<string, number> | undefined) || {};
   const pointsPerRow = (props.pointsPerRow as Record<string, number> | undefined) || {};
   const pointsPerColumn = (props.pointsPerColumn as Record<string, number> | undefined) || {};
-  const matrixValidationMode = (props.matrixValidationMode as "any" | "all" | undefined) || undefined;
+  const matrixValidationMode = (props.matrixValidationMode as string | undefined) || undefined;
   const matrixTotalPoints = (props.matrixTotalPoints as number | undefined) || 0;
   
   // Локальное состояние для выбранных ответов
@@ -50,14 +50,18 @@ export function MatrixCorrectAnswersModal({
   const [rowPoints, setRowPoints] = useState<Record<string, number>>(pointsPerRow || {});
   // Локальное состояние для баллов по столбцам
   const [columnPoints, setColumnPoints] = useState<Record<string, number>>(pointsPerColumn || {});
-  // Локальное состояние для переключателя баллов по строкам
-  const [enableRowPoints, setEnableRowPoints] = useState<boolean>(Object.keys(pointsPerRow).length > 0);
-  // Локальное состояние для переключателя баллов по столбцам
-  const [enableColumnPoints, setEnableColumnPoints] = useState<boolean>(Object.keys(pointsPerColumn).length > 0);
-  // Локальное состояние для режима проверки
-  const [validationMode, setValidationMode] = useState<"any" | "all" | undefined>(matrixValidationMode);
   // Локальное состояние для баллов всей матрицы
   const [totalPoints, setTotalPoints] = useState<number>(matrixTotalPoints);
+  
+  // Локальные состояния для переключателей распределения баллов
+  const [enablePointsPerCell, setEnablePointsPerCell] = useState<boolean>(Object.keys(pointsPerCell).length > 0);
+  const [enablePointsPerRow, setEnablePointsPerRow] = useState<boolean>(Object.keys(pointsPerRow).length > 0);
+  const [enablePointsPerColumn, setEnablePointsPerColumn] = useState<boolean>(Object.keys(pointsPerColumn).length > 0);
+  const [enablePointsTotal, setEnablePointsTotal] = useState<boolean>(matrixTotalPoints > 0);
+  
+  // Локальные состояния для переключателей типа проверки
+  const [validationModeAny, setValidationModeAny] = useState<boolean>(matrixValidationMode === "any");
+  const [validationModeAll, setValidationModeAll] = useState<boolean>(matrixValidationMode === "all");
   
   // Обновление состояния при изменении props
   useEffect(() => {
@@ -65,13 +69,20 @@ export function MatrixCorrectAnswersModal({
     setCellPoints(pointsPerCell || {});
     setRowPoints(pointsPerRow || {});
     setColumnPoints(pointsPerColumn || {});
-    setEnableRowPoints(Object.keys(pointsPerRow).length > 0);
-    setEnableColumnPoints(Object.keys(pointsPerColumn).length > 0);
-    setValidationMode(matrixValidationMode);
     setTotalPoints(matrixTotalPoints);
-  }, [field.id, matrixCorrectAnswers.length, JSON.stringify(pointsPerCell), JSON.stringify(pointsPerRow), JSON.stringify(pointsPerColumn), matrixValidationMode]);
+    
+    // Устанавливаем переключатели на основе существующих данных
+    setEnablePointsPerCell(Object.keys(pointsPerCell || {}).length > 0);
+    setEnablePointsPerRow(Object.keys(pointsPerRow || {}).length > 0);
+    setEnablePointsPerColumn(Object.keys(pointsPerColumn || {}).length > 0);
+    setEnablePointsTotal((matrixTotalPoints || 0) > 0);
+    
+    // Устанавливаем переключатели типа проверки
+    setValidationModeAny(matrixValidationMode === "any");
+    setValidationModeAll(matrixValidationMode === "all");
+  }, [field.id, matrixCorrectAnswers.length, JSON.stringify(pointsPerCell), JSON.stringify(pointsPerRow), JSON.stringify(pointsPerColumn), matrixValidationMode, matrixTotalPoints]);
   
-  // Обработчик изменения выбора
+  // Обработчик изменения выбора ответов
   const handleAnswerChange = (cellKey: string, checked: boolean) => {
     let newAnswers = [...selectedAnswers];
     
@@ -86,13 +97,13 @@ export function MatrixCorrectAnswersModal({
         newAnswers.push(cellKey);
       }
       
-      // Автоматически устанавливаем 1 балл для выбранной ячейки
+      // Автоматически устанавливаем 0 баллов для выбранной ячейки
       if (!cellPoints.hasOwnProperty(cellKey)) {
-      setCellPoints(prev => ({
-        ...prev,
-        [cellKey]: 0
-      }));
-    }
+        setCellPoints(prev => ({
+          ...prev,
+          [cellKey]: 0
+        }));
+      }
     } else {
       // Удаляем ответ
       newAnswers = newAnswers.filter(key => key !== cellKey);
@@ -144,17 +155,77 @@ export function MatrixCorrectAnswersModal({
     }
   };
   
+  // Обработчик переключения баллов по ячейкам
+  const handleEnablePointsPerCell = (checked: boolean) => {
+    setEnablePointsPerCell(checked);
+    if (checked) {
+      // Выключаем все остальные переключатели
+      setEnablePointsPerRow(false);
+      setEnablePointsPerColumn(false);
+      setEnablePointsTotal(false);
+    }
+  };
+  
+  // Обработчик переключения баллов по строкам
+  const handleEnablePointsPerRow = (checked: boolean) => {
+    setEnablePointsPerRow(checked);
+    if (checked) {
+      // Выключаем все остальные переключатели
+      setEnablePointsPerCell(false);
+      setEnablePointsPerColumn(false);
+      setEnablePointsTotal(false);
+    }
+  };
+  
+  // Обработчик переключения баллов по столбцам
+  const handleEnablePointsPerColumn = (checked: boolean) => {
+    setEnablePointsPerColumn(checked);
+    if (checked) {
+      // Выключаем все остальные переключатели
+      setEnablePointsPerCell(false);
+      setEnablePointsPerRow(false);
+      setEnablePointsTotal(false);
+    }
+  };
+  
+  // Обработчик переключения баллов за всю матрицу
+  const handleEnablePointsTotal = (checked: boolean) => {
+    setEnablePointsTotal(checked);
+    if (checked) {
+      // Выключаем все остальные переключатели
+      setEnablePointsPerCell(false);
+      setEnablePointsPerRow(false);
+      setEnablePointsPerColumn(false);
+    }
+  };
+  
+  // Обработчик переключения типа проверки "Любой"
+  const handleValidationModeAny = (checked: boolean) => {
+    setValidationModeAny(checked);
+    if (checked) {
+      setValidationModeAll(false);
+    }
+  };
+  
+  // Обработчик переключения типа проверки "Все"
+  const handleValidationModeAll = (checked: boolean) => {
+    setValidationModeAll(checked);
+    if (checked) {
+      setValidationModeAny(false);
+    }
+  };
+  
   // Сохранение изменений
   const handleSave = () => {
     // Формируем объект pointsPerCell только с ненулевыми значениями
     const allCellPoints: Record<string, number> = {};
     selectedAnswers.forEach(cellKey => {
-    allCellPoints[cellKey] = cellPoints[cellKey] || 0;
-  });
+      allCellPoints[cellKey] = cellPoints[cellKey] || 0;
+    });
     
     // Формируем объект pointsPerRow только с ненулевыми значениями
     const nonZeroRowPoints: Record<string, number> = {};
-    if (enableRowPoints) {
+    if (enablePointsPerRow) {
       Object.entries(rowPoints).forEach(([key, value]) => {
         if (value > 0) {
           nonZeroRowPoints[key] = value;
@@ -164,7 +235,7 @@ export function MatrixCorrectAnswersModal({
     
     // Формируем объект pointsPerColumn только с ненулевыми значениями
     const nonZeroColumnPoints: Record<string, number> = {};
-    if (enableColumnPoints) {
+    if (enablePointsPerColumn) {
       Object.entries(columnPoints).forEach(([key, value]) => {
         if (value > 0) {
           nonZeroColumnPoints[key] = value;
@@ -172,14 +243,44 @@ export function MatrixCorrectAnswersModal({
       });
     }
     
+    // Определяем тип проверки
+    let matrixValidationModeToSave: "any" | "all" | undefined;
+    if (validationModeAny) {
+      matrixValidationModeToSave = "any";
+    } else if (validationModeAll) {
+      matrixValidationModeToSave = "all";
+    }
+    
+    // Определяем, какие баллы сохранять в зависимости от выбранного переключателя
+    let pointsPerCellToSave: Record<string, number> | undefined;
+    let pointsPerRowToSave: Record<string, number> | undefined;
+    let pointsPerColumnToSave: Record<string, number> | undefined;
+    let matrixTotalPointsToSave: number | undefined;
+    let pointsDistributionType: "cell" | "row" | "column" | "total" | undefined;
+    
+    if (enablePointsPerCell) {
+      pointsPerCellToSave = Object.keys(allCellPoints).length >= 0 ? allCellPoints : undefined;
+      pointsDistributionType = "cell";
+    } else if (enablePointsPerRow) {
+      pointsPerRowToSave = Object.keys(nonZeroRowPoints).length > 0 ? nonZeroRowPoints : undefined;
+      pointsDistributionType = "row";
+    } else if (enablePointsPerColumn) {
+      pointsPerColumnToSave = Object.keys(nonZeroColumnPoints).length > 0 ? nonZeroColumnPoints : undefined;
+      pointsDistributionType = "column";
+    } else if (enablePointsTotal) {
+      matrixTotalPointsToSave = totalPoints > 0 ? totalPoints : undefined;
+      pointsDistributionType = "total";
+    }
+    
     updateField(field.id, {
       props: {
         correctAnswers: selectedAnswers,
-        pointsPerCell: Object.keys(allCellPoints).length >= 0 ? allCellPoints : undefined,
-        pointsPerRow: enableRowPoints && Object.keys(nonZeroRowPoints).length > 0 ? nonZeroRowPoints : undefined,
-        pointsPerColumn: enableColumnPoints && Object.keys(nonZeroColumnPoints).length > 0 ? nonZeroColumnPoints : undefined,
-        matrixValidationMode: validationMode,
-        matrixTotalPoints: totalPoints
+        pointsPerCell: pointsPerCellToSave,
+        pointsPerRow: pointsPerRowToSave,
+        pointsPerColumn: pointsPerColumnToSave,
+        matrixValidationMode: matrixValidationModeToSave,
+        matrixTotalPoints: matrixTotalPointsToSave,
+        pointsDistributionType: pointsDistributionType
       }
     });
     onOpenChange(false);
@@ -189,7 +290,6 @@ export function MatrixCorrectAnswersModal({
   const handleCancel = () => {
     setSelectedAnswers(matrixCorrectAnswers);
     setCellPoints(pointsPerCell || {});
-    setValidationMode(matrixValidationMode);
     onOpenChange(false);
   };
 
@@ -252,224 +352,289 @@ export function MatrixCorrectAnswersModal({
                 </table>
               </div>
               
+              {/* Переключатели распределения баллов */}
               <div className="space-y-3 border-t pt-4">
-                <Label className="text-green-600">{t("propert.pointsPerCell")}</Label>
-                <div className="overflow-x-auto border rounded p-2">
-                  <table className="border-collapse border border-muted-foreground/20 text-sm w-full">
-                    <thead>
-                      <tr>
-                        <th className="border border-muted-foreground/20 p-2 text-center bg-muted/30 font-medium">
-                          {t("propert.matrixRows")}
-                        </th>
-                        {columns.map((col, colIdx) => (
-                          <th key={colIdx} className="border border-muted-foreground/20 p-2 text-center bg-muted/30 font-medium">
-                            {col || `Column ${colIdx + 1}`}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows.map((row, rowIdx) => (
-                        <tr key={rowIdx}>
-                          <td className="border border-muted-foreground/20 p-2 font-medium">
-                            {row || `Row ${rowIdx + 1}`}
-                          </td>
-                          {columns.map((_, colIdx) => {
-                            const cellKey = `${rowIdx + 1}:${colIdx + 1}`;
-                            // Отображаем только ячейки, которые выбраны как правильные ответы
-                            if (!selectedAnswers.includes(cellKey)) {
-                              return (
-                                <td key={colIdx} className="border border-muted-foreground/20 p-2 bg-muted/10">
-                                </td>
-                              );
-                            }
-                            
-                            return (
-                              <td key={colIdx} className="border border-muted-foreground/20 p-2">
+                <Label className="text-green-600">{t("propert.pointsDistributionType")}</Label>
+                
+                {/* Переключатель для баллов по ячейкам */}
+                <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                  <div className="space-y-0.5">
+                    <Label>{t("propert.pointsPerCell")}</Label>
+                    <p className="text-sm text-muted-foreground">
+                      {t("propert.pointsPerCellHelp")}
+                    </p>
+                  </div>
+                  <Checkbox
+                    checked={enablePointsPerCell}
+                    onCheckedChange={handleEnablePointsPerCell}
+                    simplifiedAnimation
+                  />
+                </div>
+                
+                {/* Баллы по ячейкам (отображается только при включении) */}
+                {enablePointsPerCell && (
+                  <div className="space-y-3 border-t pt-4">
+                    <Label className="text-green-600">{t("propert.pointsPerCell")}</Label>
+                    <div className="overflow-x-auto border rounded p-2">
+                      <table className="border-collapse border border-muted-foreground/20 text-sm w-full">
+                        <thead>
+                          <tr>
+                            <th className="border border-muted-foreground/20 p-2 text-center bg-muted/30 font-medium">
+                              {t("propert.matrixRows")}
+                            </th>
+                            {columns.map((col, colIdx) => (
+                              <th key={colIdx} className="border border-muted-foreground/20 p-2 text-center bg-muted/30 font-medium">
+                                {col || `Column ${colIdx + 1}`}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map((row, rowIdx) => (
+                            <tr key={rowIdx}>
+                              <td className="border border-muted-foreground/20 p-2 font-medium">
+                                {row || `Row ${rowIdx + 1}`}
+                              </td>
+                              {columns.map((_, colIdx) => {
+                                const cellKey = `${rowIdx + 1}:${colIdx + 1}`;
+                                // Отображаем только ячейки, которые выбраны как правильные ответы
+                                if (!selectedAnswers.includes(cellKey)) {
+                                  return (
+                                    <td key={colIdx} className="border border-muted-foreground/20 p-2 bg-muted/10">
+                                    </td>
+                                  );
+                                }
+                                
+                                return (
+                                  <td key={colIdx} className="border border-muted-foreground/20 p-2">
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      max="1000"
+                                      value={cellPoints[cellKey] || 0}
+                                      onChange={(e) => handlePointsChange(cellKey, e.target.value)}
+                                      className="w-full text-center border-green-200 focus-visible:ring-green-500"
+                                      placeholder="0"
+                                    />
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Переключатель для баллов по строкам */}
+                <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                  <div className="space-y-0.5">
+                    <Label>{t("propert.pointsPerRow")}</Label>
+                    <p className="text-sm text-muted-foreground">
+                      {t("propert.pointsPerRowHelp")}
+                    </p>
+                  </div>
+                  <Checkbox
+                    checked={enablePointsPerRow}
+                    onCheckedChange={handleEnablePointsPerRow}
+                    simplifiedAnimation
+                  />
+                </div>
+                
+                {/* Баллы по строкам (отображается только при включении) */}
+                {enablePointsPerRow && (
+                  <div className="space-y-3 border-t pt-4">
+                    <Label className="text-green-600">{t("propert.pointsPerRow")}</Label>
+                    <div className="overflow-x-auto border rounded p-2">
+                      <table className="border-collapse border border-muted-foreground/20 text-sm w-full">
+                        <thead>
+                          <tr>
+                            <th className="border border-muted-foreground/20 p-2 text-center bg-muted/30 font-medium">
+                              {t("propert.matrixRows")}
+                            </th>
+                            <th className="border border-muted-foreground/20 p-2 text-center bg-muted/30 font-medium">
+                              {t("propert.pointsPerRow")}
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map((row, rowIdx) => (
+                            <tr key={rowIdx}>
+                              <td className="border border-muted-foreground/20 p-2 font-medium">
+                                {row || `Row ${rowIdx + 1}`}
+                              </td>
+                              <td className="border border-muted-foreground/20 p-2">
                                 <Input
                                   type="number"
                                   min="0"
                                   max="1000"
-                                  value={cellPoints[cellKey] || 0}
-                                  onChange={(e) => handlePointsChange(cellKey, e.target.value)}
+                                  value={rowPoints[`${rowIdx + 1}`] || 0}
+                                  onChange={(e) => handleRowPointsChange(rowIdx, e.target.value)}
                                   className="w-full text-center border-green-200 focus-visible:ring-green-500"
                                   placeholder="0"
                                 />
                               </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-              
-              {/* Переключатель для баллов за строки */}
-              <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm mt-4">
-                <div className="space-y-0.5">
-                  <Label>{t("propert.enablePointsPerRow")}</Label>
-                </div>
-                <Checkbox
-                  checked={enableRowPoints}
-                  onCheckedChange={(checked) => setEnableRowPoints(Boolean(checked))}
-                />
-              </div>
-              
-              {/* Баллы за строки */}
-              {enableRowPoints && (
-                <div className="space-y-3 border-t pt-4">
-                  <Label className="text-green-600">{t("propert.pointsPerRow")}</Label>
-                  <div className="overflow-x-auto border rounded p-2">
-                    <table className="border-collapse border border-muted-foreground/20 text-sm w-full">
-                      <thead>
-                        <tr>
-                          <th className="border border-muted-foreground/20 p-2 text-center bg-muted/30 font-medium">
-                            {t("propert.matrixRows")}
-                          </th>
-                          <th className="border border-muted-foreground/20 p-2 text-center bg-muted/30 font-medium">
-                            {t("propert.pointsPerRow")}
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {rows.map((row, rowIdx) => (
-                          <tr key={rowIdx}>
-                            <td className="border border-muted-foreground/20 p-2 font-medium">
-                              {row || `Row ${rowIdx + 1}`}
-                            </td>
-                            <td className="border border-muted-foreground/20 p-2">
-                              <Input
-                                type="number"
-                                min="0"
-                                max="1000"
-                                value={rowPoints[`${rowIdx + 1}`] || 0}
-                                onChange={(e) => handleRowPointsChange(rowIdx, e.target.value)}
-                                className="w-full text-center border-green-200 focus-visible:ring-green-500"
-                                placeholder="0"
-                              />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
-              )}
-              
-              {/* Переключатель для баллов за столбцы */}
-              <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm mt-4">
-                <div className="space-y-0.5">
-                  <Label>{t("propert.enablePointsPerColumn")}</Label>
-                </div>
-                <Checkbox
-                  checked={enableColumnPoints}
-                  onCheckedChange={(checked) => setEnableColumnPoints(Boolean(checked))}
-                />
-              </div>
-              
-              {/* Баллы за столбцы */}
-              {enableColumnPoints && (
-                <div className="space-y-3 border-t pt-4">
-                  <Label className="text-green-600">{t("propert.pointsPerColumn")}</Label>
-                  <div className="overflow-x-auto border rounded p-2">
-                    <table className="border-collapse border border-muted-foreground/20 text-sm w-full">
-                      <thead>
-                        <tr>
-                          <th className="border border-muted-foreground/20 p-2 text-center bg-muted/30 font-medium">
-                            {t("propert.matrixColumns")}
-                          </th>
-                          <th className="border border-muted-foreground/20 p-2 text-center bg-muted/30 font-medium">
-                            {t("propert.pointsPerColumn")}
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {columns.map((column, colIdx) => (
-                          <tr key={colIdx}>
-                            <td className="border border-muted-foreground/20 p-2 font-medium">
-                              {column || `Column ${colIdx + 1}`}
-                            </td>
-                            <td className="border border-muted-foreground/20 p-2">
-                              <Input
-                                type="number"
-                                min="0"
-                                max="1000"
-                                value={columnPoints[`${colIdx + 1}`] || 0}
-                                onChange={(e) => handleColumnPointsChange(colIdx, e.target.value)}
-                                className="w-full text-center border-green-200 focus-visible:ring-green-500"
-                                placeholder="0"
-                              />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                )}
+                
+                {/* Переключатель для баллов по столбцам */}
+                <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                  <div className="space-y-0.5">
+                    <Label>{t("propert.pointsPerColumn")}</Label>
+                    <p className="text-sm text-muted-foreground">
+                      {t("propert.pointsPerColumnHelp")}
+                    </p>
                   </div>
+                  <Checkbox
+                    checked={enablePointsPerColumn}
+                    onCheckedChange={handleEnablePointsPerColumn}
+                    simplifiedAnimation
+                  />
                 </div>
-              )}
+                
+                {/* Баллы по столбцам (отображается только при включении) */}
+                {enablePointsPerColumn && (
+                  <div className="space-y-3 border-t pt-4">
+                    <Label className="text-green-600">{t("propert.pointsPerColumn")}</Label>
+                    <div className="overflow-x-auto border rounded p-2">
+                      <table className="border-collapse border border-muted-foreground/20 text-sm w-full">
+                        <thead>
+                          <tr>
+                            <th className="border border-muted-foreground/20 p-2 text-center bg-muted/30 font-medium">
+                              {t("propert.matrixColumns")}
+                            </th>
+                            <th className="border border-muted-foreground/20 p-2 text-center bg-muted/30 font-medium">
+                              {t("propert.pointsPerColumn")}
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {columns.map((column, colIdx) => (
+                            <tr key={colIdx}>
+                              <td className="border border-muted-foreground/20 p-2 font-medium">
+                                {column || `Column ${colIdx + 1}`}
+                              </td>
+                              <td className="border border-muted-foreground/20 p-2">
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="1000"
+                                  value={columnPoints[`${colIdx + 1}`] || 0}
+                                  onChange={(e) => handleColumnPointsChange(colIdx, e.target.value)}
+                                  className="w-full text-center border-green-200 focus-visible:ring-green-500"
+                                  placeholder="0"
+                                />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Переключатель для баллов за всю матрицу */}
+                <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                  <div className="space-y-0.5">
+                    <Label>{t("propert.pointsTotal")}</Label>
+                    <p className="text-sm text-muted-foreground">
+                      {t("propert.pointsTotalHelp")}
+                    </p>
+                  </div>
+                  <Checkbox
+                    checked={enablePointsTotal}
+                    onCheckedChange={handleEnablePointsTotal}
+                    simplifiedAnimation
+                  />
+                </div>
+                
+                {/* Баллы за всю матрицу (отображается только при включении) */}
+                {enablePointsTotal && (
+                  <div className="space-y-3 border-t pt-4">
+                    <Label className="text-green-600">{t("propert.matrixTotalPoints")}</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min="0"
+                        max="1000"
+                        value={totalPoints}
+                        onChange={(e) => {
+                          const value = e.target.value === "" ? 0 : parseInt(e.target.value, 10);
+                          if (e.target.value === "" || (!isNaN(value) && value >= 0 && value <= 1000)) {
+                            setTotalPoints(value);
+                          }
+                        }}
+                        className="w-[120px] border-green-200 focus-visible:ring-green-500"
+                        placeholder="0"
+                      />
+                      <span className="text-sm text-muted-foreground">{t("propert.points")}</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {t("propert.matrixTotalPointsHelp")}
+                    </p>
+                  </div>
+                )}
+              </div>
             </>
           )}
         </div>
-        
-        {/* Баллы за всю матрицу */}
-        <div className="space-y-3 border-t pt-4">
-          <Label className="text-green-600">{t("propert.matrixTotalPoints")}</Label>
-          <div className="flex items-center gap-2">
-            <Input
-              type="number"
-              min="0"
-              max="1000"
-              value={totalPoints}
-              onChange={(e) => {
-                const value = e.target.value === "" ? 0 : parseInt(e.target.value, 10);
-                if (e.target.value === "" || (!isNaN(value) && value >= 0 && value <= 1000)) {
-                  setTotalPoints(value);
-                }
-              }}
-              className="w-[120px] border-green-200 focus-visible:ring-green-500"
-              placeholder="0"
-            />
-            <span className="text-sm text-muted-foreground">{t("propert.points")}</span>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {t("propert.matrixTotalPointsHelp")}
-          </p>
-        </div>
               
-        {multiplePerRow && (
-          <div className="space-y-2 border-t pt-4">
-            <div className="flex items-center gap-2">
-              <Label className="text-green-600">{t("propert.matrixValidationMode")}</Label>
-              <Tooltip delayDuration={0}>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    aria-label={t("propert.matrixCorrPoint")}
-                    className="h-4 w-4 rounded-full border border-muted-foreground/40 text-muted-foreground text-[9px] leading-none flex items-center justify-center hover:bg-muted"
-                  >
-                    ?
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">
-                  {t("propert.matrixCorrPoint")}
-                </TooltipContent>
-              </Tooltip>
-            </div>
-            <Select 
-              value={validationMode || ""} 
-              onValueChange={(value) => setValidationMode(value as "any" | "all" | undefined)}
-            >
-              <SelectTrigger className="w-[300px]">
-                <SelectValue placeholder={t("propert.matrixValidationMode")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="any">{t("propert.matrixValidationModeAny")}</SelectItem>
-                <SelectItem value="all">{t("propert.matrixValidationModeAll")}</SelectItem>
-              </SelectContent>
-            </Select>
+        {/* Тип проверки - для всех случаев (и одиночного, и множественного) */}
+        <div className="space-y-3 border-t pt-4">
+          <div className="flex items-center gap-2">
+            <Label className="text-green-600">{t("propert.matrixValidationMode")}</Label>
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={t("propert.matrixCorrPoint")}
+                  className="h-4 w-4 rounded-full border border-muted-foreground/40 text-muted-foreground text-[9px] leading-none flex items-center justify-center hover:bg-muted"
+                >
+                  ?
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">
+                {t("propert.matrixCorrPoint")}
+              </TooltipContent>
+            </Tooltip>
           </div>
-        )}
+          
+          {/* Переключатель для режима "Любой" */}
+          <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+            <div className="space-y-0.5">
+              <Label>{t("propert.matrixValidationModeAny")}</Label>
+              <p className="text-sm text-muted-foreground">
+                {t("propert.matrixValidationModeAnyHelp")}
+              </p>
+            </div>
+            <Checkbox
+              checked={validationModeAny}
+              onCheckedChange={handleValidationModeAny}
+              simplifiedAnimation
+            />
+          </div>
+          
+          {/* Переключатель для режима "Все" */}
+          <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+            <div className="space-y-0.5">
+              <Label>{t("propert.matrixValidationModeAll")}</Label>
+              <p className="text-sm text-muted-foreground">
+                {t("propert.matrixValidationModeAllHelp")}
+              </p>
+            </div>
+            <Checkbox
+              checked={validationModeAll}
+              onCheckedChange={handleValidationModeAll}
+              simplifiedAnimation
+            />
+          </div>
+        </div>
         
         <DialogFooter className="gap-2 sm:space-x-0">
           <Button variant="outline" onClick={handleCancel}>
