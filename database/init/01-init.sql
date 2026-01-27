@@ -58,6 +58,7 @@ BEGIN
         CREATE TYPE semantic_type AS ENUM(
             'full_name', -- фио
             'phone', -- номер телефона
+            'email',
             'passport', -- паспорт
             'inn',
             'snils',

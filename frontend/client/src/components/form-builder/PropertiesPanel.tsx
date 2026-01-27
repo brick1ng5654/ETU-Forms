@@ -103,6 +103,7 @@ const widgetTypeLabelKey: Record<WidgetType, string> = {
 };
 
 const semanticTypeLabelKey: Record<SemanticType, string> = {
+  email: "email",
   phone: "phone",
   inn: "inn",
   snils: "snils",
@@ -817,6 +818,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
 =======
         {(selectedField.widgetType === "text_input" || selectedField.widgetType === "textarea") &&
           selectedField.semanticType !== "full_name" &&
+          selectedField.semanticType !== "email" &&
           selectedField.semanticType !== "phone" &&
           selectedField.semanticType !== "passport" &&
           selectedField.semanticType !== "inn" &&
@@ -868,7 +870,8 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
           </div>
         )}
 
-        {(selectedField.widgetType === "text_input" && props.inputType === "email") && (
+        {(selectedField.semanticType === "email" ||
+          (selectedField.widgetType === "text_input" && props.inputType === "email")) && (
           <div className="space-y-2">
             <Label>{t("propert.domains")}</Label>
             <Input

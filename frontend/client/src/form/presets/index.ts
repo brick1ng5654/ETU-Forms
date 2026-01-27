@@ -114,6 +114,17 @@ const ogrnLength = (props: Record<string, unknown>) =>
   props.ogrnIp ? 15 : 13;
 
 export const presets: Record<SemanticType, Preset> = {
+  email: {
+    validate: (value, { required }) => {
+      if (!value && !required) return [];
+      const normalized = value.trim();
+      if (!normalized) return required ? ["Required"] : [];
+      const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized);
+      return isValid ? [] : ["Invalid email"];
+    },
+    inputMode: "email",
+    inputType: "email",
+  },
   phone: {
     normalize: (value, { previous }) => {
       let digits = digitsOnly(value);

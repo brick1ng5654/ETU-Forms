@@ -36,7 +36,7 @@ widget_type_enum = ENUM(
 )
 
 semantic_type_enum = ENUM(
-    'full_name', 'phone', 'passport', 'inn','snils','bank_account', 'country','ogrn','bik',
+    'full_name', 'phone', 'email', 'passport', 'inn','snils','bank_account', 'country','ogrn','bik',
     name='semantic_type'
 )
 

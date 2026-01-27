@@ -51,7 +51,7 @@ const TOOLBOX_ITEMS: ToolboxItemDefinition[] = [
 
   // Advanced
   { widgetType: "datetime", labelKey: "datetime", category: "Advanced" },
-  { widgetType: "text_input", labelKey: "email", category: "Advanced", props: { inputType: "email" } },
+  { widgetType: "text_input", semanticType: "email", labelKey: "email", category: "Advanced" },
   { widgetType: "rating", labelKey: "rating", category: "Advanced" },
   { widgetType: "ranking", labelKey: "ranking", category: "Advanced" },
   { widgetType: "matrix", labelKey: "matrix", category: "Advanced" },

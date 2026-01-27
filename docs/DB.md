@@ -119,7 +119,7 @@
 
 **Домены и перечисления**
 - WIDGET_TYPE: heading, static_text, number_input, text_input, select, checkbox, radio, datetime, email_input, rating, ranking, file_upload.
-- SEMANTIC_TYPE: full_name, phone, passport, inn, snils, bank_account, country, ogrn, bik.
+- SEMANTIC_TYPE: full_name, phone, email, passport, inn, snils, bank_account, country, ogrn, bik.
 
 **Правила целостности**
 - Заполнено ровно одно из `form_id` или `template_id`.

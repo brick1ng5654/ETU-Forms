@@ -37,6 +37,7 @@ class WidgetType(str, Enum):
 class SemanticType(str, Enum):
     FULL_NAME = 'full_name'
     PHONE = 'phone'
+    EMAIL = 'email'
     PASSPORT = 'passport'
     INN = 'inn'
     SNILS = 'snils'
