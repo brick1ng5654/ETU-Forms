@@ -36,6 +36,11 @@ export const validateForm = (elements: FormElementModel[], answers: AnswersById)
           elementErrors.push(`${part.key}: Required`);
           return;
         }
+        const optionValues = part.options?.map((option) => option.value) ?? [];
+        if (optionValues.length > 0 && !isEmptyValue(partValue) && !optionValues.includes(String(partValue))) {
+          elementErrors.push(`${part.key}: Invalid selection`);
+          return;
+        }
         if (part.validate) {
           const partErrors = part.validate(partValue ?? "", required);
           partErrors.forEach((err) => elementErrors.push(`${part.key}: ${err}`));

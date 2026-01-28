@@ -2,3 +2,6 @@
 ssl/
 *.crt
 *.key
+
+logs/**
+!logs/**/.gitkeep

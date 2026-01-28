@@ -102,6 +102,38 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
               return null;
             }
             const placeholder = part.placeholderKey ? t(part.placeholderKey) : part.placeholder || "";
+            const optionItems = part.options ?? [];
+            if (optionItems.length > 0) {
+              return (
+                <RadioGroup key={part.key} disabled className="flex flex-row flex-wrap gap-6">
+                  {optionItems.map((option) => {
+                    const optionLabel = option.labelKey ? t(option.labelKey) : option.label || option.value;
+                    const optionId = `preview-${field.id}-${part.key}-${option.value}`;
+                    return (
+                      <div key={option.value} className="flex items-center space-x-2">
+                        <RadioGroupItem value={option.value} id={optionId} disabled />
+                        <Label htmlFor={optionId} className="text-muted-foreground">
+                          {optionLabel}
+                        </Label>
+                      </div>
+                    );
+                  })}
+                </RadioGroup>
+              );
+            }
+            if (part.inputType === "date") {
+              return (
+                <div key={part.key} className="relative">
+                  <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
+                  <Input
+                    type="date"
+                    placeholder={placeholder || t("propert.selectDate")}
+                    disabled
+                    className="pl-10 h-10 bg-white/50 pointer-events-none text-muted-foreground"
+                  />
+                </div>
+              );
+            }
             return (
               <Input
                 key={part.key}
