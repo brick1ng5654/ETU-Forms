@@ -53,15 +53,16 @@ export function MatrixCorrectAnswersModal({
   // Локальное состояние для баллов всей матрицы
   const [totalPoints, setTotalPoints] = useState<number>(matrixTotalPoints);
   
-  // Локальные состояния для переключателей распределения баллов
-  const [enablePointsPerCell, setEnablePointsPerCell] = useState<boolean>(Object.keys(pointsPerCell).length > 0);
-  const [enablePointsPerRow, setEnablePointsPerRow] = useState<boolean>(Object.keys(pointsPerRow).length > 0);
-  const [enablePointsPerColumn, setEnablePointsPerColumn] = useState<boolean>(Object.keys(pointsPerColumn).length > 0);
-  const [enablePointsTotal, setEnablePointsTotal] = useState<boolean>(matrixTotalPoints > 0);
+  // Локальное состояние для типа распределения баллов
+  const [pointsDistributionType, setPointsDistributionType] = useState<"cell" | "row" | "column" | "total" | undefined>(
+    props.pointsDistributionType || (Object.keys(pointsPerCell).length > 0 ? "cell" :
+    Object.keys(pointsPerRow).length > 0 ? "row" :
+    Object.keys(pointsPerColumn).length > 0 ? "column" :
+    matrixTotalPoints > 0 ? "total" : undefined)
+  );
   
-  // Локальные состояния для переключателей типа проверки
-  const [validationModeAny, setValidationModeAny] = useState<boolean>(matrixValidationMode === "any");
-  const [validationModeAll, setValidationModeAll] = useState<boolean>(matrixValidationMode === "all");
+  // Локальное состояние для режима проверки
+  const [validationMode, setValidationMode] = useState<string | undefined>(matrixValidationMode);
   
   // Обновление состояния при изменении props
   useEffect(() => {
@@ -71,16 +72,24 @@ export function MatrixCorrectAnswersModal({
     setColumnPoints(pointsPerColumn || {});
     setTotalPoints(matrixTotalPoints);
     
-    // Устанавливаем переключатели на основе существующих данных
-    setEnablePointsPerCell(Object.keys(pointsPerCell || {}).length > 0);
-    setEnablePointsPerRow(Object.keys(pointsPerRow || {}).length > 0);
-    setEnablePointsPerColumn(Object.keys(pointsPerColumn || {}).length > 0);
-    setEnablePointsTotal((matrixTotalPoints || 0) > 0);
+    // Устанавливаем тип распределения баллов
+    if (props.pointsDistributionType) {
+      setPointsDistributionType(props.pointsDistributionType);
+    } else if (Object.keys(pointsPerCell || {}).length > 0) {
+      setPointsDistributionType("cell");
+    } else if (Object.keys(pointsPerRow || {}).length > 0) {
+      setPointsDistributionType("row");
+    } else if (Object.keys(pointsPerColumn || {}).length > 0) {
+      setPointsDistributionType("column");
+    } else if ((matrixTotalPoints || 0) > 0) {
+      setPointsDistributionType("total");
+    } else {
+      setPointsDistributionType(undefined);
+    }
     
-    // Устанавливаем переключатели типа проверки
-    setValidationModeAny(matrixValidationMode === "any");
-    setValidationModeAll(matrixValidationMode === "all");
-  }, [field.id, matrixCorrectAnswers.length, JSON.stringify(pointsPerCell), JSON.stringify(pointsPerRow), JSON.stringify(pointsPerColumn), matrixValidationMode, matrixTotalPoints]);
+    // Устанавливаем режим проверки
+    setValidationMode(matrixValidationMode);
+  }, [field.id, matrixCorrectAnswers.length, JSON.stringify(pointsPerCell), JSON.stringify(pointsPerRow), JSON.stringify(pointsPerColumn), matrixValidationMode, matrixTotalPoints, props.pointsDistributionType]);
   
   // Обработчик изменения выбора ответов
   const handleAnswerChange = (cellKey: string, checked: boolean) => {
@@ -155,64 +164,14 @@ export function MatrixCorrectAnswersModal({
     }
   };
   
-  // Обработчик переключения баллов по ячейкам
-  const handleEnablePointsPerCell = (checked: boolean) => {
-    setEnablePointsPerCell(checked);
-    if (checked) {
-      // Выключаем все остальные переключатели
-      setEnablePointsPerRow(false);
-      setEnablePointsPerColumn(false);
-      setEnablePointsTotal(false);
-    }
+  // Обработчик изменения типа распределения баллов
+  const handlePointsDistributionTypeChange = (value: string) => {
+    setPointsDistributionType(value as "cell" | "row" | "column" | "total" | undefined);
   };
   
-  // Обработчик переключения баллов по строкам
-  const handleEnablePointsPerRow = (checked: boolean) => {
-    setEnablePointsPerRow(checked);
-    if (checked) {
-      // Выключаем все остальные переключатели
-      setEnablePointsPerCell(false);
-      setEnablePointsPerColumn(false);
-      setEnablePointsTotal(false);
-    }
-  };
-  
-  // Обработчик переключения баллов по столбцам
-  const handleEnablePointsPerColumn = (checked: boolean) => {
-    setEnablePointsPerColumn(checked);
-    if (checked) {
-      // Выключаем все остальные переключатели
-      setEnablePointsPerCell(false);
-      setEnablePointsPerRow(false);
-      setEnablePointsTotal(false);
-    }
-  };
-  
-  // Обработчик переключения баллов за всю матрицу
-  const handleEnablePointsTotal = (checked: boolean) => {
-    setEnablePointsTotal(checked);
-    if (checked) {
-      // Выключаем все остальные переключатели
-      setEnablePointsPerCell(false);
-      setEnablePointsPerRow(false);
-      setEnablePointsPerColumn(false);
-    }
-  };
-  
-  // Обработчик переключения типа проверки "Любой"
-  const handleValidationModeAny = (checked: boolean) => {
-    setValidationModeAny(checked);
-    if (checked) {
-      setValidationModeAll(false);
-    }
-  };
-  
-  // Обработчик переключения типа проверки "Все"
-  const handleValidationModeAll = (checked: boolean) => {
-    setValidationModeAll(checked);
-    if (checked) {
-      setValidationModeAny(false);
-    }
+  // Обработчик изменения режима проверки
+  const handleValidationModeChange = (value: string) => {
+    setValidationMode(value);
   };
   
   // Сохранение изменений
@@ -225,7 +184,7 @@ export function MatrixCorrectAnswersModal({
     
     // Формируем объект pointsPerRow только с ненулевыми значениями
     const nonZeroRowPoints: Record<string, number> = {};
-    if (enablePointsPerRow) {
+    if (pointsDistributionType === "row") {
       Object.entries(rowPoints).forEach(([key, value]) => {
         if (value > 0) {
           nonZeroRowPoints[key] = value;
@@ -235,7 +194,7 @@ export function MatrixCorrectAnswersModal({
     
     // Формируем объект pointsPerColumn только с ненулевыми значениями
     const nonZeroColumnPoints: Record<string, number> = {};
-    if (enablePointsPerColumn) {
+    if (pointsDistributionType === "column") {
       Object.entries(columnPoints).forEach(([key, value]) => {
         if (value > 0) {
           nonZeroColumnPoints[key] = value;
@@ -245,31 +204,26 @@ export function MatrixCorrectAnswersModal({
     
     // Определяем тип проверки
     let matrixValidationModeToSave: "any" | "all" | undefined;
-    if (validationModeAny) {
+    if (validationMode === "any") {
       matrixValidationModeToSave = "any";
-    } else if (validationModeAll) {
+    } else if (validationMode === "all") {
       matrixValidationModeToSave = "all";
     }
     
-    // Определяем, какие баллы сохранять в зависимости от выбранного переключателя
+    // Определяем, какие баллы сохранять в зависимости от выбранного типа распределения
     let pointsPerCellToSave: Record<string, number> | undefined;
     let pointsPerRowToSave: Record<string, number> | undefined;
     let pointsPerColumnToSave: Record<string, number> | undefined;
     let matrixTotalPointsToSave: number | undefined;
-    let pointsDistributionType: "cell" | "row" | "column" | "total" | undefined;
     
-    if (enablePointsPerCell) {
+    if (pointsDistributionType === "cell") {
       pointsPerCellToSave = Object.keys(allCellPoints).length >= 0 ? allCellPoints : undefined;
-      pointsDistributionType = "cell";
-    } else if (enablePointsPerRow) {
+    } else if (pointsDistributionType === "row") {
       pointsPerRowToSave = Object.keys(nonZeroRowPoints).length > 0 ? nonZeroRowPoints : undefined;
-      pointsDistributionType = "row";
-    } else if (enablePointsPerColumn) {
+    } else if (pointsDistributionType === "column") {
       pointsPerColumnToSave = Object.keys(nonZeroColumnPoints).length > 0 ? nonZeroColumnPoints : undefined;
-      pointsDistributionType = "column";
-    } else if (enablePointsTotal) {
+    } else if (pointsDistributionType === "total") {
       matrixTotalPointsToSave = totalPoints > 0 ? totalPoints : undefined;
-      pointsDistributionType = "total";
     }
     
     updateField(field.id, {
@@ -352,27 +306,24 @@ export function MatrixCorrectAnswersModal({
                 </table>
               </div>
               
-              {/* Переключатели распределения баллов */}
+              {/* Выпадающий список для типа распределения баллов */}
               <div className="space-y-3 border-t pt-4">
                 <Label className="text-green-600">{t("propert.pointsDistributionType")}</Label>
                 
-                {/* Переключатель для баллов по ячейкам */}
-                <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-                  <div className="space-y-0.5">
-                    <Label>{t("propert.pointsPerCell")}</Label>
-                    <p className="text-sm text-muted-foreground">
-                      {t("propert.pointsPerCellHelp")}
-                    </p>
-                  </div>
-                  <Checkbox
-                    checked={enablePointsPerCell}
-                    onCheckedChange={handleEnablePointsPerCell}
-                    simplifiedAnimation
-                  />
-                </div>
+                <Select value={pointsDistributionType || ""} onValueChange={handlePointsDistributionTypeChange}>
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue placeholder={t("common.selectopt")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cell">{t("propert.pointsPerCell")}</SelectItem>
+                    <SelectItem value="row">{t("propert.pointsPerRow")}</SelectItem>
+                    <SelectItem value="column">{t("propert.pointsPerColumn")}</SelectItem>
+                    <SelectItem value="total">{t("propert.pointsTotal")}</SelectItem>
+                  </SelectContent>
+                </Select>
                 
-                {/* Баллы по ячейкам (отображается только при включении) */}
-                {enablePointsPerCell && (
+                {/* Баллы по ячейкам (отображается только при выборе "cell") */}
+                {pointsDistributionType === "cell" && (
                   <div className="space-y-3 border-t pt-4">
                     <Label className="text-green-600">{t("propert.pointsPerCell")}</Label>
                     <div className="overflow-x-auto border rounded p-2">
@@ -427,23 +378,8 @@ export function MatrixCorrectAnswersModal({
                   </div>
                 )}
                 
-                {/* Переключатель для баллов по строкам */}
-                <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-                  <div className="space-y-0.5">
-                    <Label>{t("propert.pointsPerRow")}</Label>
-                    <p className="text-sm text-muted-foreground">
-                      {t("propert.pointsPerRowHelp")}
-                    </p>
-                  </div>
-                  <Checkbox
-                    checked={enablePointsPerRow}
-                    onCheckedChange={handleEnablePointsPerRow}
-                    simplifiedAnimation
-                  />
-                </div>
-                
-                {/* Баллы по строкам (отображается только при включении) */}
-                {enablePointsPerRow && (
+                {/* Баллы по строкам (отображается только при выборе "row") */}
+                {pointsDistributionType === "row" && (
                   <div className="space-y-3 border-t pt-4">
                     <Label className="text-green-600">{t("propert.pointsPerRow")}</Label>
                     <div className="overflow-x-auto border rounded p-2">
@@ -483,23 +419,8 @@ export function MatrixCorrectAnswersModal({
                   </div>
                 )}
                 
-                {/* Переключатель для баллов по столбцам */}
-                <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-                  <div className="space-y-0.5">
-                    <Label>{t("propert.pointsPerColumn")}</Label>
-                    <p className="text-sm text-muted-foreground">
-                      {t("propert.pointsPerColumnHelp")}
-                    </p>
-                  </div>
-                  <Checkbox
-                    checked={enablePointsPerColumn}
-                    onCheckedChange={handleEnablePointsPerColumn}
-                    simplifiedAnimation
-                  />
-                </div>
-                
-                {/* Баллы по столбцам (отображается только при включении) */}
-                {enablePointsPerColumn && (
+                {/* Баллы по столбцам (отображается только при выборе "column") */}
+                {pointsDistributionType === "column" && (
                   <div className="space-y-3 border-t pt-4">
                     <Label className="text-green-600">{t("propert.pointsPerColumn")}</Label>
                     <div className="overflow-x-auto border rounded p-2">
@@ -539,23 +460,8 @@ export function MatrixCorrectAnswersModal({
                   </div>
                 )}
                 
-                {/* Переключатель для баллов за всю матрицу */}
-                <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-                  <div className="space-y-0.5">
-                    <Label>{t("propert.pointsTotal")}</Label>
-                    <p className="text-sm text-muted-foreground">
-                      {t("propert.pointsTotalHelp")}
-                    </p>
-                  </div>
-                  <Checkbox
-                    checked={enablePointsTotal}
-                    onCheckedChange={handleEnablePointsTotal}
-                    simplifiedAnimation
-                  />
-                </div>
-                
-                {/* Баллы за всю матрицу (отображается только при включении) */}
-                {enablePointsTotal && (
+                {/* Баллы за всю матрицу (отображается только при выборе "total") */}
+                {pointsDistributionType === "total" && (
                   <div className="space-y-3 border-t pt-4">
                     <Label className="text-green-600">{t("propert.matrixTotalPoints")}</Label>
                     <div className="flex items-center gap-2">
@@ -585,7 +491,7 @@ export function MatrixCorrectAnswersModal({
           )}
         </div>
               
-        {/* Тип проверки - для всех случаев (и одиночного, и множественного) */}
+        {/* Выпадающий список для режима проверки */}
         <div className="space-y-3 border-t pt-4">
           <div className="flex items-center gap-2">
             <Label className="text-green-600">{t("propert.matrixValidationMode")}</Label>
@@ -605,35 +511,15 @@ export function MatrixCorrectAnswersModal({
             </Tooltip>
           </div>
           
-          {/* Переключатель для режима "Любой" */}
-          <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-            <div className="space-y-0.5">
-              <Label>{t("propert.matrixValidationModeAny")}</Label>
-              <p className="text-sm text-muted-foreground">
-                {t("propert.matrixValidationModeAnyHelp")}
-              </p>
-            </div>
-            <Checkbox
-              checked={validationModeAny}
-              onCheckedChange={handleValidationModeAny}
-              simplifiedAnimation
-            />
-          </div>
-          
-          {/* Переключатель для режима "Все" */}
-          <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-            <div className="space-y-0.5">
-              <Label>{t("propert.matrixValidationModeAll")}</Label>
-              <p className="text-sm text-muted-foreground">
-                {t("propert.matrixValidationModeAllHelp")}
-              </p>
-            </div>
-            <Checkbox
-              checked={validationModeAll}
-              onCheckedChange={handleValidationModeAll}
-              simplifiedAnimation
-            />
-          </div>
+          <Select value={validationMode || ""} onValueChange={handleValidationModeChange}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder={t("common.selectopt")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="any">{t("propert.matrixValidationModeAny")}</SelectItem>
+              <SelectItem value="all">{t("propert.matrixValidationModeAll")}</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         
         <DialogFooter className="gap-2 sm:space-x-0">
