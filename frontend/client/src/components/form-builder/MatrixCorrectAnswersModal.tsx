@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import type { KeyboardEvent, ClipboardEvent } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -41,17 +42,33 @@ export function MatrixCorrectAnswersModal({
   const pointsPerColumn = (props.pointsPerColumn as Record<string, number> | undefined) || {};
   const matrixValidationMode = (props.matrixValidationMode as string | undefined) || undefined;
   const matrixTotalPoints = (props.matrixTotalPoints as number | undefined) || 0;
+
+  const mapPointsToInputs = (input?: Record<string, number>) => {
+    const next: Record<string, string> = {};
+    Object.entries(input || {}).forEach(([key, value]) => {
+      if (typeof value === "number") {
+        next[key] = String(value);
+      }
+    });
+    return next;
+  };
   
   // Локальное состояние для выбранных ответов
   const [selectedAnswers, setSelectedAnswers] = useState<string[]>(matrixCorrectAnswers);
   // Локальное состояние для баллов по ячейкам
   const [cellPoints, setCellPoints] = useState<Record<string, number>>(pointsPerCell || {});
+  const [cellPointsInput, setCellPointsInput] = useState<Record<string, string>>(mapPointsToInputs(pointsPerCell));
   // Локальное состояние для баллов по строкам
   const [rowPoints, setRowPoints] = useState<Record<string, number>>(pointsPerRow || {});
+  const [rowPointsInput, setRowPointsInput] = useState<Record<string, string>>(mapPointsToInputs(pointsPerRow));
   // Локальное состояние для баллов по столбцам
   const [columnPoints, setColumnPoints] = useState<Record<string, number>>(pointsPerColumn || {});
+  const [columnPointsInput, setColumnPointsInput] = useState<Record<string, string>>(mapPointsToInputs(pointsPerColumn));
   // Локальное состояние для баллов всей матрицы
   const [totalPoints, setTotalPoints] = useState<number>(matrixTotalPoints);
+  const [totalPointsInput, setTotalPointsInput] = useState<string>(
+    matrixTotalPoints ? String(matrixTotalPoints) : ""
+  );
   
   // Локальное состояние для типа распределения баллов
   const [pointsDistributionType, setPointsDistributionType] = useState<"cell" | "row" | "column" | "total" | undefined>(
@@ -68,9 +85,13 @@ export function MatrixCorrectAnswersModal({
   useEffect(() => {
     setSelectedAnswers(matrixCorrectAnswers);
     setCellPoints(pointsPerCell || {});
+    setCellPointsInput(mapPointsToInputs(pointsPerCell));
     setRowPoints(pointsPerRow || {});
+    setRowPointsInput(mapPointsToInputs(pointsPerRow));
     setColumnPoints(pointsPerColumn || {});
+    setColumnPointsInput(mapPointsToInputs(pointsPerColumn));
     setTotalPoints(matrixTotalPoints);
+    setTotalPointsInput(matrixTotalPoints ? String(matrixTotalPoints) : "");
     
     // Устанавливаем тип распределения баллов
     if (props.pointsDistributionType) {
@@ -90,6 +111,50 @@ export function MatrixCorrectAnswersModal({
     // Устанавливаем режим проверки
     setValidationMode(matrixValidationMode);
   }, [field.id, matrixCorrectAnswers.length, JSON.stringify(pointsPerCell), JSON.stringify(pointsPerRow), JSON.stringify(pointsPerColumn), matrixValidationMode, matrixTotalPoints, props.pointsDistributionType]);
+
+  const decimalInputPattern = /^\d*(?:\.\d*)?$/;
+  const decimalValuePattern = /^\d+(?:\.\d*)?$/;
+
+  const parsePointInput = (raw: string, fallback: number) => {
+    const trimmed = raw.trim();
+    if (!decimalValuePattern.test(trimmed)) {
+      return fallback;
+    }
+    const parsed = Number.parseFloat(trimmed);
+    if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 1000) {
+      return fallback;
+    }
+    return parsed;
+  };
+
+  const getPointInputValue = (inputMap: Record<string, string>, key: string, fallback: number) =>
+    inputMap[key] ?? String(fallback);
+
+  const handlePointsKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.ctrlKey || event.metaKey || event.altKey) {
+      return;
+    }
+    const { key, currentTarget } = event;
+    if (key.length !== 1) {
+      return;
+    }
+    if (key === ".") {
+      if (currentTarget.value.includes(".")) {
+        event.preventDefault();
+      }
+      return;
+    }
+    if (!/^\d$/.test(key)) {
+      event.preventDefault();
+    }
+  };
+
+  const handlePointsPaste = (event: ClipboardEvent<HTMLInputElement>) => {
+    const text = event.clipboardData.getData("text");
+    if (!decimalInputPattern.test(text)) {
+      event.preventDefault();
+    }
+  };
   
   // Обработчик изменения выбора ответов
   const handleAnswerChange = (cellKey: string, checked: boolean) => {
@@ -110,7 +175,11 @@ export function MatrixCorrectAnswersModal({
       if (!cellPoints.hasOwnProperty(cellKey)) {
         setCellPoints(prev => ({
           ...prev,
-          [cellKey]: 0
+          [cellKey]: 1
+        }));
+        setCellPointsInput(prev => ({
+          ...prev,
+          [cellKey]: "1"
         }));
       }
     } else {
@@ -123,48 +192,102 @@ export function MatrixCorrectAnswersModal({
         delete updated[cellKey];
         return updated;
       });
+      setCellPointsInput(prev => {
+        const updated = { ...prev };
+        delete updated[cellKey];
+        return updated;
+      });
     }
     
     setSelectedAnswers(newAnswers);
   };
   
   // Обработчик изменения баллов для ячейки
-  const handlePointsChange = (cellKey: string, value: string) => {
-    const numValue = value === "" ? 0 : parseInt(value, 10);
-    
-    if (value === "" || (!isNaN(numValue) && numValue >= 0 && numValue <= 1000)) {
-      setCellPoints(prev => ({
+  const handleCellPointsInputChange = (cellKey: string, value: string) => {
+    if (decimalInputPattern.test(value)) {
+      setCellPointsInput(prev => ({
         ...prev,
-        [cellKey]: value === "" ? 0 : numValue
+        [cellKey]: value
       }));
     }
   };
+
+  const commitCellPoints = (cellKey: string) => {
+    const rawValue = cellPointsInput[cellKey] ?? "";
+    const fallback = cellPoints[cellKey] ?? 1;
+    const nextValue = parsePointInput(rawValue, fallback);
+    setCellPoints(prev => ({
+      ...prev,
+      [cellKey]: nextValue
+    }));
+    setCellPointsInput(prev => ({
+      ...prev,
+      [cellKey]: String(nextValue)
+    }));
+  };
   
-  // Обработчик изменения баллов для строки
-  const handleRowPointsChange = (rowIndex: number, value: string) => {
-    const numValue = value === "" ? 0 : parseInt(value, 10);
-    
-    if (value === "" || (!isNaN(numValue) && numValue >= 0 && numValue <= 1000)) {
-      setRowPoints(prev => ({
+  const handleRowPointsInputChange = (rowIndex: number, value: string) => {
+    if (decimalInputPattern.test(value)) {
+      setRowPointsInput(prev => ({
         ...prev,
-        [`${rowIndex + 1}`]: value === "" ? 0 : numValue
+        [`${rowIndex + 1}`]: value
       }));
     }
   };
+
+  const commitRowPoints = (rowIndex: number) => {
+    const key = `${rowIndex + 1}`;
+    const rawValue = rowPointsInput[key] ?? "";
+    const fallback = rowPoints[key] ?? 1;
+    const nextValue = parsePointInput(rawValue, fallback);
+    setRowPoints(prev => ({
+      ...prev,
+      [key]: nextValue
+    }));
+    setRowPointsInput(prev => ({
+      ...prev,
+      [key]: String(nextValue)
+    }));
+  };
   
-  // Обработчик изменения баллов для столбца
-  const handleColumnPointsChange = (colIndex: number, value: string) => {
-    const numValue = value === "" ? 0 : parseInt(value, 10);
-    
-    if (value === "" || (!isNaN(numValue) && numValue >= 0 && numValue <= 1000)) {
-      setColumnPoints(prev => ({
+  const handleColumnPointsInputChange = (colIndex: number, value: string) => {
+    if (decimalInputPattern.test(value)) {
+      setColumnPointsInput(prev => ({
         ...prev,
-        [`${colIndex + 1}`]: value === "" ? 0 : numValue
+        [`${colIndex + 1}`]: value
       }));
     }
   };
-  
-  // Обработчик изменения типа распределения баллов
+
+  const commitColumnPoints = (colIndex: number) => {
+    const key = `${colIndex + 1}`;
+    const rawValue = columnPointsInput[key] ?? "";
+    const fallback = columnPoints[key] ?? 1;
+    const nextValue = parsePointInput(rawValue, fallback);
+    setColumnPoints(prev => ({
+      ...prev,
+      [key]: nextValue
+    }));
+    setColumnPointsInput(prev => ({
+      ...prev,
+      [key]: String(nextValue)
+    }));
+  };
+
+  const handleTotalPointsInputChange = (value: string) => {
+    if (decimalInputPattern.test(value)) {
+      setTotalPointsInput(value);
+    }
+  };
+
+  const commitTotalPoints = () => {
+    const rawValue = totalPointsInput ?? "";
+    const fallback = totalPoints || 1;
+    const nextValue = parsePointInput(rawValue, fallback);
+    setTotalPoints(nextValue);
+    setTotalPointsInput(String(nextValue));
+  };
+
   const handlePointsDistributionTypeChange = (value: string) => {
     setPointsDistributionType(value as "cell" | "row" | "column" | "total" | undefined);
   };
@@ -173,21 +296,150 @@ export function MatrixCorrectAnswersModal({
   const handleValidationModeChange = (value: string) => {
     setValidationMode(value);
   };
+
+  const handleSingleRowSelection = (rowIndex: number, cellKey: string) => {
+    const rowPrefix = `${rowIndex + 1}:`;
+    const previousSelections = selectedAnswers.filter((key) => key.startsWith(rowPrefix));
+    const newAnswers = selectedAnswers.filter((key) => !key.startsWith(rowPrefix));
+
+    newAnswers.push(cellKey);
+
+    if (!cellPoints.hasOwnProperty(cellKey)) {
+      setCellPoints((prev) => ({
+        ...prev,
+        [cellKey]: 1,
+      }));
+      setCellPointsInput((prev) => ({
+        ...prev,
+        [cellKey]: "1",
+      }));
+    }
+
+    if (previousSelections.length > 0) {
+      setCellPoints((prev) => {
+        const updated = { ...prev };
+        previousSelections.forEach((key) => {
+          if (key !== cellKey) {
+            delete updated[key];
+          }
+        });
+        return updated;
+      });
+      setCellPointsInput((prev) => {
+        const updated = { ...prev };
+        previousSelections.forEach((key) => {
+          if (key !== cellKey) {
+            delete updated[key];
+          }
+        });
+        return updated;
+      });
+    }
+
+    setSelectedAnswers(newAnswers);
+  };
+
+  const showValidationMode = pointsDistributionType === "column" || (pointsDistributionType === "row" && multiplePerRow);
+  
+  useEffect(() => {
+    if (showValidationMode && !validationMode) {
+      setValidationMode("all");
+    }
+  }, [showValidationMode, validationMode]);
+  const pointsDistributionOptions = [
+    {
+      value: "cell",
+      label: t("propert.pointsPerCell"),
+      help: t("propert.pointsPerCellHelp"),
+    },
+    {
+      value: "row",
+      label: t("propert.pointsPerRow"),
+      help: t("propert.pointsPerRowHelp"),
+    },
+    {
+      value: "column",
+      label: t("propert.pointsPerColumn"),
+      help: t("propert.pointsPerColumnHelp"),
+    },
+    {
+      value: "total",
+      label: t("propert.pointsTotal"),
+      help: t("propert.pointsTotalHelp"),
+    },
+  ];
+
+  useEffect(() => {
+    if (pointsDistributionType === "row" && rows.length > 0) {
+      setRowPoints((prev) => {
+        const next = { ...prev };
+        rows.forEach((_, index) => {
+          const key = `${index + 1}`;
+          if (next[key] === undefined) {
+            next[key] = 1;
+          }
+        });
+        return next;
+      });
+      setRowPointsInput((prev) => {
+        const next = { ...prev };
+        rows.forEach((_, index) => {
+          const key = `${index + 1}`;
+          if (!next[key]) {
+            next[key] = "1";
+          }
+        });
+        return next;
+      });
+    }
+
+    if (pointsDistributionType === "column" && columns.length > 0) {
+      setColumnPoints((prev) => {
+        const next = { ...prev };
+        columns.forEach((_, index) => {
+          const key = `${index + 1}`;
+          if (next[key] === undefined) {
+            next[key] = 1;
+          }
+        });
+        return next;
+      });
+      setColumnPointsInput((prev) => {
+        const next = { ...prev };
+        columns.forEach((_, index) => {
+          const key = `${index + 1}`;
+          if (!next[key]) {
+            next[key] = "1";
+          }
+        });
+        return next;
+      });
+    }
+
+    if (pointsDistributionType === "total") {
+      setTotalPoints((prev) => (prev > 0 ? prev : 1));
+      setTotalPointsInput((prev) => (prev ? prev : "1"));
+    }
+  }, [pointsDistributionType, rows.length, columns.length]);
   
   // Сохранение изменений
   const handleSave = () => {
     // Формируем объект pointsPerCell только с ненулевыми значениями
     const allCellPoints: Record<string, number> = {};
     selectedAnswers.forEach(cellKey => {
-      allCellPoints[cellKey] = cellPoints[cellKey] || 0;
+      const rawValue = cellPointsInput[cellKey] ?? String(cellPoints[cellKey] ?? 1);
+      allCellPoints[cellKey] = parsePointInput(rawValue, cellPoints[cellKey] ?? 1);
     });
     
     // Формируем объект pointsPerRow только с ненулевыми значениями
     const nonZeroRowPoints: Record<string, number> = {};
     if (pointsDistributionType === "row") {
-      Object.entries(rowPoints).forEach(([key, value]) => {
-        if (value > 0) {
-          nonZeroRowPoints[key] = value;
+      rows.forEach((_, index) => {
+        const key = `${index + 1}`;
+        const rawValue = rowPointsInput[key] ?? String(rowPoints[key] ?? 1);
+        const parsedValue = parsePointInput(rawValue, rowPoints[key] ?? 1);
+        if (parsedValue > 0) {
+          nonZeroRowPoints[key] = parsedValue;
         }
       });
     }
@@ -195,19 +447,24 @@ export function MatrixCorrectAnswersModal({
     // Формируем объект pointsPerColumn только с ненулевыми значениями
     const nonZeroColumnPoints: Record<string, number> = {};
     if (pointsDistributionType === "column") {
-      Object.entries(columnPoints).forEach(([key, value]) => {
-        if (value > 0) {
-          nonZeroColumnPoints[key] = value;
+      columns.forEach((_, index) => {
+        const key = `${index + 1}`;
+        const rawValue = columnPointsInput[key] ?? String(columnPoints[key] ?? 1);
+        const parsedValue = parsePointInput(rawValue, columnPoints[key] ?? 1);
+        if (parsedValue > 0) {
+          nonZeroColumnPoints[key] = parsedValue;
         }
       });
     }
     
     // Определяем тип проверки
     let matrixValidationModeToSave: "any" | "all" | undefined;
-    if (validationMode === "any") {
-      matrixValidationModeToSave = "any";
-    } else if (validationMode === "all") {
-      matrixValidationModeToSave = "all";
+    if (showValidationMode) {
+      if (validationMode === "any") {
+        matrixValidationModeToSave = "any";
+      } else {
+        matrixValidationModeToSave = "all";
+      }
     }
     
     // Определяем, какие баллы сохранять в зависимости от выбранного типа распределения
@@ -223,7 +480,9 @@ export function MatrixCorrectAnswersModal({
     } else if (pointsDistributionType === "column") {
       pointsPerColumnToSave = Object.keys(nonZeroColumnPoints).length > 0 ? nonZeroColumnPoints : undefined;
     } else if (pointsDistributionType === "total") {
-      matrixTotalPointsToSave = totalPoints > 0 ? totalPoints : undefined;
+      const rawValue = totalPointsInput || String(totalPoints || 1);
+      const parsedValue = parsePointInput(rawValue, totalPoints || 1);
+      matrixTotalPointsToSave = parsedValue > 0 ? parsedValue : undefined;
     }
     
     updateField(field.id, {
@@ -280,28 +539,49 @@ export function MatrixCorrectAnswersModal({
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map((row, rowIdx) => (
-                      <tr key={rowIdx}>
-                        <td className="border border-muted-foreground/20 p-2 font-medium">
-                          {row || `Row ${rowIdx + 1}`}
-                        </td>
-                        {columns.map((_, colIdx) => {
-                          const cellKey = `${rowIdx + 1}:${colIdx + 1}`;
-                          const isChecked = selectedAnswers.includes(cellKey);
-                          
-                          return (
-                            <td key={colIdx} className="border border-muted-foreground/20 p-2 text-center">
-                              <Checkbox
-                                checked={isChecked}
-                                onCheckedChange={(checked) => handleAnswerChange(cellKey, Boolean(checked))}
-                                className="mx-auto"
-                                simplifiedAnimation
-                              />
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
+                    {rows.map((row, rowIdx) => {
+                      const rowPrefix = `${rowIdx + 1}:`;
+                      const selectedInRow = multiplePerRow
+                        ? undefined
+                        : selectedAnswers.find((key) => key.startsWith(rowPrefix));
+
+                      return (
+                        <tr key={rowIdx}>
+                          <td className="border border-muted-foreground/20 p-2 font-medium">
+                            {row || `Row ${rowIdx + 1}`}
+                          </td>
+                          {columns.map((_, colIdx) => {
+                            const cellKey = `${rowIdx + 1}:${colIdx + 1}`;
+                            const isChecked = multiplePerRow
+                              ? selectedAnswers.includes(cellKey)
+                              : selectedInRow === cellKey;
+                            
+                            return (
+                              <td key={colIdx} className="border border-muted-foreground/20 p-2 text-center">
+                                {multiplePerRow ? (
+                                  <Checkbox
+                                    checked={isChecked}
+                                    onCheckedChange={(checked) => handleAnswerChange(cellKey, Boolean(checked))}
+                                    className="mx-auto"
+                                    simplifiedAnimation
+                                  />
+                              ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleSingleRowSelection(rowIdx, cellKey)}
+                                className="mx-auto inline-flex aspect-square h-4 w-4 items-center justify-center align-middle rounded-full border border-primary text-primary shadow focus:outline-none focus-visible:ring-1 focus-visible:ring-ring transition-colors duration-200 leading-none p-0 relative overflow-hidden"
+                              >
+                                {isChecked && (
+                                  <span className="absolute inset-0 rounded-full bg-primary animate-in zoom-in-50 duration-200 ease-out" />
+                                )}
+                              </button>
+                              )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -311,14 +591,33 @@ export function MatrixCorrectAnswersModal({
                 <Label className="text-green-600">{t("propert.pointsDistributionType")}</Label>
                 
                 <Select value={pointsDistributionType || ""} onValueChange={handlePointsDistributionTypeChange}>
-                  <SelectTrigger className="w-[200px]">
+                  <SelectTrigger className="w-[260px]">
                     <SelectValue placeholder={t("common.selectopt")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="cell">{t("propert.pointsPerCell")}</SelectItem>
-                    <SelectItem value="row">{t("propert.pointsPerRow")}</SelectItem>
-                    <SelectItem value="column">{t("propert.pointsPerColumn")}</SelectItem>
-                    <SelectItem value="total">{t("propert.pointsTotal")}</SelectItem>
+                    {pointsDistributionOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        <div className="flex w-full items-center justify-between gap-2">
+                          <span>{option.label}</span>
+                          <Tooltip delayDuration={0}>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                aria-label={option.help}
+                                onPointerDown={(event) => event.preventDefault()}
+                                onClick={(event) => event.stopPropagation()}
+                                className="h-4 w-4 shrink-0 rounded-full border border-muted-foreground/40 text-muted-foreground text-[9px] leading-none flex items-center justify-center hover:bg-muted"
+                              >
+                                ?
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">
+                              {option.help}
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 
@@ -359,13 +658,15 @@ export function MatrixCorrectAnswersModal({
                                 return (
                                   <td key={colIdx} className="border border-muted-foreground/20 p-2">
                                     <Input
-                                      type="number"
-                                      min="0"
-                                      max="1000"
-                                      value={cellPoints[cellKey] || 0}
-                                      onChange={(e) => handlePointsChange(cellKey, e.target.value)}
+                                      type="text"
+                                      inputMode="decimal"
+                                      value={getPointInputValue(cellPointsInput, cellKey, cellPoints[cellKey] ?? 1)}
+                                      onChange={(e) => handleCellPointsInputChange(cellKey, e.target.value)}
+                                      onBlur={() => commitCellPoints(cellKey)}
+                                      onKeyDown={handlePointsKeyDown}
+                                      onPaste={handlePointsPaste}
                                       className="w-full text-center border-green-200 focus-visible:ring-green-500"
-                                      placeholder="0"
+                                      placeholder="1"
                                     />
                                   </td>
                                 );
@@ -402,13 +703,15 @@ export function MatrixCorrectAnswersModal({
                               </td>
                               <td className="border border-muted-foreground/20 p-2">
                                 <Input
-                                  type="number"
-                                  min="0"
-                                  max="1000"
-                                  value={rowPoints[`${rowIdx + 1}`] || 0}
-                                  onChange={(e) => handleRowPointsChange(rowIdx, e.target.value)}
+                                  type="text"
+                                  inputMode="decimal"
+                                  value={getPointInputValue(rowPointsInput, `${rowIdx + 1}`, rowPoints[`${rowIdx + 1}`] ?? 1)}
+                                  onChange={(e) => handleRowPointsInputChange(rowIdx, e.target.value)}
+                                  onBlur={() => commitRowPoints(rowIdx)}
+                                  onKeyDown={handlePointsKeyDown}
+                                  onPaste={handlePointsPaste}
                                   className="w-full text-center border-green-200 focus-visible:ring-green-500"
-                                  placeholder="0"
+                                  placeholder="1"
                                 />
                               </td>
                             </tr>
@@ -443,13 +746,15 @@ export function MatrixCorrectAnswersModal({
                               </td>
                               <td className="border border-muted-foreground/20 p-2">
                                 <Input
-                                  type="number"
-                                  min="0"
-                                  max="1000"
-                                  value={columnPoints[`${colIdx + 1}`] || 0}
-                                  onChange={(e) => handleColumnPointsChange(colIdx, e.target.value)}
+                                  type="text"
+                                  inputMode="decimal"
+                                  value={getPointInputValue(columnPointsInput, `${colIdx + 1}`, columnPoints[`${colIdx + 1}`] ?? 1)}
+                                  onChange={(e) => handleColumnPointsInputChange(colIdx, e.target.value)}
+                                  onBlur={() => commitColumnPoints(colIdx)}
+                                  onKeyDown={handlePointsKeyDown}
+                                  onPaste={handlePointsPaste}
                                   className="w-full text-center border-green-200 focus-visible:ring-green-500"
-                                  placeholder="0"
+                                  placeholder="1"
                                 />
                               </td>
                             </tr>
@@ -466,18 +771,15 @@ export function MatrixCorrectAnswersModal({
                     <Label className="text-green-600">{t("propert.matrixTotalPoints")}</Label>
                     <div className="flex items-center gap-2">
                       <Input
-                        type="number"
-                        min="0"
-                        max="1000"
-                        value={totalPoints}
-                        onChange={(e) => {
-                          const value = e.target.value === "" ? 0 : parseInt(e.target.value, 10);
-                          if (e.target.value === "" || (!isNaN(value) && value >= 0 && value <= 1000)) {
-                            setTotalPoints(value);
-                          }
-                        }}
+                        type="text"
+                        inputMode="decimal"
+                        value={totalPointsInput ?? String(totalPoints || 1)}
+                        onChange={(e) => handleTotalPointsInputChange(e.target.value)}
+                        onBlur={commitTotalPoints}
+                        onKeyDown={handlePointsKeyDown}
+                        onPaste={handlePointsPaste}
                         className="w-[120px] border-green-200 focus-visible:ring-green-500"
-                        placeholder="0"
+                        placeholder="1"
                       />
                       <span className="text-sm text-muted-foreground">{t("propert.points")}</span>
                     </div>
@@ -492,7 +794,8 @@ export function MatrixCorrectAnswersModal({
         </div>
               
         {/* Выпадающий список для режима проверки */}
-        <div className="space-y-3 border-t pt-4">
+        {showValidationMode && (
+          <div className="space-y-3 border-t pt-4">
           <div className="flex items-center gap-2">
             <Label className="text-green-600">{t("propert.matrixValidationMode")}</Label>
             <Tooltip delayDuration={0}>
@@ -511,8 +814,8 @@ export function MatrixCorrectAnswersModal({
             </Tooltip>
           </div>
           
-          <Select value={validationMode || ""} onValueChange={handleValidationModeChange}>
-            <SelectTrigger className="w-[200px]">
+            <Select value={validationMode || "all"} onValueChange={handleValidationModeChange}>
+            <SelectTrigger className="w-[260px]">
               <SelectValue placeholder={t("common.selectopt")} />
             </SelectTrigger>
             <SelectContent>
@@ -520,7 +823,8 @@ export function MatrixCorrectAnswersModal({
               <SelectItem value="all">{t("propert.matrixValidationModeAll")}</SelectItem>
             </SelectContent>
           </Select>
-        </div>
+          </div>
+        )}
         
         <DialogFooter className="gap-2 sm:space-x-0">
           <Button variant="outline" onClick={handleCancel}>

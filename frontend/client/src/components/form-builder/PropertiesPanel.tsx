@@ -16,6 +16,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 import { useState, useEffect } from "react";
+import type { ClipboardEvent, KeyboardEvent } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { MatrixCorrectAnswersModal } from "./MatrixCorrectAnswersModal";
 import { MouseEvent } from 'react';
@@ -370,11 +371,17 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
   const [rankingOrderOptions, setRankingOrderOptions] = useState<string[]>([]);
   const [isConditionalSelectOpen, setIsConditionalSelectOpen] = useState(false);
   const [isMatrixModalOpen, setIsMatrixModalOpen] = useState(false);
+  const [pointsInput, setPointsInput] = useState<string>("");
   useEffect(() => {
     if (!selectedField) return;
     const options = (selectedField.props as Record<string, any>).options as string[] | undefined;
     setRankingOrderOptions(options ? [...options] : []);
   }, [selectedField?.id, selectedField?.props]);
+  useEffect(() => {
+    if (!selectedField) return;
+    const currentPoints = (selectedField.props as Record<string, any>).points;
+    setPointsInput(typeof currentPoints === "number" ? String(currentPoints) : "");
+  }, [selectedField?.id, (selectedField?.props as Record<string, any>)?.points]);
 
   if (selectedIds.length > 1) {
     const panelClassName = isConditionalSelectOpen
@@ -443,6 +450,53 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
       const key = target.replace("props.", "");
       updateField(selectedField.id, { props: { [key]: value } });
     }
+  };
+
+  const pointsInputPattern = /^\d*(?:\.\d*)?$/;
+  const pointsValuePattern = /^\d+(?:\.\d*)?$/;
+
+  const handlePointsKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.ctrlKey || event.metaKey || event.altKey) {
+      return;
+    }
+    const { key, currentTarget } = event;
+    if (key.length !== 1) {
+      return;
+    }
+    if (key === ".") {
+      if (currentTarget.value.includes(".")) {
+        event.preventDefault();
+      }
+      return;
+    }
+    if (!/^\d$/.test(key)) {
+      event.preventDefault();
+    }
+  };
+
+  const handlePointsPaste = (event: ClipboardEvent<HTMLInputElement>) => {
+    const text = event.clipboardData.getData("text");
+    if (!pointsInputPattern.test(text)) {
+      event.preventDefault();
+    }
+  };
+
+  const commitPointsInput = () => {
+    const rawValue = pointsInput.trim();
+    const fallback = typeof props.points === "number" && props.points > 0 ? props.points : 1;
+    if (!pointsValuePattern.test(rawValue)) {
+      setPointsInput(String(fallback));
+      updateField(selectedField.id, { props: { points: fallback } });
+      return;
+    }
+    const parsedValue = Number.parseFloat(rawValue);
+    if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
+      setPointsInput(String(fallback));
+      updateField(selectedField.id, { props: { points: fallback } });
+      return;
+    }
+    setPointsInput(String(parsedValue));
+    updateField(selectedField.id, { props: { points: parsedValue } });
   };
 
   const renderPropertyField = (fieldDef: PropertyFieldDef) => {
@@ -567,6 +621,26 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
             checked={Boolean(value)}
             onCheckedChange={(checked) => {
               if (fieldDef.guard && !fieldDef.guard(selectedField, checked)) {
+                return;
+              }
+              if (fieldDef.key === "multiplePerRow" && selectedField.widgetType === "matrix" && !checked) {
+                const currentProps = selectedField.props as Record<string, any>;
+                const correctAnswers = (currentProps.correctAnswers as string[]) || [];
+                const seenRows = new Set<string>();
+                const prunedAnswers = correctAnswers.filter((cellKey) => {
+                  const [rowKey] = cellKey.split(":");
+                  if (!rowKey || seenRows.has(rowKey)) {
+                    return false;
+                  }
+                  seenRows.add(rowKey);
+                  return true;
+                });
+                updateField(selectedField.id, {
+                  props: {
+                    multiplePerRow: checked,
+                    correctAnswers: prunedAnswers,
+                  },
+                });
                 return;
               }
               updateByTarget(fieldDef.target, checked);
@@ -849,8 +923,8 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
         {canHaveCorrectAnswers && (
           <div className="space-y-3 pt-2 border-t mt-2">
             <Label className="text-green-600 flex items-center gap-1">
-                  <Check className="h-4 w-4" /> {t("propert.corransw")}
-                <Label className="text-green-600 flex items-center gap-1">
+              <Check className="h-4 w-4" /> {t("propert.corransw")}
+              {isMatrix && (
                 <Tooltip delayDuration={0}>
                   <TooltipTrigger asChild>
                     <button
@@ -865,15 +939,17 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                     {t("propert.matrixCorrectAnswersFormatHelp")}
                   </TooltipContent>
                 </Tooltip>
-              </Label>
+              )}
             </Label>
-            <p className="text-xs text-muted-foreground">
-              {hasOptions
-                ? selectedField.widgetType === "ranking"
-                  ? t("propert.subranj")
-                  : t("propert.corranopt")
-                : t("propert.subtxt")}
-            </p>
+            {isMatrix && (
+              <p className="text-xs text-muted-foreground">
+                {hasOptions
+                  ? selectedField.widgetType === "ranking"
+                    ? t("propert.subranj")
+                    : t("propert.corranopt")
+                  : t("propert.subtxt")}
+              </p>
+            )}
 
             {hasOptions && options.length > 0 ? (
               <div className="space-y-2">
@@ -1102,19 +1178,43 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
               </div>
             )}
 
-            <div className="space-y-2 mt-3">
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsMatrixModalOpen(true);
-                }}
-              > 
-                {t("propert.distributePoints")}
-              </Button>
-            </div>
+            {isMatrix ? (
+              <div className="space-y-2 mt-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsMatrixModalOpen(true);
+                  }}
+                >
+                  {t("propert.distributePoints")}
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2 mt-3">
+                <Label>{t("propert.pointcorr")}</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    value={pointsInput}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (pointsInputPattern.test(value)) {
+                        setPointsInput(value);
+                      }
+                    }}
+                    onBlur={commitPointsInput}
+                    onKeyDown={handlePointsKeyDown}
+                    onPaste={handlePointsPaste}
+                    className="w-full text-center border-green-200 focus-visible:ring-green-500"
+                    placeholder="1"
+                  />
+                </div>
+              </div>
+            )}
 
             {isMatrix && (() => {
       const rows = (props.rows as string[]) || [];

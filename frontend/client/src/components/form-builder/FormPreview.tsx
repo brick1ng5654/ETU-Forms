@@ -318,26 +318,62 @@ export function FormPreview({ form }: FormPreviewProps) {
         const pointsPerCell = (props.pointsPerCell as Record<string, number> | undefined) || {};
         const pointsPerRow = (props.pointsPerRow as Record<string, number> | undefined) || {};
         const pointsPerColumn = (props.pointsPerColumn as Record<string, number> | undefined) || {};
-        
-        // Максимальные баллы для матрицы - сумма баллов за все правильные ячейки
-        correctAnswers.forEach((cellKey) => {
-          max += pointsPerCell[cellKey] !== undefined ? pointsPerCell[cellKey] : 0;
-        });
-        
-        // Добавляем максимальные баллы за строки
-        Object.values(pointsPerRow).forEach((points) => {
-          max += points;
-        });
-        
-        // Добавляем максимальные баллы за столбцы
-        Object.values(pointsPerColumn).forEach((points) => {
-          max += points;
-        });
-        
-        // Добавляем максимальные баллы за всю матрицу
         const matrixTotalPoints = (props.matrixTotalPoints as number | undefined) || 0;
-        if (matrixTotalPoints > 0) {
-          max += matrixTotalPoints;
+        const pointsDistributionType =
+          (props.pointsDistributionType as string | undefined) ||
+          (Object.keys(pointsPerCell).length > 0
+            ? "cell"
+            : Object.keys(pointsPerRow).length > 0
+            ? "row"
+            : Object.keys(pointsPerColumn).length > 0
+            ? "column"
+            : matrixTotalPoints > 0
+            ? "total"
+            : "cell");
+
+        const correctRowIds = new Set<number>();
+        const correctColumnIds = new Set<number>();
+        correctAnswers.forEach((cellKey) => {
+          const [rowIdx, colIdx] = cellKey.split(":").map(Number);
+          if (!Number.isNaN(rowIdx)) correctRowIds.add(rowIdx);
+          if (!Number.isNaN(colIdx)) correctColumnIds.add(colIdx);
+        });
+
+        switch (pointsDistributionType) {
+          case "row": {
+            correctRowIds.forEach((rowIdx) => {
+              const pointsForRow = pointsPerRow[String(rowIdx)] || 0;
+              if (pointsForRow > 0) {
+                max += pointsForRow;
+              }
+            });
+            break;
+          }
+          case "column": {
+            correctColumnIds.forEach((colIdx) => {
+              const pointsForColumn = pointsPerColumn[String(colIdx)] || 0;
+              if (pointsForColumn > 0) {
+                max += pointsForColumn;
+              }
+            });
+            break;
+          }
+          case "total": {
+            if (matrixTotalPoints > 0) {
+              max += matrixTotalPoints;
+            }
+            break;
+          }
+          case "cell":
+          default: {
+            correctAnswers.forEach((cellKey) => {
+              const pointsForCell = pointsPerCell[cellKey] || 0;
+              if (pointsForCell > 0) {
+                max += pointsForCell;
+              }
+            });
+            break;
+          }
         }
       } else {
         max += points;
@@ -365,329 +401,134 @@ export function FormPreview({ form }: FormPreviewProps) {
       } else if (field.widgetType === "matrix") {
         const userAnswersArr = ((userAnswer as string[]) || []).sort();
         const correctAnswersArr = correctAnswers.slice().sort();
-        const multiplePerRow = Boolean(props.multiplePerRow);
-        const matrixValidationMode = (props.matrixValidationMode || "all") as "any" | "all" | string; // "any" or "all"
-        
-        // Проверяем режим валидации с помощью switch
-        switch (matrixValidationMode) {
-          case "all": {
-            // Для режима "все" проверяем, что все правильные ответы выбраны
-            const allCorrectSelected = correctAnswersArr.every(correctCell =>
-              userAnswersArr.includes(correctCell)
-            );
-            
-            if (allCorrectSelected) {
-              // Для режима "все" с множественным выбором проверяем точное совпадение
-              let exactMatch = true;
-              if (multiplePerRow) {
-                // Группируем правильные ответы по строкам
-                const correctAnswersByRow: Record<number, string[]> = {};
-                correctAnswersArr.forEach((cellKey) => {
-                  const [rowIdx] = cellKey.split(':').map(Number);
-                  if (!correctAnswersByRow[rowIdx]) {
-                    correctAnswersByRow[rowIdx] = [];
-                  }
-                  correctAnswersByRow[rowIdx].push(cellKey);
-                });
-                
-                // Проверяем каждую строку на точное совпадение
-                Object.entries(correctAnswersByRow).forEach(([rowIdx, rowCorrectAnswers]) => {
-                  // Получаем выбранные ответы в этой строке
-                  const selectedInRow = userAnswersArr.filter(cellKey =>
-                    cellKey.startsWith(`${rowIdx}:`)
-                  );
-                  
-                  // Проверяем, что выбраны только правильные ответы и все они
-                  const isRowCorrect =
-                    selectedInRow.length === rowCorrectAnswers.length &&
-                    selectedInRow.every(cellKey => rowCorrectAnswers.includes(cellKey)) &&
-                    rowCorrectAnswers.every(cellKey => selectedInRow.includes(cellKey));
-                  
-                  if (!isRowCorrect) {
-                    exactMatch = false;
-                  }
-                });
-              }
-              
-              if (exactMatch) {
-                // Начисляем баллы за все правильные ответы
-                const pointsPerCell = (props.pointsPerCell as Record<string, number> | undefined) || {};
-                correctAnswersArr.forEach((correctCell) => {
-                  const pointsForCell = pointsPerCell[correctCell] !== undefined ? pointsPerCell[correctCell] : 0;
-                  // Только добавляем баллы, если они больше 0
-                  if (pointsForCell > 0) {
-                    score += pointsForCell;
-                  }
-                });
-              
-                // Начисляем баллы за строки, если все ячейки в строке выбраны правильно
-                const pointsPerRow = (props.pointsPerRow as Record<string, number> | undefined) || {};
-                if (Object.keys(pointsPerRow).length > 0) {
-                  // Группируем правильные ответы по строкам
-                  const correctAnswersByRow: Record<number, string[]> = {};
-                  correctAnswersArr.forEach((cellKey) => {
-                    const [rowIdx] = cellKey.split(':').map(Number);
-                    if (!correctAnswersByRow[rowIdx]) {
-                      correctAnswersByRow[rowIdx] = [];
-                    }
-                    correctAnswersByRow[rowIdx].push(cellKey);
-                  });
-                  
-                  // Проверяем каждую строку
-                  Object.entries(correctAnswersByRow).forEach(([rowIdx, rowCorrectAnswers]) => {
-                    // Проверяем, что все правильные ответы в строке выбраны
-                    const allRowCorrectSelected = rowCorrectAnswers.every(cellKey =>
-                      userAnswersArr.includes(cellKey)
-                    );
-                    
-                    if (allRowCorrectSelected && pointsPerRow.hasOwnProperty(rowIdx)) {
-                      score += pointsPerRow[rowIdx];
-                    }
-                  });
-                }
-                
-                // Начисляем баллы за столбцы, если все ячейки в столбце выбраны правильно
-                const pointsPerColumn = (props.pointsPerColumn as Record<string, number> | undefined) || {};
-                if (Object.keys(pointsPerColumn).length > 0) {
-                  // Группируем правильные ответы по столбцам
-                  const correctAnswersByColumn: Record<number, string[]> = {};
-                  correctAnswersArr.forEach((cellKey) => {
-                    const [, colIdx] = cellKey.split(':').map(Number);
-                    if (!correctAnswersByColumn[colIdx]) {
-                      correctAnswersByColumn[colIdx] = [];
-                    }
-                    correctAnswersByColumn[colIdx].push(cellKey);
-                  });
-                  
-                  // Проверяем каждый столбец
-                  Object.entries(correctAnswersByColumn).forEach(([colIdx, colCorrectAnswers]) => {
-                    // Проверяем, что все правильные ответы в столбце выбраны
-                    const allColumnCorrectSelected = colCorrectAnswers.every(cellKey =>
-                      userAnswersArr.includes(cellKey)
-                    );
-                    
-                    if (allColumnCorrectSelected && pointsPerColumn.hasOwnProperty(colIdx)) {
-                      score += pointsPerColumn[colIdx];
-                    }
-                  });
-                }
-                
-                isCorrect = true;
-              } else {
-                // Если не все правильные ответы выбраны, начисляем 0 баллов
-                isCorrect = false;
-              }
-            } else {
-              // Если не все правильные ответы выбраны, начисляем 0 баллов
-              isCorrect = false;
-            }
-            break;
-          }
-          
-          case "any": {
-            // Для режима "хотя бы один" проверяем, что выбран хотя бы один правильный ответ
-            let correctCount = 0;
-            const pointsPerCell = (props.pointsPerCell as Record<string, number> | undefined) || {};
-            const pointsPerRow = (props.pointsPerRow as Record<string, number> | undefined) || {};
-            const pointsPerColumn = (props.pointsPerColumn as Record<string, number> | undefined) || {};
-            
-            // Для каждого правильного ответа проверяем, есть ли он в ответах пользователя
-            correctAnswersArr.forEach((correctCell) => {
-              if (userAnswersArr.includes(correctCell)) {
-                correctCount++;
-                // Добавляем баллы за этот правильный ответ
-                const pointsForCell = pointsPerCell[correctCell] !== undefined ? pointsPerCell[correctCell] : 0;
-                // Только добавляем баллы, если они больше 0
-                if (pointsForCell > 0) {
-                  score += pointsForCell;
-                }
-              }
-            });
-            
-            // Начисляем баллы за строки, если все ячейки в строке выбраны правильно
-            if (Object.keys(pointsPerRow).length > 0) {
-              // Группируем правильные ответы по строкам
-              const correctAnswersByRow: Record<number, string[]> = {};
-              correctAnswersArr.forEach((cellKey) => {
-                const [rowIdx] = cellKey.split(':').map(Number);
-                if (!correctAnswersByRow[rowIdx]) {
-                  correctAnswersByRow[rowIdx] = [];
-                }
-                correctAnswersByRow[rowIdx].push(cellKey);
-              });
-              
-              // Проверяем каждую строку
-              Object.entries(correctAnswersByRow).forEach(([rowIdx, rowCorrectAnswers]) => {
-                // Проверяем, что все правильные ответы в строке выбраны
-                const allRowCorrectSelected = rowCorrectAnswers.every(cellKey =>
-                  userAnswersArr.includes(cellKey)
-                );
-                
-                if (allRowCorrectSelected && pointsPerRow.hasOwnProperty(rowIdx)) {
-                  score += pointsPerRow[rowIdx];
-                }
-              });
-            }
-            
-            // Начисляем баллы за столбцы, если все ячейки в столбце выбраны правильно
-            if (Object.keys(pointsPerColumn).length > 0) {
-              // Группируем правильные ответы по столбцам
-              const correctAnswersByColumn: Record<number, string[]> = {};
-              correctAnswersArr.forEach((cellKey) => {
-                const [, colIdx] = cellKey.split(':').map(Number);
-                if (!correctAnswersByColumn[colIdx]) {
-                  correctAnswersByColumn[colIdx] = [];
-                }
-                correctAnswersByColumn[colIdx].push(cellKey);
-              });
-              
-              // Проверяем каждый столбец
-              Object.entries(correctAnswersByColumn).forEach(([colIdx, colCorrectAnswers]) => {
-                // Проверяем, что все правильные ответы в столбце выбраны
-                const allColumnCorrectSelected = colCorrectAnswers.every(cellKey =>
-                  userAnswersArr.includes(cellKey)
-                );
-                
-                if (allColumnCorrectSelected && pointsPerColumn.hasOwnProperty(colIdx)) {
-                  score += pointsPerColumn[colIdx];
-                }
-              });
-            }
-            
-            // isCorrect logic based on validation mode
-            // Для режима "хотя бы один" - true если выбран хотя бы один правильный ответ
-            isCorrect = correctCount > 0;
-            break;
-          }
-          
-          default: {
-            // По умолчанию (режим "все") для одиночного выбора
-            // Проверяем каждый правильный ответ отдельно и начисляем баллы за каждый
-            let correctCount = 0;
-            const pointsPerCell = (props.pointsPerCell as Record<string, number> | undefined) || {};
-            const pointsPerRow = (props.pointsPerRow as Record<string, number> | undefined) || {};
-            const pointsPerColumn = (props.pointsPerColumn as Record<string, number> | undefined) || {};
-            
-            // Для каждого правильного ответа проверяем, есть ли он в ответах пользователя
-            correctAnswersArr.forEach((correctCell) => {
-              if (userAnswersArr.includes(correctCell)) {
-                correctCount++;
-                // Добавляем баллы за этот правильный ответ
-                const pointsForCell = pointsPerCell[correctCell] !== undefined ? pointsPerCell[correctCell] : 0;
-                // Только добавляем баллы, если они больше 0
-                if (pointsForCell > 0) {
-                  score += pointsForCell;
-                }
-              }
-            });
-            
-            // Начисляем баллы за строки, если все ячейки в строке выбраны правильно
-            if (Object.keys(pointsPerRow).length > 0) {
-              // Группируем правильные ответы по строкам
-              const correctAnswersByRow: Record<number, string[]> = {};
-              correctAnswersArr.forEach((cellKey) => {
-                const [rowIdx] = cellKey.split(':').map(Number);
-                if (!correctAnswersByRow[rowIdx]) {
-                  correctAnswersByRow[rowIdx] = [];
-                }
-                correctAnswersByRow[rowIdx].push(cellKey);
-              });
-              
-              // Проверяем каждую строку
-              Object.entries(correctAnswersByRow).forEach(([rowIdx, rowCorrectAnswers]) => {
-                // Проверяем, что все правильные ответы в строке выбраны
-                const allRowCorrectSelected = rowCorrectAnswers.every(cellKey =>
-                  userAnswersArr.includes(cellKey)
-                );
-                
-                if (allRowCorrectSelected && pointsPerRow.hasOwnProperty(rowIdx)) {
-                  score += pointsPerRow[rowIdx];
-                }
-              });
-            }
-            
-            // Начисляем баллы за столбцы, если все ячейки в столбце выбраны правильно
-            if (Object.keys(pointsPerColumn).length > 0) {
-              // Группируем правильные ответы по столбцам
-              const correctAnswersByColumn: Record<number, string[]> = {};
-              correctAnswersArr.forEach((cellKey) => {
-                const [, colIdx] = cellKey.split(':').map(Number);
-                if (!correctAnswersByColumn[colIdx]) {
-                  correctAnswersByColumn[colIdx] = [];
-                }
-                correctAnswersByColumn[colIdx].push(cellKey);
-              });
-              
-              // Проверяем каждый столбец
-              Object.entries(correctAnswersByColumn).forEach(([colIdx, colCorrectAnswers]) => {
-                // Проверяем, что все правильные ответы в столбце выбраны
-                const allColumnCorrectSelected = colCorrectAnswers.every(cellKey =>
-                  userAnswersArr.includes(cellKey)
-                );
-                
-                if (allColumnCorrectSelected && pointsPerColumn.hasOwnProperty(colIdx)) {
-                  score += pointsPerColumn[colIdx];
-                }
-              });
-            }
-            
-            // По умолчанию (режим "все") для одиночного выбора
-            isCorrect = correctCount === correctAnswersArr.length;
-            break;
-          }
-        }
-        
-        // Даже если не все правильные ответы выбраны, но есть частичное совпадение,
-        // баллы уже начислены выше
-        
-        // Проверяем, правильно ли заполнена вся матрица
+        const matrixValidationMode = (props.matrixValidationMode || "all") as "any" | "all" | string;
+        const pointsPerCell = (props.pointsPerCell as Record<string, number> | undefined) || {};
+        const pointsPerRow = (props.pointsPerRow as Record<string, number> | undefined) || {};
+        const pointsPerColumn = (props.pointsPerColumn as Record<string, number> | undefined) || {};
         const matrixTotalPoints = (props.matrixTotalPoints as number | undefined) || 0;
-        if (matrixTotalPoints > 0) {
-          // Проверяем, что все правильные ответы выбраны и ничего лишнего не выбрано
-          const isMatrixFullyCorrect =
-            userAnswersArr.length === correctAnswersArr.length &&
-            userAnswersArr.every(cellKey => correctAnswersArr.includes(cellKey)) &&
-            correctAnswersArr.every(cellKey => userAnswersArr.includes(cellKey));
-          
-          if (isMatrixFullyCorrect) {
-            score += matrixTotalPoints;
-          }
-        }
-        
-        // Для режима "все" с множественным выбором проверяем точное совпадение
-        if (matrixValidationMode === "all" && multiplePerRow) {
-          // Группируем правильные ответы по строкам
-          const correctAnswersByRow: Record<number, string[]> = {};
-          correctAnswersArr.forEach((cellKey) => {
-            const [rowIdx] = cellKey.split(':').map(Number);
+        const pointsDistributionType =
+          (props.pointsDistributionType as string | undefined) ||
+          (Object.keys(pointsPerCell).length > 0
+            ? "cell"
+            : Object.keys(pointsPerRow).length > 0
+            ? "row"
+            : Object.keys(pointsPerColumn).length > 0
+            ? "column"
+            : matrixTotalPoints > 0
+            ? "total"
+            : "cell");
+
+        const correctAnswersByRow: Record<number, string[]> = {};
+        const correctAnswersByColumn: Record<number, string[]> = {};
+        correctAnswersArr.forEach((cellKey) => {
+          const [rowIdx, colIdx] = cellKey.split(":").map(Number);
+          if (!Number.isNaN(rowIdx)) {
             if (!correctAnswersByRow[rowIdx]) {
               correctAnswersByRow[rowIdx] = [];
             }
             correctAnswersByRow[rowIdx].push(cellKey);
-          });
-          
-          // Проверяем каждую строку на точное совпадение
-          let allRowsCorrect = true;
-          Object.entries(correctAnswersByRow).forEach(([rowIdx, rowCorrectAnswers]) => {
-            // Получаем выбранные ответы в этой строке
-            const selectedInRow = userAnswersArr.filter(cellKey =>
-              cellKey.startsWith(`${rowIdx}:`)
-            );
-            
-            // Проверяем, что выбраны только правильные ответы и все они
-            const isRowCorrect =
-              selectedInRow.length === rowCorrectAnswers.length &&
-              selectedInRow.every(cellKey => rowCorrectAnswers.includes(cellKey)) &&
-              rowCorrectAnswers.every(cellKey => selectedInRow.includes(cellKey));
-            
-            if (!isRowCorrect) {
-              allRowsCorrect = false;
+          }
+          if (!Number.isNaN(colIdx)) {
+            if (!correctAnswersByColumn[colIdx]) {
+              correctAnswersByColumn[colIdx] = [];
             }
-          });
-          
-          // Если не все строки заполнены правильно, обнуляем флаг корректности
-          if (!allRowsCorrect) {
-            isCorrect = false;
+            correctAnswersByColumn[colIdx].push(cellKey);
+          }
+        });
+
+        const selectedByRow: Record<number, string[]> = {};
+        const selectedByColumn: Record<number, string[]> = {};
+        userAnswersArr.forEach((cellKey) => {
+          const [rowIdx, colIdx] = cellKey.split(":").map(Number);
+          if (!Number.isNaN(rowIdx)) {
+            if (!selectedByRow[rowIdx]) {
+              selectedByRow[rowIdx] = [];
+            }
+            selectedByRow[rowIdx].push(cellKey);
+          }
+          if (!Number.isNaN(colIdx)) {
+            if (!selectedByColumn[colIdx]) {
+              selectedByColumn[colIdx] = [];
+            }
+            selectedByColumn[colIdx].push(cellKey);
+          }
+        });
+
+        switch (pointsDistributionType) {
+          case "row": {
+            let allRowsCorrect = true;
+            Object.entries(correctAnswersByRow).forEach(([rowKey, rowCorrectAnswers]) => {
+              const rowIdx = Number(rowKey);
+              const selectedInRow = selectedByRow[rowIdx] || [];
+              const hasCorrectSelection = rowCorrectAnswers.some(cellKey => selectedInRow.includes(cellKey));
+              const allCorrectSelected = rowCorrectAnswers.every(cellKey => selectedInRow.includes(cellKey));
+              const noWrongSelected = selectedInRow.every(cellKey => rowCorrectAnswers.includes(cellKey));
+              const rowIsCorrect = matrixValidationMode === "any"
+                ? hasCorrectSelection && noWrongSelected
+                : allCorrectSelected && noWrongSelected;
+
+              if (rowIsCorrect) {
+                const pointsForRow = pointsPerRow[rowKey] || 0;
+                if (pointsForRow > 0) {
+                  score += pointsForRow;
+                }
+              } else {
+                allRowsCorrect = false;
+              }
+            });
+            isCorrect = Object.keys(correctAnswersByRow).length > 0 && allRowsCorrect;
+            break;
+          }
+          case "column": {
+            let allColumnsCorrect = true;
+            Object.entries(correctAnswersByColumn).forEach(([colKey, colCorrectAnswers]) => {
+              const colIdx = Number(colKey);
+              const selectedInColumn = selectedByColumn[colIdx] || [];
+              const hasCorrectSelection = colCorrectAnswers.some(cellKey => selectedInColumn.includes(cellKey));
+              const allCorrectSelected = colCorrectAnswers.every(cellKey => selectedInColumn.includes(cellKey));
+              const noWrongSelected = selectedInColumn.every(cellKey => colCorrectAnswers.includes(cellKey));
+              const columnIsCorrect = matrixValidationMode === "any"
+                ? hasCorrectSelection && noWrongSelected
+                : allCorrectSelected && noWrongSelected;
+
+              if (columnIsCorrect) {
+                const pointsForColumn = pointsPerColumn[colKey] || 0;
+                if (pointsForColumn > 0) {
+                  score += pointsForColumn;
+                }
+              } else {
+                allColumnsCorrect = false;
+              }
+            });
+            isCorrect = Object.keys(correctAnswersByColumn).length > 0 && allColumnsCorrect;
+            break;
+          }
+          case "total": {
+            const isMatrixFullyCorrect =
+              userAnswersArr.length === correctAnswersArr.length &&
+              correctAnswersArr.every(cellKey => userAnswersArr.includes(cellKey));
+
+            if (isMatrixFullyCorrect && matrixTotalPoints > 0) {
+              score += matrixTotalPoints;
+            }
+            isCorrect = isMatrixFullyCorrect;
+            break;
+          }
+          case "cell":
+          default: {
+            correctAnswersArr.forEach((correctCell) => {
+              if (userAnswersArr.includes(correctCell)) {
+                const pointsForCell = pointsPerCell[correctCell] || 0;
+                if (pointsForCell > 0) {
+                  score += pointsForCell;
+                }
+              }
+            });
+
+            isCorrect =
+              userAnswersArr.length === correctAnswersArr.length &&
+              correctAnswersArr.every(cellKey => userAnswersArr.includes(cellKey));
+            break;
           }
         }
       } else {
@@ -1418,13 +1259,14 @@ export function FormPreview({ form }: FormPreviewProps) {
                                 disabled={results !== null}
                                 onClick={() => toggleCell(rowIdx, colIdx)}
                                 className={cn(
-                                  "w-5 h-5 rounded-full border-2 mx-auto transition-colors",
-                                  selected
-                                    ? "bg-primary border-primary"
-                                    : "border-muted-foreground/40 hover:border-primary",
+                                  "mx-auto inline-flex aspect-square h-4 w-4 items-center justify-center align-middle rounded-full border border-primary text-primary shadow focus:outline-none focus-visible:ring-1 focus-visible:ring-ring transition-colors duration-200 leading-none p-0 disabled:cursor-not-allowed disabled:opacity-50 relative overflow-hidden",
                                   results !== null && "cursor-not-allowed opacity-50"
                                 )}
-                              />
+                              >
+                                {selected && (
+                                  <span className="absolute inset-0 rounded-full bg-primary animate-in zoom-in-50 duration-200 ease-out" />
+                                )}
+                              </button>
                             )}
                           </td>
                         );
