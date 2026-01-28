@@ -16,13 +16,25 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 import { useState, useEffect } from "react";
-
+import type { ClipboardEvent, KeyboardEvent } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { MatrixCorrectAnswersModal } from "./MatrixCorrectAnswersModal";
+import { MouseEvent } from 'react';
 interface PropertiesPanelProps {
   selectedField: FormElementModel | null;
   selectedIds: string[];
   updateField: (id: string, updates: Partial<FormElementModel>) => void;
   deleteField: (id: string) => void;
   deleteSelected: () => void;
+  fields: FormElementModel[];
+}
+
+interface SortableFieldProps {
+  field: FormElementModel;
+  isSelected: boolean;
+  onSelect: (id: string, event: MouseEvent<HTMLDivElement>) => void;
+  onDelete: (id: string) => void;
+  updateField: (id: string, updates: Partial<FormElementModel>) => void;
   fields: FormElementModel[];
 }
 
@@ -34,7 +46,7 @@ interface SortableOptionItemProps {
 
 function SortableOptionItem({ id, option, disabled }: SortableOptionItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled });
-
+  
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -56,7 +68,7 @@ function SortableOptionItem({ id, option, disabled }: SortableOptionItemProps) {
   );
 }
 
-type PropertyFieldType = "text" | "textarea" | "switch" | "number" | "slider" | "tags";
+type PropertyFieldType = "text" | "textarea" | "switch" | "number" | "slider" | "tags" | "select";
 
 type PropertyFieldDef = {
   key: string;
@@ -87,6 +99,7 @@ const widgetTypeLabelKey: Record<WidgetType, string> = {
   file_upload: "file",
   rating: "rating",
   ranking: "ranking",
+  matrix: "matrix",
 };
 
 const semanticTypeLabelKey: Record<SemanticType, string> = {
@@ -168,14 +181,14 @@ const propertiesSchemaByWidgetType: Record<WidgetType, PropertyFieldDef[]> = {
       labelKey: "propert.hideDate",
       type: "switch",
       target: "props.hideDate",
-      disabled: (field) => Boolean((field.props as Record<string, any>).hideTime),
+      disabled: (fieldParam) => Boolean((fieldParam.props as Record<string, any>).hideTime),
     },
     {
       key: "hideTime",
       labelKey: "propert.hideTime",
       type: "switch",
       target: "props.hideTime",
-      disabled: (field) => Boolean((field.props as Record<string, any>).hideDate),
+      disabled: (fieldParam) => Boolean((fieldParam.props as Record<string, any>).hideDate),
     },
   ],
   file_upload: [
@@ -212,6 +225,17 @@ const propertiesSchemaByWidgetType: Record<WidgetType, PropertyFieldDef[]> = {
     },
   ],
   ranking: [baseLabelField, helperTextField, requiredField],
+  matrix: [
+    baseLabelField,
+    helperTextField,
+    requiredField,
+    {
+      key: "multiplePerRow",
+      labelKey: "propert.matrixMultiplePerRow",
+      type: "switch",
+      target: "props.multiplePerRow",
+    },
+  ],
 };
 
 const getPassportVisibleCount = (props: Record<string, any>) =>
@@ -355,12 +379,19 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
 
   const [rankingOrderOptions, setRankingOrderOptions] = useState<string[]>([]);
   const [isConditionalSelectOpen, setIsConditionalSelectOpen] = useState(false);
-
+  const [isMatrixModalOpen, setIsMatrixModalOpen] = useState(false);
+  const [pointsInput, setPointsInput] = useState<string>("");
   useEffect(() => {
     if (!selectedField) return;
     const options = (selectedField.props as Record<string, any>).options as string[] | undefined;
     setRankingOrderOptions(options ? [...options] : []);
   }, [selectedField?.id, selectedField?.props]);
+  useEffect(() => {
+    if (!selectedField) return;
+    const currentPoints = (selectedField.props as Record<string, any>).points;
+    const fallbackPoints = typeof currentPoints === "number" && currentPoints > 0 ? currentPoints : 1;
+    setPointsInput(String(fallbackPoints));
+  }, [selectedField?.id, (selectedField?.props as Record<string, any>)?.points]);
 
   if (selectedIds.length > 1) {
     const panelClassName = isConditionalSelectOpen
@@ -396,6 +427,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
   const hideDate = Boolean(props.hideDate);
   const hideTime = Boolean(props.hideTime);
   const hasOptions = ["select", "radio", "checkbox", "ranking"].includes(selectedField.widgetType);
+  const isMatrix = selectedField.widgetType === "matrix";
   const isHeader = selectedField.widgetType === "header";
   const isDatetime = selectedField.widgetType === "datetime";
   const showRequiredToggle = !isHeader && !isDatetime && selectedField.semanticType !== "full_name";
@@ -442,6 +474,53 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
       const key = target.replace("props.", "");
       updateField(selectedField.id, { props: { [key]: value } });
     }
+  };
+
+  const pointsInputPattern = /^\d*(?:\.\d*)?$/;
+  const pointsValuePattern = /^\d+(?:\.\d*)?$/;
+
+  const handlePointsKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.ctrlKey || event.metaKey || event.altKey) {
+      return;
+    }
+    const { key, currentTarget } = event;
+    if (key.length !== 1) {
+      return;
+    }
+    if (key === ".") {
+      if (currentTarget.value.includes(".")) {
+        event.preventDefault();
+      }
+      return;
+    }
+    if (!/^\d$/.test(key)) {
+      event.preventDefault();
+    }
+  };
+
+  const handlePointsPaste = (event: ClipboardEvent<HTMLInputElement>) => {
+    const text = event.clipboardData.getData("text");
+    if (!pointsInputPattern.test(text)) {
+      event.preventDefault();
+    }
+  };
+
+  const commitPointsInput = () => {
+    const rawValue = pointsInput.trim();
+    const fallback = typeof props.points === "number" && props.points > 0 ? props.points : 1;
+    if (!pointsValuePattern.test(rawValue)) {
+      setPointsInput(String(fallback));
+      updateField(selectedField.id, { props: { points: fallback } });
+      return;
+    }
+    const parsedValue = Number.parseFloat(rawValue);
+    if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
+      setPointsInput(String(fallback));
+      updateField(selectedField.id, { props: { points: fallback } });
+      return;
+    }
+    setPointsInput(String(parsedValue));
+    updateField(selectedField.id, { props: { points: parsedValue } });
   };
 
   const renderPropertyField = (fieldDef: PropertyFieldDef) => {
@@ -567,10 +646,82 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
               if (fieldDef.guard && !fieldDef.guard(selectedField, checked)) {
                 return;
               }
+              if (fieldDef.key === "multiplePerRow" && selectedField.widgetType === "matrix" && !checked) {
+                const currentProps = selectedField.props as Record<string, any>;
+                const correctAnswers = (currentProps.correctAnswers as string[]) || [];
+                const seenRows = new Set<string>();
+                const prunedAnswers = correctAnswers.filter((cellKey) => {
+                  const [rowKey] = cellKey.split(":");
+                  if (!rowKey || seenRows.has(rowKey)) {
+                    return false;
+                  }
+                  seenRows.add(rowKey);
+                  return true;
+                });
+                updateField(selectedField.id, {
+                  props: {
+                    multiplePerRow: checked,
+                    correctAnswers: prunedAnswers,
+                  },
+                });
+                return;
+              }
               updateByTarget(fieldDef.target, checked);
             }}
             disabled={isDisabled}
           />
+        </div>
+      );
+    }
+
+    if (fieldDef.type === "select") {
+      const selectValue = String(value ?? "");
+      let selectOptions: { value: string; label: string }[] = [];
+      
+      // Special handling for matrixValidationMode
+      if (fieldDef.key === "matrixValidationMode") {
+        
+        selectOptions = [
+          { value: "any", label: t("propert.matrixValidationModeAny") },
+          { value: "all", label: t("propert.matrixValidationModeAll") }
+        ];
+      }
+      
+      return (
+        <div key={fieldDef.key} className="space-y-2">
+          <div className="flex items-center gap-2">
+            {label}
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={t("propert.matrixCorrPoint")}
+                  className="h-4 w-4 rounded-full border border-muted-foreground/40 text-muted-foreground text-[9px] leading-none flex items-center justify-center hover:bg-muted"
+                >
+                  ?
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">
+                {t("propert.matrixCorrPoint")}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+          
+          <Select
+            value={selectValue}
+            onValueChange={(value) => updateByTarget(fieldDef.target, value || undefined)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={t("common.selectopt")} />
+            </SelectTrigger>
+            <SelectContent>
+              {selectOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       );
     }
@@ -586,6 +737,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
 
   const correctAnswers = (props.correctAnswers as string[]) || [];
   const hasCorrectAnswers = correctAnswers.length > 0;
+  const hasFilledCorrectAnswers = correctAnswers.some((answer) => String(answer ?? "").trim().length > 0);
 
   const panelClassName = isConditionalSelectOpen
     ? "p-4 space-y-6 overflow-y-auto h-full pb-[40vh]"
@@ -756,18 +908,124 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
           </div>
         )}
 
+        {isMatrix && (
+          <>
+            <div className="space-y-3 pt-2 border-t">
+              <Label>{t("propert.matrixRows")}</Label>
+              <div className="space-y-2">
+                {((props.rows as string[]) || []).map((row, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <Input
+                      value={row}
+                      onChange={(e) => {
+                        const newRows = [...((props.rows as string[]) || [])];
+                        newRows[index] = e.target.value;
+                        updateField(selectedField.id, { props: { rows: newRows } });
+                      }}
+                      className="flex-1"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      onClick={() => {
+                        const newRows = ((props.rows as string[]) || []).filter((_, i) => i !== index);
+                        updateField(selectedField.id, { props: { rows: newRows } });
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full mt-2"
+                  onClick={() => {
+                    const currentRows = (props.rows as string[]) || [];
+                    const newRows = [...currentRows, `Row ${currentRows.length + 1}`];
+                    updateField(selectedField.id, { props: { rows: newRows } });
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-2" /> {t("propert.addopti")}
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-2 border-t">
+              <Label>{t("propert.matrixColumns")}</Label>
+              <div className="space-y-2">
+                {((props.columns as string[]) || []).map((column, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <Input
+                      value={column}
+                      onChange={(e) => {
+                        const newColumns = [...((props.columns as string[]) || [])];
+                        newColumns[index] = e.target.value;
+                        updateField(selectedField.id, { props: { columns: newColumns } });
+                      }}
+                      className="flex-1"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      onClick={() => {
+                        const newColumns = ((props.columns as string[]) || []).filter((_, i) => i !== index);
+                        updateField(selectedField.id, { props: { columns: newColumns } });
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full mt-2"
+                  onClick={() => {
+                    const currentColumns = (props.columns as string[]) || [];
+                    const newColumns = [...currentColumns, `Column ${currentColumns.length + 1}`];
+                    updateField(selectedField.id, { props: { columns: newColumns } });
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-2" /> {t("propert.addopti")}
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+
         {canHaveCorrectAnswers && (
           <div className="space-y-3 pt-2 border-t mt-2">
             <Label className="text-green-600 flex items-center gap-1">
               <Check className="h-4 w-4" /> {t("propert.corransw")}
+              {isMatrix && (
+                <Tooltip delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label={t("propert.matrixCorrectAnswersFormatHelp")}
+                      className="h-4 w-4 rounded-full border border-muted-foreground/40 text-muted-foreground text-[9px] leading-none flex items-center justify-center hover:bg-muted"
+                    >
+                      ?
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">
+                    {t("propert.matrixCorrectAnswersFormatHelp")}
+                  </TooltipContent>
+                </Tooltip>
+              )}
             </Label>
-            <p className="text-xs text-muted-foreground">
-              {hasOptions
-                ? selectedField.widgetType === "ranking"
-                  ? t("propert.subranj")
-                  : t("propert.corranopt")
-                : t("propert.subtxt")}
-            </p>
+            {isMatrix && (
+              <p className="text-xs text-muted-foreground">
+                {hasOptions
+                  ? selectedField.widgetType === "ranking"
+                    ? t("propert.subranj")
+                    : t("propert.corranopt")
+                  : t("propert.subtxt")}
+              </p>
+            )}
 
             {hasOptions && options.length > 0 ? (
               <div className="space-y-2">
@@ -879,31 +1137,102 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
               <p className="text-xs text-muted-foreground italic">Add options first to select correct answers.</p>
             ) : (
               <div className="space-y-2">
-                {correctAnswers.map((answer, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <Input
-                      value={answer}
-                      onChange={(e) => {
-                        const newAnswers = [...correctAnswers];
-                        newAnswers[index] = e.target.value;
-                        updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
-                      }}
-                      placeholder={t("propert.correctAnswerPlaceholder")}
-                      className="border-green-200 focus-visible:ring-green-500"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      onClick={() => {
-                        const newAnswers = correctAnswers.filter((_, i) => i !== index);
-                        updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
-                      }}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
+                {correctAnswers.map((answer, index) => {
+                  // For matrix fields, validate the format and bounds
+                  let isInvalid = false;
+                  if (selectedField.widgetType === "matrix" && answer !== "") {
+                    // Validate format is "number:number"
+                    const formatRegex = /^\d+:\d+$/;
+                    if (!formatRegex.test(answer)) {
+                      isInvalid = true;
+                    } else {
+                      // Validate numbers are within matrix bounds (1-indexed)
+                      const [rowStr, colStr] = answer.split(':');
+                      const row = parseInt(rowStr, 10);
+                      const col = parseInt(colStr, 10);
+                      
+                      const rows = (props.rows as string[]) || [];
+                      const columns = (props.columns as string[]) || [];
+                      
+                      if (row < 1 || row > rows.length || col < 1 || col > columns.length) {
+                        isInvalid = true;
+                      }
+                    }
+                  }
+                  
+                  return (
+                    <div key={index} className="flex items-center gap-2">
+                      <Input
+                        value={answer}
+                        onChange={(e) => {
+                          // For matrix fields, validate the format is "number:number" and within bounds
+                          const value = e.target.value;
+                          if (selectedField.widgetType === "matrix") {
+                            // Allow empty values
+                            if (value === "") {
+                              const newAnswers = [...correctAnswers];
+                              newAnswers[index] = value;
+                              updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
+                              return;
+                            }
+                            
+                            // Validate format is "number:number" and contains only digits and colon
+                            const formatRegex = /^\d+:\d+$/;
+                            const validCharacters = /^[0-9:]*$/.test(value);
+                            if (!validCharacters) {
+                              // Invalid characters, don't update
+                              return;
+                            }
+                            if (!formatRegex.test(value)) {
+                              // Invalid format, still update to allow typing
+                              const newAnswers = [...correctAnswers];
+                              newAnswers[index] = value;
+                              updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
+                              return;
+                            }
+                            
+                            // Validate numbers are within matrix bounds (1-indexed)
+                            const [rowStr, colStr] = value.split(':');
+                            const row = parseInt(rowStr, 10);
+                            const col = parseInt(colStr, 10);
+                            
+                            const rows = (props.rows as string[]) || [];
+                            const columns = (props.columns as string[]) || [];
+                            
+                            if (row >= 1 && row <= rows.length && col >= 1 && col <= columns.length) {
+                              const newAnswers = [...correctAnswers];
+                              newAnswers[index] = value;
+                              updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
+                            } else {
+                              // Out of bounds, still update to allow typing
+                              const newAnswers = [...correctAnswers];
+                              newAnswers[index] = value;
+                              updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
+                            }
+                          } else {
+                            // For non-matrix fields, allow any value
+                            const newAnswers = [...correctAnswers];
+                            newAnswers[index] = value;
+                            updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
+                          }
+                        }}
+                        placeholder={t("propert.correctAnswerPlaceholder")}
+                        className={`focus-visible:ring-green-500 ${isInvalid ? "border-red-500" : "border-green-200"}`}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        onClick={() => {
+                          const newAnswers = correctAnswers.filter((_, i) => i !== index);
+                          updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  );
+                })}
                 <Button
                   variant="outline"
                   size="sm"
@@ -915,22 +1244,75 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                 >
                   <Plus className="h-4 w-4 mr-2" /> {t("propert.addcorransw")}
                 </Button>
+                <MatrixCorrectAnswersModal
+                  field={selectedField}
+                  open={isMatrixModalOpen}
+                  onOpenChange={setIsMatrixModalOpen}
+                  updateField={updateField}
+                />
+
               </div>
             )}
 
-            <div className="space-y-2 mt-3">
-              <Label className="text-green-600">{t("propert.pointcorr")}</Label>
-              <Input
-                type="number"
-                min="0"
-                value={props.points ?? ""}
-                onChange={(e) => updateField(selectedField.id, { props: { points: e.target.value ? parseInt(e.target.value, 10) : undefined } })}
-                placeholder="0"
-                className="border-green-200 focus-visible:ring-green-500"
-              />
-              <p className="text-xs text-muted-foreground">{t("propert.subpoint")}</p>
-            </div>
+            {isMatrix ? (
+              <div className="space-y-2 mt-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsMatrixModalOpen(true);
+                  }}
+                >
+                  {t("propert.distributePoints")}
+                </Button>
+              </div>
+            ) : (
+              hasFilledCorrectAnswers && (
+                <div className="space-y-2 mt-3">
+                  <Label>{t("propert.pointcorr")}</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="text"
+                      inputMode="decimal"
+                      value={pointsInput}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (pointsInputPattern.test(value)) {
+                          setPointsInput(value);
+                        }
+                      }}
+                      onBlur={commitPointsInput}
+                      onKeyDown={handlePointsKeyDown}
+                      onPaste={handlePointsPaste}
+                      className="w-full text-center border-green-200 focus-visible:ring-green-500"
+                      placeholder="1"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">{t("propert.pointcorrHelp")}</p>
+                </div>
+              )
+            )}
+
+            {isMatrix && (() => {
+      const rows = (props.rows as string[]) || [];
+      const columns = (props.columns as string[]) || [];
+      const multiplePerRow = Boolean(props.multiplePerRow);
+      const matrixCorrectAnswers = (props.correctAnswers as string[]) || [];
+      
+      if (rows.length === 0 || columns.length === 0) {
+        return (
+          <p className="text-xs text-muted-foreground italic">
+            {t("propert.addMatrixRowsColumns")}
+            
+          </p>
+        );
+      }
+    })()}
           </div>
+
+          
         )}
 
         <div className="space-y-3 pt-2 border-t mt-2">

@@ -14,6 +14,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
+import { MatrixCorrectAnswersModal } from "./MatrixCorrectAnswersModal";
 
 interface SortableFieldProps {
   field: FormElementModel;
@@ -29,6 +30,7 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
   const [editingElement, setEditingElement] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState<string>("");
   const [editingOptions, setEditingOptions] = useState<string[]>([]);
+  const [isMatrixModalOpen, setIsMatrixModalOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -534,6 +536,143 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
             )}
           </div>
         );
+      case "matrix": {
+  const rows = (props.rows as string[]) || [];
+  const columns = (props.columns as string[]) || [];
+  const multiplePerRow = Boolean(props.multiplePerRow);
+  const [isScrolling, setIsScrolling] = useState(false);
+  const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
+  const matrixCorrectAnswers = (props.correctAnswers as string[]) || [];
+  
+  return (
+    <div className="space-y-3">
+      <div
+        className="matrix-scroll-container overflow-auto scroll-smooth relative"
+        style={{ maxHeight: '500px' }}
+        onScroll={(e) => {
+          const el = e.currentTarget;
+
+          // Если есть горизонтальный скролл, включаем эффект
+          if (el.scrollLeft > 0) {
+            setIsScrolling(true);
+          }
+
+          // Таймаут, чтобы убрать эффект через 150ms после остановки
+          if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
+          scrollTimeout.current = setTimeout(() => setIsScrolling(false), 150);
+        }}
+      >
+        <table className="table-fixed border-collapse border border-muted-foreground/20 text-sm min-w-[600px] relative">
+          <thead className="relative">
+            <tr>
+              <th
+                className={cn(
+                  "sticky left-0 z-30 bg-white p-2 font-medium border border-muted-foreground/20",
+                  "after:absolute after:top-0 after:right-0 after:h-full after:w-[4px] after:bg-white after:shadow-[2px_0_4px_rgba(0,0,0,0.12)]",
+                  isScrolling && "ring-2 ring-primary/40 shadow-lg"
+                )}
+                style={{ minWidth: '80px', maxWidth: '80px' }}
+              >
+                <span className="sr-only">Rows</span>
+              </th>
+              {columns.map((col, idx) => (
+                <th
+                  key={idx}
+                  className={cn(
+                    "border border-muted-foreground/20 p-2 text-center bg-muted/30 font-medium whitespace-nowrap relative z-10",
+                    "sticky top-0 z-20 bg-white",
+                    "after:absolute after:left-0 after:bottom-[-0px] after:w-full after:h-[4px]",
+                    "after:bg-white after:shadow-[0_2px_4px_rgba(0,0,0,0.12)]",
+                    isScrolling && "ring-2 ring-primary/40 shadow-lg"
+                  )}
+                  style={{ minWidth: '100px' }}
+                >
+                  {col || `Column ${idx + 1}`}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, rowIdx) => (
+              <tr key={rowIdx} className="relative group">
+                <td
+                  className={cn(
+                    "sticky left-0 z-30 whitespace-nowrap",
+                    "bg-white p-2 font-medium border border-muted-foreground/20",
+                    "after:absolute after:top-0 after:right-0 after:h-full after:w-[4px] after:bg-white after:shadow-[2px_0_4px_rgba(0,0,0,0.12)]",
+                    isScrolling && "ring-2 ring-primary/40 shadow-lg"
+                  )}
+                  style={{ 
+                    minWidth: '80px', 
+                    maxWidth: '80px',
+                    width: '80px'
+                  }}
+                >
+                  <div className="truncate" title={row || `Row ${rowIdx + 1}`}>
+                    {row || `Row ${rowIdx + 1}`}
+                  </div>
+                </td>
+                {columns.map((_, colIdx) => (
+                  <td 
+                    key={colIdx} 
+                    className="border border-muted-foreground/20 p-2 text-center relative z-0"
+                    style={{ minWidth: '100px' }}
+                  >
+                    <div className="relative">
+                      {multiplePerRow ? (
+                        <Checkbox disabled className="mx-auto relative z-0" />
+                      ) : (
+                        <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30 mx-auto relative z-0"></div>
+                      )}
+                    </div>
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        
+        {/* Обводка для левого sticky столбца - должна быть ПОД строками */}
+        <div 
+          className="absolute top-0 bottom-0 w-px bg-border pointer-events-none z-20"
+          style={{ left: '80px' }}
+        />
+      </div>
+      
+      {/* Индикатор правильных ответов */}
+      {matrixCorrectAnswers.length > 0 && (
+        <div className="text-xs text-green-600 font-medium flex items-center gap-1">
+          <Check className="h-3 w-3" />
+          Правильных ответов: {matrixCorrectAnswers.length}
+        </div>
+      )}
+      
+      {/* Кнопка для выбора правильных ответов */}
+      <div className="mt-3">
+        <Button
+          size="sm"
+          variant="outline"
+          className="w-full border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsMatrixModalOpen(true);
+          }}
+        >
+          <Check className="h-4 w-4 mr-2" />
+          Выбрать правильные ответы
+        </Button>
+      </div>
+      
+      {/* Модальное окно для выбора правильных ответов */}
+      <MatrixCorrectAnswersModal
+        field={field}
+        open={isMatrixModalOpen}
+        onOpenChange={setIsMatrixModalOpen}
+        updateField={updateField}
+      />
+    </div>
+  );
+}
       case "header":
         return null;
       default:
@@ -675,7 +814,10 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
               );
             })()}
 
-            <div className="pointer-events-none">
+            <div className={cn(
+              "pointer-events-none",
+              field.widgetType === "matrix" && "!pointer-events-auto"
+            )}>
               {renderFieldPreview()}
             </div>
           </>

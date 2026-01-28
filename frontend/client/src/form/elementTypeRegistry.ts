@@ -16,6 +16,8 @@ const widgetTypeAliases: Record<string, WidgetType> = {
   file_upload: "file_upload",
   rating: "rating",
   ranking: "ranking",
+  matrix: "matrix",
+  choice_matrix: "matrix",
   email: "text_input",
   country: "select",
   category: "select",
@@ -47,6 +49,7 @@ export const canonicalWidgetTypes: WidgetType[] = [
   "file_upload",
   "rating",
   "ranking",
+  "matrix",
 ];
 
 export const canonicalSemanticTypes: SemanticType[] = [

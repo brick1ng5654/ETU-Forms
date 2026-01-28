@@ -343,6 +343,7 @@ export function FormPreview({ form }: FormPreviewProps) {
   const [focusedFieldId, setFocusedFieldId] = useState<string | null>(null);
   const [calendarMonths, setCalendarMonths] = useState<Record<string, Date>>({});
   const payloadRef = useRef<ReturnType<typeof buildAnswersPayload> | null>(null);
+  const matrixContainerRef = useRef<HTMLDivElement>(null);
   const dateCacheRef = useRef<Map<string, Date | undefined>>(new Map());
   const calendarInitialMonthRef = useRef<Map<string, Date>>(new Map());
 
@@ -487,7 +488,72 @@ export function FormPreview({ form }: FormPreviewProps) {
       if (!correctAnswers || correctAnswers.length === 0) return;
 
       const userAnswer = answers[field.id];
-      max += points;
+      
+      // Рассчитываем максимальное количество баллов для поля
+      if (field.widgetType === "matrix") {
+        const pointsPerCell = (props.pointsPerCell as Record<string, number> | undefined) || {};
+        const pointsPerRow = (props.pointsPerRow as Record<string, number> | undefined) || {};
+        const pointsPerColumn = (props.pointsPerColumn as Record<string, number> | undefined) || {};
+        const matrixTotalPoints = (props.matrixTotalPoints as number | undefined) || 0;
+        const pointsDistributionType =
+          (props.pointsDistributionType as string | undefined) ||
+          (Object.keys(pointsPerCell).length > 0
+            ? "cell"
+            : Object.keys(pointsPerRow).length > 0
+            ? "row"
+            : Object.keys(pointsPerColumn).length > 0
+            ? "column"
+            : matrixTotalPoints > 0
+            ? "total"
+            : "cell");
+
+        const correctRowIds = new Set<number>();
+        const correctColumnIds = new Set<number>();
+        correctAnswers.forEach((cellKey) => {
+          const [rowIdx, colIdx] = cellKey.split(":").map(Number);
+          if (!Number.isNaN(rowIdx)) correctRowIds.add(rowIdx);
+          if (!Number.isNaN(colIdx)) correctColumnIds.add(colIdx);
+        });
+
+        switch (pointsDistributionType) {
+          case "row": {
+            correctRowIds.forEach((rowIdx) => {
+              const pointsForRow = pointsPerRow[String(rowIdx)] || 0;
+              if (pointsForRow > 0) {
+                max += pointsForRow;
+              }
+            });
+            break;
+          }
+          case "column": {
+            correctColumnIds.forEach((colIdx) => {
+              const pointsForColumn = pointsPerColumn[String(colIdx)] || 0;
+              if (pointsForColumn > 0) {
+                max += pointsForColumn;
+              }
+            });
+            break;
+          }
+          case "total": {
+            if (matrixTotalPoints > 0) {
+              max += matrixTotalPoints;
+            }
+            break;
+          }
+          case "cell":
+          default: {
+            correctAnswers.forEach((cellKey) => {
+              const pointsForCell = pointsPerCell[cellKey] || 0;
+              if (pointsForCell > 0) {
+                max += pointsForCell;
+              }
+            });
+            break;
+          }
+        }
+      } else {
+        max += points;
+      }
 
       let isCorrect = false;
 
@@ -496,12 +562,151 @@ export function FormPreview({ form }: FormPreviewProps) {
         isCorrect =
           userOrder.length === correctAnswers.length &&
           userOrder.every((item, idx) => item === correctAnswers[idx]);
+        if (isCorrect) {
+          score += points;
+        }
       } else if (field.widgetType === "checkbox") {
         const userAnswersArr = ((userAnswer as string[]) || []).sort();
         const correctAnswersArr = correctAnswers.slice().sort();
         isCorrect =
           userAnswersArr.length === correctAnswersArr.length &&
           userAnswersArr.every((ans, idx) => ans.toLowerCase() === correctAnswersArr[idx].toLowerCase());
+        if (isCorrect) {
+          score += points;
+        }
+      } else if (field.widgetType === "matrix") {
+        const userAnswersArr = ((userAnswer as string[]) || []).sort();
+        const correctAnswersArr = correctAnswers.slice().sort();
+        const matrixValidationMode = (props.matrixValidationMode || "all") as "any" | "all" | string;
+        const pointsPerCell = (props.pointsPerCell as Record<string, number> | undefined) || {};
+        const pointsPerRow = (props.pointsPerRow as Record<string, number> | undefined) || {};
+        const pointsPerColumn = (props.pointsPerColumn as Record<string, number> | undefined) || {};
+        const matrixTotalPoints = (props.matrixTotalPoints as number | undefined) || 0;
+        const pointsDistributionType =
+          (props.pointsDistributionType as string | undefined) ||
+          (Object.keys(pointsPerCell).length > 0
+            ? "cell"
+            : Object.keys(pointsPerRow).length > 0
+            ? "row"
+            : Object.keys(pointsPerColumn).length > 0
+            ? "column"
+            : matrixTotalPoints > 0
+            ? "total"
+            : "cell");
+
+        const correctAnswersByRow: Record<number, string[]> = {};
+        const correctAnswersByColumn: Record<number, string[]> = {};
+        correctAnswersArr.forEach((cellKey) => {
+          const [rowIdx, colIdx] = cellKey.split(":").map(Number);
+          if (!Number.isNaN(rowIdx)) {
+            if (!correctAnswersByRow[rowIdx]) {
+              correctAnswersByRow[rowIdx] = [];
+            }
+            correctAnswersByRow[rowIdx].push(cellKey);
+          }
+          if (!Number.isNaN(colIdx)) {
+            if (!correctAnswersByColumn[colIdx]) {
+              correctAnswersByColumn[colIdx] = [];
+            }
+            correctAnswersByColumn[colIdx].push(cellKey);
+          }
+        });
+
+        const selectedByRow: Record<number, string[]> = {};
+        const selectedByColumn: Record<number, string[]> = {};
+        userAnswersArr.forEach((cellKey) => {
+          const [rowIdx, colIdx] = cellKey.split(":").map(Number);
+          if (!Number.isNaN(rowIdx)) {
+            if (!selectedByRow[rowIdx]) {
+              selectedByRow[rowIdx] = [];
+            }
+            selectedByRow[rowIdx].push(cellKey);
+          }
+          if (!Number.isNaN(colIdx)) {
+            if (!selectedByColumn[colIdx]) {
+              selectedByColumn[colIdx] = [];
+            }
+            selectedByColumn[colIdx].push(cellKey);
+          }
+        });
+
+        switch (pointsDistributionType) {
+          case "row": {
+            let allRowsCorrect = true;
+            Object.entries(correctAnswersByRow).forEach(([rowKey, rowCorrectAnswers]) => {
+              const rowIdx = Number(rowKey);
+              const selectedInRow = selectedByRow[rowIdx] || [];
+              const hasCorrectSelection = rowCorrectAnswers.some(cellKey => selectedInRow.includes(cellKey));
+              const allCorrectSelected = rowCorrectAnswers.every(cellKey => selectedInRow.includes(cellKey));
+              const noWrongSelected = selectedInRow.every(cellKey => rowCorrectAnswers.includes(cellKey));
+              const rowIsCorrect = matrixValidationMode === "any"
+                ? hasCorrectSelection && noWrongSelected
+                : allCorrectSelected && noWrongSelected;
+
+              if (rowIsCorrect) {
+                const pointsForRow = pointsPerRow[rowKey] || 0;
+                if (pointsForRow > 0) {
+                  score += pointsForRow;
+                }
+              } else {
+                allRowsCorrect = false;
+              }
+            });
+            isCorrect = Object.keys(correctAnswersByRow).length > 0 && allRowsCorrect;
+            break;
+          }
+          case "column": {
+            let allColumnsCorrect = true;
+            Object.entries(correctAnswersByColumn).forEach(([colKey, colCorrectAnswers]) => {
+              const colIdx = Number(colKey);
+              const selectedInColumn = selectedByColumn[colIdx] || [];
+              const hasCorrectSelection = colCorrectAnswers.some(cellKey => selectedInColumn.includes(cellKey));
+              const allCorrectSelected = colCorrectAnswers.every(cellKey => selectedInColumn.includes(cellKey));
+              const noWrongSelected = selectedInColumn.every(cellKey => colCorrectAnswers.includes(cellKey));
+              const columnIsCorrect = matrixValidationMode === "any"
+                ? hasCorrectSelection && noWrongSelected
+                : allCorrectSelected && noWrongSelected;
+
+              if (columnIsCorrect) {
+                const pointsForColumn = pointsPerColumn[colKey] || 0;
+                if (pointsForColumn > 0) {
+                  score += pointsForColumn;
+                }
+              } else {
+                allColumnsCorrect = false;
+              }
+            });
+            isCorrect = Object.keys(correctAnswersByColumn).length > 0 && allColumnsCorrect;
+            break;
+          }
+          case "total": {
+            const isMatrixFullyCorrect =
+              userAnswersArr.length === correctAnswersArr.length &&
+              correctAnswersArr.every(cellKey => userAnswersArr.includes(cellKey));
+
+            if (isMatrixFullyCorrect && matrixTotalPoints > 0) {
+              score += matrixTotalPoints;
+            }
+            isCorrect = isMatrixFullyCorrect;
+            break;
+          }
+          case "cell":
+          default: {
+            correctAnswersArr.forEach((correctCell) => {
+              if (userAnswersArr.includes(correctCell)) {
+                const pointsForCell = pointsPerCell[correctCell] || 0;
+                if (pointsForCell > 0) {
+                  score += pointsForCell;
+                }
+              }
+            });
+
+            isCorrect =
+              userAnswersArr.length === correctAnswersArr.length &&
+              correctAnswersArr.every(cellKey => userAnswersArr.includes(cellKey));
+            break;
+          }
+        }
       } else {
         const userAnswerStr = typeof userAnswer === "string" || typeof userAnswer === "number"
           ? String(userAnswer || "").toLowerCase().trim()
@@ -509,14 +714,14 @@ export function FormPreview({ form }: FormPreviewProps) {
         isCorrect = correctAnswers.some(
           (correct) => correct.toLowerCase().trim() === userAnswerStr
         );
+        if (isCorrect) {
+          score += points;
+        }
       }
 
       newResults[field.id] = isCorrect;
-      if (isCorrect) {
-        score += points;
-      }
-    });
-
+    }
+  )
     setResults(newResults);
     setTotalScore(score);
     setMaxScore(max);
@@ -826,7 +1031,7 @@ export function FormPreview({ form }: FormPreviewProps) {
     return (
       <div
         key={field.id}
-        className={fieldWrapperClass}
+        className={cn(fieldWrapperClass, field.widgetType === "matrix" && "overflow-hidden max-w-full")}
         onFocusCapture={() => setFocusedFieldId(field.id)}
         onBlurCapture={(event) => {
           const nextTarget = event.relatedTarget as Node | null;
@@ -845,6 +1050,11 @@ export function FormPreview({ form }: FormPreviewProps) {
               {props.points && typeof props.points === "number" && props.points > 0 && (
                 <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
                   {props.points} pts
+                </span>
+              )}
+              {field.widgetType === "matrix" && props.matrixTotalPoints && typeof props.matrixTotalPoints === "number" && props.matrixTotalPoints > 0 && (
+                <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                  {props.matrixTotalPoints} pts (за всю матрицу)
                 </span>
               )}
             </Label>
@@ -986,8 +1196,8 @@ export function FormPreview({ form }: FormPreviewProps) {
                       disabled={results !== null}
                     >
                       <Clock className="mr-2 h-4 w-4" />
-                      {timeValue ? <span>{timeValue}</span> : <span>{t("propert.selectTime")}</span>}
-                    </Button>
+                      {timeValue ? <span>{timeValue}</span> : <span>{t("propert.selectTime")}</span>
+        }</Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-4" align="start" portalled={false}>
                     <Input
@@ -1106,8 +1316,8 @@ export function FormPreview({ form }: FormPreviewProps) {
           <div className="flex items-center gap-1">
             {Array.from({ length: (props.maxRating as number) || 5 }, (_, i) => i + 1).map((value) => (
               <button
-                key={value}
                 type="button"
+                key={value}
                 disabled={results !== null}
                 onClick={() => {
                   updateAnswer(field.id, value);
@@ -1127,6 +1337,145 @@ export function FormPreview({ form }: FormPreviewProps) {
             ))}
           </div>
         )}
+
+        {field.widgetType === "matrix" && (() => {
+          const rows = (props.rows as string[]) || [];
+          const columns = (props.columns as string[]) || [];
+          const multiplePerRow = Boolean(props.multiplePerRow);
+          const [isScrolling, setIsScrolling] = useState(false);
+          const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
+          const matrixAnswer = (answers[field.id] as string[]) || [];
+          const isCellSelected = (rowIdx: number, colIdx: number) => {
+            return matrixAnswer.includes(`${rowIdx + 1}:${colIdx + 1}`);
+          };
+          const toggleCell = (rowIdx: number, colIdx: number) => {
+            const cellKey = `${rowIdx + 1}:${colIdx + 1}`;
+            let newAnswer: string[];
+            if (multiplePerRow) {
+              if (isCellSelected(rowIdx, colIdx)) {
+                newAnswer = matrixAnswer.filter((key) => key !== cellKey);
+              } else {
+                newAnswer = [...matrixAnswer, cellKey];
+              }
+            } else {
+              // Single selection per row - remove all other selections in this row
+              newAnswer = matrixAnswer.filter((key) => !key.startsWith(`${rowIdx + 1}:`));
+              if (!isCellSelected(rowIdx, colIdx)) {
+                newAnswer.push(cellKey);
+              }
+            }
+            updateAnswer(field.id, newAnswer);
+            markTouched(field.id);
+          };
+          
+          return (
+            <div
+              className="matrix-scroll-container overflow-auto scroll-smooth relative"
+              style={{
+                maxHeight: '500px',
+              }}
+              onScroll={(e) => {
+                const el = e.currentTarget;
+                if (el.scrollLeft > 0) {
+                  setIsScrolling(true);
+                }
+
+                if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
+                scrollTimeout.current = setTimeout(() => setIsScrolling(false), 150);
+              }}
+            >
+              <table 
+                className="border-collapse border border-muted-foreground/20 text-sm min-w-full" 
+              >
+                <thead>
+                  <tr>
+                    <th
+                      className={cn(
+                        "relative sticky left-0 z-20 w-[100px] whitespace-nowrap",
+                        "bg-white p-2 font-medium",
+                        "border border-muted-foreground/20",
+                        "after:absolute after:top-0 after:right-[-2px] after:h-full after:w-[4px]",
+                        "after:bg-white after:shadow-[2px_0_4px_rgba(0,0,0,0.12)]",
+                        
+                        isScrolling && "ring-2 ring-primary/40 shadow-lg"
+                      )}
+                    >
+                    </th>
+                    {columns.map((col, idx) => (
+                      <th
+                        key={idx}
+                        className={cn(
+                          "border border-muted-foreground/20 p-2 text-center bg-muted/30 font-medium min-w-[100px] whitespace-nowrap",
+                          "sticky top-0 z-10 bg-white",
+                          "after:absolute after:left-0 after:bottom-[-2px] after:w-full after:h-[4px]",
+                          "after:bg-white after:shadow-[0_2px_4px_rgba(0,0,0,0.12)]",
+                          isScrolling && "ring-2 ring-primary/40 shadow-lg"
+                        )}
+                      >
+                        {col || `Column ${idx + 1}`}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row, rowIdx) => (
+                    <tr key={rowIdx}>
+                      <td 
+                        className={cn(
+                          "relative sticky left-0 z-20 min-w-[100px] whitespace-nowrap",
+                          "bg-white p-2 font-medium",
+                          "border border-muted-foreground/20",
+                          "after:absolute after:top-0 after:right-[-2px] after:h-full after:w-[4px]",
+                          "after:bg-white after:shadow-[2px_0_4px_rgba(0,0,0,0.12)]",
+
+                          isScrolling && "before:opacity-100 after:opacity-100"
+                        )}
+                      >
+                        {row || `Row ${rowIdx + 1}`}
+                      </td>
+                      {columns.map((_, colIdx) => {
+                        const selected = isCellSelected(rowIdx, colIdx);
+                        return (
+                          <td 
+                            key={colIdx} 
+                            className="border border-muted-foreground/20 p-2 text-center min-w-[100px]"
+                          >
+                            {multiplePerRow ? (
+                              <Checkbox
+                                id={`${field.id}-${rowIdx}-${colIdx}`}
+                                checked={selected}
+                                disabled={results !== null}
+                                onCheckedChange={() => toggleCell(rowIdx, colIdx)}
+                                className="mx-auto"
+                                simplifiedAnimation
+                                
+                              />
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={results !== null}
+                                onClick={() => toggleCell(rowIdx, colIdx)}
+                                className={cn(
+                                  "mx-auto inline-flex aspect-square h-4 w-4 items-center justify-center align-middle rounded-full border border-primary text-primary shadow focus:outline-none focus-visible:ring-1 focus-visible:ring-ring transition-colors duration-200 leading-none p-0 disabled:cursor-not-allowed disabled:opacity-50 relative overflow-hidden",
+                                  results !== null && "cursor-not-allowed opacity-50"
+                                )}
+                              >
+                                {selected && (
+                                  <span className="absolute inset-0 rounded-full bg-primary animate-in zoom-in-50 duration-200 ease-out" />
+                                )}
+                              </button>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              
+            </div>
+          );
+        })()}
 
         {field.widgetType === "file_upload" && (
           <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 flex flex-col items-center justify-center text-center bg-muted/5">
@@ -1167,12 +1516,45 @@ export function FormPreview({ form }: FormPreviewProps) {
             )}
           </div>
         ) : null}
+        {(hasResult && !results[field.id] && (props.correctAnswers as string[] | undefined)?.length) ? (
+  <div className="text-sm text-green-700 mt-2">
+    {field.widgetType === "ranking" ? (
+      <div>
+        <p className="font-medium">Правильный порядок:</p>
+        <ol className="list-decimal list-inside mt-1">
+          {(props.correctAnswers as string[]).map((answer, idx) => (
+            <li key={idx}>{answer}</li>
+          ))}
+        </ol>
+      </div>
+    ) : field.widgetType === "matrix" ? (
+      <div>
+        <p className="font-medium">Правильные ячейки:</p>
+        <div className="mt-1">
+          {(props.correctAnswers as string[]).map((cellKey, idx) => {
+            const [rowIdx, colIdx] = cellKey.split(':').map(Number);
+            const row = ((props.rows as string[]) || [])[rowIdx - 1] || `Row ${rowIdx}`;
+            const col = ((props.columns as string[]) || [])[colIdx - 1] || `Column ${colIdx}`;
+            return (
+              <p key={idx}>• Строка "{row}", Столбец "{col}"</p>
+            );
+          })}
+        </div>
+      </div>
+    ) : (
+      <p>Правильный ответ: {(props.correctAnswers as string[]).join(", ")}</p>
+    )}
+  </div>
+) : null}
       </div>
     );
   };
 
   return (
-    <div className="space-y-6 py-4">
+    <div 
+      className="space-y-6 py-4"
+      style={{ overflowX: 'hidden' }}
+    >
       {results !== null && (
         <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-4 mb-6">
           <div className="flex items-center justify-between">

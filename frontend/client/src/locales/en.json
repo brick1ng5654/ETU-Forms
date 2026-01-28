@@ -93,7 +93,8 @@
     "account": "Bank Account",
     "country": "Country",
     "ogrn": "OGRN",
-    "bik": "BIK"
+    "bik": "BIK",
+    "matrix": "Choice Matrix"
   },
 
   "actions": {
@@ -158,6 +159,8 @@
     "correctAnswerPlaceholder":"Enter correct answer",
     "addcorransw":"Add Correct Answer",
     "pointcorr":"Points for Correct Answer",
+    "pointcorrHelp":"Points are awarded for a correct answer",
+    "distributePoints": "Distribute points for correct answer",
     "corransw":"Correct Answers",
     "subtxt":"Add valid answers for auto-grading",
     "subpoint":"Points are awarded for the correct answer",
@@ -204,7 +207,32 @@
     "datetimeWarning": "Cannot hide both date and time at the same time",
     "selectDate": "Select date",
     "selectTime": "Select time",
-    "selectDateTime": "Select date and time"
+    "selectDateTime": "Select date and time",
+    "matrixRows": "Matrix rows (statements)",
+    "matrixColumns": "Matrix columns (options)",
+    "matrixMultiplePerRow": "Allow multiple selections per row",
+    "matrixCorrectAnswers": "Matrix Correct Answers",
+    "matrixCorrectAnswersHelp": "Select the cells that are correct answers",
+    "matrixCorrectAnswersFormatHelp": "The correct answer can be written as row number:column number and only one cell per correct answer field",
+    "addMatrixRowsColumns": "Add matrix rows and columns to select correct answers",
+    "clearAll": "Clear All",
+    "pointsPerCell": "Points per cell",
+    "pointsPerCellHelp": "Set points for each correct cell",
+    "pointsDistributionType": "Points distribution type",
+    "pointsPerRow": "Points per row",
+    "pointsPerColumn": "Points per column",
+    "pointsTotal": "Points for entire matrix",
+    "pointsPerRowHelp": "Set points for each row",
+    "pointsPerColumnHelp": "Set points for each column",
+    "pointsTotalHelp": "Set points for entire matrix",
+    "matrixValidationMode": "Validation mode",
+    "matrixValidationModeAny": "At least one correct answer",
+    "matrixValidationModeAnyHelp": "Select at least one correct answer from the list of correct answers",
+    "matrixValidationModeAll": "All correct answers",
+    "matrixCorrPoint": "An answer is considered correct if: 1) “At least one correct answer” — at least one cell from the list of correct answers is selected (not just any). 2) “All correct answers” — all correct cells in each row are selected.",
+    "matrixTotalPoints": "Points for entire matrix",
+    "matrixTotalPointsHelp": "Points are awarded if the entire matrix is filled correctly",
+    "points": "points"
   },
   "errors": {
     "required": "Required",
