@@ -157,6 +157,7 @@
     "correctAnswerPlaceholder":"Enter correct answer",
     "addcorransw":"Add Correct Answer",
     "pointcorr":"Points for Correct Answer",
+    "pointcorrHelp":"Points are awarded for a correct answer",
     "distributePoints": "Distribute points for correct answer",
     "corransw":"Correct Answers",
     "subtxt":"Add valid answers for auto-grading",

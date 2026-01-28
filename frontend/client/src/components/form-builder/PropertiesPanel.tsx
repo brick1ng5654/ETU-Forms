@@ -380,7 +380,8 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
   useEffect(() => {
     if (!selectedField) return;
     const currentPoints = (selectedField.props as Record<string, any>).points;
-    setPointsInput(typeof currentPoints === "number" ? String(currentPoints) : "");
+    const fallbackPoints = typeof currentPoints === "number" && currentPoints > 0 ? currentPoints : 1;
+    setPointsInput(String(fallbackPoints));
   }, [selectedField?.id, (selectedField?.props as Record<string, any>)?.points]);
 
   if (selectedIds.length > 1) {
@@ -714,6 +715,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
 
   const correctAnswers = (props.correctAnswers as string[]) || [];
   const hasCorrectAnswers = correctAnswers.length > 0;
+  const hasFilledCorrectAnswers = correctAnswers.some((answer) => String(answer ?? "").trim().length > 0);
 
   const panelClassName = isConditionalSelectOpen
     ? "p-4 space-y-6 overflow-y-auto h-full pb-[40vh]"
@@ -1193,27 +1195,30 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                 </Button>
               </div>
             ) : (
-              <div className="space-y-2 mt-3">
-                <Label>{t("propert.pointcorr")}</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    value={pointsInput}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (pointsInputPattern.test(value)) {
-                        setPointsInput(value);
-                      }
-                    }}
-                    onBlur={commitPointsInput}
-                    onKeyDown={handlePointsKeyDown}
-                    onPaste={handlePointsPaste}
-                    className="w-full text-center border-green-200 focus-visible:ring-green-500"
-                    placeholder="1"
-                  />
+              hasFilledCorrectAnswers && (
+                <div className="space-y-2 mt-3">
+                  <Label>{t("propert.pointcorr")}</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="text"
+                      inputMode="decimal"
+                      value={pointsInput}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (pointsInputPattern.test(value)) {
+                          setPointsInput(value);
+                        }
+                      }}
+                      onBlur={commitPointsInput}
+                      onKeyDown={handlePointsKeyDown}
+                      onPaste={handlePointsPaste}
+                      className="w-full text-center border-green-200 focus-visible:ring-green-500"
+                      placeholder="1"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">{t("propert.pointcorrHelp")}</p>
                 </div>
-              </div>
+              )
             )}
 
             {isMatrix && (() => {

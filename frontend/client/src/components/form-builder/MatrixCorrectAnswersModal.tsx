@@ -75,7 +75,7 @@ export function MatrixCorrectAnswersModal({
     props.pointsDistributionType || (Object.keys(pointsPerCell).length > 0 ? "cell" :
     Object.keys(pointsPerRow).length > 0 ? "row" :
     Object.keys(pointsPerColumn).length > 0 ? "column" :
-    matrixTotalPoints > 0 ? "total" : undefined)
+    matrixTotalPoints > 0 ? "total" : "cell")
   );
   
   // Локальное состояние для режима проверки
@@ -105,7 +105,7 @@ export function MatrixCorrectAnswersModal({
     } else if ((matrixTotalPoints || 0) > 0) {
       setPointsDistributionType("total");
     } else {
-      setPointsDistributionType(undefined);
+      setPointsDistributionType("cell");
     }
     
     // Устанавливаем режим проверки
@@ -289,7 +289,7 @@ export function MatrixCorrectAnswersModal({
   };
 
   const handlePointsDistributionTypeChange = (value: string) => {
-    setPointsDistributionType(value as "cell" | "row" | "column" | "total" | undefined);
+    setPointsDistributionType((value || "cell") as "cell" | "row" | "column" | "total");
   };
   
   // Обработчик изменения режима проверки
@@ -339,7 +339,10 @@ export function MatrixCorrectAnswersModal({
     setSelectedAnswers(newAnswers);
   };
 
-  const showValidationMode = pointsDistributionType === "column" || (pointsDistributionType === "row" && multiplePerRow);
+  const resolvedPointsDistributionType = pointsDistributionType || "cell";
+  const showValidationMode =
+    resolvedPointsDistributionType === "column" ||
+    (resolvedPointsDistributionType === "row" && multiplePerRow);
   
   useEffect(() => {
     if (showValidationMode && !validationMode) {
@@ -370,7 +373,7 @@ export function MatrixCorrectAnswersModal({
   ];
 
   useEffect(() => {
-    if (pointsDistributionType === "row" && rows.length > 0) {
+    if (resolvedPointsDistributionType === "row" && rows.length > 0) {
       setRowPoints((prev) => {
         const next = { ...prev };
         rows.forEach((_, index) => {
@@ -393,7 +396,7 @@ export function MatrixCorrectAnswersModal({
       });
     }
 
-    if (pointsDistributionType === "column" && columns.length > 0) {
+    if (resolvedPointsDistributionType === "column" && columns.length > 0) {
       setColumnPoints((prev) => {
         const next = { ...prev };
         columns.forEach((_, index) => {
@@ -416,11 +419,11 @@ export function MatrixCorrectAnswersModal({
       });
     }
 
-    if (pointsDistributionType === "total") {
+    if (resolvedPointsDistributionType === "total") {
       setTotalPoints((prev) => (prev > 0 ? prev : 1));
       setTotalPointsInput((prev) => (prev ? prev : "1"));
     }
-  }, [pointsDistributionType, rows.length, columns.length]);
+  }, [resolvedPointsDistributionType, rows.length, columns.length]);
   
   // Сохранение изменений
   const handleSave = () => {
@@ -433,7 +436,7 @@ export function MatrixCorrectAnswersModal({
     
     // Формируем объект pointsPerRow только с ненулевыми значениями
     const nonZeroRowPoints: Record<string, number> = {};
-    if (pointsDistributionType === "row") {
+    if (resolvedPointsDistributionType === "row") {
       rows.forEach((_, index) => {
         const key = `${index + 1}`;
         const rawValue = rowPointsInput[key] ?? String(rowPoints[key] ?? 1);
@@ -446,7 +449,7 @@ export function MatrixCorrectAnswersModal({
     
     // Формируем объект pointsPerColumn только с ненулевыми значениями
     const nonZeroColumnPoints: Record<string, number> = {};
-    if (pointsDistributionType === "column") {
+    if (resolvedPointsDistributionType === "column") {
       columns.forEach((_, index) => {
         const key = `${index + 1}`;
         const rawValue = columnPointsInput[key] ?? String(columnPoints[key] ?? 1);
@@ -473,13 +476,13 @@ export function MatrixCorrectAnswersModal({
     let pointsPerColumnToSave: Record<string, number> | undefined;
     let matrixTotalPointsToSave: number | undefined;
     
-    if (pointsDistributionType === "cell") {
+    if (resolvedPointsDistributionType === "cell") {
       pointsPerCellToSave = Object.keys(allCellPoints).length >= 0 ? allCellPoints : undefined;
-    } else if (pointsDistributionType === "row") {
+    } else if (resolvedPointsDistributionType === "row") {
       pointsPerRowToSave = Object.keys(nonZeroRowPoints).length > 0 ? nonZeroRowPoints : undefined;
-    } else if (pointsDistributionType === "column") {
+    } else if (resolvedPointsDistributionType === "column") {
       pointsPerColumnToSave = Object.keys(nonZeroColumnPoints).length > 0 ? nonZeroColumnPoints : undefined;
-    } else if (pointsDistributionType === "total") {
+    } else if (resolvedPointsDistributionType === "total") {
       const rawValue = totalPointsInput || String(totalPoints || 1);
       const parsedValue = parsePointInput(rawValue, totalPoints || 1);
       matrixTotalPointsToSave = parsedValue > 0 ? parsedValue : undefined;
@@ -493,7 +496,7 @@ export function MatrixCorrectAnswersModal({
         pointsPerColumn: pointsPerColumnToSave,
         matrixValidationMode: matrixValidationModeToSave,
         matrixTotalPoints: matrixTotalPointsToSave,
-        pointsDistributionType: pointsDistributionType
+        pointsDistributionType: resolvedPointsDistributionType
       }
     });
     onOpenChange(false);
@@ -590,7 +593,7 @@ export function MatrixCorrectAnswersModal({
               <div className="space-y-3 border-t pt-4">
                 <Label className="text-green-600">{t("propert.pointsDistributionType")}</Label>
                 
-                <Select value={pointsDistributionType || ""} onValueChange={handlePointsDistributionTypeChange}>
+                <Select value={resolvedPointsDistributionType} onValueChange={handlePointsDistributionTypeChange}>
                   <SelectTrigger className="w-[260px]">
                     <SelectValue placeholder={t("common.selectopt")} />
                   </SelectTrigger>
@@ -622,7 +625,7 @@ export function MatrixCorrectAnswersModal({
                 </Select>
                 
                 {/* Баллы по ячейкам (отображается только при выборе "cell") */}
-                {pointsDistributionType === "cell" && (
+                {resolvedPointsDistributionType === "cell" && (
                   <div className="space-y-3 border-t pt-4">
                     <Label className="text-green-600">{t("propert.pointsPerCell")}</Label>
                     <div className="overflow-x-auto border rounded p-2">
@@ -680,7 +683,7 @@ export function MatrixCorrectAnswersModal({
                 )}
                 
                 {/* Баллы по строкам (отображается только при выборе "row") */}
-                {pointsDistributionType === "row" && (
+                {resolvedPointsDistributionType === "row" && (
                   <div className="space-y-3 border-t pt-4">
                     <Label className="text-green-600">{t("propert.pointsPerRow")}</Label>
                     <div className="overflow-x-auto border rounded p-2">
@@ -723,7 +726,7 @@ export function MatrixCorrectAnswersModal({
                 )}
                 
                 {/* Баллы по столбцам (отображается только при выборе "column") */}
-                {pointsDistributionType === "column" && (
+                {resolvedPointsDistributionType === "column" && (
                   <div className="space-y-3 border-t pt-4">
                     <Label className="text-green-600">{t("propert.pointsPerColumn")}</Label>
                     <div className="overflow-x-auto border rounded p-2">
@@ -766,7 +769,7 @@ export function MatrixCorrectAnswersModal({
                 )}
                 
                 {/* Баллы за всю матрицу (отображается только при выборе "total") */}
-                {pointsDistributionType === "total" && (
+                {resolvedPointsDistributionType === "total" && (
                   <div className="space-y-3 border-t pt-4">
                     <Label className="text-green-600">{t("propert.matrixTotalPoints")}</Label>
                     <div className="flex items-center gap-2">
