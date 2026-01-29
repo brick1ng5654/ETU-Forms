@@ -584,6 +584,21 @@ export default function Builder({ params }: { params: { id?: string } }) {
         const { placeholder, correctAnswer, correctAnswers, points, conditionalLogic, ...otherSettings } = (f.props ?? {}) as Record<string, unknown>;
         const cleanedOtherSettings: Record<string, unknown> = { ...otherSettings };
         if (points !== undefined) cleanedOtherSettings.points = points;
+        if (f.semanticType === "passport") {
+          const passportFlags = [
+            "hidePassportFullName",
+            "hidePassportGender",
+            "hidePassportBirthDate",
+            "hidePassportSeriesNumber",
+            "hidePassportIssuedBy",
+            "hidePassportIssueDate",
+            "hidePassportDepartmentCode",
+            "hidePassportBirthPlace",
+          ] as const;
+          for (const key of passportFlags) {
+            cleanedOtherSettings[key] = Boolean((f.props as Record<string, unknown> | undefined)?.[key]);
+          }
+        }
         const rawCorrectAnswer = correctAnswer ?? correctAnswers;
         // Парсинг правильного ответа в поле правильного ответа
         const normalizedCorrectAnswer = (() => {
