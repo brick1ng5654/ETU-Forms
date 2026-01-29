@@ -5,7 +5,10 @@ CREATE TABLE IF NOT EXISTS App_User(
     name VARCHAR(100) NOT NULL,
     phone VARCHAR(20),
     email VARCHAR(100) UNIQUE NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    password_hash TEXT NULL, -- NULL на время миграций, даллее ужесточим
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    is_admin BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 COMMENT ON TABLE App_User IS 'Таблица пользователей конструктора форм';
