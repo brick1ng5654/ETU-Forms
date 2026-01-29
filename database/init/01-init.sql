@@ -16,6 +16,13 @@ COMMENT ON COLUMN App_User.phone IS 'Номер телефона';
 COMMENT ON COLUMN App_User.email IS 'Электронная почта (уникальная)';
 COMMENT ON COLUMN App_User.created_at IS 'Дата и время создания записи';
 
+INSERT INTO App_User (user_id, etu_id, name, phone, email, created_at)
+VALUES (1, NULL, 'admin', '+79000000000', 'admin@etu.ru', CURRENT_TIMESTAMP)
+ON CONFLICT (user_id) DO NOTHING;
+
+SELECT setval(pg_get_serial_sequence('app_user','user_id'),
+              (SELECT max(user_id) FROM app_user));
+
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'form_access_mode') THEN
@@ -46,6 +53,7 @@ BEGIN
             'email_input',
             'rating',
             'ranking', -- ранжирование
+            'matrix', -- матрица ввода
             'file_upload' -- загрузка файла
         );
     END IF;
@@ -54,6 +62,7 @@ BEGIN
         CREATE TYPE semantic_type AS ENUM(
             'full_name', -- фио
             'phone', -- номер телефона
+            'email',
             'passport', -- паспорт
             'inn',
             'snils',
@@ -72,7 +81,8 @@ BEGIN
             'not_in',
             'greater_than',
             'less_than',
-            'contains'
+            'contains',
+            'answered'
         );
     END IF;
 
@@ -175,7 +185,7 @@ COMMENT ON COLUMN Response.user_id IS 'ID пользователя, которы
 COMMENT ON COLUMN Response.created_at IS 'Дата и время создания ответа';
 COMMENT ON COLUMN Response.completed_at IS 'Дата и время завершения ответа';
 
-CREATE TABLE IF NOT EXISTS AccessControl (
+CREATE TABLE IF NOT EXISTS access_control (
     access_id SERIAL PRIMARY KEY,
     form_id INT NOT NULL,
     user_id INT NOT NULL,
@@ -197,13 +207,13 @@ CREATE TABLE IF NOT EXISTS AccessControl (
 
 -- все формы, куда у user доступ
 CREATE INDEX IF NOT EXISTS idx_access_user
-ON AccessControl (user_id);
+ON access_control (user_id);
 
-COMMENT ON TABLE AccessControl IS 'Таблица контроля доступа к формам';
-COMMENT ON COLUMN AccessControl.access_id IS 'Уникальный идентификатор доступа';
-COMMENT ON COLUMN AccessControl.form_id IS 'ID формы';
-COMMENT ON COLUMN AccessControl.user_id IS 'ID пользователя';
-COMMENT ON COLUMN AccessControl.role IS 'Роль пользователя (editor или participant)';
+COMMENT ON TABLE access_control IS 'Таблица контроля доступа к формам';
+COMMENT ON COLUMN access_control.access_id IS 'Уникальный идентификатор доступа';
+COMMENT ON COLUMN access_control.form_id IS 'ID формы';
+COMMENT ON COLUMN access_control.user_id IS 'ID пользователя';
+COMMENT ON COLUMN access_control.role IS 'Роль пользователя (editor или participant)';
 
 CREATE TABLE IF NOT EXISTS Template(
     template_id SERIAL PRIMARY KEY,

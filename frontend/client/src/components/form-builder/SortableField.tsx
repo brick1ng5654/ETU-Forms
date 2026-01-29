@@ -35,11 +35,11 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
 
   useEffect(() => {
     if ((editingElement === "helperText" || editingElement === "label") && textareaRef.current) {
-      const len = editingValue.length;
+      const len = textareaRef.current.value.length;
       textareaRef.current.setSelectionRange(len, len);
       textareaRef.current.focus();
     }
-  }, [editingElement, editingValue]);
+  }, [editingElement]);
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.id });
   const { t } = useTranslation();
@@ -83,6 +83,10 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    if (e.key === "Delete" || e.key === "Backspace") {
+      e.stopPropagation();
+      return;
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       saveEditing();
@@ -148,7 +152,12 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
       );
     }
 
-    const placeholderKey = preset?.getPlaceholderKey ? preset.getPlaceholderKey(props) : preset?.placeholderKey;
+    const labelKey = preset?.getLabelKey ? preset.getLabelKey(props) : preset?.labelKey;
+    const placeholderKey = labelKey?.startsWith("inputLabels.")
+      ? labelKey
+      : preset?.getPlaceholderKey
+        ? preset.getPlaceholderKey(props)
+        : preset?.placeholderKey;
     const placeholder = placeholderKey
       ? t(placeholderKey)
       : preset?.placeholder || (props.placeholder as string) || "";
@@ -690,6 +699,7 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
         onSelect(field.id, e);
       }}
       onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
+        if (editingElement) return;
         if (e.key === "Delete") {
           e.preventDefault();
           onDelete(field.id);

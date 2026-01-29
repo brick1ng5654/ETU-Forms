@@ -24,6 +24,7 @@ const widgetTypeAliases: Record<string, WidgetType> = {
 };
 
 const semanticTypeAliases: Record<string, SemanticType> = {
+  email: "email",
   phone: "phone",
   inn: "inn",
   snils: "snils",
@@ -53,6 +54,7 @@ export const canonicalWidgetTypes: WidgetType[] = [
 ];
 
 export const canonicalSemanticTypes: SemanticType[] = [
+  "email",
   "phone",
   "inn",
   "snils",

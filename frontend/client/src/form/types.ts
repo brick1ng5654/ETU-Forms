@@ -14,6 +14,7 @@ export type WidgetType =
 
 export type SemanticType =
   | "phone"
+  | "email"
   | "inn"
   | "snils"
   | "full_name"

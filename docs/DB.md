@@ -118,8 +118,8 @@
 | props_settings | JSONB |  | NULL | Частные настройки свойств элемента |
 
 **Домены и перечисления**
-- WIDGET_TYPE: heading, static_text, number_input, text_input, select, checkbox, radio, datetime, email_input, rating, ranking, file_upload.
-- SEMANTIC_TYPE: full_name, phone, passport, inn, snils, bank_account, country, ogrn, bik.
+- WIDGET_TYPE: heading, static_text, number_input, text_input, select, checkbox, radio, datetime, email_input, rating, ranking, matrix, file_upload.
+- SEMANTIC_TYPE: full_name, phone, email, passport, inn, snils, bank_account, country, ogrn, bik.
 
 **Правила целостности**
 - Заполнено ровно одно из `form_id` или `template_id`.
@@ -135,7 +135,7 @@
 | value | JSONB |  | NULL | Значение для сравнения |
 
 **Домены и перечисления**
-- CONDITION_OPERATOR: equals, not_equals, in, not_in, greater_than, less_than, contains. (Больше значений можем появится из-за задачи #25)
+- CONDITION_OPERATOR: equals, not_equals, in, not_in, greater_than, less_than, contains, answered. (Больше значений можем появится из-за задачи #25)
 
 **Правила целостности**
 - `form_id`, `source_element_id`, `target_element_id` ссылаются на соответствующие таблицы.
@@ -199,8 +199,9 @@
 - Доступ к пользователю и базе (по умолчанию: `user`/`db`).
 
 ### Примечание для разработчиков
-Если в локальной БД появляются "нерабочие" таблицы (битая схема, старые миграции или неконсистентные данные), можно пересоздать том БД командой `docker compose down -v` и поднять сервис заново. Это удаляет все данные в томе и заставляет БД стартовать с чистого состояния.
+- Если в локальной БД появляются "нерабочие" таблицы (битая схема, старые миграции или неконсистентные данные), можно пересоздать том БД командой `docker compose down -v` и поднять сервис заново. Это удаляет все данные в томе и заставляет БД стартовать с чистого состояния.
 В проде так делать нельзя — команда удаляет тома и приводит к полной потере данных.
+- Не забывайте про ; в конце SQL команд
 
 ### Подключение через psql
 
@@ -229,6 +230,7 @@ docker exec -it postgres_db psql -U user -d db
 | `\dn` | Список схем (schemas) |
 | `\x` | Переключение расширенного вывода (on/off) |
 | `\q` | Выход из psql |
+| `\pset pager off` | Отключение постраничного вывода |
 
 ### Примеры
 

@@ -112,6 +112,14 @@
   "placeholders": {
     "folderName": "Folder Name",
     "search": "Search...",
+    "inn10": "0123456789",
+    "inn12": "012345678901",
+    "ogrn": "0123456789012",
+    "ogrnIp": "012345678901234",
+    "snils": "012-345-678 90",
+    "bik": "012345678"
+  },
+  "inputLabels": {
     "inn": "Enter INN",
     "ogrn": "Enter OGRN",
     "ogrnIp": "Enter OGRNIP",
