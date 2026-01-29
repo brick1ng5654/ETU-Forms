@@ -8,3 +8,4 @@ pydantic_settings
 asyncpg
 pathlib
 starlette
+argon2-cffi
