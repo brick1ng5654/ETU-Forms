@@ -346,6 +346,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
       widgetDefaults.rows = ["Row 1", "Row 2"];
       widgetDefaults.columns = ["Column 1", "Column 2"];
       widgetDefaults.multiplePerRow = false;
+    }
     if (item.widgetType === "file_upload") {
       widgetDefaults.maxFileSize = 1;
     }
