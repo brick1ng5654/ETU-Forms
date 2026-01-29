@@ -32,6 +32,14 @@ const isSafeFileUrl = (url?: string) => {
   }
 };
 
+const escapeAttribute = (value: string) =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
 export function ElementAttachments({ attachments, displayMode = "slider", className }: ElementAttachmentsProps) {
   const list = Array.isArray(attachments) ? attachments : [];
   if (list.length === 0) return null;
@@ -94,7 +102,7 @@ export function ElementAttachments({ attachments, displayMode = "slider", classN
         <a href={href} target="_blank" rel="noreferrer" className="block">
           <img
             src={href}
-            alt={attachment.name || "attachment"}
+            alt={escapeAttribute(attachment.name || "attachment")}
             className="max-h-64 w-auto rounded-md border border-muted-foreground/20"
           />
         </a>
