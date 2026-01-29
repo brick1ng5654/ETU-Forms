@@ -50,7 +50,7 @@ BEGIN
             'email_input',
             'rating',
             'ranking', -- ранжирование
-            'matrix', -- ??????? ??????
+            'matrix', -- матрица ввода
             'file_upload' -- загрузка файла
         );
     END IF;
