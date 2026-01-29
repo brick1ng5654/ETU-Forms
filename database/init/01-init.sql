@@ -262,8 +262,6 @@ CREATE TABLE IF NOT EXISTS Form_Element (
 );
 
 -- Все элементы формы, шаблона
-CREATE INDEX IF NOT EXISTS idx_form_element_form
-ON Form_Element (form_id);
 
 CREATE INDEX IF NOT EXISTS idx_form_element_template
 ON Form_Element (template_id);
