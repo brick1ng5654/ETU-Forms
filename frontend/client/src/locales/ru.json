@@ -252,13 +252,13 @@
   "auth": {
     "login": "Вход в систему",
     "loginDesc": "Выберите способ входа",
-    "etuId": "ETU ID",
-    "partner": "Вход через ЛК партнера",
+    "etuId": "Войти через ETU ID",
+    "partner": "Войти как партнер",
     "email": "Email",
     "emailPlaceholder": "Введите ваш email",
     "password": "Пароль",
     "passwordPlaceholder": "Введите ваш пароль",
-    "loginButton": "Войти",
+    "loginButton": "Войти как партнер",
     "etuIdPlaceholder": "Авторизация через ETU ID будет реализована позже",
     "loginWithEtuId": "Войти через ETU ID",
     "footerText": "Введите учетные данные для доступа к системе"
