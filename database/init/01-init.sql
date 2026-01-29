@@ -122,6 +122,11 @@ CREATE TABLE IF NOT EXISTS Form (
         CHECK (version > 0)
 );
 
+-- Все формы пользователя
+CREATE INDEX IF NOT EXISTS idx_form_user_created
+ON form (user_id, created_at DESC);
+
+
 -- Комментарии к таблице и полям
 COMMENT ON TABLE Form IS 'Таблица для хранения форм/опросов';
 COMMENT ON COLUMN Form.form_id IS 'Уникальный идентификатор формы';
@@ -154,6 +159,14 @@ CREATE TABLE IF NOT EXISTS Response (
         ON DELETE CASCADE
 );
 
+-- Все ответы на форму, ответы пользователя
+CREATE INDEX IF NOT EXISTS idx_response_form_created
+ON Response (form_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_response_user_created
+ON Response (user_id, created_at DESC);
+
+
 -- Комментарии к таблице и полям
 COMMENT ON TABLE Response IS 'Таблица ответов на формы';
 COMMENT ON COLUMN Response.response_id IS 'Уникальный идентификатор ответа';
@@ -181,6 +194,10 @@ CREATE TABLE IF NOT EXISTS AccessControl (
     CONSTRAINT unique_form_user
         UNIQUE (form_id, user_id)
 );
+
+-- все формы, куда у user доступ
+CREATE INDEX IF NOT EXISTS idx_access_user
+ON AccessControl (user_id);
 
 COMMENT ON TABLE AccessControl IS 'Таблица контроля доступа к формам';
 COMMENT ON COLUMN AccessControl.access_id IS 'Уникальный идентификатор доступа';
@@ -216,7 +233,7 @@ CREATE TABLE IF NOT EXISTS Form_Element (
     correct_answer JSONB NULL,
     text_hint TEXT NULL,
     supportive_text TEXT NULL,
-    required_field BOOLEAN NOT NULL,
+    required_field BOOLEAN NOT NULL DEFAULT FALSE,
     other_settings JSONB NOT NULL DEFAULT '{}'::jsonb,
     position INT NOT NULL,
 
@@ -244,6 +261,14 @@ CREATE TABLE IF NOT EXISTS Form_Element (
         )
 );
 
+-- Все элементы формы, шаблона
+
+CREATE INDEX IF NOT EXISTS idx_form_element_template
+ON Form_Element (template_id);
+
+CREATE INDEX IF NOT EXISTS idx_form_element_position
+ON Form_Element (form_id, position);
+
 COMMENT ON TABLE Form_Element IS 'Элементы (поля) формы';
 
 CREATE TABLE IF NOT EXISTS Response_Answer(
@@ -268,6 +293,14 @@ CREATE TABLE IF NOT EXISTS Response_Answer(
         REFERENCES Form_Element(element_id)
         ON DELETE CASCADE
 );
+
+-- Ответы на конкретную форму
+CREATE INDEX IF NOT EXISTS idx_answer_response
+ON Response_Answer (response_id);
+
+-- Ответы на конкретный элемент
+CREATE INDEX IF NOT EXISTS idx_answer_element
+ON Response_Answer (element_id);
 
 CREATE TABLE IF NOT EXISTS Form_Element_Condition(
     condition_id SERIAL PRIMARY KEY,
@@ -311,6 +344,15 @@ CREATE TABLE IF NOT EXISTS Form_Element_Condition(
         CHECK (source_element_id <> target_element_id)
 );
 
+-- Все условия формы, конкретного таргета
+CREATE INDEX IF NOT EXISTS idx_condition_form
+ON Form_Element_Condition (form_id);
+
+CREATE INDEX IF NOT EXISTS idx_condition_target
+ON Form_Element_Condition (target_element_id);
+
+CREATE INDEX IF NOT EXISTS idx_condition_source
+ON Form_Element_Condition (source_element_id);
 COMMENT ON TABLE Form_Element_Condition IS 'Условия ветвления (зависимости)';
 
 CREATE TABLE IF NOT EXISTS Uploaded_file(
@@ -335,5 +377,9 @@ CREATE TABLE IF NOT EXISTS Uploaded_file(
         REFERENCES Response_Answer(answer_id)
         ON DELETE CASCADE
 );
+
+-- Файлы приложенные к ответу
+CREATE INDEX IF NOT EXISTS idx_file_answer
+ON Uploaded_file (answer_id);
 
 COMMENT ON TABLE Uploaded_file IS 'Метаданные загруженных файлов';
