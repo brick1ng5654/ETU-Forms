@@ -20,6 +20,9 @@ INSERT INTO App_User (user_id, etu_id, name, phone, email, created_at)
 VALUES (1, NULL, 'admin', '+79000000000', 'admin@etu.ru', CURRENT_TIMESTAMP)
 ON CONFLICT (user_id) DO NOTHING;
 
+SELECT setval(pg_get_serial_sequence('app_user','user_id'),
+              (SELECT max(user_id) FROM app_user));
+
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'form_access_mode') THEN
@@ -204,7 +207,7 @@ CREATE TABLE IF NOT EXISTS access_control (
 
 -- все формы, куда у user доступ
 CREATE INDEX IF NOT EXISTS idx_access_user
-ON AccessControl (user_id);
+ON access_control (user_id);
 
 COMMENT ON TABLE access_control IS 'Таблица контроля доступа к формам';
 COMMENT ON COLUMN access_control.access_id IS 'Уникальный идентификатор доступа';
