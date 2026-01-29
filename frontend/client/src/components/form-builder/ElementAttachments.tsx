@@ -22,6 +22,16 @@ const formatBytes = (size?: number) => {
   return `${value.toFixed(value >= 10 || idx === 0 ? 0 : 1)} ${units[idx]}`;
 };
 
+const isSafeFileUrl = (url?: string) => {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url, window.location.origin);
+    return parsed.origin === window.location.origin && parsed.pathname.startsWith("/api/v1/files/");
+  } catch {
+    return false;
+  }
+};
+
 export function ElementAttachments({ attachments, displayMode = "slider", className }: ElementAttachmentsProps) {
   const list = Array.isArray(attachments) ? attachments : [];
   if (list.length === 0) return null;
@@ -57,7 +67,9 @@ export function ElementAttachments({ attachments, displayMode = "slider", classN
   }, []);
 
   const renderFileLink = (attachment: ElementAttachment) => {
-    const href = attachment.url || `/api/v1/files/${attachment.file_id}/download`;
+    const href = isSafeFileUrl(attachment.url)
+      ? attachment.url!
+      : `/api/v1/files/${attachment.file_id}/download`;
     return (
       <a
         key={attachment.file_id}
@@ -74,13 +86,15 @@ export function ElementAttachments({ attachments, displayMode = "slider", classN
   };
 
   const renderImageCard = (attachment: ElementAttachment) => {
-    const href = attachment.url || `/api/v1/files/${attachment.file_id}/download`;
+    const href = isSafeFileUrl(attachment.url)
+      ? attachment.url!
+      : `/api/v1/files/${attachment.file_id}/download`;
     return (
       <div key={attachment.file_id} className="space-y-1">
         <a href={href} target="_blank" rel="noreferrer" className="block">
           <img
             src={href}
-            alt={attachment.name}
+            alt={attachment.name || "attachment"}
             className="max-h-64 w-auto rounded-md border border-muted-foreground/20"
           />
         </a>
