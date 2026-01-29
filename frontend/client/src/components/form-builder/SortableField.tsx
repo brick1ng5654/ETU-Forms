@@ -17,6 +17,8 @@ import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 import { MatrixCorrectAnswersModal } from "./MatrixCorrectAnswersModal";
 
+const MAX_UPLOAD_MB = 20;
+
 interface SortableFieldProps {
   field: FormElementModel;
   isSelected: boolean;
@@ -514,7 +516,7 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
             <Upload className="h-8 w-8 text-muted-foreground mb-2" />
             <p className="text-sm text-muted-foreground font-medium">{t("back.loaddrag")}</p>
             <p className="text-xs text-muted-foreground mt-1">
-              {t("propert.sizefile")} {(props.maxFileSize as number) || 10}MB
+              {t("propert.sizefile")} {(props.maxFileSize as number) || MAX_UPLOAD_MB}MB
               {Array.isArray(props.acceptedFileTypes) && props.acceptedFileTypes.length > 0 && ` (${(props.acceptedFileTypes as string[]).join(", ")})`}
             </p>
           </div>

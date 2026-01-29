@@ -111,6 +111,7 @@ export type PassportAnswer = {
 
 // Matrix answer is stored as an array of "rowIndex:colIndex" keys
 export type MatrixAnswer = string[];
+export type FileUploadAnswer = ElementAttachment[];
 
 export type AnswerValue =
   | string
@@ -121,6 +122,7 @@ export type AnswerValue =
   | PassportAnswer
   | DateTimeAnswer
   | MatrixAnswer
+  | FileUploadAnswer
   | null;
 
 export type AnswersById = Record<string, AnswerValue>;

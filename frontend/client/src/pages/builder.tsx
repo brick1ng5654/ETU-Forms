@@ -348,7 +348,8 @@ export default function Builder({ params }: { params: { id?: string } }) {
       widgetDefaults.multiplePerRow = false;
     }
     if (item.widgetType === "file_upload") {
-      widgetDefaults.maxFileSize = 1;
+      widgetDefaults.maxFileSize = 20;
+      widgetDefaults.maxFiles = 1;
     }
 
     const newField: FormElementModel = {
