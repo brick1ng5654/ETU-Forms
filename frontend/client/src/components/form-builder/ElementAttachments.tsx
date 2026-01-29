@@ -22,6 +22,16 @@ const formatBytes = (size?: number) => {
   return `${value.toFixed(value >= 10 || idx === 0 ? 0 : 1)} ${units[idx]}`;
 };
 
+const isSafeFileUrl = (url?: string) => {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url, window.location.origin);
+    return parsed.origin === window.location.origin && parsed.pathname.startsWith("/api/v1/files/");
+  } catch {
+    return false;
+  }
+};
+
 const buildSafeHref = (attachment: ElementAttachment) => {
   const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost";
   const fallback = new URL(`/api/v1/files/${attachment.file_id}/download`, origin);
@@ -91,11 +101,7 @@ export function ElementAttachments({ attachments, displayMode = "slider", classN
   }, []);
 
   const renderFileLink = (attachment: ElementAttachment) => {
-<<<<<<< HEAD
     const href = buildSafeHref(attachment);
-=======
-    const href = attachment.url || `/api/v1/files/${attachment.file_id}/download`;
->>>>>>> afd0f56 (реализовано прикрепление файлов к элементам)
     return (
       <a
         key={attachment.file_id}
@@ -112,21 +118,13 @@ export function ElementAttachments({ attachments, displayMode = "slider", classN
   };
 
   const renderImageCard = (attachment: ElementAttachment) => {
-<<<<<<< HEAD
     const href = buildSafeHref(attachment);
-=======
-    const href = attachment.url || `/api/v1/files/${attachment.file_id}/download`;
->>>>>>> afd0f56 (реализовано прикрепление файлов к элементам)
     return (
       <div key={attachment.file_id} className="space-y-1">
         <a href={href} target="_blank" rel="noreferrer" className="block">
           <img
             src={href}
-<<<<<<< HEAD
             alt={escapeAttribute(attachment.name || "attachment")}
-=======
-            alt={attachment.name}
->>>>>>> afd0f56 (реализовано прикрепление файлов к элементам)
             className="max-h-64 w-auto rounded-md border border-muted-foreground/20"
           />
         </a>
