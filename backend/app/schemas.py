@@ -171,6 +171,7 @@ class FormElementBase(BaseModel):
     supportive_text: Optional[str] = None
     required_field: bool = False
     other_settings: Optional[Dict[str, Any]] = None
+    file_ids: List[int] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def validate_owner_scope(self):
@@ -182,6 +183,12 @@ class FormElementBase(BaseModel):
     def validate_semantic_for_static(self):
         if self.widget in (WidgetType.HEADING, WidgetType.STATIC_TEXT) and self.semantic is not None:
             raise ValueError("semantic must be null for heading/static_text")
+        return self
+
+    @model_validator(mode="after")
+    def validate_file_ids_limit(self):
+        if self.file_ids and len(self.file_ids) > 10:
+            raise ValueError("file_ids must contain at most 10 items")
         return self
     
 class FormElementCreate(FormElementBase):
@@ -251,6 +258,8 @@ class UploadedFileResponse(UploadedFileBase):
     file_id: int
     created_at: datetime
     expires_at: datetime
+    content_hash: Optional[str] = None
+    url: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
 # Health and MISC
@@ -274,7 +283,14 @@ class BuilderElementIn(BaseModel):
     text_hint: Optional[str] = None
     supportive_text: Optional[str] = None
     other_settings: Optional[Dict[str, Any]] = None
+    file_ids: List[int] = Field(default_factory=list)
     sort_index: int
+
+    @model_validator(mode="after")
+    def validate_file_ids_limit(self):
+        if self.file_ids and len(self.file_ids) > 10:
+            raise ValueError("file_ids must contain at most 10 items")
+        return self
 
 class BuilderConditionIn(BaseModel):
     source_client_id: str

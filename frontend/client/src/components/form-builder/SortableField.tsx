@@ -6,6 +6,7 @@ import type { FormElementModel } from "@/form/types";
 import { presets } from "@/form/presets";
 import { cn } from "@/lib/utils";
 import { GripVertical, Star, Upload, GripHorizontal, CalendarDays, Clock, ChevronDown, ChevronUp, X, Plus, Check } from "lucide-react";
+import { ElementAttachments } from "@/components/form-builder/ElementAttachments";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -830,6 +831,10 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
             )}>
               {renderFieldPreview()}
             </div>
+            <ElementAttachments
+              attachments={(props.attachments as any) || []}
+              displayMode={(props.attachmentsDisplay as any) || "slider"}
+            />
           </>
         )}
       </div>

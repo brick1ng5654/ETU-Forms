@@ -245,6 +245,7 @@ CREATE TABLE IF NOT EXISTS Form_Element (
     supportive_text TEXT NULL,
     required_field BOOLEAN NOT NULL DEFAULT FALSE,
     other_settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+    file_ids INT[] NOT NULL DEFAULT '{}'::INT[],
     position INT NOT NULL,
 
     CONSTRAINT fk_element_form
@@ -268,7 +269,10 @@ CREATE TABLE IF NOT EXISTS Form_Element (
             (form_id IS NOT NULL AND template_id IS NULL)
             OR
             (form_id IS NULL AND template_id IS NOT NULL)
-        )
+        ),
+
+    CONSTRAINT chk_element_file_ids
+        CHECK (COALESCE(array_length(file_ids, 1), 0) <= 10)
 );
 
 -- Все элементы формы, шаблона
@@ -368,7 +372,7 @@ COMMENT ON TABLE Form_Element_Condition IS 'Условия ветвления (�
 CREATE TABLE IF NOT EXISTS Uploaded_file(
     file_id SERIAL PRIMARY KEY,
 
-    answer_id INT NOT NULL,
+    answer_id INT NULL,
 
     name VARCHAR(512) NOT NULL,
     mime_type VARCHAR(255) NOT NULL,
@@ -376,6 +380,8 @@ CREATE TABLE IF NOT EXISTS Uploaded_file(
 
     storage_provider VARCHAR(50) NOT NULL DEFAULT 'local',
     storage_path TEXT NOT NULL,
+    access_token VARCHAR(64) NOT NULL UNIQUE,
+    content_hash VARCHAR(64) NOT NULL,
 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP WITH TIME ZONE DEFAULT (CURRENT_TIMESTAMP + INTERVAL '1 day'),

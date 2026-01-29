@@ -582,7 +582,16 @@ export default function Builder({ params }: { params: { id?: string } }) {
 
       elements: publishFields.map((f, index) => {
         // Преобразование из f.props (свойства элемента из фронта) в свойства в бд.
-        const { placeholder, correctAnswer, correctAnswers, points, conditionalLogic, ...otherSettings } = (f.props ?? {}) as Record<string, unknown>;
+        const { placeholder, correctAnswer, correctAnswers, points, conditionalLogic, attachments, ...otherSettings } = (f.props ?? {}) as Record<string, unknown>;
+        const fileIds = Array.isArray(attachments)
+          ? Array.from(
+            new Set(
+              attachments
+                .map((item: any) => Number(item?.file_id))
+                .filter((id: number) => Number.isFinite(id) && id > 0)
+            )
+          )
+          : [];
         const cleanedOtherSettings: Record<string, unknown> = { ...otherSettings };
         if (points !== undefined) cleanedOtherSettings.points = points;
         if (f.semanticType === "passport") {
@@ -618,6 +627,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
           correct_answer: normalizedCorrectAnswer,
           required_field: !!f.required,
           other_settings: cleanedOtherSettings,
+          file_ids: fileIds,
           sort_index: typeof f.sortIndex === "number" ? f.sortIndex : index
         };
       }),
