@@ -6,11 +6,13 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Builder from "@/pages/builder";
 import Home from "@/pages/home";
+import Auth from "@/pages/auth";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/auth" component={Auth} />
       <Route path="/builder/:id">
         {(params) => <Builder params={params} />}
       </Route>

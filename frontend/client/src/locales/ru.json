@@ -248,6 +248,20 @@
     "invalidSelection": "Неверный выбор",
     "invalidNumber": "Неверное число",
     "digitsExact": "Должно быть {{count}} цифр"
+  },
+  "auth": {
+    "login": "Вход в систему",
+    "loginDesc": "Выберите способ входа",
+    "etuId": "ETU ID",
+    "partner": "Вход через ЛК партнера",
+    "email": "Email",
+    "emailPlaceholder": "Введите ваш email",
+    "password": "Пароль",
+    "passwordPlaceholder": "Введите ваш пароль",
+    "loginButton": "Войти",
+    "etuIdPlaceholder": "Авторизация через ETU ID будет реализована позже",
+    "loginWithEtuId": "Войти через ETU ID",
+    "footerText": "Введите учетные данные для доступа к системе"
   }
 }
 

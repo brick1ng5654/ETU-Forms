@@ -255,6 +255,20 @@
   "answered": "Answered",
   "not_answered": "Not Answered",
   "expectedValue": "Expected Value"
-}
+},
 
+  "auth": {
+    "login": "Login",
+    "loginDesc": "Choose login method",
+    "etuId": "ETU ID",
+    "partner": "Partner Account Login",
+    "email": "Email",
+    "emailPlaceholder": "Enter your email",
+    "password": "Password",
+    "passwordPlaceholder": "Enter your password",
+    "loginButton": "Login",
+    "etuIdPlaceholder": "ETU ID authorization will be implemented later",
+    "loginWithEtuId": "Login with ETU ID",
+    "footerText": "Enter your credentials to access the system"
+  }
 }
