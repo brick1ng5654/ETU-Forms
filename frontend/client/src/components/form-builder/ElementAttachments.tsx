@@ -22,13 +22,29 @@ const formatBytes = (size?: number) => {
   return `${value.toFixed(value >= 10 || idx === 0 ? 0 : 1)} ${units[idx]}`;
 };
 
-const isSafeFileUrl = (url?: string) => {
-  if (!url) return false;
+const buildSafeHref = (attachment: ElementAttachment) => {
+  const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost";
+  const fallback = new URL(`/api/v1/files/${attachment.file_id}/download`, origin);
+  const rawUrl = attachment.url;
+  if (!rawUrl) {
+    return fallback.toString();
+  }
   try {
-    const parsed = new URL(url, window.location.origin);
-    return parsed.origin === window.location.origin && parsed.pathname.startsWith("/api/v1/files/");
+    const parsed = new URL(rawUrl, origin);
+    if (parsed.origin !== origin) {
+      return fallback.toString();
+    }
+    const pathMatch = parsed.pathname.match(/^\/api\/v1\/files\/(\d+)\/download$/);
+    if (!pathMatch || Number(pathMatch[1]) !== Number(attachment.file_id)) {
+      return fallback.toString();
+    }
+    const token = parsed.searchParams.get("token");
+    if (token) {
+      fallback.searchParams.set("token", token);
+    }
+    return fallback.toString();
   } catch {
-    return false;
+    return fallback.toString();
   }
 };
 
@@ -75,9 +91,7 @@ export function ElementAttachments({ attachments, displayMode = "slider", classN
   }, []);
 
   const renderFileLink = (attachment: ElementAttachment) => {
-    const href = isSafeFileUrl(attachment.url)
-      ? attachment.url!
-      : `/api/v1/files/${attachment.file_id}/download`;
+    const href = buildSafeHref(attachment);
     return (
       <a
         key={attachment.file_id}
@@ -94,9 +108,7 @@ export function ElementAttachments({ attachments, displayMode = "slider", classN
   };
 
   const renderImageCard = (attachment: ElementAttachment) => {
-    const href = isSafeFileUrl(attachment.url)
-      ? attachment.url!
-      : `/api/v1/files/${attachment.file_id}/download`;
+    const href = buildSafeHref(attachment);
     return (
       <div key={attachment.file_id} className="space-y-1">
         <a href={href} target="_blank" rel="noreferrer" className="block">
