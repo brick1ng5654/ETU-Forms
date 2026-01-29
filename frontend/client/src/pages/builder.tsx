@@ -386,7 +386,6 @@ export default function Builder({ params }: { params: { id?: string } }) {
       return { ...field, ...updates, props: nextProps };
     }), { historyKey });
   };
-
   const deleteField = (id: string) => {
     setFields(fields.filter(f => f.id !== id));
     setSelectedIds(prev => prev.filter(existingId => existingId !== id));
