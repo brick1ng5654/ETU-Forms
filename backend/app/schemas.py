@@ -32,6 +32,7 @@ class WidgetType(str, Enum):
     EMAIL_INPUT = 'email_input'
     RATING = 'rating'
     RANKING = 'ranking'
+    MATRIX = 'matrix'
     FILE_UPLOAD = 'file_upload'
 
 class SemanticType(str, Enum):

@@ -31,7 +31,7 @@ response_status_enum = ENUM(
 )
 
 widget_type_enum = ENUM(
-    'heading','static_text', 'text_input', 'number_input', 'select', 'radio','checkbox', 'datetime', 'email_input', 'rating', 'ranking','file_upload',
+    'heading','static_text', 'text_input', 'number_input', 'select', 'radio','checkbox', 'datetime', 'email_input', 'rating', 'ranking', 'matrix','file_upload',
     name="widget_type"
 )
 

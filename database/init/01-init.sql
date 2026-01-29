@@ -50,6 +50,7 @@ BEGIN
             'email_input',
             'rating',
             'ranking', -- ранжирование
+            'matrix', -- ??????? ??????
             'file_upload' -- загрузка файла
         );
     END IF;
