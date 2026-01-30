@@ -8,6 +8,8 @@ type ElementAttachmentsProps = {
   attachments?: ElementAttachment[];
   displayMode?: "list" | "slider";
   className?: string;
+  listOnly?: boolean;
+  onRemove?: (fileId: number) => void;
 };
 
 const formatBytes = (size?: number) => {
@@ -56,7 +58,13 @@ const escapeAttribute = (value: string) =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
-export function ElementAttachments({ attachments, displayMode = "slider", className }: ElementAttachmentsProps) {
+export function ElementAttachments({
+  attachments,
+  displayMode = "slider",
+  className,
+  listOnly,
+  onRemove,
+}: ElementAttachmentsProps) {
   const list = Array.isArray(attachments) ? attachments : [];
   if (list.length === 0) return null;
 
@@ -93,17 +101,40 @@ export function ElementAttachments({ attachments, displayMode = "slider", classN
   const renderFileLink = (attachment: ElementAttachment) => {
     const href = buildSafeHref(attachment);
     return (
-      <a
-        key={attachment.file_id}
-        href={href}
-        target="_blank"
-        rel="noreferrer"
-        className="flex items-center gap-2 text-sm text-primary underline underline-offset-2"
-      >
-        <FileText className="h-4 w-4" />
-        <span className="truncate">{attachment.name}</span>
-        <span className="text-xs text-muted-foreground">{formatBytes(attachment.size_bytes)}</span>
-      </a>
+      <div key={attachment.file_id} className="flex items-center justify-between gap-2">
+        <a
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          className="flex min-w-0 items-center gap-2 text-sm text-primary underline underline-offset-2"
+        >
+          <FileText className="h-4 w-4" />
+          <span className="truncate">{attachment.name}</span>
+          <span className="text-xs text-muted-foreground">{formatBytes(attachment.size_bytes)}</span>
+        </a>
+        {onRemove && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+            onClick={() => onRemove(attachment.file_id)}
+            aria-label="Remove attachment"
+          >
+            <span className="sr-only">Remove</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4">
+              <path
+                d="M6 6l12 12M18 6L6 18"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </Button>
+        )}
+      </div>
     );
   };
 
@@ -121,6 +152,14 @@ export function ElementAttachments({ attachments, displayMode = "slider", classN
       </div>
     );
   };
+
+  if (listOnly) {
+    return (
+      <div className={cn("space-y-2 pt-2", className)}>
+        {list.map(renderFileLink)}
+      </div>
+    );
+  }
 
   if (displayMode === "slider" && images.length > 1) {
     const current = images[activeIndex] ?? images[0];

@@ -195,6 +195,11 @@ const placeholderField: PropertyFieldDef = {
   maxLength: 80,
 };
 
+const TEXT_SINGLELINE_MAX_CHARS = 255;
+const TEXT_MULTILINE_MAX_CHARS = 10000;
+const MAX_ATTACHMENTS = 10;
+const MAX_UPLOAD_MB = 20;
+
 const propertiesSchemaByWidgetType: Record<WidgetType, PropertyFieldDef[]> = {
   header: [baseLabelField],
   text_input: [baseLabelField, placeholderField, helperTextField, requiredField],
@@ -251,7 +256,16 @@ const propertiesSchemaByWidgetType: Record<WidgetType, PropertyFieldDef[]> = {
       type: "number",
       target: "props.maxFileSize",
       min: 1,
-      max: 100,
+      max: MAX_UPLOAD_MB,
+      step: 1,
+    },
+    {
+      key: "maxFiles",
+      labelKey: "propert.maxFiles",
+      type: "number",
+      target: "props.maxFiles",
+      min: 1,
+      max: 10,
       step: 1,
     },
     {
@@ -399,11 +413,6 @@ const propertiesSchemaBySemanticType: Partial<Record<SemanticType, PropertyField
   ],
 };
 
-const TEXT_SINGLELINE_MAX_CHARS = 255;
-const TEXT_MULTILINE_MAX_CHARS = 10000;
-const MAX_ATTACHMENTS = 10;
-const MAX_UPLOAD_MB = 5;
-
 const getTextMaxLimit = (widgetType: WidgetType) =>
   widgetType === "textarea" ? TEXT_MULTILINE_MAX_CHARS : TEXT_SINGLELINE_MAX_CHARS;
 
@@ -434,6 +443,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
   const [isConditionalSelectOpen, setIsConditionalSelectOpen] = useState(false);
   const [isMatrixModalOpen, setIsMatrixModalOpen] = useState(false);
   const [pointsInput, setPointsInput] = useState<string>("");
+  const [numberDrafts, setNumberDrafts] = useState<Record<string, string>>({});
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
   useEffect(() => {
@@ -447,6 +457,10 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
     const fallbackPoints = typeof currentPoints === "number" && currentPoints > 0 ? currentPoints : 1;
     setPointsInput(String(fallbackPoints));
   }, [selectedField?.id, (selectedField?.props as Record<string, any>)?.points]);
+
+  useEffect(() => {
+    setNumberDrafts({});
+  }, [selectedField?.id]);
 
   if (selectedIds.length > 1) {
     const panelClassName = isConditionalSelectOpen
@@ -779,6 +793,12 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
     }
 
     if (fieldDef.type === "number") {
+      const draftKey = `${selectedField?.id ?? "field"}:${fieldDef.key}`;
+      const deferValidation = fieldDef.key === "maxFiles" || fieldDef.key === "maxFileSize";
+      const rawValue = deferValidation ? numberDrafts[draftKey] : undefined;
+      const minValue = fieldDef.min ?? 0;
+      const maxValue = fieldDef.max ?? Number.MAX_SAFE_INTEGER;
+      const resolvedValue = Number(value ?? minValue);
       return (
         <div key={fieldDef.key} className="space-y-2">
           {label}
@@ -787,8 +807,44 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
             min={fieldDef.min}
             max={fieldDef.max}
             step={fieldDef.step}
-            value={Number(value ?? fieldDef.min ?? 0)}
-            onChange={(e) => updateByTarget(fieldDef.target, parseInt(e.target.value, 10) || fieldDef.min || 0)}
+            inputMode={deferValidation ? "numeric" : undefined}
+            pattern={deferValidation ? "[0-9]*" : undefined}
+            value={rawValue ?? resolvedValue}
+            onChange={(e) => {
+              if (deferValidation) {
+                const digitsOnly = e.target.value.replace(/\D+/g, "");
+                setNumberDrafts((prev) => ({ ...prev, [draftKey]: digitsOnly }));
+                return;
+              }
+              updateByTarget(fieldDef.target, parseInt(e.target.value, 10) || minValue);
+            }}
+            onKeyDown={(e) => {
+              if (!deferValidation) return;
+              const allowedKeys = [
+                "Backspace",
+                "Delete",
+                "Tab",
+                "ArrowLeft",
+                "ArrowRight",
+                "Home",
+                "End",
+              ];
+              if (allowedKeys.includes(e.key) || (e.ctrlKey || e.metaKey)) {
+                return;
+              }
+              if (!/^\d$/.test(e.key)) {
+                e.preventDefault();
+              }
+            }}
+            onBlur={(e) => {
+              if (!deferValidation) return;
+              const parsed = parseInt(e.target.value, 10);
+              const nextValue = Number.isFinite(parsed)
+                ? Math.min(Math.max(parsed, minValue), maxValue)
+                : minValue;
+              updateByTarget(fieldDef.target, nextValue);
+              setNumberDrafts((prev) => ({ ...prev, [draftKey]: String(nextValue) }));
+            }}
           />
         </div>
       );

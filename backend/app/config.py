@@ -18,7 +18,7 @@ class Settings(BaseSettings):
 
     CORS_ORIGINS: str = "https://localhost,http://localhost:3000,http://localhost:8000"
     FILES_ROOT: str = str(BASE_DIR / "uploads")
-    MAX_UPLOAD_MB: int = 5
+    MAX_UPLOAD_MB: int = 20
 
     @property
     def CORS_ORIGINS_LIST(self):
