@@ -50,32 +50,6 @@ const buildSafeHref = (attachment: ElementAttachment) => {
   }
 };
 
-const buildSafeHref = (attachment: ElementAttachment) => {
-  const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost";
-  const fallback = new URL(`/api/v1/files/${attachment.file_id}/download`, origin);
-  const rawUrl = attachment.url;
-  if (!rawUrl) {
-    return fallback.toString();
-  }
-  try {
-    const parsed = new URL(rawUrl, origin);
-    if (parsed.origin !== origin) {
-      return fallback.toString();
-    }
-    const pathMatch = parsed.pathname.match(/^\/api\/v1\/files\/(\d+)\/download$/);
-    if (!pathMatch || Number(pathMatch[1]) !== Number(attachment.file_id)) {
-      return fallback.toString();
-    }
-    const token = parsed.searchParams.get("token");
-    if (token) {
-      fallback.searchParams.set("token", token);
-    }
-    return fallback.toString();
-  } catch {
-    return fallback.toString();
-  }
-};
-
 const escapeAttribute = (value: string) =>
   value
     .replace(/&/g, "&amp;")
