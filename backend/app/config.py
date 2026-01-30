@@ -11,9 +11,14 @@ class Settings(BaseSettings):
     POSTGRES_PORT: int = 5432
 
     PASSWORD_PEPPER: str
+    SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
+    ADMIN_EMAIL: str = "admin@example.com"
+    ADMIN_PASSWORD: str = "ChangeMe_12345"
+    ADMIN_NAME: str = "Admin"
+    
     ENVIRONMENT: str = "development"
 
     CORS_ORIGINS: str = "https://localhost,http://localhost:3000,http://localhost:8000"

@@ -26,5 +26,5 @@ def hash_password(password: str) -> str:
 def verify_passport(password: hash, password_hash: str) -> bool:
     try:
         return _ph.verify(password_hash, _pepper_password(password))
-    except VerifyMisMatchError:
+    except VerifyMismatchError:
         return False

@@ -267,7 +267,7 @@ class BuilderElementIn(BaseModel):
     client_id: str
     widget: WidgetType
     semantic: Optional[SemanticType] = None
-    label: str = Field(..., min_lenght=1, max_lenght=255)
+    label: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
     required_field: bool = False
     correct_answer: Optional[Dict[str, Any]] = None
@@ -294,3 +294,16 @@ class FormPublishRequest(BaseModel):
 
     elements: List[BuilderElementIn] = Field(default_factory=list)
     conditions: List[BuilderConditionIn] = Field(default_factory=list)
+
+# Отдельные схемы, чтобы пароль не отдавался, где не надо
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(..., min_length=8, max_length=128)
+
+class LoginResponse(BaseModel):
+    user_id: int
+    email: EmailStr
+    name: str
+
+    model_config = ConfigDict(from_attributes=True)
+

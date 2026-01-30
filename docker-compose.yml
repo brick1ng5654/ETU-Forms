@@ -50,10 +50,10 @@ services:
       POSTGRES_HOST: postgres
       PORT: ${BACKEND_PORT}
 
+      PASSWORD_PEPPER: ${PASSWORD_PEPPER}
       SECRET_KEY: ${SECRET_KEY}
       ENVIRONMENT: ${ENVIRONMENT:-development}
       DEBUG: ${DEBUG:-false}
-
       CORS_ORIGINS: https://localhost,http://localhost:3000
     volumes:
       - ./logs/backend:/app/logs/backend

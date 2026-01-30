@@ -59,6 +59,8 @@ class AppUser(Base):
     phone = Column(String(20), nullable=True)
     email = Column(String(100), unique=True, nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    password_hash = Column(Text, nullable=True)
+    is_admin = Column(Boolean, nullable=False, server_default="false")
 
     forms = relationship("Form", back_populates="user", cascade="all, delete-orphan")
     responses = relationship("Response", back_populates="user", cascade="all, delete-orphan")

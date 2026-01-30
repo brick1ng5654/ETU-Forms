@@ -10,3 +10,4 @@ pathlib
 starlette
 argon2-cffi
 pydantic[email]
+python-jose[cryptography]

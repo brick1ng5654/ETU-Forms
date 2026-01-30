@@ -4,10 +4,11 @@ from contextlib import asynccontextmanager
 import logging
 
 from app.config import settings
-from app.database import init_db, close_db
+from app.database import init_db, close_db, AsyncSessionLocal
 from app.api.v1.routers import api_router
 from app.logging_config import setup_logging
 from app.middlewares.error_logging import ServerErrorLoggingMiddleware
+from app.services.seed_admin import seed_admin
 
 # Запуск логера сообщений, должна быть структура
 setup_logging(logs_dir="logs/backend", level=getattr(settings, "LOG_LEVEL", "INFO"))
@@ -28,6 +29,13 @@ async def lifespan(app: FastAPI):
         logger.exception("Ошибка инициализации бд")
         raise
 
+    async with AsyncSessionLocal() as session:
+        try:
+            await seed_admin(session)
+            await session.commit()
+        except:
+            await session.rollback()
+            raise
     yield
 
     logger.info("Остановка Form Constructor")

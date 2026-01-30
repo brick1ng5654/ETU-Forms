@@ -19,9 +19,9 @@ COMMENT ON COLUMN App_User.phone IS 'Номер телефона';
 COMMENT ON COLUMN App_User.email IS 'Электронная почта (уникальная)';
 COMMENT ON COLUMN App_User.created_at IS 'Дата и время создания записи';
 
-INSERT INTO App_User (user_id, etu_id, name, phone, email, created_at)
-VALUES (1, NULL, 'admin', '+79000000000', 'admin@etu.ru', CURRENT_TIMESTAMP)
-ON CONFLICT (user_id) DO NOTHING;
+-- INSERT INTO App_User (user_id, etu_id, name, phone, email, created_at)
+-- VALUES (1, NULL, 'admin', '+79000000000', 'admin@etu.ru', CURRENT_TIMESTAMP)
+-- ON CONFLICT (user_id) DO NOTHING;
 
 SELECT setval(pg_get_serial_sequence('app_user','user_id'),
               (SELECT max(user_id) FROM app_user));
