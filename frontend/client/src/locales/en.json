@@ -112,6 +112,14 @@
   "placeholders": {
     "folderName": "Folder Name",
     "search": "Search...",
+    "inn10": "0123456789",
+    "inn12": "012345678901",
+    "ogrn": "0123456789012",
+    "ogrnIp": "012345678901234",
+    "snils": "012-345-678 90",
+    "bik": "012345678"
+  },
+  "inputLabels": {
     "inn": "Enter INN",
     "ogrn": "Enter OGRN",
     "ogrnIp": "Enter OGRNIP",
@@ -255,6 +263,20 @@
   "answered": "Answered",
   "not_answered": "Not Answered",
   "expectedValue": "Expected Value"
-}
+},
 
+  "auth": {
+    "login": "Login",
+    "loginDesc": "Choose login method",
+    "etuId": "Login with ETU ID",
+    "partner": "Login as Partner",
+    "email": "Email",
+    "emailPlaceholder": "Enter your email",
+    "password": "Password",
+    "passwordPlaceholder": "Enter your password",
+    "loginButton": "Login as Partner",
+    "etuIdPlaceholder": "ETU ID authorization will be implemented later",
+    "loginWithEtuId": "Login with ETU ID",
+    "footerText": "Enter your credentials to access the system"
+  }
 }

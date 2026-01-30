@@ -30,38 +30,36 @@ export default function Home() {
   }, []);
 
   const createNewForm = async () => {
-    try{
-      const formData = {
-        title: "Новая форма",
-        description: "",
-        structure_json: {fields: [] },
-        access_mode: "private"
-      };
+  try {
+    const formData = {
+      user_id: 1,
+      title: "Новая форма",
+      description: "",
+      settings_json: { fields: [] },
+      access_mode: "private",
+    };
 
-      const response = await fetch('http://localhost:8000/api/v1/forms', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          // Токена пока что нет, на бэке заглушка
-        },
-        body: JSON.stringify(formData)
-      });
+    const response = await fetch("/api/v1/forms", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formData),
+    });
 
-      if (!response.ok){
-        const errorText = await response.text();
-        throw new Error(`Ошибка создания формы: ${response.status} - ${errorText}`);
-      }
-
-      const newForm = await response.json()
-
-      window.location.href = `/builder/${newForm.id}`;
-    } catch (error){
-      console.error('Ошибка создания формы:', error);
-      alert('Не удалось создать форму')
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Ошибка создания формы: ${response.status} - ${errorText}`);
     }
-    const newForm = storage.createForm(selectedFolderId || undefined);
-    
-  };
+
+    const created = await response.json();
+
+    // ожидаем form_id с бэка
+    window.location.href = `/builder/${created.form_id}`;
+  } catch (error) {
+    console.error("Ошибка создания формы:", error);
+    alert("Не удалось создать форму");
+  }
+};
+
 
   const createFolder = () => {
     if (!newFolderName.trim()) {
@@ -107,7 +105,7 @@ export default function Home() {
     }
   };
 
-  const filteredForms = selectedFolderId 
+  const filteredForms = selectedFolderId
     ? forms.filter(f => f.folderId === selectedFolderId)
     : forms;
 
@@ -117,13 +115,13 @@ export default function Home() {
       <header className="h-19 border-b border-border bg-white flex items-center justify-between px-8 shrink-0">
         <div className="flex items-center gap-3">
           <div className="h-16 w-16  rounded-lg flex items-center justify-center">
-              <img src="/logo_etu.png" alt="ETU_LOGO" />
+            <img src="/logo_etu.png" alt="ETU_LOGO" />
           </div>
           <div className="color-txt">
             <span className="font-bold text-xl">ETU-Form</span>
           </div>
         </div>
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <Button
             variant="ghost"
             size="sm"
@@ -148,33 +146,33 @@ export default function Home() {
         {/* Боковая панель */}
         <aside className="w-64 border-r border-border/50 bg-transparent p-6 space-y-6">
           <div className="space-y-1">
-             <Button 
-               variant={selectedFolderId === null ? "secondary" : "ghost"} 
-               className="w-full justify-start"
-               onClick={() => setSelectedFolderId(null)}
-             >
-               <FileText className="mr-2 h-4 w-4" /> {t('navigation.allForms')}
-             </Button>
-             {folders.map(folder => (
-               <div key={folder.id} className="group flex items-center">
-                 <Button 
-                   variant={selectedFolderId === folder.id ? "secondary" : "ghost"} 
-                   className="w-full justify-start truncate"
-                   onClick={() => setSelectedFolderId(folder.id)}
-                 >
-                   <Folder className="mr-2 h-4 w-4" /> 
-                   <span className="truncate">{folder.name}</span>
-                 </Button>
-                 <Button
-                   variant="ghost"
-                   size="icon"
-                   className="h-8 w-8 opacity-0 group-hover:opacity-100 -ml-8 z-10 hover:bg-destructive/10 hover:text-destructive"
-                   onClick={() => deleteFolder(folder.id)}
-                 >
-                    <X className="h-3 w-3" />
-                 </Button>
-               </div>
-             ))}
+            <Button
+              variant={selectedFolderId === null ? "secondary" : "ghost"}
+              className="w-full justify-start"
+              onClick={() => setSelectedFolderId(null)}
+            >
+              <FileText className="mr-2 h-4 w-4" /> {t('navigation.allForms')}
+            </Button>
+            {folders.map(folder => (
+              <div key={folder.id} className="group flex items-center">
+                <Button
+                  variant={selectedFolderId === folder.id ? "secondary" : "ghost"}
+                  className="w-full justify-start truncate"
+                  onClick={() => setSelectedFolderId(folder.id)}
+                >
+                  <Folder className="mr-2 h-4 w-4" />
+                  <span className="truncate">{folder.name}</span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 opacity-0 group-hover:opacity-100 -ml-8 z-10 hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() => deleteFolder(folder.id)}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            ))}
           </div>
 
           <div className="pt-4 border-t border-border/50">
@@ -189,7 +187,7 @@ export default function Home() {
                   <DialogTitle>{t("navigation.createNewFolder")}</DialogTitle>
                 </DialogHeader>
                 <div className="flex items-center gap-2 pt-4">
-                  <Input 
+                  <Input
                     value={newFolderName}
                     onChange={(e) => setNewFolderName(e.target.value)}
                     placeholder={t("placeholders.folderName")}
@@ -243,9 +241,9 @@ export default function Home() {
                           <DropdownMenuSeparator />
                           <DropdownMenuLabel>{t("actions.moveTo")}</DropdownMenuLabel>
                           {folders.map(folder => (
-                             <DropdownMenuItem key={folder.id} onClick={(e) => moveForm(e, form.id, folder.id)}>
-                               {folder.name}
-                             </DropdownMenuItem>
+                            <DropdownMenuItem key={folder.id} onClick={(e) => moveForm(e, form.id, folder.id)}>
+                              {folder.name}
+                            </DropdownMenuItem>
                           ))}
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -264,9 +262,9 @@ export default function Home() {
                       {form.description || t("navigation.descriphome")}
                     </p>
                     <div className="mt-4 pt-4 border-t flex items-center gap-4 text-sm text-muted-foreground">
-                       <div className="flex items-center gap-1">
-                         <span className="font-medium text-foreground">{form.fields.length}</span> {t("navigation.fields")}
-                       </div>
+                      <div className="flex items-center gap-1">
+                        <span className="font-medium text-foreground">{form.fields.length}</span> {t("navigation.fields")}
+                      </div>
                     </div>
                   </div>
                 </Link>

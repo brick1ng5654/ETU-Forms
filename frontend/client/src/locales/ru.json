@@ -106,6 +106,14 @@
   "placeholders": {
     "folderName": "Название папки",
     "search": "Поиск...",
+    "inn10": "0123456789",
+    "inn12": "012345678901",
+    "ogrn": "0123456789012",
+    "ogrnIp": "012345678901234",
+    "snils": "012-345-678 90",
+    "bik": "012345678"
+  },
+  "inputLabels": {
     "inn": "Введите ИНН",
     "ogrn": "Введите ОГРН",
     "ogrnIp": "Введите ОГРНИП",
@@ -248,6 +256,20 @@
     "invalidSelection": "Неверный выбор",
     "invalidNumber": "Неверное число",
     "digitsExact": "Должно быть {{count}} цифр"
+  },
+  "auth": {
+    "login": "Вход в систему",
+    "loginDesc": "Выберите способ входа",
+    "etuId": "Войти через ETU ID",
+    "partner": "Войти как партнер",
+    "email": "Email",
+    "emailPlaceholder": "Введите ваш email",
+    "password": "Пароль",
+    "passwordPlaceholder": "Введите ваш пароль",
+    "loginButton": "Войти как партнер",
+    "etuIdPlaceholder": "Авторизация через ETU ID будет реализована позже",
+    "loginWithEtuId": "Войти через ETU ID",
+    "footerText": "Введите учетные данные для доступа к системе"
   }
 }
 

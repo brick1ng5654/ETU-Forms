@@ -31,6 +31,7 @@ jobs:
       - name: Create .env file from GitHub Secrets
         env:
           # Загружаем значения секретов во временные переменные
+          BACKEND_PORT: ${{ secrets.BACKEND_PORT }}
           DB_NAME: ${{ secrets.POSTGRES_DB }}
           DB_USER: ${{ secrets.POSTGRES_USER }}
           DB_PASS: ${{ secrets.POSTGRES_PASSWORD }}
@@ -39,6 +40,7 @@ jobs:
           echo "Creating .env file for PostgreSQL..."
 
           cat << EOF > .env
+          BACKEND_PORT=${BACKEND_PORT}
           POSTGRES_DB=${DB_NAME}
           POSTGRES_USER=${DB_USER}
           POSTGRES_PASSWORD=${DB_PASS}

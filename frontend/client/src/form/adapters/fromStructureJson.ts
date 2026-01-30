@@ -128,7 +128,7 @@ export const fromStructureJsonWithMeta = (
     }
 
     const widgetType = explicitWidget ?? normalized.widgetType;
-    const semanticType = explicitSemantic ?? normalized.semanticType;
+    let semanticType = explicitSemantic ?? normalized.semanticType;
 
     const props = extractProps(field);
 
@@ -145,8 +145,11 @@ export const fromStructureJsonWithMeta = (
       };
     }
 
-    if (field.type === "email" && !props.inputType) {
-      props.inputType = "email";
+    if (!semanticType && (field.type === "email" || props.inputType === "email")) {
+      semanticType = "email";
+    }
+    if (semanticType === "email" && props.inputType === "email") {
+      delete props.inputType;
     }
 
     return {

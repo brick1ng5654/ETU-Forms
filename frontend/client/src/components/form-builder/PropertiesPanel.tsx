@@ -103,6 +103,7 @@ const widgetTypeLabelKey: Record<WidgetType, string> = {
 };
 
 const semanticTypeLabelKey: Record<SemanticType, string> = {
+  email: "email",
   phone: "phone",
   inn: "inn",
   snils: "snils",
@@ -219,7 +220,7 @@ const propertiesSchemaByWidgetType: Record<WidgetType, PropertyFieldDef[]> = {
       labelKey: "propert.maxrati",
       type: "slider",
       target: "props.maxRating",
-      min: 3,
+      min: 1,
       max: 10,
       step: 1,
     },
@@ -600,6 +601,9 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
 
     if (fieldDef.type === "slider") {
       const sliderValue = typeof value === "number" ? value : fieldDef.min || 0;
+      const showRatingScale = fieldDef.key === "maxRating";
+      const minLabel = fieldDef.min ?? 0;
+      const maxLabel = fieldDef.max ?? 0;
       return (
         <div key={fieldDef.key} className="space-y-2">
           <Label>
@@ -612,6 +616,13 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
             step={fieldDef.step}
             onValueChange={(val) => updateByTarget(fieldDef.target, val[0])}
           />
+          {showRatingScale && (
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>{minLabel}</span>
+              <span>5</span>
+              <span>{maxLabel}</span>
+            </div>
+          )}
         </div>
       );
     }
@@ -843,7 +854,8 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
           </div>
         )}
 
-        {(selectedField.widgetType === "text_input" && props.inputType === "email") && (
+        {(selectedField.semanticType === "email" ||
+          (selectedField.widgetType === "text_input" && props.inputType === "email")) && (
           <div className="space-y-2">
             <Label>{t("propert.domains")}</Label>
             <Input

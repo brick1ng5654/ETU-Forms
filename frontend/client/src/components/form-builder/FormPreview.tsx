@@ -969,13 +969,16 @@ export function FormPreview({ form }: FormPreviewProps) {
     const placeholder = placeholderKey
       ? t(placeholderKey)
       : preset?.placeholder || (props.placeholder as string) || "";
-    const maxLength = (preset?.maxChars as number | undefined) ?? getTextMaxChars(field);
+    const labelKey = preset?.getLabelKey ? preset.getLabelKey(props) : preset?.labelKey;
+    const label = labelKey ? t(labelKey) : undefined;
+    const maxLength =
+      (preset?.maxChars as number | undefined) ?? (props.maxChars as number | undefined);
     const dynamicMaxDigits = preset?.getMaxDigits ? preset.getMaxDigits(props) : undefined;
     const maxDigits = (dynamicMaxDigits ?? preset?.maxDigits) as number | undefined;
     const len = maxDigits ? canonicalValue.replace(/\D/g, "").length : canonicalValue.length;
     const limit = maxDigits ?? maxLength;
 
-    return (
+    const inputNode = (
       <div className="relative">
         <Input
           type={(preset?.inputType as string) || (props.inputType as string) || "text"}
@@ -1005,6 +1008,20 @@ export function FormPreview({ form }: FormPreviewProps) {
             isComplete={len > 0 && len === limit}
           />
         )}
+      </div>
+    );
+
+    if (!label) {
+      return inputNode;
+    }
+
+    return (
+      <div className="space-y-1">
+        <Label className="text-sm text-muted-foreground">
+          {label}
+          {field.required && <span className="text-destructive ml-1">*</span>}
+        </Label>
+        {inputNode}
       </div>
     );
   };
