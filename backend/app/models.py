@@ -1,8 +1,8 @@
 # Зеркальный код БД, но не на SQL, а на понятном Python языке.
 
-from sqlalchemy import Column, Integer, String, Boolean, text, Text, DateTime, ForeignKey, JSON, Enum, CheckConstraint, func
+from sqlalchemy import Column, Integer, String, Boolean, text, Text, DateTime, ForeignKey, JSON, Enum, CheckConstraint, func, BigInteger
 from sqlalchemy.orm import relationship, declarative_base
-from sqlalchemy.dialects.postgresql import ENUM
+from sqlalchemy.dialects.postgresql import ENUM, ARRAY
 from app.database import Base
 import enum
 
@@ -150,6 +150,7 @@ class FormElement(Base):
     required_field = Column(Boolean, nullable=False, server_default="false")
     position = Column(Integer, nullable=False)
     other_settings = Column(JSON, nullable=True)
+    file_ids = Column(ARRAY(Integer), nullable=False, server_default=text("'{}'::int[]"))
 
     @property
     def description(self) -> str | None:
@@ -167,6 +168,7 @@ class FormElement(Base):
     __table_args__ = (
         CheckConstraint('widget NOT IN (\'heading\', \'static_text\') OR semantic IS NULL', name='chk_non_input_semantic'),
         CheckConstraint('(form_id IS NOT NULL AND template_id IS NULL) OR (form_id IS NULL AND template_id IS NOT NULL)', name='chk_element_owner'),
+        CheckConstraint('coalesce(array_length(file_ids, 1), 0) <= 10', name='chk_element_file_ids'),
     )
 
 
@@ -216,9 +218,11 @@ class UploadedFile(Base):
 
     file_id = Column(Integer, primary_key=True, index=True)
     answer_id = Column(Integer, ForeignKey("response_answer.answer_id", ondelete="CASCADE"), nullable=True)
+    access_token = Column(String(64), nullable=False, unique=True, index=True)
+    content_hash = Column(String(64), nullable=False, index=True)
     name = Column(String(512), nullable=False)
     mime_type = Column(String(255), nullable=False)
-    size_bytes = Column(Integer, nullable=False)
+    size_bytes = Column(BigInteger, nullable=False)
     storage_provider = Column(String(50), server_default=text("'local'"))
     storage_path = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

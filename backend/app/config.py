@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
 
     CORS_ORIGINS: str = "https://localhost,http://localhost:3000,http://localhost:8000"
+    FILES_ROOT: str = str(BASE_DIR / "uploads")
+    MAX_UPLOAD_MB: int = 5
 
     @property
     def CORS_ORIGINS_LIST(self):
@@ -27,6 +29,14 @@ class Settings(BaseSettings):
     @property
     def DATABASE_URL(self):
         return f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+
+    @property
+    def FILES_ROOT_PATH(self) -> Path:
+        return Path(self.FILES_ROOT)
+
+    @property
+    def MAX_UPLOAD_BYTES(self) -> int:
+        return int(self.MAX_UPLOAD_MB) * 1024 * 1024
     
     class Config:
         env_file = BASE_DIR/".env"

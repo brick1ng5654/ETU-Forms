@@ -9,3 +9,4 @@ asyncpg
 pathlib
 starlette
 pydantic[email]
+python-multipart

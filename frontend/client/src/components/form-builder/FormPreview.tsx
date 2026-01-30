@@ -42,6 +42,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { presets } from "@/form/presets";
 import { validateForm } from "@/form/validation";
 import { buildAnswersPayload } from "@/form/answers";
+import { ElementAttachments } from "@/components/form-builder/ElementAttachments";
 
 interface CollapsibleTextareaProps extends React.ComponentProps<typeof Textarea> {
   textareaRef?: React.RefObject<HTMLTextAreaElement>;
@@ -1506,6 +1507,11 @@ export function FormPreview({ form }: FormPreviewProps) {
             </p>
           </div>
         )}
+
+        <ElementAttachments
+          attachments={(props.attachments as any) || []}
+          displayMode={(props.attachmentsDisplay as any) || "slider"}
+        />
 
         {fieldErrors.length > 0 && (
           <div className="space-y-1">
