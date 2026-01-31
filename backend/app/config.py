@@ -15,9 +15,9 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
-    ADMIN_EMAIL: str = "admin@example.com"
-    ADMIN_PASSWORD: str = "ChangeMe_12345"
-    ADMIN_NAME: str = "Admin"
+    ADMIN_EMAIL: str
+    ADMIN_PASSWORD: str
+    ADMIN_NAME: str
     
     ENVIRONMENT: str = "development"
 

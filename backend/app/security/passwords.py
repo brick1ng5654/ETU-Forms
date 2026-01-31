@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
+from argon2.low_level import Type
 from app.config import settings
 
 _ph=PasswordHasher(
@@ -10,6 +11,7 @@ _ph=PasswordHasher(
     parallelism=1, # параллельность
     hash_len=32,
     salt_len=16,
+    type=Type.ID,
 )
 
 def _pepper_password(password: str) -> str:
