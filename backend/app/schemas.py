@@ -4,7 +4,7 @@ from pydantic import BaseModel, EmailStr, Field, ConfigDict, model_validator
 from datetime import datetime
 from typing import Optional, Dict, Any, List, Literal
 from enum import Enum
-
+from app.security.constants import PASSWORD_MAX_LEN, PASSWORD_MIN_LEN
 # Enum
 class FormAccessMode(str, Enum):
     PUBLIC = 'public'
@@ -298,7 +298,7 @@ class FormPublishRequest(BaseModel):
 # Отдельные схемы, чтобы пароль не отдавался, где не надо
 class LoginRequest(BaseModel):
     email: EmailStr
-    password: str = Field(..., min_length=8, max_length=128)
+    password: str = Field(..., min_length=PASSWORD_MIN_LEN, max_length=PASSWORD_MAX_LEN)
 
 class LoginResponse(BaseModel):
     user_id: int
