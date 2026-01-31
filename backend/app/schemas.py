@@ -1,6 +1,6 @@
 ﻿# Этот файл нужен для валидации входящих данных и сериализации ответов API. То есть что принимаем и что отдаём
 
-from pydantic import BaseModel, EmailStr, Field, ConfigDict, model_validator
+from pydantic import BaseModel, EmailStr, Field, ConfigDict, model_validator, field_validator
 from datetime import datetime
 from typing import Optional, Dict, Any, List, Literal
 from enum import Enum
@@ -70,6 +70,13 @@ class UserBase(BaseModel):
     phone: Optional[str] = Field(None, max_length=20)
     email: EmailStr
 
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, v: str):
+        if isinstance(v, str):
+            return v.strip().lower()
+        return v
+    
 class UserCreate(UserBase):
     pass
 
@@ -300,6 +307,13 @@ class LoginRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=PASSWORD_MIN_LEN, max_length=PASSWORD_MAX_LEN)
 
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, v: str):
+        if isinstance(v, str):
+            return v.strip().lower()
+        return v
+    
 class LoginResponse(BaseModel):
     user_id: int
     email: EmailStr
