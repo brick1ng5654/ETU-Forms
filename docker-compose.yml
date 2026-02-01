@@ -53,6 +53,9 @@ services:
       PASSWORD_PEPPER: ${PASSWORD_PEPPER}
       SECRET_KEY: ${SECRET_KEY}
       ENVIRONMENT: ${ENVIRONMENT:-development}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      ADMIN_NAME: ${ADMIN_NAME}
       DEBUG: ${DEBUG:-false}
       CORS_ORIGINS: https://localhost,http://localhost:3000
     volumes:
