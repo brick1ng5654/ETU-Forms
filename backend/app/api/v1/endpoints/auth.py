@@ -9,6 +9,7 @@ from app.security.passwords import verify_passport
 from app.security.tokens import create_access_token
 from app.security.rate_limiter import rate_limiter, RULE_IP_EMAIL, RULE_IP_GLOBAL
 from app.security.auth_logging import log_failed_login
+import hashlib
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -21,17 +22,22 @@ def get_client_ip(request: Request) -> str:
         return request.client.host
     return "unknown"
 
+def email_key(email: str) -> str:
+    # хранить в redis не email, а хеш
+    return hashlib.sha256(email.encode("utf-8")).hexdigest()
+
 @router.post("/login")
 async def login(request: Request, payload: LoginRequest, db: AsyncSession = Depends(get_db)):
     ip = get_client_ip(request)
-    email = payload.email.lower().strip()
+    email_norm = payload.email.lower().strip()
+    email_h = email_key(email_norm)
 
-    key_ip_email = f"login:ip_email:{ip}:{email}"
-    key_ip_global = f"login:ip:{ip}"
+    key_ip_email = f"rl:login:ip_email:{ip}:{email_h}"
+    key_ip_global = f"rl:login:ip:{ip}"
 
     allowed, retry_after = await rate_limiter.check(key_ip_global, RULE_IP_GLOBAL)
     if not allowed:
-        log_failed_login(email=email, reason="rate_limit_ip", request=request)
+        log_failed_login(email=email_norm, reason="rate_limit_ip", request=request)
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=f"Too many login attempts. Try again in {retry_after} seconds.",
@@ -40,23 +46,23 @@ async def login(request: Request, payload: LoginRequest, db: AsyncSession = Depe
 
     allowed, retry_after = await rate_limiter.check(key_ip_email, RULE_IP_EMAIL)
     if not allowed:
-        log_failed_login(email=email, reason="rate_limit_ip_email", request=request)
+        log_failed_login(email=email_norm, reason="rate_limit_ip_email", request=request)
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=f"Too many login attempts for this email from your IP. Try again in {retry_after} seconds.",
             headers={"Retry-After": str(retry_after)},
         )
     
-    q = select(models.AppUser).where(models.AppUser.email == email)
+    q = select(models.AppUser).where(models.AppUser.email == email_norm)
     user = (await db.execute(q)).scalar_one_or_none()
     invalid = HTTPException(status_code=401, detail="Invalid email or password")
     
     if not user or not user.password_hash:
-        log_failed_login(email=email, reason="user_not_found_or_no_password", request=request)
+        log_failed_login(email=email_norm, reason="invalid credentials", request=request)
         raise invalid
     
     if not verify_passport(payload.password, user.password_hash):
-        log_failed_login(email=email, reason="bad_password", request=request)
+        log_failed_login(email=email_norm, reason="invalid credentials", request=request)
         raise invalid
     
     token = create_access_token(subject=str(user.user_id), expires_minutes=60, extra={"email": user.email})

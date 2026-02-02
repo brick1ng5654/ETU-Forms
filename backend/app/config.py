@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     ADMIN_PASSWORD: str
     ADMIN_NAME: str
     
+    REDIS_HOST: str = "redis"
+    REDIS_PORT: int
+    REDIS_DB: int
+    REDIS_PASSWORD: str | None = None
     ENVIRONMENT: str = "development"
 
     CORS_ORIGINS: str = "https://localhost,http://localhost:3000,http://localhost:8000"
