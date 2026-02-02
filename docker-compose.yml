@@ -1,5 +1,19 @@
 version: "3.9"
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    command: ["redis-server", "--appendonly", "yes"]
+    networks:
+      - app-network
+    volumes:
+    - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   frontend:
     build: ./frontend
     ports:
@@ -51,6 +65,10 @@ services:
       PORT: ${BACKEND_PORT}
 
       PASSWORD_PEPPER: ${PASSWORD_PEPPER}
+      REDIS_HOST: redis
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_DB: ${REDIS_DB}
+
       SECRET_KEY: ${SECRET_KEY}
       ENVIRONMENT: ${ENVIRONMENT:-development}
       ADMIN_EMAIL: ${ADMIN_EMAIL}
@@ -77,6 +95,7 @@ secrets:
 
 volumes:
   postgres_data:
+  redis_data:
   
 
 networks:
