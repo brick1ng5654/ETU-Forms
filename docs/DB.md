@@ -116,6 +116,7 @@
 | correct_answer | JSONB |  | NULL | Правильный ответ для проверяемых полей |
 | required_field | BOOLEAN |  | NULL | Флаг обязательного заполнения |
 | props_settings | JSONB |  | NULL | Частные настройки свойств элемента |
+| file_ids | INT[] |  | DEFAULT '{}' | Список file_id прикреплённых файлов (до 10) |
 
 **Домены и перечисления**
 - WIDGET_TYPE: heading, static_text, number_input, text_input, select, checkbox, radio, datetime, email_input, rating, ranking, matrix, file_upload.
@@ -156,12 +157,13 @@
 | Поле | Тип | Ключ | Ограничения | Суть |
 | --- | --- | --- | --- | --- |
 | file_id | INT | PK | NOT NULL | Первичный ключ файла |
-| answer_id | INT | FK | REFERENCES Response_Answer(answer_id), NOT NULL | Ответ на элемент, к которому относится файл |
+| answer_id | INT | FK | REFERENCES Response_Answer(answer_id), NULL | Ответ на элемент, к которому относится файл (NULL для файлов, прикреплённых к элементам формы) |
 | name | VARCHAR(512) |  | NOT NULL | Имя файла |
 | mime_type | VARCHAR(255) |  | NOT NULL | MIME-тип файла |
 | size_bytes | BIGINT |  | NOT NULL, CHECK (size_bytes >= 0) | Размер файла в байтах |
 | storage_provider | VARCHAR(50) |  | DEFAULT 'local' | Провайдер хранилища |
 | storage_path | TEXT |  | NOT NULL | Путь в хранилище |
+| access_token | VARCHAR(64) |  | NOT NULL, UNIQUE | Токен доступа к файлу |
 | created_at | TIMESTAMP |  | DEFAULT CURRENT_TIMESTAMP | Дата загрузки |
 
 **Домены и перечисления**
@@ -173,9 +175,12 @@
 
 **Жизненный цикл файла**
 - При прикреплении файла к элементу он получает статус `TEMP`, а поле `expires_at` устанавливается в `now() + 24h`.
-- Если через 24 часа статус остаётся `TEMP`, файл удаляется с диска. Запись в БД остаётся для истории.
+- Если через 24 часа статус остаётся `TEMP`, файл удаляется с диска. Запись в БД остаётся для истории. Для удаления можно использовать `backend/scripts/cleanup_temp_files.py`.
 - Если пользователь отправил форму с прикреплённым файлом, статус меняется на `SUBMITTED`, а `expires_at` становится `NULL`.
 - Если файл удаляется по любой причине, статус меняется на `DELETED`, запись в БД остаётся, файл на диске удаляется.
+
+**Хранилище файлов**
+- Файлы сохраняются в директории `FILES_ROOT`. По умолчанию это `./uploads`, а в docker-compose — `/var/lib/postgresql/data/uploads` (тот же том, что и у БД).
 
 ## Связи
 - User 1—M Form (Form.user_id)
@@ -191,6 +196,7 @@
 - Form_Element 1—M Response_Answer (Response_Answer.element_id)
 - Form_Element 1—M Form_Element_Condition (source_element_id, target_element_id)
 - Response_Answer 1—M Uploaded_file (Uploaded_file.answer_id)
+- Form_Element 1—M Uploaded_file (Form_Element.file_ids)
 
 ## Диагностика БД
 

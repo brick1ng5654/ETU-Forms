@@ -58,8 +58,11 @@ services:
       ADMIN_NAME: ${ADMIN_NAME}
       DEBUG: ${DEBUG:-false}
       CORS_ORIGINS: https://localhost,http://localhost:3000
+      FILES_ROOT: /var/lib/postgresql/data/uploads
+      MAX_UPLOAD_MB: 20
     volumes:
       - ./logs/backend:/app/logs/backend
+      - postgres_data:/var/lib/postgresql/data
     depends_on:
       postgres:
         condition: service_healthy

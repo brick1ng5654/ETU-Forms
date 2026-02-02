@@ -6,6 +6,7 @@ import type { FormElementModel } from "@/form/types";
 import { presets } from "@/form/presets";
 import { cn } from "@/lib/utils";
 import { GripVertical, Star, Upload, GripHorizontal, CalendarDays, Clock, ChevronDown, ChevronUp, X, Plus, Check } from "lucide-react";
+import { ElementAttachments } from "@/components/form-builder/ElementAttachments";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,6 +16,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 import { MatrixCorrectAnswersModal } from "./MatrixCorrectAnswersModal";
+
+const MAX_UPLOAD_MB = 20;
 
 interface SortableFieldProps {
   field: FormElementModel;
@@ -513,7 +516,7 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
             <Upload className="h-8 w-8 text-muted-foreground mb-2" />
             <p className="text-sm text-muted-foreground font-medium">{t("back.loaddrag")}</p>
             <p className="text-xs text-muted-foreground mt-1">
-              {t("propert.sizefile")} {(props.maxFileSize as number) || 10}MB
+              {t("propert.sizefile")} {(props.maxFileSize as number) || MAX_UPLOAD_MB}MB
               {Array.isArray(props.acceptedFileTypes) && props.acceptedFileTypes.length > 0 && ` (${(props.acceptedFileTypes as string[]).join(", ")})`}
             </p>
           </div>
@@ -830,6 +833,10 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
             )}>
               {renderFieldPreview()}
             </div>
+            <ElementAttachments
+              attachments={(props.attachments as any) || []}
+              displayMode={(props.attachmentsDisplay as any) || "slider"}
+            />
           </>
         )}
       </div>

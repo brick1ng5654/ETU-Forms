@@ -3,6 +3,7 @@ import type {
   AnswerValue,
   AnswersById,
   DateTimeAnswer,
+  ElementAttachment,
   FormElementModel,
   FormSchema,
   FullNameAnswer,
@@ -42,6 +43,8 @@ import { CSS } from "@dnd-kit/utilities";
 import { presets } from "@/form/presets";
 import { validateForm } from "@/form/validation";
 import { buildAnswersPayload } from "@/form/answers";
+import { ElementAttachments } from "@/components/form-builder/ElementAttachments";
+import { toast } from "@/hooks/use-toast";
 
 interface CollapsibleTextareaProps extends React.ComponentProps<typeof Textarea> {
   textareaRef?: React.RefObject<HTMLTextAreaElement>;
@@ -50,6 +53,7 @@ interface CollapsibleTextareaProps extends React.ComponentProps<typeof Textarea>
 }
 
 const DEFAULT_TEXTAREA_LINE_HEIGHT = 20;
+const MAX_UPLOAD_MB = 20;
 
 const getTextareaMetrics = (textarea: HTMLTextAreaElement) => {
   const computed = window.getComputedStyle(textarea);
@@ -342,6 +346,7 @@ export function FormPreview({ form }: FormPreviewProps) {
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [focusedFieldId, setFocusedFieldId] = useState<string | null>(null);
   const [calendarMonths, setCalendarMonths] = useState<Record<string, Date>>({});
+  const [uploadingById, setUploadingById] = useState<Record<string, boolean>>({});
   const payloadRef = useRef<ReturnType<typeof buildAnswersPayload> | null>(null);
   const matrixContainerRef = useRef<HTMLDivElement>(null);
   const dateCacheRef = useRef<Map<string, Date | undefined>>(new Map());
@@ -375,6 +380,67 @@ export function FormPreview({ form }: FormPreviewProps) {
     if (results) {
       setResults(null);
     }
+  };
+
+  const normalizeAcceptedTypes = (raw: unknown): string[] => {
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map((item) => String(item).trim().toLowerCase())
+      .filter(Boolean);
+  };
+
+  const isAcceptedFile = (file: File, accepted: string[]) => {
+    if (accepted.length === 0) return true;
+    const name = file.name.toLowerCase();
+    const ext = name.includes(".") ? `.${name.split(".").pop()}` : "";
+    const mime = (file.type || "").toLowerCase();
+    return accepted.some((rule) => {
+      if (rule.startsWith(".")) {
+        return ext === rule;
+      }
+      if (rule.endsWith("/*")) {
+        const prefix = rule.replace("/*", "/");
+        return mime.startsWith(prefix);
+      }
+      return mime === rule;
+    });
+  };
+
+  const uploadUserFile = async (file: File): Promise<ElementAttachment> => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch("/api/v1/files/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      let detail: string | undefined;
+      const contentType = response.headers.get("content-type") ?? "";
+      if (contentType.includes("application/json")) {
+        const err = await response.json().catch(() => ({}));
+        detail = err?.detail;
+      } else {
+        const text = await response.text().catch(() => "");
+        detail = text.trim() || undefined;
+      }
+      if (response.status === 413 && !detail) {
+        throw new Error(t("propert.attachmentsTooLarge"));
+      }
+      throw new Error(detail ?? t("propert.attachmentsUploadError"));
+    }
+
+    const data = await response.json();
+    return {
+      file_id: data.file_id,
+      name: data.name ?? file.name,
+      mime_type: data.mime_type ?? file.type ?? "application/octet-stream",
+      size_bytes: data.size_bytes ?? file.size ?? 0,
+      url: data.url ?? `/api/v1/files/${data.file_id}/download`,
+      content_hash: data.content_hash,
+      status: data.status ?? "temp",
+    };
   };
 
   const markTouched = (fieldId: string) => {
@@ -1495,17 +1561,129 @@ export function FormPreview({ form }: FormPreviewProps) {
         })()}
 
         {field.widgetType === "file_upload" && (
-          <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 flex flex-col items-center justify-center text-center bg-muted/5">
-            <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-            <p className="text-sm text-muted-foreground font-medium">{t("back.loaddrag")}</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {t("propert.sizefile")} {(props.maxFileSize as number) || 10}MB
-              {Array.isArray(props.acceptedFileTypes) && props.acceptedFileTypes.length > 0
-                ? ` (${(props.acceptedFileTypes as string[]).join(", ")})`
-                : ""}
-            </p>
-          </div>
+          (() => {
+            const attachments = (answers[field.id] as ElementAttachment[]) || [];
+            const maxFiles = Math.min(Math.max(Number((props as any).maxFiles) || 1, 1), 10);
+            const maxFileSize = Math.max(
+              1,
+              Math.min(Number((props as any).maxFileSize) || MAX_UPLOAD_MB, MAX_UPLOAD_MB)
+            );
+            const acceptedTypes = normalizeAcceptedTypes((props as any).acceptedFileTypes);
+            const acceptAttr = acceptedTypes.length > 0 ? acceptedTypes.join(", ") : undefined;
+            const isUploading = Boolean(uploadingById[field.id]);
+            const canAddMore = attachments.length < maxFiles;
+            const removeAttachment = (fileId: number) => {
+              const nextAttachments = attachments.filter((item) => item.file_id !== fileId);
+              if (nextAttachments.length !== attachments.length) {
+                updateAnswer(field.id, nextAttachments);
+              }
+            };
+
+            const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+              const files = Array.from(event.target.files ?? []);
+              event.target.value = "";
+              if (files.length === 0) return;
+
+              const available = maxFiles - attachments.length;
+              if (available <= 0) {
+                toast({
+                  title: t("builder.error"),
+                  description: t("propert.fileUploadLimit", { max: maxFiles }),
+                  variant: "destructive",
+                });
+                return;
+              }
+
+              const queue = files.slice(0, available);
+              if (files.length > available) {
+                toast({
+                  title: t("builder.error"),
+                  description: t("propert.fileUploadLimit", { max: maxFiles }),
+                  variant: "destructive",
+                });
+              }
+
+              setUploadingById((prev) => ({ ...prev, [field.id]: true }));
+              const uploaded: ElementAttachment[] = [];
+              for (const file of queue) {
+                if (file.size > maxFileSize * 1024 * 1024) {
+                  toast({
+                    title: t("builder.error"),
+                    description: t("propert.fileTooLarge", { max: maxFileSize }),
+                    variant: "destructive",
+                  });
+                  continue;
+                }
+                if (!isAcceptedFile(file, acceptedTypes)) {
+                  toast({
+                    title: t("builder.error"),
+                    description: t("propert.fileUploadTypeError"),
+                    variant: "destructive",
+                  });
+                  continue;
+                }
+                try {
+                  const item = await uploadUserFile(file);
+                  uploaded.push(item);
+                } catch (error: any) {
+                  toast({
+                    title: t("builder.error"),
+                    description: error?.message ?? t("propert.attachmentsUploadError"),
+                    variant: "destructive",
+                  });
+                }
+              }
+              setUploadingById((prev) => ({ ...prev, [field.id]: false }));
+              if (uploaded.length > 0) {
+                updateAnswer(field.id, [...attachments, ...uploaded]);
+              }
+            };
+
+            return (
+              <div className="space-y-3">
+                {canAddMore && (
+                  <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 flex flex-col items-center justify-center text-center bg-muted/5">
+                  <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+                  <p className="text-sm text-muted-foreground font-medium">{t("back.loaddrag")}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {t("propert.sizefile")} {maxFileSize}MB • {t("propert.maxFiles")} {maxFiles}
+                    {acceptedTypes.length > 0 ? ` (${acceptedTypes.join(", ")})` : ""}
+                  </p>
+                  <input
+                    type="file"
+                    className="hidden"
+                    id={`file-upload-${field.id}`}
+                    multiple={maxFiles > 1}
+                    accept={acceptAttr}
+                    onChange={handleFileChange}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-3"
+                    disabled={isUploading}
+                    onClick={() => document.getElementById(`file-upload-${field.id}`)?.click()}
+                  >
+                    {isUploading ? t("propert.attachmentsUploading") : t("propert.attachmentsAdd")}
+                  </Button>
+                </div>
+                )}
+                <ElementAttachments
+                  attachments={attachments}
+                  displayMode="list"
+                  listOnly
+                  onRemove={removeAttachment}
+                />
+              </div>
+            );
+          })()
         )}
+
+        <ElementAttachments
+          attachments={(props.attachments as any) || []}
+          displayMode={(props.attachmentsDisplay as any) || "slider"}
+        />
 
         {fieldErrors.length > 0 && (
           <div className="space-y-1">

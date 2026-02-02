@@ -23,7 +23,21 @@ export type SemanticType =
   | "bank_account"
   | "passport";
 
-export type FormElementProps = Record<string, unknown>;
+export type ElementAttachment = {
+  file_id: number;
+  name: string;
+  mime_type: string;
+  size_bytes: number;
+  url: string;
+  content_hash?: string;
+  status?: "temp" | "submitted" | "deleted";
+};
+
+export type FormElementProps = {
+  attachments?: ElementAttachment[];
+  attachmentsDisplay?: "list" | "slider";
+  [key: string]: unknown;
+};
 
 export interface FormElementModel {
   id: string;
@@ -97,6 +111,7 @@ export type PassportAnswer = {
 
 // Matrix answer is stored as an array of "rowIndex:colIndex" keys
 export type MatrixAnswer = string[];
+export type FileUploadAnswer = ElementAttachment[];
 
 export type AnswerValue =
   | string
@@ -107,6 +122,7 @@ export type AnswerValue =
   | PassportAnswer
   | DateTimeAnswer
   | MatrixAnswer
+  | FileUploadAnswer
   | null;
 
 export type AnswersById = Record<string, AnswerValue>;

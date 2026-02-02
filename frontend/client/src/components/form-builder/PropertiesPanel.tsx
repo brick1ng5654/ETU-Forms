@@ -1,4 +1,4 @@
-import type { FormElementModel, SemanticType, WidgetType } from "@/form/types";
+import type { ElementAttachment, FormElementModel, SemanticType, WidgetType } from "@/form/types";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -9,16 +9,18 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { X, Plus, Trash2, Check } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTranslation } from "react-i18next";
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { DndContext, DragEndEvent, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { restrictToVerticalAxis, restrictToParentElement } from "@dnd-kit/modifiers";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
-import { useState, useEffect } from "react";
-import type { ClipboardEvent, KeyboardEvent } from "react";
+import { useState, useEffect, useRef } from "react";
+import type { ChangeEvent, ClipboardEvent, KeyboardEvent } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { MatrixCorrectAnswersModal } from "./MatrixCorrectAnswersModal";
+import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import { MouseEvent } from 'react';
 interface PropertiesPanelProps {
   selectedField: FormElementModel | null;
@@ -64,6 +66,54 @@ function SortableOptionItem({ id, option, disabled }: SortableOptionItemProps) {
         <GripVertical className="h-4 w-4 text-gray-400" />
       </div>
       <span className="flex-1 text-sm">{option}</span>
+    </div>
+  );
+}
+
+interface SortableAttachmentItemProps {
+  id: string;
+  attachment: ElementAttachment;
+  onRemove: (fileId: number) => void;
+}
+
+function SortableAttachmentItem({ id, attachment, onRemove }: SortableAttachmentItemProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "flex items-center justify-between gap-3 rounded-md border border-muted-foreground/20 px-2 py-1.5 bg-white",
+        isDragging && "shadow-lg z-50"
+      )}
+    >
+      <div className="flex items-center gap-2 min-w-0">
+        <button
+          type="button"
+          className="cursor-grab text-muted-foreground"
+          {...attributes}
+          {...listeners}
+          aria-label="Drag attachment"
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+        <p className="text-sm truncate">{attachment.name}</p>
+      </div>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+        onClick={() => onRemove(attachment.file_id)}
+      >
+        <X className="h-4 w-4" />
+      </Button>
     </div>
   );
 }
@@ -145,6 +195,11 @@ const placeholderField: PropertyFieldDef = {
   maxLength: 80,
 };
 
+const TEXT_SINGLELINE_MAX_CHARS = 255;
+const TEXT_MULTILINE_MAX_CHARS = 10000;
+const MAX_ATTACHMENTS = 10;
+const MAX_UPLOAD_MB = 20;
+
 const propertiesSchemaByWidgetType: Record<WidgetType, PropertyFieldDef[]> = {
   header: [baseLabelField],
   text_input: [baseLabelField, placeholderField, helperTextField, requiredField],
@@ -201,7 +256,16 @@ const propertiesSchemaByWidgetType: Record<WidgetType, PropertyFieldDef[]> = {
       type: "number",
       target: "props.maxFileSize",
       min: 1,
-      max: 100,
+      max: MAX_UPLOAD_MB,
+      step: 1,
+    },
+    {
+      key: "maxFiles",
+      labelKey: "propert.maxFiles",
+      type: "number",
+      target: "props.maxFiles",
+      min: 1,
+      max: 10,
       step: 1,
     },
     {
@@ -349,9 +413,6 @@ const propertiesSchemaBySemanticType: Partial<Record<SemanticType, PropertyField
   ],
 };
 
-const TEXT_SINGLELINE_MAX_CHARS = 255;
-const TEXT_MULTILINE_MAX_CHARS = 10000;
-
 const getTextMaxLimit = (widgetType: WidgetType) =>
   widgetType === "textarea" ? TEXT_MULTILINE_MAX_CHARS : TEXT_SINGLELINE_MAX_CHARS;
 
@@ -382,6 +443,9 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
   const [isConditionalSelectOpen, setIsConditionalSelectOpen] = useState(false);
   const [isMatrixModalOpen, setIsMatrixModalOpen] = useState(false);
   const [pointsInput, setPointsInput] = useState<string>("");
+  const [numberDrafts, setNumberDrafts] = useState<Record<string, string>>({});
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
   useEffect(() => {
     if (!selectedField) return;
     const options = (selectedField.props as Record<string, any>).options as string[] | undefined;
@@ -393,6 +457,10 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
     const fallbackPoints = typeof currentPoints === "number" && currentPoints > 0 ? currentPoints : 1;
     setPointsInput(String(fallbackPoints));
   }, [selectedField?.id, (selectedField?.props as Record<string, any>)?.points]);
+
+  useEffect(() => {
+    setNumberDrafts({});
+  }, [selectedField?.id]);
 
   if (selectedIds.length > 1) {
     const panelClassName = isConditionalSelectOpen
@@ -524,6 +592,147 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
     updateField(selectedField.id, { props: { points: parsedValue } });
   };
 
+  const bufferToHex = (buffer: ArrayBuffer) =>
+    Array.from(new Uint8Array(buffer))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+
+  const computeFileHash = async (file: File): Promise<string | null> => {
+    if (!crypto?.subtle?.digest) return null;
+    const data = await file.arrayBuffer();
+    const digest = await crypto.subtle.digest("SHA-256", data);
+    return bufferToHex(digest);
+  };
+
+  const uploadAttachment = async (file: File): Promise<ElementAttachment> => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch("/api/v1/files/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      let detail: string | undefined;
+      const contentType = response.headers.get("content-type") ?? "";
+      if (contentType.includes("application/json")) {
+        const err = await response.json().catch(() => ({}));
+        detail = err?.detail;
+      } else {
+        const text = await response.text().catch(() => "");
+        detail = text.trim() || undefined;
+      }
+      if (response.status === 413 && !detail) {
+        throw new Error(t("propert.attachmentsTooLarge"));
+      }
+      throw new Error(detail ?? t("propert.attachmentsUploadError"));
+    }
+
+    const data = await response.json();
+    if (!data?.file_id) {
+      throw new Error("Upload failed");
+    }
+
+    return {
+      file_id: data.file_id,
+      name: data.name ?? file.name,
+      mime_type: data.mime_type ?? file.type ?? "application/octet-stream",
+      size_bytes: data.size_bytes ?? file.size ?? 0,
+      url: data.url ?? `/api/v1/files/${data.file_id}/download`,
+      content_hash: data.content_hash,
+      status: data.status ?? "temp",
+    };
+  };
+
+  const handleAttachmentChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    if (files.length === 0) return;
+
+    const availableSlots = MAX_ATTACHMENTS - attachments.length;
+    if (availableSlots <= 0) {
+      toast({ title: t("builder.error"), description: t("propert.attachmentsLimit"), variant: "destructive" });
+      return;
+    }
+
+    const uploadQueue = files.slice(0, availableSlots);
+    if (files.length > availableSlots) {
+      toast({ title: t("builder.error"), description: t("propert.attachmentsLimit"), variant: "destructive" });
+    }
+
+    const existingHashes = new Set(
+      attachments
+        .map((item) => item.content_hash)
+        .filter((hash): hash is string => Boolean(hash))
+    );
+    const existingFallbackKeys = new Set(
+      attachments.map((item) => `${item.name}|${item.size_bytes}`)
+    );
+    const queuedHashes = new Set<string>();
+
+    setIsUploadingAttachments(true);
+    const uploaded: ElementAttachment[] = [];
+    for (const file of uploadQueue) {
+      try {
+        const hash = await computeFileHash(file);
+        if (hash) {
+          if (existingHashes.has(hash) || queuedHashes.has(hash)) {
+            toast({ title: t("builder.error"), description: t("propert.attachmentsDuplicate"), variant: "destructive" });
+            continue;
+          }
+          queuedHashes.add(hash);
+        } else {
+          const fallbackKey = `${file.name}|${file.size}`;
+          if (existingFallbackKeys.has(fallbackKey)) {
+            toast({ title: t("builder.error"), description: t("propert.attachmentsDuplicate"), variant: "destructive" });
+            continue;
+          }
+        }
+        const item = await uploadAttachment(file);
+        if (item.content_hash && existingHashes.has(item.content_hash)) {
+          toast({ title: t("builder.error"), description: t("propert.attachmentsDuplicate"), variant: "destructive" });
+          continue;
+        }
+        if (!item.content_hash) {
+          const fallbackKey = `${item.name}|${item.size_bytes}`;
+          if (existingFallbackKeys.has(fallbackKey)) {
+            toast({ title: t("builder.error"), description: t("propert.attachmentsDuplicate"), variant: "destructive" });
+            continue;
+          }
+        }
+        uploaded.push(item);
+      } catch (error: any) {
+        toast({
+          title: t("builder.error"),
+          description: error?.message ?? t("propert.attachmentsUploadError"),
+          variant: "destructive",
+        });
+      }
+    }
+    setIsUploadingAttachments(false);
+
+    if (uploaded.length > 0) {
+      updateField(selectedField.id, { props: { attachments: [...attachments, ...uploaded] } });
+    }
+  };
+
+  const removeAttachment = (fileId: number) => {
+    updateField(selectedField.id, {
+      props: { attachments: attachments.filter((item) => item.file_id !== fileId) },
+    });
+  };
+
+  const handleAttachmentDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = attachments.findIndex((item) => String(item.file_id) === String(active.id));
+    const newIndex = attachments.findIndex((item) => String(item.file_id) === String(over.id));
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove(attachments, oldIndex, newIndex);
+    updateField(selectedField.id, { props: { attachments: reordered } });
+  };
+
   const renderPropertyField = (fieldDef: PropertyFieldDef) => {
     const value = getValueByTarget(selectedField, fieldDef.target);
     const isDisabled = fieldDef.disabled?.(selectedField) ?? false;
@@ -584,6 +793,12 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
     }
 
     if (fieldDef.type === "number") {
+      const draftKey = `${selectedField?.id ?? "field"}:${fieldDef.key}`;
+      const deferValidation = fieldDef.key === "maxFiles" || fieldDef.key === "maxFileSize";
+      const rawValue = deferValidation ? numberDrafts[draftKey] : undefined;
+      const minValue = fieldDef.min ?? 0;
+      const maxValue = fieldDef.max ?? Number.MAX_SAFE_INTEGER;
+      const resolvedValue = Number(value ?? minValue);
       return (
         <div key={fieldDef.key} className="space-y-2">
           {label}
@@ -592,8 +807,44 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
             min={fieldDef.min}
             max={fieldDef.max}
             step={fieldDef.step}
-            value={Number(value ?? fieldDef.min ?? 0)}
-            onChange={(e) => updateByTarget(fieldDef.target, parseInt(e.target.value, 10) || fieldDef.min || 0)}
+            inputMode={deferValidation ? "numeric" : undefined}
+            pattern={deferValidation ? "[0-9]*" : undefined}
+            value={rawValue ?? resolvedValue}
+            onChange={(e) => {
+              if (deferValidation) {
+                const digitsOnly = e.target.value.replace(/\D+/g, "");
+                setNumberDrafts((prev) => ({ ...prev, [draftKey]: digitsOnly }));
+                return;
+              }
+              updateByTarget(fieldDef.target, parseInt(e.target.value, 10) || minValue);
+            }}
+            onKeyDown={(e) => {
+              if (!deferValidation) return;
+              const allowedKeys = [
+                "Backspace",
+                "Delete",
+                "Tab",
+                "ArrowLeft",
+                "ArrowRight",
+                "Home",
+                "End",
+              ];
+              if (allowedKeys.includes(e.key) || (e.ctrlKey || e.metaKey)) {
+                return;
+              }
+              if (!/^\d$/.test(e.key)) {
+                e.preventDefault();
+              }
+            }}
+            onBlur={(e) => {
+              if (!deferValidation) return;
+              const parsed = parseInt(e.target.value, 10);
+              const nextValue = Number.isFinite(parsed)
+                ? Math.min(Math.max(parsed, minValue), maxValue)
+                : minValue;
+              updateByTarget(fieldDef.target, nextValue);
+              setNumberDrafts((prev) => ({ ...prev, [draftKey]: String(nextValue) }));
+            }}
           />
         </div>
       );
@@ -749,11 +1000,18 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
   const correctAnswers = (props.correctAnswers as string[]) || [];
   const hasCorrectAnswers = correctAnswers.length > 0;
   const hasFilledCorrectAnswers = correctAnswers.some((answer) => String(answer ?? "").trim().length > 0);
+  const attachments = Array.isArray(props.attachments)
+    ? (props.attachments as ElementAttachment[])
+    : [];
+  const imageAttachments = attachments.filter((item) => item.mime_type?.startsWith("image/"));
+  const attachmentsDisplay =
+    (props.attachmentsDisplay as "list" | "slider" | undefined) ?? "slider";
 
   const panelClassName = isConditionalSelectOpen
     ? "p-4 space-y-6 overflow-y-auto h-full pb-[40vh]"
     : "p-4 space-y-6 overflow-y-auto h-full pb-32";
   const spacerClassName = isConditionalSelectOpen ? "h-[40vh]" : "h-24";
+  const attachmentsProgress = Math.min(attachments.length / MAX_ATTACHMENTS, 1);
 
   return (
     <div className={panelClassName}>
@@ -853,6 +1111,105 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
             )}
           </div>
         )}
+
+        <div className="space-y-2 rounded-lg border p-3 shadow-sm">
+          <div className="flex items-center gap-2">
+            <Label>{t("propert.attachments")}</Label>
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={t("propert.attachmentsHint", { max: MAX_UPLOAD_MB })}
+                  className="h-5 w-5 rounded-full border border-muted-foreground/40 text-muted-foreground text-[11px] leading-none flex items-center justify-center hover:bg-muted"
+                >
+                  ?
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">
+                {t("propert.attachmentsHint", { max: MAX_UPLOAD_MB })}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+          <input
+            ref={attachmentInputRef}
+            type="file"
+            className="hidden"
+            multiple
+            onChange={handleAttachmentChange}
+          />
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-2 flex-1 justify-center"
+              disabled={isUploadingAttachments || attachments.length >= MAX_ATTACHMENTS}
+              onClick={() => attachmentInputRef.current?.click()}
+            >
+              <Plus className="h-4 w-4" />
+              {isUploadingAttachments ? t("propert.attachmentsUploading") : t("propert.attachmentsAdd")}
+            </Button>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>{attachments.length}/{MAX_ATTACHMENTS}</span>
+              <svg className="h-3 w-3" viewBox="0 0 12 12" aria-hidden="true">
+                <circle cx="6" cy="6" r="5" fill="none" stroke="#e2e8f0" strokeWidth="2" />
+                <circle
+                  cx="6"
+                  cy="6"
+                  r="5"
+                  fill="none"
+                  stroke="#94a3b8"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeDasharray={2 * Math.PI * 5}
+                  strokeDashoffset={(2 * Math.PI * 5) * (1 - attachmentsProgress)}
+                  style={{ transition: "stroke-dashoffset 240ms ease-out" }}
+                  transform="rotate(-90 6 6)"
+                />
+              </svg>
+            </div>
+          </div>
+          {imageAttachments.length > 1 && (
+            <div className="space-y-2">
+              <Label>{t("propert.attachmentsDisplay")}</Label>
+              <Select
+                value={attachmentsDisplay}
+                onValueChange={(value) => updateField(selectedField.id, { props: { attachmentsDisplay: value } })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={t("common.selectopt")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="list">{t("propert.attachmentsDisplayList")}</SelectItem>
+                  <SelectItem value="slider">{t("propert.attachmentsDisplaySlider")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {attachments.length > 0 && (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleAttachmentDragEnd}
+            >
+              <SortableContext
+                items={attachments.map((item) => String(item.file_id))}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-2">
+                  {attachments.map((item) => (
+                    <SortableAttachmentItem
+                      key={item.file_id}
+                      id={String(item.file_id)}
+                      attachment={item}
+                      onRemove={removeAttachment}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          )}
+        </div>
 
         {(selectedField.semanticType === "email" ||
           (selectedField.widgetType === "text_input" && props.inputType === "email")) && (
