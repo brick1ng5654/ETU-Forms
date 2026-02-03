@@ -38,7 +38,6 @@ interface FormCanvasProps {
   selectedIds: string[];
   onSelectField: (id: string, event: MouseEvent<HTMLDivElement>) => void;
   clearSelection: () => void;
-  deleteField: (id: string) => void;
   updateField: (id: string, updates: Partial<FormElementModel>) => void;
   onUndo: () => void;
   onRedo: () => void;
@@ -109,7 +108,6 @@ export function FormCanvas({
   selectedIds,
   onSelectField,
   clearSelection,
-  deleteField,
   updateField,
   onUndo,
   onRedo,
@@ -351,7 +349,6 @@ export function FormCanvas({
                     field={field}
                     isSelected={selectedIds.includes(field.id)}
                     onSelect={onSelectField}
-                    onDelete={deleteField}
                     updateField={updateField}
                     fields={fields}
                   />
