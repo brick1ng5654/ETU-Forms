@@ -16,9 +16,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarDays, Clock, CheckCircle2, XCircle, Star, RotateCcw, GripVertical, Upload } from "lucide-react";
+import { CalendarDays, Clock, CheckCircle2, XCircle, Star, RotateCcw, GripVertical, Upload, ChevronsUpDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -45,6 +46,7 @@ import { validateForm } from "@/form/validation";
 import { buildAnswersPayload } from "@/form/answers";
 import { ElementAttachments } from "@/components/form-builder/ElementAttachments";
 import { toast } from "@/hooks/use-toast";
+import { getCountryLabel, getCountryOptions, isCountryField, normalizeCountrySearch, resolveCountryCode } from "@/lib/countries";
 
 interface CollapsibleTextareaProps extends React.ComponentProps<typeof Textarea> {
   textareaRef?: React.RefObject<HTMLTextAreaElement>;
@@ -197,6 +199,131 @@ interface LengthIndicatorProps {
   limit: number;
   isError: boolean;
   isComplete: boolean;
+}
+
+interface CountrySelectProps {
+  value?: string;
+  placeholder?: string;
+  disabled?: boolean;
+  onValueChange: (value: string) => void;
+  onTouched: () => void;
+}
+
+function CountrySelect({ value, placeholder, disabled, onValueChange, onTouched }: CountrySelectProps) {
+  const { t, i18n } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const locale = i18n.language || "en";
+  const options = useMemo(() => getCountryOptions(locale), [locale]);
+  const selectedCode = resolveCountryCode(value) || "";
+  const selectedLabel = selectedCode ? getCountryLabel(selectedCode, locale) : "";
+  const listMaxHeight = 5 * 36;
+  const normalizedQuery = useMemo(() => normalizeCountrySearch(searchValue), [searchValue]);
+  const filteredOptions = useMemo(() => {
+    if (!normalizedQuery) return options;
+    return options.filter((option) => option.search.includes(normalizedQuery));
+  }, [options, normalizedQuery]);
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!disabled) {
+      setOpen(nextOpen);
+    }
+  };
+
+  const getScrollParent = (node: HTMLElement | null) => {
+    let current = node?.parentElement ?? null;
+    while (current) {
+      const style = window.getComputedStyle(current);
+      const overflowY = style.overflowY;
+      if ((overflowY === "auto" || overflowY === "scroll") && current.scrollHeight > current.clientHeight) {
+        return current;
+      }
+      current = current.parentElement;
+    }
+    return null;
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const scrollParent = getScrollParent(triggerRef.current);
+    const scrollTop = scrollParent?.scrollTop ?? 0;
+    const frame = requestAnimationFrame(() => {
+      inputRef.current?.focus({ preventScroll: true });
+      if (scrollParent) {
+        scrollParent.scrollTop = scrollTop;
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [open]);
+
+  useEffect(() => {
+    if (open) return;
+    setSearchValue("");
+  }, [open]);
+
+  return (
+    <Popover open={open} onOpenChange={handleOpenChange}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          disabled={disabled}
+          className="w-full justify-between"
+          ref={triggerRef}
+        >
+          <span className={cn(!selectedLabel && "text-muted-foreground")}>
+            {selectedLabel || placeholder || t("common.selectopt")}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="p-0 w-[--radix-popover-trigger-width]"
+        align="start"
+        side="bottom"
+        sideOffset={8}
+        portalled={false}
+        onOpenAutoFocus={(event) => event.preventDefault()}
+      >
+        <Command shouldFilter={false}>
+          <CommandInput
+            placeholder={t("placeholders.search")}
+            disabled={disabled}
+            ref={inputRef}
+            value={searchValue}
+            onValueChange={setSearchValue}
+          />
+          <CommandList style={{ maxHeight: listMaxHeight }}>
+            <CommandEmpty>{t("common.noResults")}</CommandEmpty>
+            <CommandGroup>
+              {filteredOptions.map((option) => (
+                <CommandItem
+                  key={option.code}
+                  value={option.search}
+                  onSelect={() => {
+                    onValueChange(option.code);
+                    onTouched();
+                    setOpen(false);
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      selectedCode === option.code ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  {option.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 interface TextLengthIndicatorProps {
@@ -1099,6 +1226,7 @@ export function FormPreview({ form }: FormPreviewProps) {
   const renderField = (field: FormElementModel) => {
     const props = field.props as Record<string, unknown>;
     const options = props.options as string[] | undefined;
+    const isCountrySelect = isCountryField(field);
     const hideDate = Boolean(props.hideDate);
     const hideTime = Boolean(props.hideTime);
     const hasResult = results !== null && field.id in results;
@@ -1300,25 +1428,37 @@ export function FormPreview({ form }: FormPreviewProps) {
         })()}
 
         {field.widgetType === "select" && (
-          <Select
-            value={(answers[field.id] as string) || ""}
-            onValueChange={(value) => {
-              updateAnswer(field.id, value);
-              markTouched(field.id);
-            }}
-            disabled={results !== null}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder={(props.placeholder as string) || t("common.selectopt")} />
-            </SelectTrigger>
-            <SelectContent>
-              {options?.filter(Boolean).map((option) => (
-                <SelectItem key={option} value={option}>
-                  {option}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          isCountrySelect ? (
+            <CountrySelect
+              value={(answers[field.id] as string) || ""}
+              placeholder={(props.placeholder as string) || t("common.selectopt")}
+              disabled={results !== null}
+              onValueChange={(value) => {
+                updateAnswer(field.id, value);
+              }}
+              onTouched={() => markTouched(field.id)}
+            />
+          ) : (
+            <Select
+              value={(answers[field.id] as string) || ""}
+              onValueChange={(value) => {
+                updateAnswer(field.id, value);
+                markTouched(field.id);
+              }}
+              disabled={results !== null}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={(props.placeholder as string) || t("common.selectopt")} />
+              </SelectTrigger>
+              <SelectContent>
+                {options?.filter(Boolean).map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )
         )}
 
         {field.widgetType === "radio" && (
@@ -1745,9 +1885,13 @@ export function FormPreview({ form }: FormPreviewProps) {
     );
   };
 
+  const visibleFields = form.fields.filter(isFieldVisible);
+  const lastVisibleField = visibleFields[visibleFields.length - 1];
+  const needsCountryPadding = Boolean(lastVisibleField && isCountryField(lastVisibleField));
+
   return (
     <div 
-      className="space-y-6 py-4"
+      className={cn("space-y-6 py-4", needsCountryPadding && "pb-24")}
       style={{ overflowX: 'hidden' }}
     >
       {results !== null && (
@@ -1770,7 +1914,7 @@ export function FormPreview({ form }: FormPreviewProps) {
         </div>
       )}
 
-      {form.fields.filter(isFieldVisible).map(renderField)}
+      {visibleFields.map(renderField)}
 
       {hasQuizFields && results === null && (
         <div className="pt-4 border-t">
