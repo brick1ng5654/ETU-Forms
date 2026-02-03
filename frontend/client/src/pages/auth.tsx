@@ -8,19 +8,78 @@ import { useTranslation } from "react-i18next";
 import { Languages } from "lucide-react";
 import { Link, useLocation } from "wouter";
 
+type LoginOk = {
+  access_token: string;
+  token_type: "bearer";
+  user: { user_id: number; email: string; name: string };
+};
+
+type LoginErr = {
+  detail?: string;
+};
+
+function getApiBase(): string{
+  return "";
+}
+
 export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [activeTab, setActiveTab] = useState("partner");
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [retryAfter, setRetryAfter] = useState<number | null>(null);
+
   const { t, i18n } = useTranslation();
   const [, navigate] = useLocation();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Здесь будет логика авторизации
-    console.log("Login attempt with:", { email, password, activeTab });
-    // После успешной авторизации перенаправляем на главную страницу
-    navigate("/");
+    setError(null);
+    setRetryAfter(null);
+
+    if (activeTab !== "partner") return;
+
+    const emailNorm = email.trim().toLowerCase();
+    if (!emailNorm){
+      setError("Email is required");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch(`${getApiBase()}/api/v1/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: emailNorm, password }),
+      });
+
+      if (res.status === 429) {
+        const ra = res.headers.get("retry-after");
+        const raNum = ra ? parseInt(ra, 10) : null;
+        setRetryAfter(Number.isFinite(raNum as number) ? raNum : null);
+    
+        const data: LoginErr = await res.json().catch(() => ({}));
+        setError(data.detail ?? "Too many login attempts. Please try again later.");
+        return;
+      }
+      if (!res.ok) {
+        const data: LoginErr = await res.json().catch(() => ({}));
+        setError(data.detail ?? "Invalid credentials.");
+        return;
+      }
+
+      const data: LoginOk = await res.json();
+      localStorage.setItem("access_token", data.access_token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      // После успешной авторизации перенаправляем на главную страницу
+      navigate("/");
+    } catch (err) {
+      setError("Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

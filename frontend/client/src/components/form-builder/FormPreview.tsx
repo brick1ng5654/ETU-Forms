@@ -45,6 +45,7 @@ import { validateForm } from "@/form/validation";
 import { buildAnswersPayload } from "@/form/answers";
 import { ElementAttachments } from "@/components/form-builder/ElementAttachments";
 import { toast } from "@/hooks/use-toast";
+import { authHeader } from "@/lib/auth";
 
 interface CollapsibleTextareaProps extends React.ComponentProps<typeof Textarea> {
   textareaRef?: React.RefObject<HTMLTextAreaElement>;
@@ -412,6 +413,7 @@ export function FormPreview({ form }: FormPreviewProps) {
 
     const response = await fetch("/api/v1/files/upload", {
       method: "POST",
+      headers: authHeader(),
       body: formData,
     });
 

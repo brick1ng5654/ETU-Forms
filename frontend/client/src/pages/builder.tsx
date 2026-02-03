@@ -27,6 +27,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { storage } from "@/lib/storage";
+import { authHeader } from "@/lib/auth";
 import { useLocation } from "wouter";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -638,7 +639,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
 
     const res = await fetch("/api/v1/forms/publish", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeader() },
       body: JSON.stringify(payload),
     });
 

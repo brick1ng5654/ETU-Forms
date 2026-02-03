@@ -15,7 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import get_db
-from app.models import UploadedFile
+from app.models import AppUser, UploadedFile
+from app.security.auth_dependencies import get_current_user
 from app.schemas import UploadedFileResponse
 
 router = APIRouter(prefix="/files", tags=["files"])
@@ -54,6 +55,7 @@ def _resolve_storage_path(storage_path: str) -> Path:
 async def upload_file(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
+    _current_user: AppUser = Depends(get_current_user),
 ):
     if not file.filename:
         raise HTTPException(status_code=400, detail="Filename is required")
