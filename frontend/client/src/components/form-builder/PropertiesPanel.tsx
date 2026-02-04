@@ -20,6 +20,7 @@ import type { ChangeEvent, ClipboardEvent, KeyboardEvent } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { MatrixCorrectAnswersModal } from "./MatrixCorrectAnswersModal";
 import { toast } from "@/hooks/use-toast";
+import { authHeader } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { MouseEvent } from 'react';
 interface PropertiesPanelProps {
@@ -610,6 +611,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
 
     const response = await fetch("/api/v1/files/upload", {
       method: "POST",
+      headers: authHeader(),
       body: formData,
     });
 

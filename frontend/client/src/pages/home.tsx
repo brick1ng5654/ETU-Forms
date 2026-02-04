@@ -11,6 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { toast } from "@/hooks/use-toast";
 import { useTranslation } from 'react-i18next';
 import { Languages } from "lucide-react";
+import { authHeader } from "@/lib/auth";
 
 export default function Home() {
   const [forms, setForms] = useState<FormSchema[]>([]);
@@ -41,7 +42,7 @@ export default function Home() {
 
     const response = await fetch("/api/v1/forms", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeader() },
       body: JSON.stringify(formData),
     });
 

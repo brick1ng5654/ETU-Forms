@@ -1,10 +1,10 @@
 ﻿# Этот файл нужен для валидации входящих данных и сериализации ответов API. То есть что принимаем и что отдаём
 
-from pydantic import BaseModel, EmailStr, Field, ConfigDict, model_validator
+from pydantic import BaseModel, EmailStr, Field, ConfigDict, model_validator, field_validator
 from datetime import datetime
 from typing import Optional, Dict, Any, List, Literal
 from enum import Enum
-
+from app.security.constants import PASSWORD_MAX_LEN, PASSWORD_MIN_LEN
 # Enum
 class FormAccessMode(str, Enum):
     PUBLIC = 'public'
@@ -70,6 +70,13 @@ class UserBase(BaseModel):
     phone: Optional[str] = Field(None, max_length=20)
     email: EmailStr
 
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, v: str):
+        if isinstance(v, str):
+            return v.strip().lower()
+        return v
+    
 class UserCreate(UserBase):
     pass
 
@@ -276,7 +283,7 @@ class BuilderElementIn(BaseModel):
     client_id: str
     widget: WidgetType
     semantic: Optional[SemanticType] = None
-    label: str = Field(..., min_lenght=1, max_lenght=255)
+    label: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
     required_field: bool = False
     correct_answer: Optional[Dict[str, Any]] = None
@@ -310,3 +317,23 @@ class FormPublishRequest(BaseModel):
 
     elements: List[BuilderElementIn] = Field(default_factory=list)
     conditions: List[BuilderConditionIn] = Field(default_factory=list)
+
+# Отдельные схемы, чтобы пароль не отдавался, где не надо
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(..., min_length=PASSWORD_MIN_LEN, max_length=PASSWORD_MAX_LEN)
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, v: str):
+        if isinstance(v, str):
+            return v.strip().lower()
+        return v
+    
+class LoginResponse(BaseModel):
+    user_id: int
+    email: EmailStr
+    name: str
+
+    model_config = ConfigDict(from_attributes=True)
+

@@ -10,10 +10,19 @@ class Settings(BaseSettings):
     POSTGRES_HOST: str = "postgres"
     POSTGRES_PORT: int = 5432
 
+    PASSWORD_PEPPER: str
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
+    ADMIN_EMAIL: str
+    ADMIN_PASSWORD: str
+    ADMIN_NAME: str
+    
+    REDIS_HOST: str = "redis"
+    REDIS_PORT: int
+    REDIS_DB: int
+    REDIS_PASSWORD: str | None = None
     ENVIRONMENT: str = "development"
 
     CORS_ORIGINS: str = "https://localhost,http://localhost:3000,http://localhost:8000"

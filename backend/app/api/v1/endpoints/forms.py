@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.models import Form, AppUser
+from app.security.auth_dependencies import get_current_user as get_current_user_dep
 from app.schemas import (
     FormCreate,
     FormResponse,
@@ -42,7 +43,7 @@ async def get_current_user():
 async def create_form(
     form_data: FormCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: AppUser = Depends(get_current_user)
+    current_user: AppUser = Depends(get_current_user_dep)
 ):
     try:
         payload = form_data.model_dump(exclude={"user_id"})  # <-- главное
@@ -72,7 +73,7 @@ async def get_my_forms(
     skip: int = Query(0, ge=0, description="Количество пропущенных записей"),
     limit: int = Query(100, ge=1, le=200, description="Лимит записей"),
     db: AsyncSession = Depends(get_db),
-    current_user: AppUser = Depends(get_current_user)
+    current_user: AppUser = Depends(get_current_user_dep)
 ):
 
     count_querry = select(func.count()).select_from(Form).where(

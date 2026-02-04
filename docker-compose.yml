@@ -64,14 +64,17 @@ services:
       POSTGRES_HOST: postgres
       PORT: ${BACKEND_PORT}
 
+      PASSWORD_PEPPER: ${PASSWORD_PEPPER}
       REDIS_HOST: redis
       REDIS_PORT: ${REDIS_PORT}
       REDIS_DB: ${REDIS_DB}
 
       SECRET_KEY: ${SECRET_KEY}
       ENVIRONMENT: ${ENVIRONMENT:-development}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      ADMIN_NAME: ${ADMIN_NAME}
       DEBUG: ${DEBUG:-false}
-
       CORS_ORIGINS: https://localhost,http://localhost:3000
       FILES_ROOT: /var/lib/postgresql/data/uploads
       MAX_UPLOAD_MB: 20
