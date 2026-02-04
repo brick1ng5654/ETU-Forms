@@ -90,8 +90,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    ports:
-      - "8081:8080"
     networks:
       - app-network
 
