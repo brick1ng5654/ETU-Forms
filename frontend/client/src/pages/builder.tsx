@@ -35,6 +35,7 @@ import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import type { UnknownTypeWarning } from "@/form/adapters/fromStructureJson";
 import { fromStructureJsonWithMeta, getLastUnknownTypeWarnings } from "@/form/adapters/fromStructureJson";
+import { UserMenu } from "@/components/user-menu";
 
 import { useTranslation } from 'react-i18next';
 import { Languages } from "lucide-react";
@@ -1069,6 +1070,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
               </PopoverContent>
             </Popover>
           </div>
+          <UserMenu />
         </div>
       </header>
       {import.meta.env.DEV && unknownTypeWarnings.length > 0 && (

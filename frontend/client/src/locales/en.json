@@ -150,6 +150,10 @@
     "switched": "Language Switched",
     "switchedTo": "Switched to {{lang}}"
   },
+  "profile": {
+    "account": "Account",
+    "logout": "Log out"
+  },
 
   "back":{
     "bgFormCreate":"Click elements from the sidebar to add them",
