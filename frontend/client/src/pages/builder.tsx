@@ -27,6 +27,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { storage } from "@/lib/storage";
+import { authHeader } from "@/lib/auth";
 import { useLocation } from "wouter";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -101,6 +102,14 @@ const getLocalTimePart = (value: string | null | undefined) => {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return "";
   return format(parsed, "HH:mm");
+};
+
+const isEditableElement = (element: Element | null) => {
+  if (!element) return false;
+  if (element instanceof HTMLInputElement) return true;
+  if (element instanceof HTMLTextAreaElement) return true;
+  if (element instanceof HTMLSelectElement) return true;
+  return (element as HTMLElement).isContentEditable === true;
 };
 
 const toIsoFromParts = (dateValue: string | null, timeValue: string) => {
@@ -440,6 +449,15 @@ export default function Builder({ params }: { params: { id?: string } }) {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      const isDeleteKey = event.key === "Delete" || event.key === "Backspace";
+      if (isDeleteKey) {
+        if (isEditableElement(document.activeElement)) return;
+        if (selectedIds.length === 0) return;
+        event.preventDefault();
+        deleteSelected();
+        return;
+      }
+
       const isUndo =
         (event.ctrlKey || event.metaKey) &&
         !event.shiftKey &&
@@ -467,7 +485,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [history.length, redoHistory.length, undoLast, redoLast]);
+  }, [history.length, redoHistory.length, undoLast, redoLast, selectedIds, deleteSelected]);
 
   const moveSelected = (direction: "up" | "down") => {
     if (selectedIds.length === 0) return;
@@ -639,7 +657,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
 
     const res = await fetch("/api/v1/forms/publish", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeader() },
       body: JSON.stringify(payload),
     });
 
@@ -1090,7 +1108,6 @@ export default function Builder({ params }: { params: { id?: string } }) {
           moveSelected={moveSelected}
           onSelectField={handleSelectField}
           clearSelection={clearSelection}
-          deleteField={deleteField}
           updateField={updateField}
           onUndo={undoLast}
           onRedo={redoLast}

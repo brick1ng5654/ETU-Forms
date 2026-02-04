@@ -283,12 +283,14 @@
     "emailPlaceholder": "Введите ваш email",
     "password": "Пароль",
     "passwordPlaceholder": "Введите ваш пароль",
+    "emailInvalid": "Введите корректный email",
+    "emailRequired": "Введите ваш email",
+    "invalidCredentials": "Неправильный email или пароль",
+    "tooManyAttempts": "Слишком много попыток входа. Пожалуйста, попробуйте позже.",
+    "networkError": "Ошибка соединения. Пожалуйста, попробуйте позже.",
     "loginButton": "Войти как партнер",
     "etuIdPlaceholder": "Авторизация через ETU ID будет реализована позже",
     "loginWithEtuId": "Войти через ETU ID",
     "footerText": "Введите учетные данные для доступа к системе"
   }
 }
-
-
-
