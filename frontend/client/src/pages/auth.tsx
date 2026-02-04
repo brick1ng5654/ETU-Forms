@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useTranslation } from "react-i18next";
@@ -22,6 +23,10 @@ function getApiBase(): string{
   return "";
 }
 
+function isValidEmail(value: string): boolean {
+  return /.+@.+/.test(value);
+}
+
 export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -36,14 +41,17 @@ export default function Auth() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
     setRetryAfter(null);
 
     if (activeTab !== "partner") return;
 
     const emailNorm = email.trim().toLowerCase();
     if (!emailNorm){
-      setError("Email is required");
+      setError(t("auth.emailRequired"));
+      return;
+    }
+    if (!isValidEmail(emailNorm)) {
+      setError(t("auth.emailInvalid"));
       return;
     }
 
@@ -61,12 +69,12 @@ export default function Auth() {
         setRetryAfter(Number.isFinite(raNum as number) ? raNum : null);
     
         const data: LoginErr = await res.json().catch(() => ({}));
-        setError(data.detail ?? "Too many login attempts. Please try again later.");
+        setError(data.detail ?? t("auth.tooManyAttempts"));
         return;
       }
       if (!res.ok) {
-        const data: LoginErr = await res.json().catch(() => ({}));
-        setError(data.detail ?? "Invalid credentials.");
+        await res.json().catch(() => ({}));
+        setError(t("auth.invalidCredentials"));
         return;
       }
 
@@ -76,7 +84,7 @@ export default function Auth() {
       // После успешной авторизации перенаправляем на главную страницу
       navigate("/");
     } catch (err) {
-      setError("Network error. Please try again.");
+      setError(t("auth.networkError"));
     } finally {
       setLoading(false);
     }
@@ -111,7 +119,15 @@ export default function Auth() {
           <CardDescription>{t("auth.loginDesc")}</CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) => {
+              setActiveTab(value);
+              setError(null);
+              setRetryAfter(null);
+            }}
+            className="w-full"
+          >
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="etu">{t("auth.etuId")}</TabsTrigger>
               <TabsTrigger value="partner">{t("auth.partner")}</TabsTrigger>
@@ -119,7 +135,11 @@ export default function Auth() {
           </Tabs>
           
           {activeTab === "partner" && (
-            <form onSubmit={handleLogin} className="mt-6 space-y-4 animate-in fade-in-0 slide-in-from-bottom-2 duration-200">
+            <form
+              noValidate
+              onSubmit={handleLogin}
+              className="mt-6 space-y-4 animate-in fade-in-0 slide-in-from-bottom-2 duration-200"
+            >
               <div className="space-y-2">
                 <Label htmlFor="email">{t("auth.email")}</Label>
                 {/* плейсхолдер для ввода email */}
@@ -128,7 +148,10 @@ export default function Auth() {
                   type="email"
                   placeholder={t("auth.emailPlaceholder")}
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (error) setError(null);
+                  }}
                   required
                 />
               </div>
@@ -140,10 +163,18 @@ export default function Auth() {
                   type="password"
                   placeholder={t("auth.passwordPlaceholder")}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (error) setError(null);
+                  }}
                   required
                 />
               </div>
+              {error && (
+                <Alert variant="destructive" role="alert">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
               {/* кнопка входа */}
               <Button type="submit" className="w-full">
                 {t("auth.loginButton")}
@@ -172,3 +203,4 @@ export default function Auth() {
     </div>
   );
 }
+
