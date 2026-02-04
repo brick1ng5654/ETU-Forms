@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 import { MatrixCorrectAnswersModal } from "./MatrixCorrectAnswersModal";
+import { getCountryOptions, isCountryField } from "@/lib/countries";
 
 const MAX_UPLOAD_MB = 20;
 
@@ -44,14 +45,19 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
   }, [editingElement]);
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.id });
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const props = field.props as Record<string, any>;
+  const isCountrySelect = isCountryField(field);
+  const countryOptions = isCountrySelect ? getCountryOptions(i18n.language).map((option) => option.label) : [];
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
   };
 
   const startEditing = (element: string, initialValue?: string) => {
+    if (element === "options" && isCountrySelect) {
+      return;
+    }
     setEditingElement(element);
     setEditingValue(initialValue || "");
     if (element === "options") {
@@ -70,6 +76,12 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
     } else if (editingElement === "helperText") {
       updateField(field.id, { description: editingValue.slice(0, 1200) });
     } else if (editingElement === "options") {
+      if (isCountrySelect) {
+        setEditingElement(null);
+        setEditingValue("");
+        setEditingOptions([]);
+        return;
+      }
       updateField(field.id, { props: { options: editingOptions.filter(Boolean) } });
     }
 
@@ -187,7 +199,7 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
   };
 
   const renderFieldPreview = () => {
-    const options = (props.options as string[]) || [];
+    const options = isCountrySelect ? countryOptions : (props.options as string[]) || [];
 
     switch (field.widgetType) {
       case "text_input":

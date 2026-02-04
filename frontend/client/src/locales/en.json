@@ -11,7 +11,8 @@
     "descriptionf":"Description",
     "selectopt":"select the option",
     "showMore":"Show full answer",
-    "showLess":"Collapse"
+    "showLess":"Collapse",
+    "noResults":"No results found"
   },
 
   "navigation": {
@@ -214,6 +215,7 @@
     "fixOrder":"Fix Order",
     "corranopt":"Select the correct answers from the options",
     "allowmult":"Allow Multiple",
+    "countryOptionsLocked":"Country list is fixed and localized automatically.",
     "fieldType": "Field Type",
     "hideDate": "Hide Date",
     "hideTime": "Hide Time",

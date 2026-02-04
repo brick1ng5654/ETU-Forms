@@ -1,5 +1,6 @@
 import type { AnswersById, FormElementModel, FullNameAnswer, PassportAnswer } from "@/form/types";
 import { presets } from "@/form/presets";
+import { getCountryCodes, isCountryField, resolveCountryCode } from "@/lib/countries";
 
 export type ValidationErrorsById = Record<string, string[]>;
 
@@ -52,8 +53,12 @@ export const validateForm = (elements: FormElementModel[], answers: AnswersById)
       }
 
       if (element.widgetType === "select" || element.widgetType === "radio") {
-        const options = (props.options as string[]) || [];
-        if (!isEmptyValue(value) && typeof value === "string" && !isOptionValue(value, options)) {
+        const isCountrySelect = isCountryField(element);
+        const options = isCountrySelect ? getCountryCodes() : (props.options as string[]) || [];
+        const normalized = typeof value === "string" && isCountrySelect
+          ? resolveCountryCode(value) || value
+          : value;
+        if (!isEmptyValue(value) && typeof normalized === "string" && !isOptionValue(normalized, options)) {
           elementErrors.push("Invalid selection");
         }
       }

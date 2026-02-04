@@ -23,6 +23,7 @@ import { toast } from "@/hooks/use-toast";
 import { authHeader } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { MouseEvent } from 'react';
+import { getCountryOptions, isCountryField } from "@/lib/countries";
 interface PropertiesPanelProps {
   selectedField: FormElementModel | null;
   selectedIds: string[];
@@ -226,6 +227,7 @@ const propertiesSchemaByWidgetType: Record<WidgetType, PropertyFieldDef[]> = {
       labelKey: "propert.allowmult",
       type: "switch",
       target: "props.multiple",
+      visible: (fieldParam) => !isCountryField(fieldParam),
     },
   ],
   checkbox: [baseLabelField, helperTextField, requiredField],
@@ -448,7 +450,7 @@ const getValueByTarget = (field: FormElementModel, target: PropertyFieldDef["tar
 };
 
 export function PropertiesPanel({ selectedField, selectedIds, updateField, deleteField, deleteSelected, fields }: PropertiesPanelProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -514,7 +516,9 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
   const props = selectedField.props as Record<string, any>;
   const hideDate = Boolean(props.hideDate);
   const hideTime = Boolean(props.hideTime);
-  const hasOptions = ["select", "radio", "checkbox", "ranking"].includes(selectedField.widgetType);
+  const isCountrySelect = isCountryField(selectedField);
+  const countryOptions = isCountrySelect ? getCountryOptions(i18n.language).map((option) => option.label) : [];
+  const hasOptions = ["select", "radio", "checkbox", "ranking"].includes(selectedField.widgetType) && !isCountrySelect;
   const isMatrix = selectedField.widgetType === "matrix";
   const isHeader = selectedField.widgetType === "header";
   const isDatetime = selectedField.widgetType === "datetime";
@@ -529,7 +533,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
     : [];
 
   const specialized = Boolean(selectedField.semanticType);
-  const canHaveCorrectAnswers = !isHeader && selectedField.widgetType !== "file_upload" && !isDatetime && !specialized;
+  const canHaveCorrectAnswers = !isHeader && selectedField.widgetType !== "file_upload" && !isDatetime && !specialized && !isCountrySelect;
   const isPlainText =
     (selectedField.widgetType === "text_input" || selectedField.widgetType === "textarea") &&
     !selectedField.semanticType &&
@@ -1022,7 +1026,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
     ? semanticTypeLabelKey[selectedField.semanticType]
     : widgetTypeLabelKey[selectedField.widgetType];
 
-  const options = (props.options as string[]) || [];
+  const options = isCountrySelect ? countryOptions : (props.options as string[]) || [];
 
   const correctAnswers = (props.correctAnswers as string[]) || [];
   const hasCorrectAnswers = correctAnswers.length > 0;

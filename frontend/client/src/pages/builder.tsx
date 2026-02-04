@@ -65,7 +65,7 @@ const TOOLBOX_ITEMS: ToolboxItemDefinition[] = [
   { widgetType: "text_input", semanticType: "inn", labelKey: "inn", category: "Specialized" },
   { widgetType: "text_input", semanticType: "snils", labelKey: "snils", category: "Specialized" },
   { widgetType: "text_input", semanticType: "bank_account", labelKey: "account", category: "Specialized" },
-  { widgetType: "select", labelKey: "country", category: "Specialized", props: { options: ["Russia", "USA", "China", "Germany", "France"] } },
+  { widgetType: "select", labelKey: "country", category: "Specialized", props: { optionsSource: "countries" } },
   { widgetType: "text_input", semanticType: "ogrn", labelKey: "ogrn", category: "Specialized" },
   { widgetType: "text_input", semanticType: "bik", labelKey: "bik", category: "Specialized" },
 ];
@@ -345,7 +345,8 @@ export default function Builder({ params }: { params: { id?: string } }) {
     const defaultProps: Record<string, unknown> = { ...(item.props ?? {}) };
     const widgetDefaults: Record<string, unknown> = {};
 
-    if (["select", "radio", "checkbox", "ranking"].includes(item.widgetType)) {
+    const usesCountryOptions = (item.props as Record<string, unknown> | undefined)?.optionsSource === "countries";
+    if (["select", "radio", "checkbox", "ranking"].includes(item.widgetType) && !usesCountryOptions) {
       widgetDefaults.options = ["Option 1", "Option 2"];
     }
     if (item.widgetType === "rating") {
