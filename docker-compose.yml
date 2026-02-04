@@ -87,6 +87,17 @@ services:
     networks:
       - app-network
 
+  adminer:
+    image: adminer:5
+    container_name: adminer
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-network
+    ports:
+      - "127.0.0.1:8081:8080"
+
 secrets:
   ssl_certificate.crt:
     file: ./ssl/nginx.crt
