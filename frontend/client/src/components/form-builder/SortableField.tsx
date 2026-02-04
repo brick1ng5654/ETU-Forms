@@ -23,12 +23,11 @@ interface SortableFieldProps {
   field: FormElementModel;
   isSelected: boolean;
   onSelect: (id: string, event: MouseEvent<HTMLDivElement>) => void;
-  onDelete: (id: string) => void;
   updateField: (id: string, updates: Partial<FormElementModel>) => void;
   fields: FormElementModel[];
 }
 
-export function SortableField({ field, isSelected, onSelect, onDelete, updateField, fields }: SortableFieldProps) {
+export function SortableField({ field, isSelected, onSelect, updateField, fields }: SortableFieldProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [editingElement, setEditingElement] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState<string>("");
@@ -700,13 +699,6 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
       onClick={(e) => {
         e.stopPropagation();
         onSelect(field.id, e);
-      }}
-      onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
-        if (editingElement) return;
-        if (e.key === "Delete") {
-          e.preventDefault();
-          onDelete(field.id);
-        }
       }}
       className={cn(
         "group relative flex items-start gap-2 rounded-lg border border-transparent bg-white transition-all hover:shadow-md",

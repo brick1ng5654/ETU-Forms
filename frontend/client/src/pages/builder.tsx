@@ -104,6 +104,14 @@ const getLocalTimePart = (value: string | null | undefined) => {
   return format(parsed, "HH:mm");
 };
 
+const isEditableElement = (element: Element | null) => {
+  if (!element) return false;
+  if (element instanceof HTMLInputElement) return true;
+  if (element instanceof HTMLTextAreaElement) return true;
+  if (element instanceof HTMLSelectElement) return true;
+  return (element as HTMLElement).isContentEditable === true;
+};
+
 const toIsoFromParts = (dateValue: string | null, timeValue: string) => {
   if (!dateValue || !isValidDateString(dateValue)) return null;
   const [y, m, d] = dateValue.split("-").map(Number);
@@ -440,6 +448,15 @@ export default function Builder({ params }: { params: { id?: string } }) {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      const isDeleteKey = event.key === "Delete" || event.key === "Backspace";
+      if (isDeleteKey) {
+        if (isEditableElement(document.activeElement)) return;
+        if (selectedIds.length === 0) return;
+        event.preventDefault();
+        deleteSelected();
+        return;
+      }
+
       const isUndo =
         (event.ctrlKey || event.metaKey) &&
         !event.shiftKey &&
@@ -467,7 +484,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [history.length, redoHistory.length, undoLast, redoLast]);
+  }, [history.length, redoHistory.length, undoLast, redoLast, selectedIds, deleteSelected]);
 
   const moveSelected = (direction: "up" | "down") => {
     if (selectedIds.length === 0) return;
@@ -1090,7 +1107,6 @@ export default function Builder({ params }: { params: { id?: string } }) {
           moveSelected={moveSelected}
           onSelectField={handleSelectField}
           clearSelection={clearSelection}
-          deleteField={deleteField}
           updateField={updateField}
           onUndo={undoLast}
           onRedo={redoLast}
