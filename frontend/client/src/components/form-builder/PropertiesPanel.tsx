@@ -420,6 +420,22 @@ const getTextMaxLimit = (widgetType: WidgetType) =>
 const clampTextMaxChars = (value: number, limit: number) =>
   Math.min(Math.max(value, 1), limit);
 
+const parseCommaList = (raw: string) =>
+  raw
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+const normalizeCommaList = (raw: string) => parseCommaList(raw).join(", ");
+
+const parseSemicolonList = (raw: string) =>
+  raw
+    .split(";")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+const normalizeSemicolonList = (raw: string) => parseSemicolonList(raw).join("; ");
+
 const getValueByTarget = (field: FormElementModel, target: PropertyFieldDef["target"]) => {
   if (target === "label") return field.label;
   if (target === "description") return field.description || "";
@@ -445,6 +461,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
   const [isMatrixModalOpen, setIsMatrixModalOpen] = useState(false);
   const [pointsInput, setPointsInput] = useState<string>("");
   const [numberDrafts, setNumberDrafts] = useState<Record<string, string>>({});
+  const [commaDrafts, setCommaDrafts] = useState<Record<string, string>>({});
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
   useEffect(() => {
@@ -461,6 +478,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
 
   useEffect(() => {
     setNumberDrafts({});
+    setCommaDrafts({});
   }, [selectedField?.id]);
 
   if (selectedIds.length > 1) {
@@ -882,18 +900,25 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
 
     if (fieldDef.type === "tags") {
       const tagValue = Array.isArray(value) ? (value as string[]).join(", ") : String(value ?? "");
+      const draftKey = `tags:${selectedField.id}:${fieldDef.key}`;
+      const displayValue = Object.prototype.hasOwnProperty.call(commaDrafts, draftKey)
+        ? commaDrafts[draftKey]
+        : tagValue;
       return (
         <div key={fieldDef.key} className="space-y-2">
           {label}
           <Input
             placeholder={fieldDef.placeholder}
-            value={tagValue}
+            value={displayValue}
             onChange={(e) => {
-              const nextValue = e.target.value
-                .split(",")
-                .map((entry) => entry.trim())
-                .filter(Boolean);
+              const raw = e.target.value;
+              setCommaDrafts((prev) => ({ ...prev, [draftKey]: raw }));
+              const nextValue = parseCommaList(raw);
               updateByTarget(fieldDef.target, nextValue);
+            }}
+            onBlur={(e) => {
+              const normalized = normalizeCommaList(e.target.value);
+              setCommaDrafts((prev) => ({ ...prev, [draftKey]: normalized }));
             }}
           />
         </div>
@@ -1217,17 +1242,29 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
           (selectedField.widgetType === "text_input" && props.inputType === "email")) && (
           <div className="space-y-2">
             <Label>{t("propert.domains")}</Label>
-            <Input
-              placeholder="example.com, company.org"
-              value={Array.isArray(props.allowedDomains) ? props.allowedDomains.join(", ") : ""}
-              onChange={(e) => {
-                const nextValue = e.target.value
-                  .split(",")
-                  .map((entry) => entry.trim())
-                  .filter(Boolean);
-                updateField(selectedField.id, { props: { allowedDomains: nextValue } });
-              }}
-            />
+            {(() => {
+              const draftKey = `domains:${selectedField.id}`;
+              const domainValue = Array.isArray(props.allowedDomains) ? props.allowedDomains.join(", ") : "";
+              const displayValue = Object.prototype.hasOwnProperty.call(commaDrafts, draftKey)
+                ? commaDrafts[draftKey]
+                : domainValue;
+              return (
+                <Input
+                  placeholder="example.com, company.org"
+                  value={displayValue}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    setCommaDrafts((prev) => ({ ...prev, [draftKey]: raw }));
+                    const nextValue = parseCommaList(raw);
+                    updateField(selectedField.id, { props: { allowedDomains: nextValue } });
+                  }}
+                  onBlur={(e) => {
+                    const normalized = normalizeCommaList(e.target.value);
+                    setCommaDrafts((prev) => ({ ...prev, [draftKey]: normalized }));
+                  }}
+                />
+              );
+            })()}
           </div>
         )}
 
@@ -1839,28 +1876,45 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                     return (
                       <>
                         <Input
-                          value={Array.isArray(expectedValue)
-                            ? expectedValue.join(", ")
-                            : (expectedValue as string) || ""}
+                          value={(() => {
+                            const draftKey = `expected:${selectedField.id}`;
+                            const expectedValueText = Array.isArray(expectedValue)
+                              ? expectedValue.join(", ")
+                              : (expectedValue as string) || "";
+                            return Object.prototype.hasOwnProperty.call(commaDrafts, draftKey)
+                              ? commaDrafts[draftKey]
+                              : expectedValueText;
+                          })()}
                           onChange={(e) => {
                             const logic = props.conditionalLogic as Record<string, any>;
-                            const value = e.target.value;
-                            const newExpectedValue = value.includes(",")
-                              ? value.split(",").map((entry) => entry.trim()).filter(Boolean)
-                              : value;
+                            const raw = e.target.value;
+                            const draftKey = `expected:${selectedField.id}`;
+                            setCommaDrafts((prev) => ({ ...prev, [draftKey]: raw }));
+                            const parsedEntries = parseSemicolonList(raw);
+                            const hasValues = parsedEntries.length > 0;
+                            const newExpectedValue = raw.includes(";")
+                              ? (hasValues ? parsedEntries : undefined)
+                              : raw.trim();
                             updateField(selectedField.id, {
                               props: {
                                 conditionalLogic: {
                                   ...logic,
-                                  expectedValue: value ? newExpectedValue : undefined,
+                                  expectedValue: hasValues || raw.trim()
+                                    ? newExpectedValue
+                                    : undefined,
                                 },
                               },
                             });
                           }}
+                          onBlur={(e) => {
+                            const draftKey = `expected:${selectedField.id}`;
+                            const normalized = normalizeSemicolonList(e.target.value);
+                            setCommaDrafts((prev) => ({ ...prev, [draftKey]: normalized }));
+                          }}
                           placeholder="Введите ожидаемое значение"
                         />
                         <p className="text-xs text-muted-foreground">
-                          Для множественных значений разделяйте запятой
+                          Для множественных значений разделяйте точкой с запятой
                         </p>
                       </>
                     );
