@@ -12,6 +12,7 @@ import { toast } from "@/hooks/use-toast";
 import { useTranslation } from 'react-i18next';
 import { Languages } from "lucide-react";
 import { authHeader } from "@/lib/auth";
+import { UserMenu } from "@/components/user-menu";
 
 export default function Home() {
   const [forms, setForms] = useState<FormSchema[]>([]);
@@ -52,9 +53,14 @@ export default function Home() {
     }
 
     const created = await response.json();
+    const formId = String(created.form_id ?? "");
+    if (!formId) {
+      throw new Error("Form id is missing in response");
+    }
 
     // ожидаем form_id с бэка
-    window.location.href = `/builder/${created.form_id}`;
+    storage.createFormWithId(formId);
+    window.location.href = `/builder/${formId}`;
   } catch (error) {
     console.error("Ошибка создания формы:", error);
     alert("Не удалось создать форму");
@@ -140,6 +146,7 @@ export default function Home() {
           <Button onClick={createNewForm} className="gap-2">
             <Plus className="h-4 w-4" /> {t('navigation.createNewForm')}
           </Button>
+          <UserMenu />
         </div>
       </header>
 
