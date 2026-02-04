@@ -209,6 +209,7 @@ interface TextLengthIndicatorProps {
 
 const TEXT_SINGLELINE_MAX_CHARS = 255;
 const TEXT_MULTILINE_MAX_CHARS = 10000;
+const MAX_NUMBER_INPUT_CHARS = 36;
 
 const getTextMaxLimit = (field: FormElementModel) =>
   field.widgetType === "textarea" ? TEXT_MULTILINE_MAX_CHARS : TEXT_SINGLELINE_MAX_CHARS;
@@ -219,6 +220,24 @@ const getTextMaxChars = (field: FormElementModel) => {
   const rawMax = typeof props.maxChars === "number" ? props.maxChars : limit;
   const normalized = rawMax > 0 ? rawMax : 1;
   return Math.min(normalized, limit);
+};
+
+const sanitizeNumberInput = (raw: string, allowDecimals: boolean) => {
+  let normalized = raw.replace(/[^\d.]/g, "");
+  if (!allowDecimals) {
+    normalized = normalized.replace(/\./g, "");
+  } else {
+    const dotIndex = normalized.indexOf(".");
+    if (dotIndex !== -1) {
+      normalized = `${normalized.slice(0, dotIndex + 1)}${normalized
+        .slice(dotIndex + 1)
+        .replace(/\./g, "")}`;
+    }
+  }
+  if (normalized.length > MAX_NUMBER_INPUT_CHARS) {
+    normalized = normalized.slice(0, MAX_NUMBER_INPUT_CHARS);
+  }
+  return normalized;
 };
 function LengthIndicator({ len, limit, isError, isComplete }: LengthIndicatorProps) {
   const progress = limit ? Math.min(len / limit, 1) : 0;
@@ -1193,17 +1212,27 @@ export function FormPreview({ form }: FormPreviewProps) {
           );
         })()}
 
-        {field.widgetType === "number_input" && (
-          <Input
-            type="number"
-            step={(props.allowDecimals as boolean) ? "any" : "1"}
-            placeholder={props.placeholder as string}
-            value={(answers[field.id] as string) || ""}
-            onChange={(e) => updateAnswer(field.id, e.target.value)}
-            onBlur={() => markTouched(field.id)}
-            disabled={results !== null}
-          />
-        )}
+        {field.widgetType === "number_input" && (() => {
+          const allowDecimals = Boolean(props.allowDecimals);
+          const rawValue = answers[field.id];
+          const value = rawValue == null ? "" : String(rawValue);
+          return (
+            <Input
+              type="text"
+              inputMode={allowDecimals ? "decimal" : "numeric"}
+              pattern={allowDecimals ? "[0-9.]*" : "[0-9]*"}
+              placeholder={props.placeholder as string}
+              value={value}
+              maxLength={MAX_NUMBER_INPUT_CHARS}
+              onChange={(e) => {
+                const sanitized = sanitizeNumberInput(e.target.value, allowDecimals);
+                updateAnswer(field.id, sanitized);
+              }}
+              onBlur={() => markTouched(field.id)}
+              disabled={results !== null}
+            />
+          );
+        })()}
 
         {field.widgetType === "datetime" && (() => {
           const dateTime = (answers[field.id] as DateTimeAnswer) || {};
