@@ -15,6 +15,11 @@ class AccessRole(str, Enum):
     EDITOR = 'editor'
     PARTICIPANT = 'participant'
 
+class FormStatus(str, Enum):
+    TEMP = 'temp'
+    SUBMITTED = 'submitted'
+    DELETED = 'deleted'
+
 class ResponseStatus(str, Enum):
     DRAFT = 'draft'
     SUBMITTED = 'submitted'
@@ -96,7 +101,7 @@ class FormBase(BaseModel):
     access_mode: FormAccessMode = FormAccessMode.PRIVATE
 
 class FormCreate(FormBase):
-    user_id: int #Пока нет аутентификации передаем руками с фронта, далее, оно долно запрашиваться с сервера
+    user_id: Optional[int] = None  # временно, дальше берём из токена
 
 class FormUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=255)
@@ -110,14 +115,25 @@ class FormResponse(FormBase):
     form_id: int
     user_id: int
     version: int
+    prev_form_id: Optional[int] = None
+    status: FormStatus
+    deleted_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
 
 class FormListResponse(BaseModel):
-    forms: List[FormResponse]
+    forms: List["FormSummaryResponse"]
     total: int
+
+class FormSummaryResponse(FormResponse):
+    elements_count: int = 0
+
+class FormDetailResponse(FormResponse):
+    elements: List["BuilderElementOut"] = Field(default_factory=list)
+    conditions: List["BuilderConditionOut"] = Field(default_factory=list)
 
 # Response SCHEMAS
 class ResponseBase(BaseModel):
@@ -299,16 +315,20 @@ class BuilderElementIn(BaseModel):
             raise ValueError("file_ids must contain at most 10 items")
         return self
 
+class BuilderElementOut(BuilderElementIn):
+    pass
+
 class BuilderConditionIn(BaseModel):
     source_client_id: str
     target_client_id: str
     operator: ConditionOperator
     value: Optional[Dict[str, Any]] = None
 
-class FormPublishRequest(BaseModel):
-    user_id: int
-    title: str = Field(..., min_length=1, max_length=255)
+class BuilderConditionOut(BuilderConditionIn):
+    pass
 
+class FormBuilderPayload(BaseModel):
+    title: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
     settings_json: Optional[Dict[str, Any]] = None
     start_at: Optional[datetime] = None
@@ -336,4 +356,8 @@ class LoginResponse(BaseModel):
     name: str
 
     model_config = ConfigDict(from_attributes=True)
+
+
+FormListResponse.model_rebuild()
+FormDetailResponse.model_rebuild()
 

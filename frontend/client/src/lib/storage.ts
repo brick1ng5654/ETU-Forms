@@ -60,7 +60,14 @@ export const storage = {
     const existingIndex = forms.findIndex(f => f.id === form.id);
 
     const normalized = normalizeFieldsWithMeta(form.fields);
-    const updatedForm = { ...form, fields: normalized.fields, updatedAt: Date.now() };
+    const existing = existingIndex >= 0 ? forms[existingIndex] : undefined;
+    const updatedForm = {
+      ...form,
+      folderId: form.folderId ?? existing?.folderId,
+      fields: normalized.fields,
+      fieldCount: form.fieldCount ?? normalized.fields.length,
+      updatedAt: form.updatedAt ?? Date.now(),
+    };
 
     if (existingIndex >= 0) {
       forms[existingIndex] = updatedForm;
@@ -70,6 +77,28 @@ export const storage = {
 
     localStorage.setItem(STORAGE_KEY_FORMS, JSON.stringify(forms));
     return updatedForm;
+  },
+
+  setForms: (forms: FormSchema[]) => {
+    localStorage.setItem(STORAGE_KEY_FORMS, JSON.stringify(forms));
+  },
+
+  mergeRemoteForms: (remoteForms: FormSchema[]): FormSchema[] => {
+    const localForms = storage.getForms();
+    const folderById = new Map(localForms.map(form => [form.id, form.folderId]));
+    const localById = new Map(localForms.map(form => [form.id, form]));
+    const merged = remoteForms.map(form => {
+      const localForm = localById.get(form.id);
+      const fields = form.fields.length > 0 ? form.fields : (localForm?.fields ?? form.fields);
+      return {
+        ...form,
+        fields,
+        fieldCount: form.fieldCount ?? localForm?.fieldCount,
+        folderId: folderById.get(form.id),
+      };
+    });
+    storage.setForms(merged);
+    return merged;
   },
 
   deleteForm: (id: string) => {
@@ -105,6 +134,8 @@ export const storage = {
       title: t("common.untitled"),
       description: "",
       fields: [],
+      fieldCount: 0,
+      status: "temp",
       startAt: null,
       endAt: null,
       accessMode: "private",
@@ -123,6 +154,8 @@ export const storage = {
       title: t("common.untitled"),
       description: "",
       fields: [],
+      fieldCount: 0,
+      status: "temp",
       startAt: null,
       endAt: null,
       accessMode: "private",

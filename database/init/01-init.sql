@@ -104,6 +104,14 @@ BEGIN
             'deleted'
         );
     END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'form_status') THEN
+        CREATE TYPE form_status AS ENUM (
+            'temp',
+            'submitted',
+            'deleted'
+        );
+    END IF;
 END$$;
 
 -- Создаем таблицу форм
@@ -120,6 +128,9 @@ CREATE TABLE IF NOT EXISTS Form (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     access_mode form_access_mode DEFAULT 'private',
+    status form_status NOT NULL DEFAULT 'temp',
+    expires_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP + INTERVAL '7 days'),
+    deleted_at TIMESTAMP NULL,
     version INT DEFAULT 1,
     prev_form_id INT NULL,
 
@@ -138,6 +149,15 @@ CREATE TABLE IF NOT EXISTS Form (
 -- Все формы пользователя
 CREATE INDEX IF NOT EXISTS idx_form_user_created
 ON form (user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS ix_form_user_status
+ON form (user_id, status);
+
+CREATE INDEX IF NOT EXISTS ix_form_status_expires
+ON form (status, expires_at);
+
+CREATE INDEX IF NOT EXISTS ix_form_status_deleted
+ON form (status, deleted_at);
 
 
 -- Комментарии к таблице и полям

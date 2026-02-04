@@ -11,8 +11,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { toast } from "@/hooks/use-toast";
 import { useTranslation } from 'react-i18next';
 import { Languages } from "lucide-react";
-import { authHeader } from "@/lib/auth";
 import { UserMenu } from "@/components/user-menu";
+import { createForm, deleteForm as deleteFormApi, fetchForms } from "@/lib/forms-api";
 
 export default function Home() {
   const [forms, setForms] = useState<FormSchema[]>([]);
@@ -22,50 +22,37 @@ export default function Home() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { t, i18n } = useTranslation();
 
-  const refreshData = () => {
-    setForms(storage.getForms());
-    setFolders(storage.getFolders());
+  const refreshData = async () => {
+    try {
+      const remoteForms = await fetchForms();
+      const merged = storage.mergeRemoteForms(remoteForms);
+      setForms(merged);
+      setFolders(storage.getFolders());
+    } catch (error) {
+      console.error("Failed to load forms:", error);
+      setForms(storage.getForms());
+      setFolders(storage.getFolders());
+    }
   };
 
   useEffect(() => {
-    refreshData();
+    void refreshData();
   }, []);
 
   const createNewForm = async () => {
-  try {
-    const formData = {
-      user_id: 1,
-      title: "Новая форма",
-      description: "",
-      settings_json: { fields: [] },
-      access_mode: "private",
-    };
-
-    const response = await fetch("/api/v1/forms", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeader() },
-      body: JSON.stringify(formData),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Ошибка создания формы: ${response.status} - ${errorText}`);
+    try {
+      const created = await createForm({
+        title: t("common.untitled"),
+        description: "",
+      });
+      storage.saveForm({ ...created, fields: created.fields ?? [] });
+      setForms(storage.getForms());
+      window.location.href = `/builder/${created.id}`;
+    } catch (error) {
+      console.error("Failed to create form:", error);
+      alert("Failed to create form");
     }
-
-    const created = await response.json();
-    const formId = String(created.form_id ?? "");
-    if (!formId) {
-      throw new Error("Form id is missing in response");
-    }
-
-    // ожидаем form_id с бэка
-    storage.createFormWithId(formId);
-    window.location.href = `/builder/${formId}`;
-  } catch (error) {
-    console.error("Ошибка создания формы:", error);
-    alert("Не удалось создать форму");
-  }
-};
+  };
 
 
   const createFolder = () => {
@@ -81,7 +68,7 @@ export default function Home() {
 
     storage.createFolder(newFolderName.trim());
     setNewFolderName("");
-    refreshData();
+    void refreshData();
     setIsDialogOpen(false);
   };
 
@@ -89,16 +76,21 @@ export default function Home() {
     if (confirm(t("actions.confirmDeleteFolder"))) {
       storage.deleteFolder(id);
       if (selectedFolderId === id) setSelectedFolderId(null);
-      refreshData();
+      void refreshData();
     }
   };
 
-  const deleteForm = (e: React.MouseEvent, id: string) => {
+  const deleteForm = async (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
     if (confirm(t("actions.confirmDeleteForm"))) {
+      try {
+        await deleteFormApi(id);
+      } catch (error) {
+        console.error("Failed to delete form:", error);
+      }
       storage.deleteForm(id);
-      refreshData();
+      void refreshData();
     }
   };
 
@@ -108,7 +100,7 @@ export default function Home() {
     const form = forms.find(f => f.id === formId);
     if (form) {
       storage.saveForm({ ...form, folderId });
-      refreshData();
+      void refreshData();
     }
   };
 
@@ -271,7 +263,7 @@ export default function Home() {
                     </p>
                     <div className="mt-4 pt-4 border-t flex items-center gap-4 text-sm text-muted-foreground">
                       <div className="flex items-center gap-1">
-                        <span className="font-medium text-foreground">{form.fields.length}</span> {t("navigation.fields")}
+                        <span className="font-medium text-foreground">{form.fieldCount ?? form.fields.length}</span> {t("navigation.fields")}
                       </div>
                     </div>
                   </div>
