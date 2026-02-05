@@ -8,7 +8,7 @@ from app.database import init_db, close_db, AsyncSessionLocal
 from app.api.v1.routers import api_router
 from app.logging_config import setup_logging
 from app.middlewares.error_logging import ServerErrorLoggingMiddleware
-from app.services.seed_admin import seed_admin
+from app.services.seed_users import seed_users
 from app.redis_client import close_redis
 
 # Запуск логера сообщений, должна быть структура
@@ -32,7 +32,7 @@ async def lifespan(app: FastAPI):
 
     async with AsyncSessionLocal() as session:
         try:
-            await seed_admin(session)
+            await seed_users(session)
             await session.commit()
         except:
             await session.rollback()
