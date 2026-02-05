@@ -64,6 +64,11 @@ export interface FormSchema {
   title: string;
   description: string;
   fields: FormElementModel[];
+  fieldCount?: number;
+  status?: "temp" | "submitted" | "deleted";
+  version?: number;
+  prevFormId?: string | null;
+  settings_json?: Record<string, unknown> | null;
   startAt?: string | null;
   endAt?: string | null;
   accessMode?: FormAccessMode;

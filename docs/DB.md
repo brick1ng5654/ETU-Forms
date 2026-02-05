@@ -37,15 +37,20 @@
 | start_at | TIMESTAMP |  | NULL | Начало приема ответов |
 | end_at | TIMESTAMP |  | NULL | Конец приема ответов |
 | access_mode | FORM_ACCESS_MODE |  | DEFAULT | Режим доступа к форме |
+| status | FORM_STATUS |  | DEFAULT | Статус формы |
+| expires_at | TIMESTAMP |  | NULL/DEFAULT | Время жизни черновика (temp) |
+| deleted_at | TIMESTAMP |  | NULL | Время мягкого удаления |
 | created_at | TIMESTAMP |  | DEFAULT | Дата создания формы |
 | updated_at | TIMESTAMP |  | DEFAULT | Дата последнего обновления |
 
 **Домены и перечисления**
 - FORM_ACCESS_MODE: Public (публичная), Private (по ссылке), Unauthenticated (для неавторизованных).
+- FORM_STATUS: temp (черновик), submitted (опубликована), deleted (удалена).
 
 **Правила целостности**
 - `user_id` обязателен и ссылается на `User.user_id`.
 - `prev_form_id` ссылается на `Form.form_id` и может быть NULL.
+- Если `status = temp` и `expires_at` в прошлом, форма переводится в `deleted` (soft-delete).
 
 ### Response
 | Поле | Тип | Ключ | Ограничения | Суть |

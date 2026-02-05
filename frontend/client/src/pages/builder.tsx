@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import {
   Eye,
   Share2,
-  ClipboardList,
+  Save,
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
@@ -27,15 +27,20 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { storage } from "@/lib/storage";
-import { authHeader } from "@/lib/auth";
 import { useLocation } from "wouter";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
-import type { UnknownTypeWarning } from "@/form/adapters/fromStructureJson";
-import { fromStructureJsonWithMeta, getLastUnknownTypeWarnings } from "@/form/adapters/fromStructureJson";
 import { UserMenu } from "@/components/user-menu";
+import {
+  createForm,
+  fetchFormDetail,
+  fetchForms,
+  publishForm,
+  saveForm,
+  deleteForm as deleteFormApi,
+} from "@/lib/forms-api";
 
 import { useTranslation } from 'react-i18next';
 import { Languages } from "lucide-react";
@@ -143,7 +148,6 @@ export default function Builder({ params }: { params: { id?: string } }) {
   const lastHistoryAtRef = useRef(0);
   const MAX_HISTORY = 50;
   const HISTORY_MERGE_WINDOW_MS = 2000;
-  const [unknownTypeWarnings, setUnknownTypeWarnings] = useState<UnknownTypeWarning[]>([]);
   const [isPublishOpen, setIsPublishOpen] = useState(false);
   const [publishStartDate, setPublishStartDate] = useState<string | null>(null);
   const [publishStartTime, setPublishStartTime] = useState("");
@@ -187,38 +191,50 @@ export default function Builder({ params }: { params: { id?: string } }) {
     setLastSelectedId(null);
   };
   const [isToolboxOpen, setIsToolboxOpen] = useState(true);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { t, i18n } = useTranslation();
 
   // Initialize
+
   useEffect(() => {
-    const loadedForms = storage.getForms();
-    if (loadedForms.length > 0) {
-      setForms(loadedForms);
-      if (params.id) {
-        setActiveFormId(params.id);
-      } else {
-        setActiveFormId(loadedForms[0].id);
+    if (!params.id) return;
+    setActiveFormId(params.id);
+    const load = async () => {
+      try {
+        const remoteForms = await fetchForms();
+        const merged = storage.mergeRemoteForms(remoteForms);
+        setForms(merged);
+      } catch (error) {
+        console.error("Failed to load forms:", error);
+        setForms(storage.getForms());
       }
-    } else {
-      // Create default form if none exist
-      const newForm = storage.createForm();
-      setForms([newForm]);
-      setActiveFormId(newForm.id);
-    }
-    if (import.meta.env.DEV) {
-      setUnknownTypeWarnings(getLastUnknownTypeWarnings());
-    }
-  }, []);
+    };
+    void load();
+  }, [params.id]);
 
-  // Sync active form ID with URL if params change
   useEffect(() => {
-    if (params.id && forms.some(f => f.id === params.id)) {
-      setActiveFormId(params.id);
-    }
-  }, [params.id, forms]);
+    if (!activeFormId) return;
+    const loadDetail = async () => {
+      try {
+        const detail = await fetchFormDetail(activeFormId);
+        storage.saveForm(detail);
+        setForms((prev) => {
+          const existing = prev.find((form) => form.id === detail.id);
+          const merged = existing ? { ...detail, folderId: existing.folderId } : detail;
+          const exists = Boolean(existing);
+          if (exists) {
+            return prev.map((form) => (form.id === detail.id ? merged : form));
+          }
+          return [merged, ...prev];
+        });
+      } catch (error) {
+        console.error("Failed to load form detail:", error);
+        toast({ title: t("builder.error"), description: "Form load failed", variant: "destructive" });
+      }
+    };
+    void loadDetail();
+  }, [activeFormId, t]);
 
-  const activeForm = forms.find(f => f.id === activeFormId) || forms[0];
+  const activeForm = forms.find(f => f.id === activeFormId) || forms[0] || null;
   const fields = activeForm?.fields || [];
 
   useEffect(() => {
@@ -306,27 +322,37 @@ export default function Builder({ params }: { params: { id?: string } }) {
   };
 
   // Form Management
-  const addNewForm = () => {
-    const newForm = storage.createForm();
-    const activeFormIndex = forms.findIndex(f => f.id === activeFormId);
-    let newForms: FormSchema[];
-
-    if (activeFormIndex >= 0) {
-      newForms = [...forms.slice(0, activeFormIndex + 1), newForm, ...forms.slice(activeFormIndex + 1)];
-    } else {
-      newForms = [...forms, newForm];
+  const addNewForm = async () => {
+    try {
+      const created = await createForm({
+        title: t("common.untitled"),
+        description: "",
+      });
+      storage.saveForm({ ...created, fields: created.fields ?? [] });
+      const activeFormIndex = forms.findIndex(f => f.id === activeFormId);
+      const nextForms =
+        activeFormIndex >= 0
+          ? [...forms.slice(0, activeFormIndex + 1), created, ...forms.slice(activeFormIndex + 1)]
+          : [...forms, created];
+      setForms(nextForms);
+      setActiveFormId(created.id);
+      setLocation(`/builder/${created.id}`);
+    } catch (error) {
+      console.error("Failed to create form:", error);
+      toast({ title: t("builder.error"), description: "Create form failed", variant: "destructive" });
     }
-
-    setForms(newForms);
-    setActiveFormId(newForm.id);
-    setLocation(`/builder/${newForm.id}`);
   };
 
-  const closeForm = (e: React.MouseEvent, id: string) => {
+  const closeForm = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     if (forms.length === 1) {
       toast({ title: t('builder.cannotCloseLastForm'), variant: "destructive" });
       return;
+    }
+    try {
+      await deleteFormApi(id);
+    } catch (error) {
+      console.error("Failed to delete form:", error);
     }
     const newForms = forms.filter(f => f.id !== id);
     setForms(newForms);
@@ -571,38 +597,32 @@ export default function Builder({ params }: { params: { id?: string } }) {
     return out;
   };
 
-  const publishToServer = async () => {
-    if (!activeForm) return;
+  const resolvePublishFields = (): FormElementModel[] => {
+    if (!activeForm) return [];
+    return Array.isArray(activeForm.fields) ? activeForm.fields : [];
+  };
 
-    const resolvePublishFields = (): FormElementModel[] => {
-      if (Array.isArray(activeForm.fields) && activeForm.fields.length > 0) {
-        return activeForm.fields;
-      }
-      // structure_json - это пока что для старых форм из local_storage
-      const raw = (activeForm as any)?.structure_json?.fields;
-      if (Array.isArray(raw) && raw.length > 0) {
-        const normalized =
-          !raw[0]?.widgetType && raw[0]?.type
-            ? fromStructureJsonWithMeta({ fields: raw }).fields
-            : raw;
-        return normalizeFields(normalized as FormElementModel[]);
-      }
-      return [];
-    };
+  const buildBuilderPayload = (
+    publishFields: FormElementModel[],
+    overrides?: {
+      accessMode?: FormAccessMode;
+      startAt?: string | null;
+      endAt?: string | null;
+    }
+  ) => {
+    if (!activeForm) return null;
+    const accessMode = overrides?.accessMode ?? activeForm.accessMode ?? "private";
+    const startAt = overrides?.startAt ?? activeForm.startAt ?? null;
+    const endAt = overrides?.endAt ?? activeForm.endAt ?? null;
 
-    const publishFields = resolvePublishFields();
-
-    const payload = {
-      user_id: 1, // пока руками
+    return {
       title: activeForm.title,
       description: activeForm.description,
-      access_mode: publishAccessMode,
-      start_at: publishNoStart ? null : toIsoFromParts(publishStartDate, publishStartTime),
-      end_at: publishNoStart || publishNoEnd ? null : toIsoFromParts(publishEndDate, publishEndTime),
+      access_mode: accessMode,
+      start_at: startAt,
+      end_at: endAt,
       settings_json: activeForm.settings_json ?? { client_form_id: activeForm.id },
-
       elements: publishFields.map((f, index) => {
-        // Преобразование из f.props (свойства элемента из фронта) в свойства в бд.
         const { placeholder, correctAnswer, correctAnswers, points, conditionalLogic, attachments, ...otherSettings } = (f.props ?? {}) as Record<string, unknown>;
         const fileIds = Array.isArray(attachments)
           ? Array.from(
@@ -631,7 +651,6 @@ export default function Builder({ params }: { params: { id?: string } }) {
           }
         }
         const rawCorrectAnswer = correctAnswer ?? correctAnswers;
-        // Парсинг правильного ответа в поле правильного ответа
         const normalizedCorrectAnswer = (() => {
           if (rawCorrectAnswer == null) return null;
           if (Array.isArray(rawCorrectAnswer)) return { values: rawCorrectAnswer };
@@ -639,7 +658,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
           return { value: rawCorrectAnswer };
         })();
         return {
-          client_id: f.id,                 // nanoid
+          client_id: f.id,
           widget: mapWidgetTypeForPublish(f.widgetType),
           semantic: f.semanticType ?? null,
           label: f.label,
@@ -649,75 +668,77 @@ export default function Builder({ params }: { params: { id?: string } }) {
           required_field: !!f.required,
           other_settings: cleanedOtherSettings,
           file_ids: fileIds,
-          sort_index: typeof f.sortIndex === "number" ? f.sortIndex : index
+          sort_index: typeof f.sortIndex === "number" ? f.sortIndex : index,
         };
       }),
-
       conditions: extractConditionsFromFields(publishFields),
     };
-
-    const res = await fetch("/api/v1/forms/publish", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeader() },
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail ?? "Publish failed");
-    }
-
-    return res.json() as Promise<{ form_id: number }>;
   };
+
+  const saveToServer = async () => {
+    if (!activeForm) return;
+    const publishFields = resolvePublishFields();
+    const payload = buildBuilderPayload(publishFields, {
+      accessMode: activeForm.accessMode ?? "private",
+      startAt: activeForm.startAt ?? null,
+      endAt: activeForm.endAt ?? null,
+    });
+    if (!payload) return;
+    const saved = await saveForm(activeForm.id, payload);
+    storage.saveForm(saved);
+    setForms((prev) => {
+      const existing = prev.find((form) => form.id === saved.id);
+      const merged = existing ? { ...saved, folderId: existing.folderId } : saved;
+      if (existing) {
+        return prev.map((form) => (form.id === saved.id ? merged : form));
+      }
+      return [...prev, merged];
+    });
+    if (saved.id !== activeForm.id) {
+      setActiveFormId(saved.id);
+      setLocation(`/builder/${saved.id}`);
+    }
+    toast({ title: t("builder.formSaved"), description: "Saved to DB" });
+  };
+
+  const publishToServer = async () => {
+    if (!activeForm) return;
+    const publishFields = resolvePublishFields();
+    const payload = buildBuilderPayload(publishFields, {
+      accessMode: publishAccessMode,
+      startAt: publishNoStart ? null : toIsoFromParts(publishStartDate, publishStartTime),
+      endAt: publishNoStart || publishNoEnd ? null : toIsoFromParts(publishEndDate, publishEndTime),
+    });
+    if (!payload) return;
+    return publishForm(activeForm.id, payload);
+  };
+
+  const handleSave = async () => {
+    try {
+      await saveToServer();
+    } catch (e: any) {
+      toast({ title: t("builder.error"), description: e.message ?? "Save error", variant: "destructive" });
+    }
+  };
+
   const handlePublish = async () => {
     try {
       const result = await publishToServer();
-      toast({ title: t("builder.published"), description: `Saved to DB. form_id=${result.form_id}` });
+      if (!result) return;
+      storage.saveForm(result);
+      setForms((prev) => {
+        const existing = prev.find((form) => form.id === result.id);
+        const merged = existing ? { ...result, folderId: existing.folderId } : result;
+        if (existing) {
+          return prev.map((form) => (form.id === result.id ? merged : form));
+        }
+        return [...prev, merged];
+      });
+      toast({ title: t("builder.published"), description: `Saved to DB. form_id=${result.id}` });
       setIsPublishOpen(false);
     } catch (e: any) {
       toast({ title: t("builder.error"), description: e.message ?? "Publish error", variant: "destructive" });
     }
-  };
-
-  const loadFormJson = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const content = e.target?.result as string;
-        const schema = JSON.parse(content);
-        const rawFields = Array.isArray(schema.fields)
-          ? schema.fields
-          : Array.isArray(schema.structure_json?.fields)
-            ? schema.structure_json.fields
-            : [];
-        if (Array.isArray(rawFields)) {
-          const normalizedResult =
-            rawFields.length > 0 && !rawFields[0].widgetType && rawFields[0].type
-              ? fromStructureJsonWithMeta({ fields: rawFields })
-              : { fields: rawFields, warnings: [] };
-          if (import.meta.env.DEV) {
-            setUnknownTypeWarnings(normalizedResult.warnings);
-          }
-          const newForm = {
-            ...activeForm,
-            title: schema.title || activeForm.title,
-            description: schema.description || activeForm.description,
-            fields: normalizeFields(normalizedResult.fields as FormElementModel[]),
-          };
-          setForm(newForm);
-          toast({ title: t('builder.formLoaded'), description: t('builder.formLoadedDesc') });
-        } else {
-          throw new Error("Invalid schema");
-        }
-      } catch (error) {
-        toast({ title: t('builder.error'), description: t('builder.invalidJson'), variant: "destructive" });
-      }
-    };
-    reader.readAsText(file);
-    event.target.value = "";
   };
 
   const selectedField = selectedIds.length === 1 ? fields.find(f => f.id === selectedIds[0]) || null : null;
@@ -820,9 +841,8 @@ export default function Builder({ params }: { params: { id?: string } }) {
               </DialogContent>
             </Dialog>
 
-            <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={loadFormJson} />
-            <Button variant="outline" size="sm" className="gap-2">
-              <ClipboardList className="h-4 w-4" /> <span className="hidden sm:inline">{t('builder.load')}</span>
+            <Button variant="outline" size="sm" className="gap-2" onClick={handleSave}>
+              <Save className="h-4 w-4" /> <span className="hidden sm:inline">{t('builder.save')}</span>
             </Button>
             <Popover open={isPublishOpen} onOpenChange={setIsPublishOpen}>
               <PopoverTrigger asChild>
@@ -1073,11 +1093,6 @@ export default function Builder({ params }: { params: { id?: string } }) {
           <UserMenu />
         </div>
       </header>
-      {import.meta.env.DEV && unknownTypeWarnings.length > 0 && (
-        <div className="bg-red-50 border-b border-red-200 text-red-700 text-sm px-4 py-2">
-          Unknown field types detected. Check console for details.
-        </div>
-      )}
 
       <div className="flex-1 flex overflow-hidden">
         <div className={cn("border-r border-border bg-white flex flex-col shrink-0 z-10 transition-all duration-300 ease-in-out overflow-hidden", isToolboxOpen ? "w-64" : "w-0 border-r-0")}>

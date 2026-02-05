@@ -1,6 +1,6 @@
 # Зеркальный код БД, но не на SQL, а на понятном Python языке.
 
-from sqlalchemy import Column, Integer, String, Boolean, text, Text, DateTime, ForeignKey, JSON, Enum, CheckConstraint, func, BigInteger
+from sqlalchemy import Column, Integer, String, Boolean, text, Text, DateTime, ForeignKey, JSON, Enum, CheckConstraint, func, BigInteger, Index
 from sqlalchemy.orm import relationship, declarative_base
 from sqlalchemy.dialects.postgresql import ENUM, ARRAY
 from app.database import Base
@@ -15,9 +15,19 @@ class AccessRole(str, enum.Enum):
     EDITOR = 'editor'
     PARTICIPANT = 'participant'
 
+class FormStatus(str, enum.Enum):
+    TEMP = 'temp'
+    SUBMITTED = 'submitted'
+    DELETED = 'deleted'
+
 form_access_mode_enum = ENUM(
     'public', 'private', 'unauthenticated',
     name='form_access_mode'
+)
+
+form_status_enum = ENUM(
+    'temp', 'submitted', 'deleted',
+    name='form_status'
 )
 
 access_role_enum = ENUM(
@@ -80,12 +90,18 @@ class Form(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     access_mode = Column(form_access_mode_enum, server_default="private")
+    status = Column(form_status_enum, nullable=False, server_default="temp")
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+    expires_at = Column(DateTime(timezone=True), server_default=text("now() + interval '7 days'"))
     version = Column(Integer, default=1)
     prev_form_id = Column(Integer, ForeignKey("form.form_id"), nullable=True)
 
     __table_args__ = (
         CheckConstraint('start_at IS NULL OR end_at IS NULL OR start_at <= end_at', name='valid_dates'),
-        CheckConstraint('version > 0', name = 'valid_version')
+        CheckConstraint('version > 0', name = 'valid_version'),
+        Index('ix_form_user_status', 'user_id', 'status'),
+        Index('ix_form_status_expires', 'status', 'expires_at'),
+        Index('ix_form_status_deleted', 'status', 'deleted_at'),
     )
 
     user = relationship("AppUser", back_populates="forms")

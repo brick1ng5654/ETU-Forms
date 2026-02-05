@@ -1,32 +1,39 @@
 ﻿from __future__ import annotations
 
 from typing import Any
+from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import update
+from sqlalchemy import update, delete
 
 from app import models
-from app.schemas import FormPublishRequest
+from app.schemas import FormBuilderPayload
+
+
+FORM_DRAFT_TTL_DAYS = 7
 
 
 def _enum_value(x: Any) -> Any:
     return x.value if hasattr(x, "value") else x
 
 
-async def publish_form(db: AsyncSession, payload: FormPublishRequest) -> models.Form:
-    form = models.Form(
-        user_id=payload.user_id,
-        title=payload.title,
-        description=payload.description,
-        settings_json=payload.settings_json,
-        start_at=payload.start_at,
-        end_at=payload.end_at,
-        access_mode=_enum_value(payload.access_mode) if payload.access_mode is not None else "private",
+def _draft_expires_at() -> datetime:
+    return datetime.utcnow() + timedelta(days=FORM_DRAFT_TTL_DAYS)
+
+
+async def _replace_elements_and_conditions(
+    db: AsyncSession,
+    form_id: int,
+    payload: FormBuilderPayload,
+    *,
+    mark_files_submitted: bool,
+) -> None:
+    await db.execute(
+        delete(models.FormElementCondition).where(models.FormElementCondition.form_id == form_id)
     )
-    db.add(form)
+    await db.execute(delete(models.FormElement).where(models.FormElement.form_id == form_id))
     await db.flush()
 
     client_to_db_id: dict[str, int] = {}
-    created_elements: list[models.FormElement] = []
 
     for el in sorted(payload.elements, key=lambda x: x.sort_index):
         other = dict(el.other_settings or {})
@@ -46,7 +53,7 @@ async def publish_form(db: AsyncSession, payload: FormPublishRequest) -> models.
             raise ValueError("file_ids must contain at most 10 items")
 
         row = models.FormElement(
-            form_id=form.form_id,
+            form_id=form_id,
             template_id=None,
             widget=_enum_value(el.widget),
             semantic=_enum_value(el.semantic) if el.semantic is not None else None,
@@ -63,7 +70,7 @@ async def publish_form(db: AsyncSession, payload: FormPublishRequest) -> models.
         db.add(row)
         await db.flush()
 
-        if file_ids:
+        if mark_files_submitted and file_ids:
             await db.execute(
                 update(models.UploadedFile)
                 .where(models.UploadedFile.file_id.in_(file_ids))
@@ -71,7 +78,6 @@ async def publish_form(db: AsyncSession, payload: FormPublishRequest) -> models.
             )
 
         client_to_db_id[el.client_id] = row.element_id
-        created_elements.append(row)
 
     for c in payload.conditions:
         source_id = client_to_db_id.get(c.source_client_id)
@@ -81,7 +87,7 @@ async def publish_form(db: AsyncSession, payload: FormPublishRequest) -> models.
 
         db.add(
             models.FormElementCondition(
-                form_id=form.form_id,
+                form_id=form_id,
                 template_id=None,
                 source_element_id=source_id,
                 target_element_id=target_id,
@@ -91,5 +97,39 @@ async def publish_form(db: AsyncSession, payload: FormPublishRequest) -> models.
         )
 
     await db.flush()
+
+
+async def apply_builder_payload(
+    db: AsyncSession,
+    form: models.Form,
+    payload: FormBuilderPayload,
+    *,
+    target_status: str,
+) -> models.Form:
+    form.title = payload.title
+    form.description = payload.description
+    form.settings_json = payload.settings_json
+    form.start_at = payload.start_at
+    form.end_at = payload.end_at
+    if payload.access_mode is not None:
+        form.access_mode = _enum_value(payload.access_mode)
+
+    if target_status == "submitted":
+        form.status = "submitted"
+        form.expires_at = None
+        form.deleted_at = None
+    else:
+        form.status = "temp"
+        form.expires_at = _draft_expires_at()
+
+    await db.flush()
+
+    await _replace_elements_and_conditions(
+        db,
+        form.form_id,
+        payload,
+        mark_files_submitted=(target_status == "submitted"),
+    )
+
     await db.refresh(form)
     return form
