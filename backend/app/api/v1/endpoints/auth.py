@@ -40,6 +40,15 @@ async def login(request: Request, payload: LoginRequest, db: AsyncSession = Depe
     fail_key = f"auth:fail:ip_email:{ip}:{email_h}"
     lock_key = f"auth:lock:ip_email:{ip}:{email_h}"
 
+    locked, lock_ttl = await login_lockout.is_locked(lock_key)
+    if locked:
+        log_failed_login(request=request, email=email_norm, reason="login_locked")
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Too many login attempts. Try again in {lock_ttl} seconds.",
+            headers={"Retry-After": str(lock_ttl)},
+        )
+
     allowed, retry_after = await rate_limiter.check(key_ip_global, RULE_IP_GLOBAL)
     if not allowed:
         log_failed_login(email=email_norm, reason="rate_limit_ip", request=request)
@@ -56,15 +65,6 @@ async def login(request: Request, payload: LoginRequest, db: AsyncSession = Depe
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=f"Too many login attempts for this email from your IP. Try again in {retry_after} seconds.",
             headers={"Retry-After": str(retry_after)},
-        )
-    
-    locked, lock_ttl = await login_lockout.is_locked(lock_key)
-    if locked:
-        log_failed_login(request=request, email=email_norm, reason="login_locked")
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Too many login attempts. Try again in {lock_ttl} seconds.",
-            headers={"Retry-After": str(lock_ttl)},
         )
     
     q = select(models.AppUser).where(models.AppUser.email == email_norm)
