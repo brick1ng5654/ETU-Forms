@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import {
   Eye,
   Share2,
-  ClipboardList,
   Save,
   PanelLeftClose,
   PanelLeftOpen,
@@ -33,8 +32,6 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
-import type { UnknownTypeWarning } from "@/form/adapters/fromStructureJson";
-import { fromStructureJsonWithMeta, getLastUnknownTypeWarnings } from "@/form/adapters/fromStructureJson";
 import { UserMenu } from "@/components/user-menu";
 import {
   createForm,
@@ -151,7 +148,6 @@ export default function Builder({ params }: { params: { id?: string } }) {
   const lastHistoryAtRef = useRef(0);
   const MAX_HISTORY = 50;
   const HISTORY_MERGE_WINDOW_MS = 2000;
-  const [unknownTypeWarnings, setUnknownTypeWarnings] = useState<UnknownTypeWarning[]>([]);
   const [isPublishOpen, setIsPublishOpen] = useState(false);
   const [publishStartDate, setPublishStartDate] = useState<string | null>(null);
   const [publishStartTime, setPublishStartTime] = useState("");
@@ -195,15 +191,9 @@ export default function Builder({ params }: { params: { id?: string } }) {
     setLastSelectedId(null);
   };
   const [isToolboxOpen, setIsToolboxOpen] = useState(true);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { t, i18n } = useTranslation();
 
   // Initialize
-  useEffect(() => {
-    if (import.meta.env.DEV) {
-      setUnknownTypeWarnings(getLastUnknownTypeWarnings());
-    }
-  }, []);
 
   useEffect(() => {
     if (!params.id) return;
@@ -609,19 +599,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
 
   const resolvePublishFields = (): FormElementModel[] => {
     if (!activeForm) return [];
-    if (Array.isArray(activeForm.fields) && activeForm.fields.length > 0) {
-      return activeForm.fields;
-    }
-    // structure_json - fallback for older local storage forms
-    const raw = (activeForm as any)?.structure_json?.fields;
-    if (Array.isArray(raw) && raw.length > 0) {
-      const normalized =
-        !raw[0]?.widgetType && raw[0]?.type
-          ? fromStructureJsonWithMeta({ fields: raw }).fields
-          : raw;
-      return normalizeFields(normalized as FormElementModel[]);
-    }
-    return [];
+    return Array.isArray(activeForm.fields) ? activeForm.fields : [];
   };
 
   const buildBuilderPayload = (
@@ -763,47 +741,6 @@ export default function Builder({ params }: { params: { id?: string } }) {
     }
   };
 
-  const loadFormJson = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const content = e.target?.result as string;
-        const schema = JSON.parse(content);
-        const rawFields = Array.isArray(schema.fields)
-          ? schema.fields
-          : Array.isArray(schema.structure_json?.fields)
-            ? schema.structure_json.fields
-            : [];
-        if (Array.isArray(rawFields)) {
-          const normalizedResult =
-            rawFields.length > 0 && !rawFields[0].widgetType && rawFields[0].type
-              ? fromStructureJsonWithMeta({ fields: rawFields })
-              : { fields: rawFields, warnings: [] };
-          if (import.meta.env.DEV) {
-            setUnknownTypeWarnings(normalizedResult.warnings);
-          }
-          const newForm = {
-            ...activeForm,
-            title: schema.title || activeForm.title,
-            description: schema.description || activeForm.description,
-            fields: normalizeFields(normalizedResult.fields as FormElementModel[]),
-          };
-          setForm(newForm);
-          toast({ title: t('builder.formLoaded'), description: t('builder.formLoadedDesc') });
-        } else {
-          throw new Error("Invalid schema");
-        }
-      } catch (error) {
-        toast({ title: t('builder.error'), description: t('builder.invalidJson'), variant: "destructive" });
-      }
-    };
-    reader.readAsText(file);
-    event.target.value = "";
-  };
-
   const selectedField = selectedIds.length === 1 ? fields.find(f => f.id === selectedIds[0]) || null : null;
 
   const groupedToolbox = TOOLBOX_ITEMS.reduce((acc, item) => {
@@ -904,10 +841,6 @@ export default function Builder({ params }: { params: { id?: string } }) {
               </DialogContent>
             </Dialog>
 
-            <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={loadFormJson} />
-            <Button variant="outline" size="sm" className="gap-2">
-              <ClipboardList className="h-4 w-4" /> <span className="hidden sm:inline">{t('builder.load')}</span>
-            </Button>
             <Button variant="outline" size="sm" className="gap-2" onClick={handleSave}>
               <Save className="h-4 w-4" /> <span className="hidden sm:inline">{t('builder.save')}</span>
             </Button>
@@ -1160,11 +1093,6 @@ export default function Builder({ params }: { params: { id?: string } }) {
           <UserMenu />
         </div>
       </header>
-      {import.meta.env.DEV && unknownTypeWarnings.length > 0 && (
-        <div className="bg-red-50 border-b border-red-200 text-red-700 text-sm px-4 py-2">
-          Unknown field types detected. Check console for details.
-        </div>
-      )}
 
       <div className="flex-1 flex overflow-hidden">
         <div className={cn("border-r border-border bg-white flex flex-col shrink-0 z-10 transition-all duration-300 ease-in-out overflow-hidden", isToolboxOpen ? "w-64" : "w-0 border-r-0")}>

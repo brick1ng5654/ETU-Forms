@@ -1,7 +1,6 @@
 import type { FormElementModel, FormFolder, FormSchema } from "@/form/types";
 import { nanoid } from "nanoid";
 import { t } from "i18next";
-import { fromStructureJsonWithMeta } from "@/form/adapters/fromStructureJson";
 
 const STORAGE_KEY_FORMS = "etu_forms";
 const STORAGE_KEY_FOLDERS = "etu_folders";
@@ -18,11 +17,7 @@ export const storage = {
       if (!Array.isArray(parsed)) return [];
       let didMutate = false;
       const normalizedForms = parsed.map((form: any) => {
-        const rawFields = Array.isArray(form.fields)
-          ? form.fields
-          : Array.isArray(form.structure_json?.fields)
-            ? form.structure_json.fields
-            : [];
+        const rawFields = Array.isArray(form.fields) ? form.fields : [];
         const normalized = normalizeFieldsWithMeta(rawFields);
         if (normalized.didMutate) {
           didMutate = true;
@@ -177,13 +172,8 @@ const normalizeFieldsWithMeta = (fields: unknown): {
   didMutate: boolean;
 } => {
   if (!Array.isArray(fields)) return { fields: [], didMutate: false };
-  const first = fields[0] as { widgetType?: string; type?: string } | undefined;
-  const normalized = first?.widgetType
-    ? (fields as FormElementModel[])
-    : first?.type
-      ? fromStructureJsonWithMeta({ fields: fields as any }).fields
-      : (fields as FormElementModel[]);
-  let didMutate = Boolean(first?.type && !first?.widgetType);
+  const normalized = fields as FormElementModel[];
+  let didMutate = false;
 
   const normalizedFields = normalized.map((element, index) => {
     const nextProps = (element as FormElementModel).props ?? {};
