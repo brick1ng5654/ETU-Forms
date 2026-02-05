@@ -104,6 +104,15 @@ const formatPassportDepartmentCode = (value: string) => {
   return part2 ? `${part1}-${part2}` : part1;
 };
 
+const normalizeEmailDomain = (value: string) =>
+  value.trim().toLowerCase().replace(/^@+/, "");
+
+const extractEmailDomain = (value: string) => {
+  const atIndex = value.lastIndexOf("@");
+  if (atIndex < 0) return "";
+  return value.slice(atIndex + 1).trim().toLowerCase();
+};
+
 const normalizeNamePart = (value: string, maxChars = 50) =>
   value.replace(/\s+/g, " ").trim().slice(0, maxChars);
 
@@ -115,12 +124,22 @@ const ogrnLength = (props: Record<string, unknown>) =>
 
 export const presets: Record<SemanticType, Preset> = {
   email: {
-    validate: (value, { required }) => {
+    validate: (value, { required, props }) => {
       if (!value && !required) return [];
       const normalized = value.trim();
       if (!normalized) return required ? ["Required"] : [];
       const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized);
-      return isValid ? [] : ["Invalid email"];
+      if (!isValid) return ["Invalid email"];
+      const allowedDomains = Array.isArray(props.allowedDomains)
+        ? props.allowedDomains.map((entry) => normalizeEmailDomain(String(entry))).filter(Boolean)
+        : [];
+      if (allowedDomains.length > 0) {
+        const domain = extractEmailDomain(normalized);
+        if (!domain || !allowedDomains.includes(domain)) {
+          return [`Invalid email domain: ${allowedDomains.join(", ")}`];
+        }
+      }
+      return [];
     },
     inputMode: "email",
     inputType: "email",

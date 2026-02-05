@@ -216,13 +216,39 @@ export default function Builder({ params }: { params: { id?: string } }) {
     const loadDetail = async () => {
       try {
         const detail = await fetchFormDetail(activeFormId);
-        storage.saveForm(detail);
+        const localDraft = storage.getForms().find((form) => form.id === detail.id);
+        const preferLocalId = localStorage.getItem("etu_prefer_local_form_id");
+        const forcePreferLocal = Boolean(preferLocalId && preferLocalId === detail.id);
+        const shouldPreferLocal =
+          localDraft &&
+          (forcePreferLocal ||
+            (localDraft.version === detail.version &&
+              typeof localDraft.updatedAt === "number" &&
+              localDraft.updatedAt > detail.updatedAt));
+        const mergedDetail = shouldPreferLocal
+          ? {
+            ...detail,
+            title: localDraft?.title ?? detail.title,
+            description: localDraft?.description ?? detail.description,
+            fields: localDraft?.fields ?? detail.fields,
+            fieldCount: localDraft?.fieldCount ?? localDraft?.fields?.length ?? detail.fieldCount,
+            accessMode: localDraft?.accessMode ?? detail.accessMode,
+            startAt: localDraft?.startAt ?? detail.startAt,
+            endAt: localDraft?.endAt ?? detail.endAt,
+            settings_json: localDraft?.settings_json ?? detail.settings_json,
+            updatedAt: localDraft?.updatedAt ?? detail.updatedAt,
+          }
+          : detail;
+        if (preferLocalId && preferLocalId === detail.id) {
+          localStorage.removeItem("etu_prefer_local_form_id");
+        }
+        storage.saveForm(mergedDetail);
         setForms((prev) => {
-          const existing = prev.find((form) => form.id === detail.id);
-          const merged = existing ? { ...detail, folderId: existing.folderId } : detail;
+          const existing = prev.find((form) => form.id === mergedDetail.id);
+          const merged = existing ? { ...mergedDetail, folderId: existing.folderId } : mergedDetail;
           const exists = Boolean(existing);
           if (exists) {
-            return prev.map((form) => (form.id === detail.id ? merged : form));
+            return prev.map((form) => (form.id === mergedDetail.id ? merged : form));
           }
           return [merged, ...prev];
         });
@@ -514,6 +540,15 @@ export default function Builder({ params }: { params: { id?: string } }) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [history.length, redoHistory.length, undoLast, redoLast, selectedIds, deleteSelected]);
 
+  useEffect(() => {
+    const pendingLang = localStorage.getItem("etu_pending_lang");
+    if (!pendingLang) return;
+    localStorage.removeItem("etu_pending_lang");
+    if (i18n.language !== pendingLang) {
+      i18n.changeLanguage(pendingLang);
+    }
+  }, [i18n]);
+
   const moveSelected = (direction: "up" | "down") => {
     if (selectedIds.length === 0) return;
     const selectedSet = new Set(selectedIds);
@@ -623,7 +658,8 @@ export default function Builder({ params }: { params: { id?: string } }) {
       end_at: endAt,
       settings_json: activeForm.settings_json ?? { client_form_id: activeForm.id },
       elements: publishFields.map((f, index) => {
-        const { placeholder, correctAnswer, correctAnswers, points, conditionalLogic, attachments, ...otherSettings } = (f.props ?? {}) as Record<string, unknown>;
+        const props = (f.props ?? {}) as Record<string, unknown>;
+        const { placeholder, correctAnswer, correctAnswers, points, conditionalLogic, attachments, ...otherSettings } = props;
         const fileIds = Array.isArray(attachments)
           ? Array.from(
             new Set(
@@ -635,6 +671,11 @@ export default function Builder({ params }: { params: { id?: string } }) {
           : [];
         const cleanedOtherSettings: Record<string, unknown> = { ...otherSettings };
         if (points !== undefined) cleanedOtherSettings.points = points;
+        const inputType = typeof props.inputType === "string" ? props.inputType : undefined;
+        const isEmailField = f.semanticType === "email" || inputType === "email";
+        if (isEmailField) {
+          delete cleanedOtherSettings.multiline;
+        }
         if (f.semanticType === "passport") {
           const passportFlags = [
             "hidePassportFullName",
@@ -811,7 +852,12 @@ export default function Builder({ params }: { params: { id?: string } }) {
               className="gap-1 h-9 px-3"
               onClick={() => {
                 const newLang = i18n.language.startsWith('ru') ? 'en' : 'ru';
-                i18n.changeLanguage(newLang);
+                if (activeForm) {
+                  storage.saveForm(activeForm);
+                  localStorage.setItem("etu_prefer_local_form_id", activeForm.id);
+                }
+                localStorage.setItem("etu_pending_lang", newLang);
+                window.location.reload();
               }}
               title={i18n.language.startsWith('ru') ? 'Переключить на Английский' : 'Switch to Russian'}>
               <Languages className="h-4 w-4" />

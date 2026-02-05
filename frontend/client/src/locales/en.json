@@ -267,7 +267,10 @@
     "required": "Required",
     "invalidSelection": "Invalid selection",
     "invalidNumber": "Invalid number",
-    "digitsExact": "Must be {{count}} digits"
+    "digitsExact": "Must be {{count}} digits",
+    "invalidEmail": "Enter a valid email",
+    "invalidEmailDomain": "Email domain is not allowed",
+    "invalidEmailDomainList": "Allowed domains: {{domains}}"
   },
   
   "descerr":{

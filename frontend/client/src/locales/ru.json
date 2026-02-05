@@ -276,7 +276,10 @@
     "required": "Обязательно",
     "invalidSelection": "Неверный выбор",
     "invalidNumber": "Неверное число",
-    "digitsExact": "Должно быть {{count}} цифр"
+    "digitsExact": "Должно быть {{count}} цифр",
+    "invalidEmail": "Введите корректный email",
+    "invalidEmailDomain": "Недопустимый домен email",
+    "invalidEmailDomainList": "Разрешенные домены: {{domains}}"
   },
   "auth": {
     "login": "Вход в систему",
