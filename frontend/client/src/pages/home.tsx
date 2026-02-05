@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { Languages } from "lucide-react";
 import { UserMenu } from "@/components/user-menu";
 import { createForm, deleteForm as deleteFormApi, fetchForms } from "@/lib/forms-api";
+import { authHeader } from "@/lib/auth";
 
 export default function Home() {
   const [forms, setForms] = useState<FormSchema[]>([]);
