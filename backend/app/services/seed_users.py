@@ -8,10 +8,10 @@ from app import models
 from app.security.passwords import hash_password
 
 DEFAULT_USERS = [
-    ("admin@example.com", "Admin", "ChangeMe_12345", True),
-    ("editor@example.com", "Editor", "ChangeMe_12345", False),
-    ("participant@example.com", "Participant", "ChangeMe_12345", False),
-    ("noperms@example.com", "NoPerms", "ChangeMe_12345", False),
+    ("admin@example.com", "Admin", settings.ADMIN_PASSWORD, True),
+    ("editor@example.com", "Editor", settings.ADMIN_PASSWORD, False),
+    ("participant@example.com", "Participant", settings.ADMIN_PASSWORD, False),
+    ("noperms@example.com", "NoPerms", settings.ADMIN_PASSWORD, False),
 ]
 
 async def _get_user_by_email(db: AsyncSession, email: str) -> models.AppUser | None:
