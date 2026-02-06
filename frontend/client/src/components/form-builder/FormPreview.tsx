@@ -327,6 +327,167 @@ function CountrySelect({ value, placeholder, disabled, onValueChange, onTouched 
   );
 }
 
+interface MatrixAnswerProps {
+  fieldId: string;
+  rows: string[];
+  columns: string[];
+  multiplePerRow: boolean;
+  value: string[];
+  disabled: boolean;
+  onChange: (value: string[]) => void;
+  onTouched: () => void;
+}
+
+function MatrixAnswerInput({
+  fieldId,
+  rows,
+  columns,
+  multiplePerRow,
+  value,
+  disabled,
+  onChange,
+  onTouched,
+}: MatrixAnswerProps) {
+  const [isScrolling, setIsScrolling] = useState(false);
+  const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (scrollTimeout.current) {
+        clearTimeout(scrollTimeout.current);
+      }
+    };
+  }, []);
+
+  const isCellSelected = (rowIdx: number, colIdx: number) => {
+    return value.includes(`${rowIdx + 1}:${colIdx + 1}`);
+  };
+
+  const toggleCell = (rowIdx: number, colIdx: number) => {
+    const cellKey = `${rowIdx + 1}:${colIdx + 1}`;
+    let newAnswer: string[];
+    if (multiplePerRow) {
+      if (isCellSelected(rowIdx, colIdx)) {
+        newAnswer = value.filter((key) => key !== cellKey);
+      } else {
+        newAnswer = [...value, cellKey];
+      }
+    } else {
+      newAnswer = value.filter((key) => !key.startsWith(`${rowIdx + 1}:`));
+      if (!isCellSelected(rowIdx, colIdx)) {
+        newAnswer.push(cellKey);
+      }
+    }
+    onChange(newAnswer);
+    onTouched();
+  };
+
+  return (
+    <div
+      className="matrix-scroll-container overflow-auto scroll-smooth relative"
+      style={{
+        maxHeight: '500px',
+      }}
+      onScroll={(e) => {
+        const el = e.currentTarget;
+        if (el.scrollLeft > 0) {
+          setIsScrolling(true);
+        }
+
+        if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
+        scrollTimeout.current = setTimeout(() => setIsScrolling(false), 150);
+      }}
+    >
+      <table
+        className="border-collapse border border-muted-foreground/20 text-sm min-w-full"
+        aria-label={`matrix-${fieldId}`}
+      >
+        <thead>
+          <tr>
+            <th
+              className={cn(
+                "relative sticky left-0 z-20 w-[100px] whitespace-nowrap",
+                "bg-white p-2 font-medium",
+                "border border-muted-foreground/20",
+                "after:absolute after:top-0 after:right-[-2px] after:h-full after:w-[4px]",
+                "after:bg-white after:shadow-[2px_0_4px_rgba(0,0,0,0.12)]",
+                isScrolling && "ring-2 ring-primary/40 shadow-lg"
+              )}
+            >
+            </th>
+            {columns.map((col, idx) => (
+              <th
+                key={idx}
+                className={cn(
+                  "border border-muted-foreground/20 p-2 text-center bg-muted/30 font-medium min-w-[100px] whitespace-nowrap",
+                  "sticky top-0 z-10 bg-white",
+                  "after:absolute after:left-0 after:bottom-[-2px] after:w-full after:h-[4px]",
+                  "after:bg-white after:shadow-[0_2px_4px_rgba(0,0,0,0.12)]",
+                  isScrolling && "ring-2 ring-primary/40 shadow-lg"
+                )}
+              >
+                {col || `Column ${idx + 1}`}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, rowIdx) => (
+            <tr key={rowIdx}>
+              <td
+                className={cn(
+                  "relative sticky left-0 z-20 min-w-[100px] whitespace-nowrap",
+                  "bg-white p-2 font-medium",
+                  "border border-muted-foreground/20",
+                  "after:absolute after:top-0 after:right-[-2px] after:h-full after:w-[4px]",
+                  "after:bg-white after:shadow-[2px_0_4px_rgba(0,0,0,0.12)]",
+                  isScrolling && "before:opacity-100 after:opacity-100"
+                )}
+              >
+                {row || `Row ${rowIdx + 1}`}
+              </td>
+              {columns.map((_, colIdx) => {
+                const selected = isCellSelected(rowIdx, colIdx);
+                return (
+                  <td
+                    key={colIdx}
+                    className="border border-muted-foreground/20 p-2 text-center min-w-[100px]"
+                  >
+                    {multiplePerRow ? (
+                      <Checkbox
+                        id={`${fieldId}-${rowIdx}-${colIdx}`}
+                        checked={selected}
+                        disabled={disabled}
+                        onCheckedChange={() => toggleCell(rowIdx, colIdx)}
+                        className="mx-auto"
+                        simplifiedAnimation
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => toggleCell(rowIdx, colIdx)}
+                        className={cn(
+                          "mx-auto inline-flex aspect-square h-4 w-4 items-center justify-center align-middle rounded-full border border-primary text-primary shadow focus:outline-none focus-visible:ring-1 focus-visible:ring-ring transition-colors duration-200 leading-none p-0 disabled:cursor-not-allowed disabled:opacity-50 relative overflow-hidden",
+                          disabled && "cursor-not-allowed opacity-50"
+                        )}
+                      >
+                        {selected && (
+                          <span className="absolute inset-0 rounded-full bg-primary animate-in zoom-in-50 duration-200 ease-out" />
+                        )}
+                      </button>
+                    )}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 interface TextLengthIndicatorProps {
   len: number;
   limit: number;
@@ -1010,6 +1171,14 @@ export function FormPreview({ form }: FormPreviewProps) {
       localized = t("errors.invalidSelection");
     } else if (normalized === "Invalid number") {
       localized = t("errors.invalidNumber");
+    } else if (normalized === "Invalid email") {
+      localized = t("errors.invalidEmail");
+    } else if (normalized.startsWith("Invalid email domain")) {
+      const match = normalized.match(/^Invalid email domain(?::\s*(.+))?$/);
+      const domains = match?.[1]?.trim();
+      localized = domains
+        ? t("errors.invalidEmailDomainList", { domains })
+        : t("errors.invalidEmailDomain");
     } else {
       const digitsMatch = normalized.match(/(\d+)\s*digits/);
       if (digitsMatch) {
@@ -1592,144 +1761,18 @@ export function FormPreview({ form }: FormPreviewProps) {
           </div>
         )}
 
-        {field.widgetType === "matrix" && (() => {
-          const rows = (props.rows as string[]) || [];
-          const columns = (props.columns as string[]) || [];
-          const multiplePerRow = Boolean(props.multiplePerRow);
-          const [isScrolling, setIsScrolling] = useState(false);
-          const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
-          const matrixAnswer = (answers[field.id] as string[]) || [];
-          const isCellSelected = (rowIdx: number, colIdx: number) => {
-            return matrixAnswer.includes(`${rowIdx + 1}:${colIdx + 1}`);
-          };
-          const toggleCell = (rowIdx: number, colIdx: number) => {
-            const cellKey = `${rowIdx + 1}:${colIdx + 1}`;
-            let newAnswer: string[];
-            if (multiplePerRow) {
-              if (isCellSelected(rowIdx, colIdx)) {
-                newAnswer = matrixAnswer.filter((key) => key !== cellKey);
-              } else {
-                newAnswer = [...matrixAnswer, cellKey];
-              }
-            } else {
-              // Single selection per row - remove all other selections in this row
-              newAnswer = matrixAnswer.filter((key) => !key.startsWith(`${rowIdx + 1}:`));
-              if (!isCellSelected(rowIdx, colIdx)) {
-                newAnswer.push(cellKey);
-              }
-            }
-            updateAnswer(field.id, newAnswer);
-            markTouched(field.id);
-          };
-          
-          return (
-            <div
-              className="matrix-scroll-container overflow-auto scroll-smooth relative"
-              style={{
-                maxHeight: '500px',
-              }}
-              onScroll={(e) => {
-                const el = e.currentTarget;
-                if (el.scrollLeft > 0) {
-                  setIsScrolling(true);
-                }
-
-                if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
-                scrollTimeout.current = setTimeout(() => setIsScrolling(false), 150);
-              }}
-            >
-              <table 
-                className="border-collapse border border-muted-foreground/20 text-sm min-w-full" 
-              >
-                <thead>
-                  <tr>
-                    <th
-                      className={cn(
-                        "relative sticky left-0 z-20 w-[100px] whitespace-nowrap",
-                        "bg-white p-2 font-medium",
-                        "border border-muted-foreground/20",
-                        "after:absolute after:top-0 after:right-[-2px] after:h-full after:w-[4px]",
-                        "after:bg-white after:shadow-[2px_0_4px_rgba(0,0,0,0.12)]",
-                        
-                        isScrolling && "ring-2 ring-primary/40 shadow-lg"
-                      )}
-                    >
-                    </th>
-                    {columns.map((col, idx) => (
-                      <th
-                        key={idx}
-                        className={cn(
-                          "border border-muted-foreground/20 p-2 text-center bg-muted/30 font-medium min-w-[100px] whitespace-nowrap",
-                          "sticky top-0 z-10 bg-white",
-                          "after:absolute after:left-0 after:bottom-[-2px] after:w-full after:h-[4px]",
-                          "after:bg-white after:shadow-[0_2px_4px_rgba(0,0,0,0.12)]",
-                          isScrolling && "ring-2 ring-primary/40 shadow-lg"
-                        )}
-                      >
-                        {col || `Column ${idx + 1}`}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row, rowIdx) => (
-                    <tr key={rowIdx}>
-                      <td 
-                        className={cn(
-                          "relative sticky left-0 z-20 min-w-[100px] whitespace-nowrap",
-                          "bg-white p-2 font-medium",
-                          "border border-muted-foreground/20",
-                          "after:absolute after:top-0 after:right-[-2px] after:h-full after:w-[4px]",
-                          "after:bg-white after:shadow-[2px_0_4px_rgba(0,0,0,0.12)]",
-
-                          isScrolling && "before:opacity-100 after:opacity-100"
-                        )}
-                      >
-                        {row || `Row ${rowIdx + 1}`}
-                      </td>
-                      {columns.map((_, colIdx) => {
-                        const selected = isCellSelected(rowIdx, colIdx);
-                        return (
-                          <td 
-                            key={colIdx} 
-                            className="border border-muted-foreground/20 p-2 text-center min-w-[100px]"
-                          >
-                            {multiplePerRow ? (
-                              <Checkbox
-                                id={`${field.id}-${rowIdx}-${colIdx}`}
-                                checked={selected}
-                                disabled={results !== null}
-                                onCheckedChange={() => toggleCell(rowIdx, colIdx)}
-                                className="mx-auto"
-                                simplifiedAnimation
-                                
-                              />
-                            ) : (
-                              <button
-                                type="button"
-                                disabled={results !== null}
-                                onClick={() => toggleCell(rowIdx, colIdx)}
-                                className={cn(
-                                  "mx-auto inline-flex aspect-square h-4 w-4 items-center justify-center align-middle rounded-full border border-primary text-primary shadow focus:outline-none focus-visible:ring-1 focus-visible:ring-ring transition-colors duration-200 leading-none p-0 disabled:cursor-not-allowed disabled:opacity-50 relative overflow-hidden",
-                                  results !== null && "cursor-not-allowed opacity-50"
-                                )}
-                              >
-                                {selected && (
-                                  <span className="absolute inset-0 rounded-full bg-primary animate-in zoom-in-50 duration-200 ease-out" />
-                                )}
-                              </button>
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              
-            </div>
-          );
-        })()}
+        {field.widgetType === "matrix" && (
+          <MatrixAnswerInput
+            fieldId={field.id}
+            rows={(props.rows as string[]) || []}
+            columns={(props.columns as string[]) || []}
+            multiplePerRow={Boolean(props.multiplePerRow)}
+            value={(answers[field.id] as string[]) || []}
+            disabled={results !== null}
+            onChange={(nextValue) => updateAnswer(field.id, nextValue)}
+            onTouched={() => markTouched(field.id)}
+          />
+        )}
 
         {field.widgetType === "file_upload" && (
           (() => {
