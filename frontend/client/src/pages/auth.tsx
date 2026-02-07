@@ -31,6 +31,8 @@ export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [activeTab, setActiveTab] = useState("partner");
+  const [session, setSession] = useState<LoginOk["user"] | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +62,7 @@ export default function Auth() {
       const res = await fetch(`${getApiBase()}/api/v1/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ email: emailNorm, password }),
       });
 
@@ -79,8 +82,8 @@ export default function Auth() {
       }
 
       const data: LoginOk = await res.json();
-      localStorage.setItem("access_token", data.access_token);
-      localStorage.setItem("user", JSON.stringify(data.user));
+      setAccessToken(data.access_token);
+      setSession(data.user);
       // После успешной авторизации перенаправляем на главную страницу
       navigate("/");
     } catch (err) {
@@ -176,8 +179,8 @@ export default function Auth() {
                 </Alert>
               )}
               {/* кнопка входа */}
-              <Button type="submit" className="w-full">
-                {t("auth.loginButton")}
+              <Button type="submit" className="w-full" disabled={loading || !!retryAfter}>
+                {loading ? t("auth.loading") : t("auth.loginButton")}
               </Button>
             </form>
           )}
