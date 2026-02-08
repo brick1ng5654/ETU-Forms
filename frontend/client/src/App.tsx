@@ -8,19 +8,22 @@ import NotFound from "@/pages/not-found";
 import Builder from "@/pages/builder";
 import Home from "@/pages/home";
 import Auth from "@/pages/auth";
-import { getAccessToken } from "@/lib/auth";
+import { AuthProvider } from "@/lib/auth";
+import { useAuth } from "@/lib/auth";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const [, setLocation] = useLocation();
-  const token = getAccessToken();
+  const { accessToken, isLoading } = useAuth();
 
   useEffect(() => {
-    if (!token) {
+    if (!isLoading && !accessToken) {
       setLocation("/auth");
     }
-  }, [token, setLocation]);
+  }, [accessToken, isLoading, setLocation]);
 
-  if (!token) return null;
+  if (isLoading) return null;
+  if (!accessToken) return null;
+
   return <>{children}</>;
 }
 
@@ -50,10 +53,12 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider delayDuration={0}>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
+      <AuthProvider>
+        <TooltipProvider delayDuration={0}>
+          <Toaster />
+          <Router />
+        </TooltipProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

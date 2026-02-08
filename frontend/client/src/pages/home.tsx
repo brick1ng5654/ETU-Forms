@@ -1,4 +1,4 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Plus, FileText, Calendar, Clock, Trash2, Folder, FolderPlus, MoreVertical, X, Check } from "lucide-react";
 import { storage } from "@/lib/storage";
@@ -13,7 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { Languages } from "lucide-react";
 import { UserMenu } from "@/components/user-menu";
 import { createForm, deleteForm as deleteFormApi, fetchForms } from "@/lib/forms-api";
-import { authHeader } from "@/lib/auth";
+import { useAuth } from "@/lib/auth";
 
 export default function Home() {
   const [forms, setForms] = useState<FormSchema[]>([]);
@@ -21,9 +21,14 @@ export default function Home() {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [newFolderName, setNewFolderName] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const { accessToken, isLoading } = useAuth();
   const { t, i18n } = useTranslation();
+  const [, setLocation] = useLocation();
 
   const refreshData = async () => {
+    if (isLoading || !accessToken) {
+      return;
+    }
     try {
       const remoteForms = await fetchForms();
       const merged = storage.mergeRemoteForms(remoteForms);
@@ -37,10 +42,20 @@ export default function Home() {
   };
 
   useEffect(() => {
+    if (isLoading || !accessToken) {
+      return;
+    }
     void refreshData();
-  }, []);
+  }, [isLoading, accessToken]);
 
   const createNewForm = async () => {
+    if (isLoading) {
+      return;
+    }
+    if (!accessToken) {
+      setLocation("/auth");
+      return;
+    }
     try {
       const created = await createForm({
         title: t("common.untitled"),

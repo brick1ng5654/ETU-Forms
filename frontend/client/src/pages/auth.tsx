@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useTranslation } from "react-i18next";
 import { Languages } from "lucide-react";
 import { Link, useLocation } from "wouter";
+import { useAuth } from "@/lib/auth";
 
 type LoginOk = {
   access_token: string;
@@ -31,8 +32,7 @@ export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [activeTab, setActiveTab] = useState("partner");
-  const [session, setSession] = useState<LoginOk["user"] | null>(null);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const { setAccessToken, setUser } = useAuth();
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,7 +83,7 @@ export default function Auth() {
 
       const data: LoginOk = await res.json();
       setAccessToken(data.access_token);
-      setSession(data.user);
+      setUser(data.user);
       // После успешной авторизации перенаправляем на главную страницу
       navigate("/");
     } catch (err) {

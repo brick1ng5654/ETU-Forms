@@ -160,24 +160,6 @@ export const storage = {
     return newForm;
   },
 
-  createFormWithId: (id: string, folderId?: string): FormSchema => {
-    const existing = storage.getForms().find(form => form.id === id);
-    if (existing) return existing;
-    const newForm: FormSchema = {
-      id,
-      folderId,
-      title: t("common.untitled"),
-      description: "",
-      fields: [],
-      startAt: null,
-      endAt: null,
-      accessMode: "private",
-      updatedAt: Date.now(),
-    };
-    storage.saveForm(newForm);
-    return newForm;
-  },
-
   createFolder: (name: string): FormFolder => {
     const newFolder = { id: nanoid(), name };
     storage.saveFolder(newFolder);

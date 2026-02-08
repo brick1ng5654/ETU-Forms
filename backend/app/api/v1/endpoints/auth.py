@@ -14,6 +14,17 @@ import hashlib
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+def set_refresh_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        key="refresh_token",
+        value=token,
+        httponly=True,
+        secure=True,
+        max_age=60*60*24*7,
+        samesite="none",
+        path="/api/v1/auth",
+    )
+
 def get_client_ip(request: Request) -> str:
     xff = request.headers.get("x-forwarded-for")
     if xff:
@@ -106,15 +117,7 @@ async def login(request: Request, payload: LoginRequest, response: Response,db: 
     access = create_access_token(subject=str(user.user_id), expires_minutes=60, extra={"email": user.email})
     refresh = create_refresh_token(subject=str(user.user_id), expires_days=7, extra={"email": user.email})
 
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh,
-        httponly=True,
-        secure=True,
-        max_age=60*60*24*7,
-        samesite="lax",
-        path="/api/v1/auth",
-    )
+    set_refresh_cookie(response, refresh)
 
     return {
         "access_token": access,
@@ -149,15 +152,7 @@ async def refresh_token(request: Request, response: Response, db: AsyncSession =
     access = create_access_token(subject=str(user.user_id), expires_minutes=60, extra={"email": user.email})
     new_refresh = create_refresh_token(subject=str(user.user_id), expires_days=7, extra={"email": user.email})
 
-    response.set_cookie(
-        key="refresh_token",
-        value=new_refresh,
-        httponly=True,
-        secure=True,
-        max_age=60*60*24*7,
-        samesite="lax",
-        path="/api/v1/auth",
-    )
+    set_refresh_cookie(response, new_refresh)
 
     return {
         "access_token": access,
