@@ -45,6 +45,7 @@ import {
 
 import { useTranslation } from 'react-i18next';
 import { Languages } from "lucide-react";
+import { AppBrand } from "@/components/app-brand";
 
 const TOOLBOX_ITEMS: ToolboxItemDefinition[] = [
   // Basic
@@ -803,12 +804,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
           <Button variant="ghost" size="icon" className="-ml-2" onClick={() => setIsToolboxOpen(!isToolboxOpen)}>
             {isToolboxOpen ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeftOpen className="h-5 w-5" />}
           </Button>
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setLocation('/')}>
-            <div className="h-16 w-16 rounded-lg flex items-center justify-center">
-              <img src="/logo_etu.png" alt="ETU_LOGO" />
-            </div>
-            <span className="font-bold hidden sm:inline text-xl color-txt">{t('ETU-Form')}</span>
-          </div>
+          <AppBrand onClick={() => setLocation('/')} />
 
           <div className="h-8 w-px bg-border mx-2 hidden md:block" />
           <div className="flex-1 flex items-center overflow-x-auto no-scrollbar max-w-xl">

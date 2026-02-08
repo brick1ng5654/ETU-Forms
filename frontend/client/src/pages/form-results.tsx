@@ -43,6 +43,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "@/hooks/use-toast";
+import { AppBrand } from "@/components/app-brand";
 
 type ResponseEntry = {
   id: string;
@@ -863,18 +864,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
     <div className="min-h-screen bg-muted/30 flex flex-col">
       <header className="h-19 border-b border-border bg-white flex items-center justify-between px-6 shrink-0">
         <div className="flex items-center gap-4">
-          <button
-            type="button"
-            className="flex items-center gap-2"
-            onClick={() => setLocation("/")}
-          >
-            <div className="h-12 w-12 rounded-lg flex items-center justify-center">
-              <img src="/logo_etu.png" alt="ETU_LOGO" />
-            </div>
-            <span className="font-bold text-xl color-txt hidden sm:inline">
-              {i18n.language.startsWith("ru") ? "ЛЭТИ.Формы" : "ETU.Forms"}
-            </span>
-          </button>
+          <AppBrand onClick={() => setLocation("/")} />
           <div className="h-8 w-px bg-border hidden sm:block" />
           <div>
             <h1 className="text-lg font-semibold">{form?.title || t("common.untitled")}</h1>

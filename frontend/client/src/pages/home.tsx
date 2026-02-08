@@ -14,6 +14,7 @@ import { Languages } from "lucide-react";
 import { UserMenu } from "@/components/user-menu";
 import { createForm, deleteForm as deleteFormApi, fetchForms } from "@/lib/forms-api";
 import { authHeader } from "@/lib/auth";
+import { AppBrand } from "@/components/app-brand";
 
 export default function Home() {
   const [forms, setForms] = useState<FormSchema[]>([]);
@@ -129,12 +130,7 @@ export default function Home() {
     <div className="min-h-screen bg-muted/30 flex flex-col">
       <header className="h-19 border-b border-border bg-white flex items-center justify-between px-8 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="h-16 w-16  rounded-lg flex items-center justify-center">
-            <img src="/logo_etu.png" alt="ETU_LOGO" />
-          </div>
-          <div className="color-txt">
-            <span className="font-bold text-xl">ETU-Form</span>
-          </div>
+          <AppBrand />
         </div>
         <div className="flex items-center gap-2">
           <Button
