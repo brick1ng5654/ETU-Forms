@@ -897,8 +897,25 @@ export default function FormResults({ params }: { params: { id: string } }) {
 
   const scoreStats = useMemo(() => {
     const maxScore = calculateMaxScore(answerableFields);
-    if (maxScore <= 0 || responsesForVersion.length === 0) {
-      return { hasScore: false, avgScore: 0, medianScore: 0, maxScore: 0 };
+    if (maxScore <= 0) {
+      return {
+        hasScore: false,
+        hasScoredQuestions: false,
+        hasResponses: responsesForVersion.length > 0,
+        avgScore: 0,
+        medianScore: 0,
+        maxScore: 0,
+      };
+    }
+    if (responsesForVersion.length === 0) {
+      return {
+        hasScore: false,
+        hasScoredQuestions: true,
+        hasResponses: false,
+        avgScore: 0,
+        medianScore: 0,
+        maxScore,
+      };
     }
     const scoreValues = responsesForVersion.map((response) =>
       calculateResponseScore(answerableFields, response.answers)
@@ -906,11 +923,17 @@ export default function FormResults({ params }: { params: { id: string } }) {
     const totalScore = scoreValues.reduce((sum, value) => sum + value, 0);
     return {
       hasScore: true,
+      hasScoredQuestions: true,
+      hasResponses: true,
       avgScore: totalScore / responsesForVersion.length,
       medianScore: calculateMedian(scoreValues),
       maxScore,
     };
   }, [answerableFields, responsesForVersion]);
+
+  const scoreFallbackLabel = scoreStats.hasScoredQuestions && !scoreStats.hasResponses
+    ? t("results.noResponses")
+    : t("results.noScore");
 
   const activeResponseScore = useMemo(() => {
     if (!activeResponse) return null;
@@ -1470,7 +1493,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
                   <div className="mt-auto text-xl font-semibold">
                     {scoreStats.hasScore
                       ? `${scoreStats.avgScore.toFixed(1)} / ${scoreStats.maxScore}`
-                      : t("results.noScore")}
+                      : scoreFallbackLabel}
                   </div>
                 </div>
                 <div className="rounded-lg border border-border/60 p-3 min-h-24 flex flex-col">
@@ -1478,7 +1501,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
                   <div className="mt-auto text-xl font-semibold">
                     {scoreStats.hasScore
                       ? `${scoreStats.medianScore.toFixed(1)} / ${scoreStats.maxScore}`
-                      : t("results.noScore")}
+                      : scoreFallbackLabel}
                   </div>
                 </div>
               </div>
