@@ -42,6 +42,7 @@ import {
   saveForm,
   deleteForm as deleteFormApi,
 } from "@/lib/forms-api";
+import { useAuth } from "@/lib/auth";
 
 import { useTranslation } from 'react-i18next';
 import { Languages } from "lucide-react";
@@ -139,6 +140,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
   const [location, setLocation] = useLocation();
   const [forms, setForms] = useState<FormSchema[]>([]);
   const [activeFormId, setActiveFormId] = useState<string | null>(null);
+  const { accessToken, isLoading } = useAuth();
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
@@ -198,6 +200,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
   // Initialize
 
   useEffect(() => {
+    if (isLoading || !accessToken) return;
     if (!params.id) return;
     setActiveFormId(params.id);
     const load = async () => {
@@ -211,9 +214,10 @@ export default function Builder({ params }: { params: { id?: string } }) {
       }
     };
     void load();
-  }, [params.id]);
+  }, [params.id, isLoading, accessToken]);
 
   useEffect(() => {
+    if (isLoading || !accessToken) return;
     if (!activeFormId) return;
     const loadDetail = async () => {
       try {

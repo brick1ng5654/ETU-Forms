@@ -1,4 +1,4 @@
-import { authHeader } from "@/lib/auth";
+import { apiFetch } from "@/lib/api";
 import type { FormElementModel, FormSchema } from "@/form/types";
 
 type ServerFormStatus = "temp" | "submitted" | "deleted";
@@ -167,9 +167,7 @@ export const mapServerSummaryToSchema = (summary: ServerFormSummary): FormSchema
 };
 
 export async function fetchForms(): Promise<FormSchema[]> {
-  const res = await fetch("/api/v1/forms", {
-    headers: { ...authHeader() },
-  });
+  const res = await apiFetch("/api/v1/forms");
   if (!res.ok) {
     throw new Error(await res.text());
   }
@@ -178,9 +176,7 @@ export async function fetchForms(): Promise<FormSchema[]> {
 }
 
 export async function fetchFormDetail(formId: string): Promise<FormSchema> {
-  const res = await fetch(`/api/v1/forms/${formId}`, {
-    headers: { ...authHeader() },
-  });
+  const res = await apiFetch(`/api/v1/forms/${formId}`);
   if (!res.ok) {
     throw new Error(await res.text());
   }
@@ -189,9 +185,9 @@ export async function fetchFormDetail(formId: string): Promise<FormSchema> {
 }
 
 export async function createForm(payload: { title: string; description?: string }): Promise<FormSchema> {
-  const res = await fetch("/api/v1/forms", {
+  const res = await apiFetch("/api/v1/forms", {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeader() },
+    headers: { "Content-Type": "application/json"},
     body: JSON.stringify(payload),
   });
   if (!res.ok) {
@@ -202,9 +198,9 @@ export async function createForm(payload: { title: string; description?: string 
 }
 
 export async function saveForm(formId: string, payload: FormBuilderPayload): Promise<FormSchema> {
-  const res = await fetch(`/api/v1/forms/${formId}`, {
+  const res = await apiFetch(`/api/v1/forms/${formId}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json", ...authHeader() },
+    headers: { "Content-Type": "application/json"},
     body: JSON.stringify(payload),
   });
   if (!res.ok) {
@@ -228,9 +224,9 @@ export async function saveFormInPlace(formId: string, payload: FormBuilderPayloa
 }
 
 export async function publishForm(formId: string, payload: FormBuilderPayload): Promise<FormSchema> {
-  const res = await fetch(`/api/v1/forms/${formId}/publish`, {
+  const res = await apiFetch(`/api/v1/forms/${formId}/publish`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeader() },
+    headers: { "Content-Type": "application/json"},
     body: JSON.stringify(payload),
   });
   if (!res.ok) {
@@ -241,9 +237,9 @@ export async function publishForm(formId: string, payload: FormBuilderPayload): 
 }
 
 export async function deleteForm(formId: string): Promise<void> {
-  const res = await fetch(`/api/v1/forms/${formId}`, {
+  const res = await apiFetch(`/api/v1/forms/${formId}`, {
     method: "DELETE",
-    headers: { ...authHeader() },
+    headers: {},
   });
   if (!res.ok) {
     throw new Error(await res.text());

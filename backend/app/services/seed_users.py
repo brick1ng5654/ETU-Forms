@@ -42,7 +42,12 @@ async def _ensure_user(
     return user
 
 async def _ensure_demo_form(db: AsyncSession, owner_id: int) -> models.Form:
-    q = select(models.Form).where(models.Form.user_id == owner_id)
+    q = (
+        select(models.Form)
+        .where(models.Form.user_id == owner_id)
+        .order_by(models.Form.created_at.asc())
+        .limit(1)
+    )
     form = (await db.execute(q)).scalar_one_or_none()
     if form:
         return form
