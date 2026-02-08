@@ -10,6 +10,7 @@ import Home from "@/pages/home";
 import Auth from "@/pages/auth";
 import { AuthProvider } from "@/lib/auth";
 import { useAuth } from "@/lib/auth";
+import FormResults from "@/pages/form-results";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const [, setLocation] = useLocation();
@@ -42,6 +43,13 @@ function Router() {
         {(params) => (
           <RequireAuth>
             <Builder params={params} />
+          </RequireAuth>
+        )}
+      </Route>
+      <Route path="/forms/:id/results">
+        {(params) => (
+          <RequireAuth>
+            <FormResults params={params} />
           </RequireAuth>
         )}
       </Route>

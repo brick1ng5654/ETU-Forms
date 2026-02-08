@@ -9,6 +9,7 @@ import { ToolboxItem, ToolboxItemDefinition } from "@/components/form-builder/To
 import { Button } from "@/components/ui/button";
 import {
   Eye,
+  BarChart3,
   Share2,
   Save,
   PanelLeftClose,
@@ -45,6 +46,7 @@ import { useAuth } from "@/lib/auth";
 
 import { useTranslation } from 'react-i18next';
 import { Languages } from "lucide-react";
+import { AppBrand } from "@/components/app-brand";
 
 const TOOLBOX_ITEMS: ToolboxItemDefinition[] = [
   // Basic
@@ -806,12 +808,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
           <Button variant="ghost" size="icon" className="-ml-2" onClick={() => setIsToolboxOpen(!isToolboxOpen)}>
             {isToolboxOpen ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeftOpen className="h-5 w-5" />}
           </Button>
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setLocation('/')}>
-            <div className="h-16 w-16 rounded-lg flex items-center justify-center">
-              <img src="/logo_etu.png" alt="ETU_LOGO" />
-            </div>
-            <span className="font-bold hidden sm:inline text-xl color-txt">{t('ETU-Form')}</span>
-          </div>
+          <AppBrand onClick={() => setLocation('/')} />
 
           <div className="h-8 w-px bg-border mx-2 hidden md:block" />
           <div className="flex-1 flex items-center overflow-x-auto no-scrollbar max-w-xl">
@@ -890,6 +887,27 @@ export default function Builder({ params }: { params: { id?: string } }) {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              disabled={activeForm.status !== "submitted"}
+              onClick={() => {
+                if (activeForm.status !== "submitted") {
+                  toast({
+                    title: t("results.openResults"),
+                    description: t("results.onlyPublishedShort"),
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                setLocation(`/forms/${activeForm.id}/results`);
+              }}
+            >
+              <BarChart3 className="h-4 w-4" />
+              <span className="hidden sm:inline">{t("results.openResults")}</span>
+            </Button>
 
             <Button variant="outline" size="sm" className="gap-2" onClick={handleSave}>
               <Save className="h-4 w-4" /> <span className="hidden sm:inline">{t('builder.save')}</span>

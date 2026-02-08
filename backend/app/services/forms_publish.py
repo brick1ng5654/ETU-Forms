@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 from typing import Any
+from secrets import token_urlsafe
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import update, delete
@@ -18,6 +19,26 @@ def _enum_value(x: Any) -> Any:
 
 def _draft_expires_at() -> datetime:
     return datetime.utcnow() + timedelta(days=FORM_DRAFT_TTL_DAYS)
+
+
+def _ensure_form_settings(
+    current_settings: Any,
+    incoming_settings: Any,
+    *,
+    form_id: int,
+    access_mode: str | None,
+) -> dict[str, Any]:
+    merged: dict[str, Any] = {}
+    if isinstance(current_settings, dict):
+        merged.update(current_settings)
+    if isinstance(incoming_settings, dict):
+        merged.update(incoming_settings)
+
+    merged.setdefault("client_form_id", str(form_id))
+    if access_mode == "private" and not merged.get("privateLinkKey"):
+        merged["privateLinkKey"] = token_urlsafe(24)
+
+    return merged
 
 
 async def _replace_elements_and_conditions(
@@ -106,13 +127,19 @@ async def apply_builder_payload(
     *,
     target_status: str,
 ) -> models.Form:
+    next_access_mode = _enum_value(payload.access_mode) if payload.access_mode is not None else _enum_value(form.access_mode)
     form.title = payload.title
     form.description = payload.description
-    form.settings_json = payload.settings_json
+    form.settings_json = _ensure_form_settings(
+        form.settings_json,
+        payload.settings_json,
+        form_id=form.form_id,
+        access_mode=next_access_mode,
+    )
     form.start_at = payload.start_at
     form.end_at = payload.end_at
     if payload.access_mode is not None:
-        form.access_mode = _enum_value(payload.access_mode)
+        form.access_mode = next_access_mode
 
     if target_status == "submitted":
         form.status = "submitted"
