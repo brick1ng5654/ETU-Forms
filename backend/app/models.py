@@ -201,7 +201,8 @@ class ResponseAnswer(Base):
     value_bool = Column(Boolean, nullable=True)
     value_date = Column(DateTime(timezone=True), nullable=True)
     value_time = Column(DateTime(timezone=True), nullable=True)
-    value_json = Column(JSON, nullable=True)
+    # DB column name is value_jsonb; keep Python attribute name for compatibility.
+    value_json = Column("value_jsonb", JSON, nullable=True)
 
     response = relationship("Response", back_populates="answers")
     form_element = relationship("FormElement", back_populates="answers")

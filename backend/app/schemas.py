@@ -135,10 +135,50 @@ class FormDetailResponse(FormResponse):
     elements: List["BuilderElementOut"] = Field(default_factory=list)
     conditions: List["BuilderConditionOut"] = Field(default_factory=list)
 
+class PublicFormDetailResponse(BaseModel):
+    form_id: int
+    title: str
+    description: Optional[str] = None
+    settings_json: Optional[Dict[str, Any]] = None
+    start_at: Optional[datetime] = None
+    end_at: Optional[datetime] = None
+    access_mode: FormAccessMode
+    status: FormStatus
+    version: int
+    prev_form_id: Optional[int] = None
+    created_at: datetime
+    updated_at: datetime
+    elements: List["BuilderElementOut"] = Field(default_factory=list)
+    conditions: List["BuilderConditionOut"] = Field(default_factory=list)
+
 # Response SCHEMAS
 class ResponseBase(BaseModel):
     status: ResponseStatus = ResponseStatus.DRAFT
     completed_at: Optional[datetime] = None
+
+class FormSubmitAnswersRequest(BaseModel):
+    answers: Dict[str, Any] = Field(default_factory=dict)
+    started_at: Optional[datetime] = None
+
+class FormSubmitAnswersResponse(BaseModel):
+    response_id: int
+    submitted_at: datetime
+    answers_count: int
+
+class FormStoredResponse(BaseModel):
+    response_id: int
+    form_id: int
+    user_id: int
+    responder_name: str
+    responder_email: Optional[str] = None
+    status: ResponseStatus
+    created_at: datetime
+    completed_at: Optional[datetime] = None
+    version: int
+    answers: Dict[str, Any] = Field(default_factory=dict)
+
+class FormStoredResponsesResponse(BaseModel):
+    responses: List[FormStoredResponse] = Field(default_factory=list)
 
 class ResponseCreate(BaseModel):
     form_id: int
@@ -360,4 +400,5 @@ class LoginResponse(BaseModel):
 
 FormListResponse.model_rebuild()
 FormDetailResponse.model_rebuild()
+PublicFormDetailResponse.model_rebuild()
 

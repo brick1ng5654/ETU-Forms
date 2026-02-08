@@ -1750,7 +1750,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
               </SelectTrigger>
               <SelectContent className="max-h-72 w-[var(--radix-select-trigger-width)] min-w-[var(--radix-select-trigger-width)]">
                 <SelectItem value="__none__">{t("logic.none")}</SelectItem>
-                {fields?.filter((field) => field.id !== selectedField.id).map((field) => (
+                {fields?.filter((field) => field.id !== selectedField.id && field.widgetType !== "header").map((field) => (
                   <SelectItem key={field.id} value={field.id}>
                     {field.label} ({t(`fields.${field.semanticType ? semanticTypeLabelKey[field.semanticType] : widgetTypeLabelKey[field.widgetType]}`)})
                   </SelectItem>
