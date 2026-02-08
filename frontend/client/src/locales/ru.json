@@ -354,6 +354,7 @@
     "invalidCredentials": "Неправильный email или пароль",
     "tooManyAttempts": "Слишком много попыток входа. Пожалуйста, попробуйте позже.",
     "networkError": "Ошибка соединения. Пожалуйста, попробуйте позже.",
+    "loading": "Вход...",
     "loginButton": "Войти как партнер",
     "etuIdPlaceholder": "Авторизация через ETU ID будет реализована позже",
     "loginWithEtuId": "Войти через ETU ID",

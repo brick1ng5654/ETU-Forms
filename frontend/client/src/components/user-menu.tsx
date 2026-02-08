@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import { LogOut, UserCircle } from "lucide-react";
@@ -13,13 +13,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { getStoredUser, logout, type StoredUser } from "@/lib/auth";
+import { useAuth, type User } from "@/lib/auth";
 
 type UserMenuProps = {
   className?: string;
 };
 
-const getDisplayName = (user: StoredUser | null): string => {
+const getDisplayName = (user: User | null): string => {
   if (!user) return "";
   return user.name?.trim() || user.email?.trim() || "";
 };
@@ -36,25 +36,22 @@ const getInitials = (value: string): string => {
 export function UserMenu({ className }: UserMenuProps) {
   const [, setLocation] = useLocation();
   const { t } = useTranslation();
-  const [user, setUser] = useState<StoredUser | null>(() => getStoredUser());
-
-  useEffect(() => {
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === "user" || event.key === "access_token") {
-        setUser(getStoredUser());
-      }
-    };
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, []);
+  const { user, clearAuth } = useAuth();
 
   const displayName = useMemo(() => getDisplayName(user), [user]);
   const initials = useMemo(() => getInitials(displayName), [displayName]);
   const secondary = user?.email && user?.name ? user.email : "";
 
-  const handleLogout = () => {
-    logout();
-    setUser(null);
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/v1/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch {
+      // ignore network errors, still clear local auth state
+    }
+    clearAuth();
     setLocation("/auth");
   };
 
