@@ -1,5 +1,5 @@
 import { bindTokenAccessors } from "@/lib/api";
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 export { authHeader } from "@/lib/api";
 
@@ -21,14 +21,20 @@ type AuthState = {
 const Ctx = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [accessToken, setAccessTokenState] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const accessTokenRef = useRef<string | null>(null);
 
-  // Привязываем apiFetch к токену из context
-  useEffect(() => {
-    bindTokenAccessors(() => accessToken, setAccessToken);
-  }, [accessToken]);
+  const setAccessToken = useCallback((token: string | null) => {
+    accessTokenRef.current = token;
+    setAccessTokenState(token);
+  }, []);
+
+  // Bind once before child effects so apiFetch always reads a current token.
+  useLayoutEffect(() => {
+    bindTokenAccessors(() => accessTokenRef.current, setAccessToken);
+  }, [setAccessToken]);
 
   useEffect(() => {
     let isActive = true;
@@ -51,7 +57,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [setAccessToken]);
+
   const clearAuth = () => {
     setAccessToken(null);
     setUser(null);
@@ -65,43 +72,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAccessToken,
     setUser,
     clearAuth,
-  }), [accessToken, user, isLoading]);
+  }), [accessToken, user, isLoading, setAccessToken]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
-
-// export function getAccessToken(): string | null {
-//   return localStorage.getItem("access_token");
-// }
-
-// export type StoredUser = {
-//   user_id: number;
-//   email: string;
-//   name: string;
-// };
-
-// export function getStoredUser(): StoredUser | null {
-//   const raw = localStorage.getItem("user");
-//   if (!raw) return null;
-//   try {
-//     return JSON.parse(raw) as StoredUser;
-//   } catch {
-//     return null;
-//   }
-// }
-
-// export function authHeader(): Record<string, string> {
-//   const t = getAccessToken();
-//   return t ? { Authorization: `Bearer ${t}` } : {};
-// }
-
-// export function logout() {
-//   localStorage.removeItem("access_token");
-//   localStorage.removeItem("user");
-// }
-
-
-
 
 export function useAuth(){
   const v = useContext(Ctx);

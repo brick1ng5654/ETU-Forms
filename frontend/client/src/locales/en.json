@@ -360,6 +360,7 @@
     "invalidCredentials": "Invalid email or password",
     "tooManyAttempts": "Too many login attempts. Please try again later.",
     "networkError": "Network error. Please try again.",
+    "loading": "Signing in...",
     "loginButton": "Login as Partner",
     "etuIdPlaceholder": "ETU ID authorization will be implemented later",
     "loginWithEtuId": "Login with ETU ID",

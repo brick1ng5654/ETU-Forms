@@ -46,9 +46,13 @@ async function refreshAccessToken(): Promise<string | null> {
 }
 
 export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
-    const token = getToken();
-
     const headers = new Headers(init.headers ?? {});
+    let token = getToken();
+
+    // Avoid a guaranteed first 401 when page state was reset after reload.
+    if (!token && !isRefreshRequest(input)) {
+        token = await refreshAccessToken();
+    }
 
     if (token) {
         headers.set("Authorization", `Bearer ${token}`);
