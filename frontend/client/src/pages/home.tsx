@@ -1,6 +1,6 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Plus, FileText, Calendar, Clock, Trash2, Folder, FolderPlus, MoreVertical, X, Check } from "lucide-react";
+import { Plus, FileText, Calendar, Clock, Trash2, Folder, FolderPlus, MoreVertical, X, Check, BarChart3 } from "lucide-react";
 import { storage } from "@/lib/storage";
 import { useEffect, useState } from "react";
 import { FormSchema, FormFolder } from "@/lib/form-types";
@@ -14,6 +14,7 @@ import { Languages } from "lucide-react";
 import { UserMenu } from "@/components/user-menu";
 import { createForm, deleteForm as deleteFormApi, fetchForms } from "@/lib/forms-api";
 import { authHeader } from "@/lib/auth";
+import { AppBrand } from "@/components/app-brand";
 
 export default function Home() {
   const [forms, setForms] = useState<FormSchema[]>([]);
@@ -21,6 +22,7 @@ export default function Home() {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [newFolderName, setNewFolderName] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [, setLocation] = useLocation();
   const { t, i18n } = useTranslation();
 
   const refreshData = async () => {
@@ -105,6 +107,20 @@ export default function Home() {
     }
   };
 
+  const openResults = (e: React.MouseEvent, form: FormSchema) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (form.status !== "submitted") {
+      toast({
+        title: t("results.openResults"),
+        description: t("results.onlyPublishedShort"),
+        variant: "destructive",
+      });
+      return;
+    }
+    setLocation(`/forms/${form.id}/results`);
+  };
+
   const filteredForms = selectedFolderId
     ? forms.filter(f => f.folderId === selectedFolderId)
     : forms;
@@ -114,12 +130,7 @@ export default function Home() {
     <div className="min-h-screen bg-muted/30 flex flex-col">
       <header className="h-19 border-b border-border bg-white flex items-center justify-between px-8 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="h-16 w-16  rounded-lg flex items-center justify-center">
-            <img src="/logo_etu.png" alt="ETU_LOGO" />
-          </div>
-          <div className="color-txt">
-            <span className="font-bold text-xl">ETU-Form</span>
-          </div>
+          <AppBrand />
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -236,6 +247,9 @@ export default function Home() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>{t("actions.act")}</DropdownMenuLabel>
+                          <DropdownMenuItem onClick={(e) => openResults(e, form)}>
+                            <BarChart3 className="mr-2 h-4 w-4" /> {t("results.openResults")}
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={(e) => deleteForm(e, form.id)} className="text-destructive focus:text-destructive">
                             <Trash2 className="mr-2 h-4 w-4" /> {t("actions.delete")}
                           </DropdownMenuItem>

@@ -8,6 +8,7 @@ import NotFound from "@/pages/not-found";
 import Builder from "@/pages/builder";
 import Home from "@/pages/home";
 import Auth from "@/pages/auth";
+import FormResults from "@/pages/form-results";
 import { getAccessToken } from "@/lib/auth";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -39,6 +40,13 @@ function Router() {
         {(params) => (
           <RequireAuth>
             <Builder params={params} />
+          </RequireAuth>
+        )}
+      </Route>
+      <Route path="/forms/:id/results">
+        {(params) => (
+          <RequireAuth>
+            <FormResults params={params} />
           </RequireAuth>
         )}
       </Route>

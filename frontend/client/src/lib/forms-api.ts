@@ -214,6 +214,19 @@ export async function saveForm(formId: string, payload: FormBuilderPayload): Pro
   return mapServerDetailToSchema(data);
 }
 
+export async function saveFormInPlace(formId: string, payload: FormBuilderPayload): Promise<FormSchema> {
+  const res = await fetch(`/api/v1/forms/${formId}?in_place=true`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...authHeader() },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    throw new Error(await res.text());
+  }
+  const data = (await res.json()) as ServerFormDetail;
+  return mapServerDetailToSchema(data);
+}
+
 export async function publishForm(formId: string, payload: FormBuilderPayload): Promise<FormSchema> {
   const res = await fetch(`/api/v1/forms/${formId}/publish`, {
     method: "POST",
