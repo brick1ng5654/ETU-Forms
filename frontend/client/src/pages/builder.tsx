@@ -9,6 +9,7 @@ import { ToolboxItem, ToolboxItemDefinition } from "@/components/form-builder/To
 import { Button } from "@/components/ui/button";
 import {
   Eye,
+  BarChart3,
   Share2,
   Save,
   PanelLeftClose,
@@ -886,6 +887,27 @@ export default function Builder({ params }: { params: { id?: string } }) {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              disabled={activeForm.status !== "submitted"}
+              onClick={() => {
+                if (activeForm.status !== "submitted") {
+                  toast({
+                    title: t("results.openResults"),
+                    description: t("results.onlyPublishedShort"),
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                setLocation(`/forms/${activeForm.id}/results`);
+              }}
+            >
+              <BarChart3 className="h-4 w-4" />
+              <span className="hidden sm:inline">{t("results.openResults")}</span>
+            </Button>
 
             <Button variant="outline" size="sm" className="gap-2" onClick={handleSave}>
               <Save className="h-4 w-4" /> <span className="hidden sm:inline">{t('builder.save')}</span>

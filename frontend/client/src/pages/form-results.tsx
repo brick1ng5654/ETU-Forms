@@ -1,0 +1,1294 @@
+import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
+import { useLocation } from "wouter";
+import { useTranslation } from "react-i18next";
+import { format, formatDistanceToNow } from "date-fns";
+import type { Locale } from "date-fns";
+import { ru } from "date-fns/locale";
+import {
+  BarChart3,
+  CalendarDays,
+  Clock,
+  Copy,
+  FileText,
+  Link as LinkIcon,
+  PencilLine,
+  Search,
+  User,
+  Users,
+} from "lucide-react";
+import type {
+  AnswersById,
+  DateTimeAnswer,
+  ElementAttachment,
+  FormAccessMode,
+  FormElementModel,
+  FormSchema,
+} from "@/form/types";
+import { fetchFormDetail, fetchForms, saveFormInPlace } from "@/lib/forms-api";
+import { storage } from "@/lib/storage";
+import { cn } from "@/lib/utils";
+import FormPreview from "@/components/form-builder/FormPreview";
+import { UserMenu } from "@/components/user-menu";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { toast } from "@/hooks/use-toast";
+
+type ResponseEntry = {
+  id: string;
+  formId: string;
+  name: string;
+  submittedAt: string;
+  durationMinutes: number;
+  answers: AnswersById;
+  version: number;
+};
+
+type SummaryMetric = {
+  label: string;
+  value: string;
+};
+
+type SummaryRow = {
+  id: string;
+  label: string;
+  metrics: SummaryMetric[];
+};
+
+type Selection =
+  | { type: "source" }
+  | { type: "summary" }
+  | { type: "response"; responseId: string };
+
+type PublishCondition = {
+  source_client_id: string;
+  target_client_id: string;
+  operator: "equals" | "not_equals" | "in" | "not_in" | "greater_than" | "less_than" | "contains" | "answered";
+  value: unknown;
+};
+
+type FormBuilderPayload = {
+  title: string;
+  description?: string | null;
+  settings_json?: Record<string, unknown> | null;
+  start_at?: string | null;
+  end_at?: string | null;
+  access_mode?: FormAccessMode | null;
+  elements: {
+    client_id: string;
+    widget: string;
+    semantic?: string | null;
+    label: string;
+    description?: string | null;
+    required_field: boolean;
+    correct_answer?: Record<string, unknown> | null;
+    text_hint?: string | null;
+    supportive_text?: string | null;
+    other_settings?: Record<string, unknown> | null;
+    file_ids: number[];
+    sort_index: number;
+  }[];
+  conditions: PublishCondition[];
+};
+
+const getDateInputValue = (value?: string | null) => {
+  if (!value) return "";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return format(parsed, "yyyy-MM-dd");
+};
+
+const toIsoDate = (value: string, fallbackTime: string) => {
+  if (!value) return null;
+  return new Date(`${value}T${fallbackTime}`).toISOString();
+};
+
+const isValidDateString = (value: string) => {
+  if (value.length !== 10) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return false;
+  if (month < 1 || month > 12) return false;
+  const parsed = new Date(year, month - 1, day);
+  return parsed.getFullYear() === year && parsed.getMonth() === month - 1 && parsed.getDate() === day;
+};
+
+const parseDateFromString = (value: string) => {
+  if (!isValidDateString(value)) return undefined;
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
+};
+
+const getStableDate = (value: string) => parseDateFromString(value);
+
+const createPrivateLinkKey = () => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID().replace(/-/g, "");
+  }
+  const random = Math.random().toString(36).slice(2);
+  return `${Date.now().toString(36)}${random}`;
+};
+
+const formatDuration = (minutes: number) => {
+  if (!Number.isFinite(minutes)) return "0m 00s";
+  const totalSeconds = Math.max(0, Math.round(minutes * 60));
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+  return `${mins}m ${secs.toString().padStart(2, "0")}s`;
+};
+
+const getInitials = (name: string) =>
+  name
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part[0]?.toUpperCase())
+    .slice(0, 2)
+    .join("") || "U";
+
+const getMatrixLabels = (field: FormElementModel) => {
+  const props = field.props as Record<string, unknown>;
+  const rows = Array.isArray(props.rows) ? props.rows.map((row) => String(row)) : [];
+  const columns = Array.isArray(props.columns) ? props.columns.map((col) => String(col)) : [];
+  return { rows, columns };
+};
+
+const formatMatrixCell = (field: FormElementModel, key: string) => {
+  const { rows, columns } = getMatrixLabels(field);
+  const [rowIdx, colIdx] = key.split(":").map((val) => Number(val));
+  const rowLabel = rows[rowIdx - 1] || `Row ${rowIdx}`;
+  const colLabel = columns[colIdx - 1] || `Column ${colIdx}`;
+  return `${rowLabel} / ${colLabel}`;
+};
+
+const mapWidgetTypeForPublish = (widgetType: FormElementModel["widgetType"]) => {
+  if (widgetType === "header") return "heading";
+  if (widgetType === "textarea") return "text_input";
+  return widgetType;
+};
+
+const extractConditionsFromFields = (publishFields: FormElementModel[]): PublishCondition[] => {
+  const out: PublishCondition[] = [];
+
+  for (const target of publishFields) {
+    const logic = (target.props as any)?.conditionalLogic as
+      | { dependsOn?: string; condition?: "equals" | "not_equals" | "answered"; expectedValue?: string | string[] }
+      | undefined;
+    if (!logic?.dependsOn || !logic.condition) continue;
+
+    let operator: PublishCondition["operator"] | null = null;
+    let value: unknown = null;
+
+    if (logic.condition === "equals") {
+      operator = "equals";
+      if (logic.expectedValue === undefined) continue;
+      value = Array.isArray(logic.expectedValue)
+        ? { values: logic.expectedValue }
+        : { value: logic.expectedValue };
+    } else if (logic.condition === "not_equals") {
+      operator = "not_equals";
+      if (logic.expectedValue === undefined) continue;
+      value = Array.isArray(logic.expectedValue)
+        ? { values: logic.expectedValue }
+        : { value: logic.expectedValue };
+    } else if (logic.condition === "answered") {
+      operator = "answered";
+      value = { value: true };
+    }
+
+    if (!operator) continue;
+
+    out.push({
+      source_client_id: String(logic.dependsOn),
+      target_client_id: target.id,
+      operator,
+      value,
+    });
+  }
+
+  return out;
+};
+
+const buildFormPayload = (
+  form: FormSchema,
+  overrides?: {
+    accessMode?: FormAccessMode;
+    startAt?: string | null;
+    endAt?: string | null;
+    settingsJson?: Record<string, unknown> | null;
+  }
+): FormBuilderPayload => {
+  const accessMode = overrides?.accessMode ?? form.accessMode ?? "private";
+  const startAt = overrides?.startAt ?? form.startAt ?? null;
+  const endAt = overrides?.endAt ?? form.endAt ?? null;
+  const settingsJson = overrides?.settingsJson ?? form.settings_json ?? { client_form_id: form.id };
+
+  return {
+    title: form.title,
+    description: form.description,
+    access_mode: accessMode,
+    start_at: startAt,
+    end_at: endAt,
+    settings_json: settingsJson,
+    elements: form.fields.map((field, index) => {
+      const props = (field.props ?? {}) as Record<string, unknown>;
+      const { placeholder, correctAnswer, correctAnswers, points, conditionalLogic, attachments, ...otherSettings } = props;
+      const fileIds = Array.isArray(attachments)
+        ? Array.from(
+            new Set(
+              attachments
+                .map((item: any) => Number(item?.file_id))
+                .filter((id: number) => Number.isFinite(id) && id > 0)
+            )
+          )
+        : [];
+      const cleanedOtherSettings: Record<string, unknown> = { ...otherSettings };
+      if (points !== undefined) cleanedOtherSettings.points = points;
+      const inputType = typeof props.inputType === "string" ? props.inputType : undefined;
+      const isEmailField = field.semanticType === "email" || inputType === "email";
+      if (isEmailField) {
+        delete cleanedOtherSettings.multiline;
+      }
+      if (field.semanticType === "passport") {
+        const passportFlags = [
+          "hidePassportFullName",
+          "hidePassportGender",
+          "hidePassportBirthDate",
+          "hidePassportSeriesNumber",
+          "hidePassportIssuedBy",
+          "hidePassportIssueDate",
+          "hidePassportDepartmentCode",
+          "hidePassportBirthPlace",
+        ] as const;
+        for (const key of passportFlags) {
+          cleanedOtherSettings[key] = Boolean((field.props as Record<string, unknown> | undefined)?.[key]);
+        }
+      }
+      const rawCorrectAnswer = correctAnswer ?? correctAnswers;
+      const normalizedCorrectAnswer = (() => {
+        if (rawCorrectAnswer == null) return null;
+        if (Array.isArray(rawCorrectAnswer)) return { values: rawCorrectAnswer };
+        if (typeof rawCorrectAnswer === "object") return rawCorrectAnswer as Record<string, unknown>;
+        return { value: rawCorrectAnswer };
+      })();
+
+      return {
+        client_id: field.id,
+        widget: mapWidgetTypeForPublish(field.widgetType),
+        semantic: field.semanticType ?? null,
+        label: field.label,
+        description: field.description ?? null,
+        text_hint: typeof placeholder === "string" ? placeholder : null,
+        correct_answer: normalizedCorrectAnswer,
+        required_field: !!field.required,
+        other_settings: cleanedOtherSettings,
+        file_ids: fileIds,
+        sort_index: typeof field.sortIndex === "number" ? field.sortIndex : index,
+      };
+    }),
+    conditions: extractConditionsFromFields(form.fields),
+  };
+};
+
+const getCorrectAnswerValues = (field: FormElementModel): string[] => {
+  const props = field.props as Record<string, unknown>;
+  const raw = props.correctAnswers ?? props.correctAnswer;
+  if (raw == null) return [];
+  if (Array.isArray(raw)) return raw.map(String);
+  return [String(raw)];
+};
+
+const normalizeAnswerValues = (field: FormElementModel, value: AnswersById[string]): string[] => {
+  if (value == null) return [];
+  if (Array.isArray(value)) return value.map(String);
+  if (field.widgetType === "datetime" && typeof value === "object") {
+    const dateTime = value as DateTimeAnswer;
+    const combined = `${dateTime?.date ?? ""} ${dateTime?.time ?? ""}`.trim();
+    return combined ? [combined] : [];
+  }
+  return [String(value)];
+};
+
+const isCorrectAnswer = (
+  field: FormElementModel,
+  value: AnswersById[string],
+  correctValues: string[]
+): boolean => {
+  if (correctValues.length === 0) return false;
+  const answerValues = normalizeAnswerValues(field, value);
+  if (answerValues.length === 0) return false;
+
+  if (field.widgetType === "checkbox" || field.widgetType === "matrix") {
+    const sortedAnswer = [...answerValues].sort();
+    const sortedCorrect = [...correctValues].sort();
+    return (
+      sortedAnswer.length === sortedCorrect.length &&
+      sortedAnswer.every((item, index) => item === sortedCorrect[index])
+    );
+  }
+
+  if (field.widgetType === "ranking") {
+    return (
+      answerValues.length === correctValues.length &&
+      answerValues.every((item, index) => item === correctValues[index])
+    );
+  }
+
+  return correctValues.includes(answerValues[0]);
+};
+
+const getFieldPoints = (field: FormElementModel) => {
+  const props = field.props as Record<string, unknown>;
+  const points = Number(props.points);
+  return Number.isFinite(points) && points > 0 ? points : 1;
+};
+
+type DateFieldProps = {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  title: string;
+  locale?: Locale;
+};
+
+const DateField = ({ label, value, onChange, title, locale }: DateFieldProps) => {
+  const [month, setMonth] = useState<Date>(() => getStableDate(value) ?? new Date());
+
+  useEffect(() => {
+    const parsed = getStableDate(value);
+    if (parsed) {
+      setMonth(parsed);
+    }
+  }, [value]);
+
+  return (
+    <div className="space-y-2">
+      <label className="text-sm font-medium">{label}</label>
+      <div className="relative">
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="absolute left-1 top-1/2 -translate-y-1/2 h-8 w-8"
+              title={title}
+            >
+              <CalendarDays className="h-4 w-4 text-muted-foreground" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start" portalled={false}>
+            <Calendar
+              mode="single"
+              selected={getStableDate(value)}
+              month={month}
+              onMonthChange={setMonth}
+              onSelect={(date) => {
+                if (!date) {
+                  onChange("");
+                  return;
+                }
+                setMonth(date);
+                onChange(format(date, "yyyy-MM-dd"));
+              }}
+              locale={locale}
+            />
+          </PopoverContent>
+        </Popover>
+        <Input
+          type="date"
+          value={value}
+          onChange={(event) => {
+            const next = event.target.value;
+            if (next === "") {
+              onChange("");
+              return;
+            }
+            if (isValidDateString(next)) {
+              const parsed = parseDateFromString(next);
+              if (parsed) {
+                setMonth(parsed);
+              }
+              onChange(next);
+            }
+          }}
+          className="pl-10"
+        />
+      </div>
+    </div>
+  );
+};
+const formatAnswerValue = (
+  field: FormElementModel,
+  value: AnswersById[string],
+  t: (key: string, options?: Record<string, unknown>) => string
+): ReactNode => {
+  if (value == null || value === "" || (Array.isArray(value) && value.length === 0)) {
+    return <span className="text-muted-foreground">{t("results.noAnswer")}</span>;
+  }
+
+  if (field.widgetType === "checkbox" && Array.isArray(value)) {
+    return (
+      <div className="flex flex-wrap gap-2">
+        {value.map((item) => (
+          <Badge key={String(item)} variant="secondary">
+            {String(item)}
+          </Badge>
+        ))}
+      </div>
+    );
+  }
+
+  if (field.widgetType === "ranking" && Array.isArray(value)) {
+    return (
+      <div className="space-y-2">
+        {value.map((item, idx) => (
+          <div key={String(item)} className="flex items-center gap-2 text-sm">
+            <Badge variant="outline">{idx + 1}</Badge>
+            <span>{String(item)}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (field.widgetType === "matrix" && Array.isArray(value)) {
+    return (
+      <div className="space-y-2">
+        {value.map((cell) => (
+          <div key={cell} className="text-sm text-muted-foreground">
+            {formatMatrixCell(field, String(cell))}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (field.widgetType === "file_upload" && Array.isArray(value)) {
+    return (
+      <div className="flex flex-wrap gap-2">
+        {(value as ElementAttachment[]).map((file) => (
+          <Badge key={file.file_id} variant="outline">
+            {file.name}
+          </Badge>
+        ))}
+      </div>
+    );
+  }
+
+  if (field.widgetType === "datetime") {
+    const dateTime = value as DateTimeAnswer;
+    const date = dateTime?.date ?? "";
+    const time = dateTime?.time ?? "";
+    return <span>{[date, time].filter(Boolean).join(" ")}</span>;
+  }
+
+  if (typeof value === "object") {
+    return <span>{JSON.stringify(value)}</span>;
+  }
+
+  return <span>{String(value)}</span>;
+};
+
+export default function FormResults({ params }: { params: { id: string } }) {
+  const { t, i18n } = useTranslation();
+  const [, setLocation] = useLocation();
+  const [form, setForm] = useState<FormSchema | null>(null);
+  const [versions, setVersions] = useState<FormSchema[]>([]);
+  const [versionDetailsById, setVersionDetailsById] = useState<Record<string, FormSchema>>({});
+  const [activeVersionId, setActiveVersionId] = useState(params.id);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selection, setSelection] = useState<Selection>({ type: "source" });
+  const [searchQuery, setSearchQuery] = useState("");
+  const [startAt, setStartAt] = useState("");
+  const [endAt, setEndAt] = useState("");
+  const [accessMode, setAccessMode] = useState<FormAccessMode>("private");
+  const [privateLinkKey, setPrivateLinkKey] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    setActiveVersionId(params.id);
+  }, [params.id]);
+
+  useEffect(() => {
+    if (versions.length === 0) return;
+    if (versions.some((item) => item.id === activeVersionId)) return;
+    setActiveVersionId(versions[versions.length - 1].id);
+  }, [activeVersionId, versions]);
+
+  useEffect(() => {
+    let active = true;
+    setIsLoading(true);
+    (async () => {
+      try {
+        const current = await fetchFormDetail(params.id);
+        if (!active) return;
+        setForm(current);
+
+        const summaries = await fetchForms().catch(() => [current]);
+        const formsById = new Map<string, FormSchema>(summaries.map((item) => [item.id, item]));
+        formsById.set(current.id, current);
+
+        let rootId = current.id;
+        const guard = new Set<string>();
+        while (!guard.has(rootId)) {
+          guard.add(rootId);
+          const node = formsById.get(rootId);
+          if (!node?.prevFormId) break;
+          if (!formsById.has(node.prevFormId)) break;
+          rootId = node.prevFormId;
+        }
+
+        const childrenById = new Map<string, string[]>();
+        formsById.forEach((item) => {
+          if (!item.prevFormId) return;
+          const prev = String(item.prevFormId);
+          childrenById.set(prev, [...(childrenById.get(prev) ?? []), item.id]);
+        });
+
+        const lineageIds: string[] = [];
+        const stack = [rootId];
+        const visited = new Set<string>();
+        while (stack.length > 0) {
+          const id = stack.pop()!;
+          if (visited.has(id)) continue;
+          visited.add(id);
+          lineageIds.push(id);
+          (childrenById.get(id) ?? []).forEach((child) => stack.push(child));
+        }
+
+        const lineage = lineageIds
+          .map((id) => formsById.get(id))
+          .filter((item): item is FormSchema => Boolean(item))
+          .filter((item) => item.status === "submitted")
+          .sort((a, b) => {
+            const av = a.version ?? 0;
+            const bv = b.version ?? 0;
+            if (av !== bv) return av - bv;
+            return a.updatedAt - b.updatedAt;
+          });
+
+        const detailsEntries = await Promise.all(
+          lineage.map(async (item) => {
+            try {
+              const detail = await fetchFormDetail(item.id);
+              return [item.id, detail] as const;
+            } catch {
+              return [item.id, item] as const;
+            }
+          })
+        );
+
+        if (!active) return;
+        setVersions(lineage);
+        setVersionDetailsById(Object.fromEntries(detailsEntries));
+      } catch {
+        if (!active) return;
+        const local = storage.getForms().find((item) => item.id === params.id) ?? null;
+        setForm(local);
+        setVersions(local ? [local] : []);
+        setVersionDetailsById(local ? { [local.id]: local } : {});
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [params.id]);
+
+  useEffect(() => {
+    if (!form) return;
+    setStartAt(getDateInputValue(form.startAt));
+    setEndAt(getDateInputValue(form.endAt));
+    setAccessMode(form.accessMode ?? "private");
+    const savedKey = typeof form.settings_json?.privateLinkKey === "string"
+      ? form.settings_json.privateLinkKey
+      : "";
+    setPrivateLinkKey(savedKey || createPrivateLinkKey());
+  }, [form]);
+
+  const responses = useMemo<ResponseEntry[]>(() => [], []);
+  const activeVersionForm = useMemo(
+    () => versionDetailsById[activeVersionId] ?? versions.find((item) => item.id === activeVersionId) ?? form,
+    [activeVersionId, form, versionDetailsById, versions]
+  );
+  const responsesForVersion = useMemo(
+    () => responses.filter((response) => response.formId === activeVersionId),
+    [activeVersionId, responses]
+  );
+  const filteredResponses = useMemo(() => {
+    if (!searchQuery.trim()) return responses;
+    const query = searchQuery.toLowerCase();
+    return responses.filter((response) => response.name.toLowerCase().includes(query));
+  }, [responses, searchQuery]);
+
+  const answerableFields = useMemo(
+    () => (activeVersionForm?.fields ?? []).filter((field) => field.widgetType !== "header"),
+    [activeVersionForm]
+  );
+
+  const summaryRows = useMemo<SummaryRow[]>(() => {
+    if (!activeVersionForm || responsesForVersion.length === 0) return [];
+
+    const numericMedian = (values: number[]) => {
+      if (values.length === 0) return 0;
+      const sorted = [...values].sort((a, b) => a - b);
+      const mid = Math.floor(sorted.length / 2);
+      return sorted.length % 2 === 0
+        ? (sorted[mid - 1] + sorted[mid]) / 2
+        : sorted[mid];
+    };
+
+    const mostFrequent = (values: string[]) => {
+      const counts = new Map<string, number>();
+      values.forEach((value) => {
+        counts.set(value, (counts.get(value) ?? 0) + 1);
+      });
+      let winner = "";
+      let max = 0;
+      counts.forEach((count, value) => {
+        if (count > max) {
+          winner = value;
+          max = count;
+        }
+      });
+      return { value: winner, count: max };
+    };
+
+    return answerableFields.map((field) => {
+      const values = responsesForVersion
+        .map((response) => response.answers[field.id])
+        .filter((value) => value !== undefined && value !== null);
+
+      if (field.widgetType === "number_input" || field.widgetType === "rating" || field.widgetType === "file_upload") {
+        const numbers = values
+          .map((value) => {
+            if (field.widgetType === "file_upload" && Array.isArray(value)) {
+              return value.length;
+            }
+            return typeof value === "number" ? value : Number(value);
+          })
+          .filter((val) => Number.isFinite(val));
+        const average = numbers.length ? numbers.reduce((sum, val) => sum + val, 0) / numbers.length : 0;
+        const median = numericMedian(numbers);
+        return {
+          id: field.id,
+          label: field.label,
+          metrics: [
+            { label: t("results.average"), value: average.toFixed(1) },
+            { label: t("results.median"), value: median.toFixed(1) },
+          ],
+        };
+      }
+
+      const flatValues = values.flatMap((value) => {
+        if (Array.isArray(value)) return value.map((item) => String(item));
+        if (field.widgetType === "datetime" && typeof value === "object") {
+          const dateTime = value as DateTimeAnswer;
+          return [`${dateTime?.date ?? ""} ${dateTime?.time ?? ""}`.trim()].filter(Boolean);
+        }
+        return [String(value)];
+      });
+
+      if (field.widgetType === "matrix") {
+        const normalized = flatValues.map((value) => formatMatrixCell(field, value));
+        const { value, count } = mostFrequent(normalized);
+        return {
+          id: field.id,
+          label: field.label,
+          metrics: [
+            {
+              label: t("results.mostFrequent"),
+              value: value ? `${value} (${count})` : t("results.noResponses"),
+            },
+          ],
+        };
+      }
+
+      const { value, count } = mostFrequent(flatValues);
+      return {
+        id: field.id,
+        label: field.label,
+        metrics: [
+          {
+            label: t("results.mostFrequent"),
+            value: value ? `${value} (${count})` : t("results.noResponses"),
+          },
+        ],
+      };
+    });
+  }, [activeVersionForm, answerableFields, responsesForVersion, t]);
+
+  const activeResponse = useMemo(() => {
+    if (selection.type !== "response") return null;
+    return responses.find((response) => response.id === selection.responseId) ?? null;
+  }, [responses, selection]);
+
+  const stats = useMemo(() => {
+    const totalViews = 0;
+    const completed = responsesForVersion.length;
+    const avgMinutes = responsesForVersion.length
+      ? responsesForVersion.reduce((sum, item) => sum + item.durationMinutes, 0) / responsesForVersion.length
+      : 0;
+    return {
+      totalViews,
+      completed,
+      avgTime: formatDuration(avgMinutes),
+    };
+  }, [responsesForVersion]);
+
+  const scoreStats = useMemo(() => {
+    const scoredFields = answerableFields.filter((field) => getCorrectAnswerValues(field).length > 0);
+    if (scoredFields.length === 0 || responsesForVersion.length === 0) {
+      return { hasScore: false, avgScore: 0, maxScore: 0 };
+    }
+    const maxScore = scoredFields.reduce((sum, field) => sum + getFieldPoints(field), 0);
+    const totalScore = responsesForVersion.reduce((sum, response) => {
+      const responseScore = scoredFields.reduce((fieldSum, field) => {
+        const correctValues = getCorrectAnswerValues(field);
+        const isCorrect = isCorrectAnswer(field, response.answers[field.id], correctValues);
+        return fieldSum + (isCorrect ? getFieldPoints(field) : 0);
+      }, 0);
+      return sum + responseScore;
+    }, 0);
+    return { hasScore: true, avgScore: totalScore / responsesForVersion.length, maxScore };
+  }, [answerableFields, responsesForVersion]);
+
+  const activeVersionLabel = activeVersionForm
+    ? t("results.version", { version: activeVersionForm.version ?? 1 })
+    : "";
+
+  const selectionTitle = (() => {
+    if (selection.type === "source") return t("results.originalForm");
+    if (selection.type === "summary") return t("results.summary");
+    return t("results.response");
+  })();
+
+  const selectionSubtitle = (() => {
+    if (selection.type === "source") {
+      return [activeVersionLabel, t("results.readOnlyHint")].filter(Boolean).join(" | ");
+    }
+    if (selection.type === "summary") {
+      return [activeVersionLabel, t("results.summaryHint")].filter(Boolean).join(" | ");
+    }
+    if (!activeResponse) return "";
+    const locale = i18n.language.startsWith("ru") ? ru : undefined;
+    return [
+      t("results.version", { version: activeResponse.version }),
+      t("results.submitted", {
+        time: formatDistanceToNow(new Date(activeResponse.submittedAt), { addSuffix: true, locale }),
+      }),
+      t("results.duration", { time: formatDuration(activeResponse.durationMinutes) }),
+    ]
+      .filter(Boolean)
+      .join(" | ");
+  })();
+
+  const formLink = useMemo(() => {
+    const base = typeof window !== "undefined" ? window.location.origin : "";
+    const formId = form?.id ?? params.id;
+    if (accessMode === "private") {
+      return `${base}/form/${formId}?key=${privateLinkKey}`;
+    }
+    return `${base}/form/${formId}`;
+  }, [accessMode, form?.id, params.id, privateLinkKey]);
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(formLink);
+      toast({ title: t("results.copied") });
+    } catch (error) {
+      toast({ title: t("builder.error"), description: t("results.copyFailed"), variant: "destructive" });
+    }
+  };
+
+  const isDirty = form
+    ? (() => {
+        const storedKey = typeof form.settings_json?.privateLinkKey === "string"
+          ? form.settings_json.privateLinkKey
+          : "";
+        const keyChanged = accessMode === "private" && privateLinkKey !== storedKey;
+        return (
+          startAt !== getDateInputValue(form.startAt) ||
+          endAt !== getDateInputValue(form.endAt) ||
+          accessMode !== (form.accessMode ?? "private") ||
+          keyChanged
+        );
+      })()
+    : false;
+
+  const handleSaveSettings = async () => {
+    if (!form) return;
+    setIsSaving(true);
+    const payload = buildFormPayload(form, {
+      accessMode,
+      startAt: toIsoDate(startAt, "00:00:00"),
+      endAt: toIsoDate(endAt, "23:59:59"),
+      settingsJson: {
+        ...(form.settings_json ?? {}),
+        privateLinkKey,
+      },
+    });
+    try {
+      const saved = await saveFormInPlace(form.id, payload);
+      storage.saveForm(saved);
+      setForm(saved);
+      setStartAt(getDateInputValue(saved.startAt));
+      setEndAt(getDateInputValue(saved.endAt));
+      setAccessMode(saved.accessMode ?? "private");
+      toast({ title: t("results.settingsSaved") });
+    } catch (error: any) {
+      toast({
+        title: t("results.settingsSaveError"),
+        description: error?.message ?? t("builder.error"),
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const calendarLocale = i18n.language.startsWith("ru") ? ru : undefined;
+
+  return (
+    <div className="min-h-screen bg-muted/30 flex flex-col">
+      <header className="h-19 border-b border-border bg-white flex items-center justify-between px-6 shrink-0">
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            className="flex items-center gap-2"
+            onClick={() => setLocation("/")}
+          >
+            <div className="h-12 w-12 rounded-lg flex items-center justify-center">
+              <img src="/logo_etu.png" alt="ETU_LOGO" />
+            </div>
+            <span className="font-bold text-xl color-txt hidden sm:inline">
+              {i18n.language.startsWith("ru") ? "ЛЭТИ.Формы" : "ETU.Forms"}
+            </span>
+          </button>
+          <div className="h-8 w-px bg-border hidden sm:block" />
+          <div>
+            <h1 className="text-lg font-semibold">{form?.title || t("common.untitled")}</h1>
+            <p className="text-sm text-muted-foreground">{t("results.title")}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => setLocation(`/builder/${params.id}`)}
+          >
+            <PencilLine className="h-4 w-4" />
+            <span className="hidden sm:inline">{t("results.editForm")}</span>
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1 h-9 px-3"
+            onClick={() => {
+              const newLang = i18n.language.startsWith("ru") ? "en" : "ru";
+              i18n.changeLanguage(newLang);
+            }}
+            title={i18n.language.startsWith("ru") ? "Switch to English" : "Switch to Russian"}
+          >
+            <span className="text-xs font-medium">{i18n.language.startsWith("ru") ? "RU" : "EN"}</span>
+          </Button>
+          <UserMenu />
+        </div>
+      </header>
+
+      {!isLoading && form && form.status !== "submitted" ? (
+        <div className="flex-1 px-6 py-6">
+          <Card className="max-w-2xl mx-auto">
+            <CardContent className="pt-10 pb-10">
+              <Empty className="border-none p-0">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <BarChart3 className="h-5 w-5" />
+                  </EmptyMedia>
+                  <EmptyTitle>{t("results.onlyPublishedTitle")}</EmptyTitle>
+                  <EmptyDescription>{t("results.onlyPublishedDesc")}</EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+              <div className="mt-6 flex justify-center">
+                <Button onClick={() => setLocation(`/builder/${params.id}`)}>
+                  {t("results.openBuilder")}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+      <div className="flex-1 flex flex-col lg:flex-row gap-6 px-6 py-6 min-h-0">
+        <aside className="lg:w-72 w-full flex flex-col gap-4 min-h-0">
+          <Card className="flex flex-col min-h-0">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-base flex items-center justify-between">
+                <span>{t("results.versions")}</span>
+                <Badge variant="secondary">{versions.length}</Badge>
+              </CardTitle>
+              <div className="relative">
+                <Search className="h-4 w-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+                <Input
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder={t("results.searchResponses")}
+                  className="pl-9"
+                />
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3 overflow-y-auto pr-2">
+              <div className="space-y-1">
+                {versions.length === 0 && (
+                  <div className="text-sm text-muted-foreground px-3">{t("results.noVersions")}</div>
+                )}
+                {versions.map((versionForm) => (
+                  <button
+                    key={versionForm.id}
+                    type="button"
+                    className={cn(
+                      "w-full flex items-start gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                      activeVersionId === versionForm.id ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                    )}
+                    onClick={() => {
+                      setActiveVersionId(versionForm.id);
+                      setSelection({ type: "source" });
+                    }}
+                  >
+                    <FileText className="h-4 w-4 mt-0.5" />
+                    <div className="flex-1 text-left">
+                      <div className="font-medium">{t("results.version", { version: versionForm.version ?? 1 })}</div>
+                      <div className="text-xs text-muted-foreground truncate">{versionForm.title || t("common.untitled")}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              <Separator />
+
+              <div className="space-y-1">
+                <button
+                  type="button"
+                  className={cn(
+                    "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                    selection.type === "source" ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                  )}
+                  onClick={() => setSelection({ type: "source" })}
+                >
+                  <FileText className="h-4 w-4" />
+                  <span className="flex-1 text-left">
+                    {t("results.originalForm")}
+                    {activeVersionForm ? ` (${t("results.version", { version: activeVersionForm.version ?? 1 })})` : ""}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className={cn(
+                    "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                    selection.type === "summary" ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                  )}
+                  onClick={() => setSelection({ type: "summary" })}
+                >
+                  <BarChart3 className="h-4 w-4" />
+                  <span className="flex-1 text-left">
+                    {t("results.summary")}
+                    {activeVersionForm ? ` (${t("results.version", { version: activeVersionForm.version ?? 1 })})` : ""}
+                  </span>
+                </button>
+              </div>
+
+              <Separator />
+
+              <div className="flex items-center justify-between px-3 text-xs uppercase tracking-wide text-muted-foreground">
+                <span>{t("results.responses")}</span>
+                <span>{filteredResponses.length}</span>
+              </div>
+              <div className="space-y-1">
+                {filteredResponses.length === 0 && (
+                  <div className="text-sm text-muted-foreground px-3">{t("results.noResponses")}</div>
+                )}
+                {filteredResponses.map((response) => (
+                  <button
+                    key={response.id}
+                    type="button"
+                    className={cn(
+                      "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                      selection.type === "response" && selection.responseId === response.id
+                        ? "bg-primary/10 text-primary"
+                        : "hover:bg-muted"
+                    )}
+                    onClick={() => {
+                      setActiveVersionId(response.formId);
+                      setSelection({ type: "response", responseId: response.id });
+                    }}
+                  >
+                    <Avatar className="h-7 w-7">
+                      <AvatarFallback>{getInitials(response.name)}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 text-left">
+                      <div className="font-medium flex items-center gap-2">
+                        <span>{response.name}</span>
+                        <Badge variant="outline" className="h-5">
+                          {t("results.version", { version: response.version })}
+                        </Badge>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {formatDistanceToNow(new Date(response.submittedAt), {
+                          addSuffix: true,
+                          locale: i18n.language.startsWith("ru") ? ru : undefined,
+                        })}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </aside>
+
+        <section className="flex-1 min-h-0">
+          <Card className="h-full flex flex-col">
+            <CardHeader className="pb-4 border-b">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <CardTitle className="text-lg">{selectionTitle}</CardTitle>
+                  <CardDescription>{selectionSubtitle}</CardDescription>
+                </div>
+                <Badge variant="outline" className="gap-1">
+                  <Users className="h-3.5 w-3.5" />
+                  {t("results.responsesCount", { count: responsesForVersion.length })}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="flex-1 overflow-y-auto pr-2 pt-6 space-y-6">
+              {isLoading && (
+                <div className="text-sm text-muted-foreground">{t("common.loading")}</div>
+              )}
+
+              {!isLoading && selection.type === "source" && (
+                activeVersionForm ? (
+                  <div className="space-y-4">
+                    {activeVersionForm.description && (
+                      <div className="text-sm text-muted-foreground">{activeVersionForm.description}</div>
+                    )}
+                    <div className="pointer-events-none opacity-95">
+                      <FormPreview form={activeVersionForm} />
+                    </div>
+                  </div>
+                ) : (
+                  <Empty>
+                    <EmptyHeader>
+                      <EmptyMedia variant="icon">
+                        <FileText className="h-5 w-5" />
+                      </EmptyMedia>
+                      <EmptyTitle>{t("results.formUnavailable")}</EmptyTitle>
+                      <EmptyDescription>{t("results.formUnavailableDesc")}</EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
+                )
+              )}
+
+              {!isLoading && selection.type === "summary" && (
+                responsesForVersion.length === 0 ? (
+                  <Empty>
+                    <EmptyHeader>
+                      <EmptyMedia variant="icon">
+                        <BarChart3 className="h-5 w-5" />
+                      </EmptyMedia>
+                      <EmptyTitle>{t("results.noResponses")}</EmptyTitle>
+                      <EmptyDescription>{t("results.summaryHint")}</EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[45%]">{t("results.question")}</TableHead>
+                        <TableHead>{t("results.answer")}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {summaryRows.map((row) => (
+                        <TableRow key={row.id}>
+                          <TableCell className="font-medium">{row.label}</TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-3 text-sm">
+                              {row.metrics.map((metric) => (
+                                <div key={metric.label} className="flex items-center gap-2">
+                                  <span className="text-muted-foreground">{metric.label}:</span>
+                                  <span className="font-medium">{metric.value}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )
+              )}
+
+              {!isLoading && selection.type === "response" && (
+                activeResponse ? (
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4" />
+                        <span>{activeResponse.name}</span>
+                      </div>
+                      <Separator orientation="vertical" className="h-4" />
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4" />
+                        <span>{formatDuration(activeResponse.durationMinutes)}</span>
+                      </div>
+                      <Separator orientation="vertical" className="h-4" />
+                      <Badge variant="outline">{t("results.version", { version: activeResponse.version })}</Badge>
+                    </div>
+
+                    <div className="space-y-4">
+                      {answerableFields.map((field) => (
+                        <Card key={field.id} className="border border-border/60 shadow-sm">
+                          <CardHeader className="pb-3">
+                            <CardTitle className="text-base">{field.label}</CardTitle>
+                            {field.description && (
+                              <CardDescription>{field.description}</CardDescription>
+                            )}
+                          </CardHeader>
+                          <CardContent>
+                            {formatAnswerValue(field, activeResponse.answers[field.id], t)}
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <Empty>
+                    <EmptyHeader>
+                      <EmptyMedia variant="icon">
+                        <Users className="h-5 w-5" />
+                      </EmptyMedia>
+                      <EmptyTitle>{t("results.noResponses")}</EmptyTitle>
+                      <EmptyDescription>{t("results.summaryHint")}</EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
+                )
+              )}
+            </CardContent>
+          </Card>
+        </section>
+
+        <aside className="lg:w-80 w-full flex flex-col gap-4 min-h-0">
+          <Card>
+            <CardHeader className="pb-4">
+              <CardTitle className="text-base">{t("results.accessSettings")}</CardTitle>
+              <CardDescription>{t("results.linkHint")}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <DateField
+                label={t("results.openDate")}
+                value={startAt}
+                onChange={setStartAt}
+                title={t("results.openCalendar")}
+                locale={calendarLocale}
+              />
+              <DateField
+                label={t("results.closeDate")}
+                value={endAt}
+                onChange={setEndAt}
+                title={t("results.openCalendar")}
+                locale={calendarLocale}
+              />
+              <div className="space-y-2">
+                <label className="text-sm font-medium">{t("builder.accessMode")}</label>
+                <Select value={accessMode} onValueChange={(value) => setAccessMode(value as FormAccessMode)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={t("builder.accessModePlaceholder")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="public">{t("builder.accessModePublic")}</SelectItem>
+                    <SelectItem value="private">{t("builder.accessModePrivate")}</SelectItem>
+                    <SelectItem value="unauthenticated">{t("builder.accessModeUnauthenticated")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">{t("results.formLink")}</label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <LinkIcon className="h-4 w-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+                    <Input value={formLink} readOnly className="pl-9" />
+                  </div>
+                  <Button variant="outline" size="icon" onClick={handleCopyLink}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {accessMode === "private" ? t("results.privateLinkHint") : t("results.publicLinkHint")}
+                </p>
+              </div>
+              <Button
+                onClick={handleSaveSettings}
+                disabled={!isDirty || isSaving}
+                className="w-full"
+              >
+                {isSaving ? t("results.saving") : t("results.saveSettings")}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-4">
+              <CardTitle className="text-base">{t("results.stats")}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="rounded-lg border border-border/60 p-3">
+                  <div className="text-muted-foreground">{t("results.linkClicks")}</div>
+                  <div className="text-xl font-semibold">{stats.totalViews}</div>
+                </div>
+                <div className="rounded-lg border border-border/60 p-3">
+                  <div className="text-muted-foreground">{t("results.completed")}</div>
+                  <div className="text-xl font-semibold">{stats.completed}</div>
+                </div>
+                <div className="rounded-lg border border-border/60 p-3">
+                  <div className="text-muted-foreground">{t("results.avgTime")}</div>
+                  <div className="text-xl font-semibold">{stats.avgTime}</div>
+                </div>
+                <div className="rounded-lg border border-border/60 p-3">
+                  <div className="text-muted-foreground">{t("results.averageScore")}</div>
+                  <div className="text-xl font-semibold">
+                    {scoreStats.hasScore
+                      ? `${scoreStats.avgScore.toFixed(1)} / ${scoreStats.maxScore}`
+                      : t("results.noScore")}
+                  </div>
+                </div>
+              </div>
+              {scoreStats.hasScore && scoreStats.maxScore > 0 && (
+                <div>
+                  <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
+                    <span>{t("results.averageScore")}</span>
+                    <span>{Math.round((scoreStats.avgScore / scoreStats.maxScore) * 100)}%</span>
+                  </div>
+                  <Progress value={(scoreStats.avgScore / scoreStats.maxScore) * 100} />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </aside>
+      </div>
+      )}
+    </div>
+  );
+}
+
+

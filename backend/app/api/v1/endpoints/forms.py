@@ -200,12 +200,13 @@ async def get_form(
 async def save_form(
     form_id: int,
     payload: FormBuilderPayload,
+    in_place: bool = Query(False, description="Update submitted form in place without creating new draft version"),
     db: AsyncSession = Depends(get_db),
     current_user: AppUser = Depends(get_current_user_dep),
 ):
     form = await _ensure_editor_or_owner(db, form_id, current_user)
 
-    if form.status == "submitted":
+    if form.status == "submitted" and not in_place:
         temp_count = await _count_active_temp_forms(db, current_user.user_id)
         if temp_count >= MAX_TEMP_FORMS_PER_USER:
             raise HTTPException(
@@ -229,7 +230,8 @@ async def save_form(
         await db.flush()
         form = draft
 
-    form = await apply_builder_payload(db, form, payload, target_status="temp")
+    target_status = "submitted" if form.status == "submitted" and in_place else "temp"
+    form = await apply_builder_payload(db, form, payload, target_status=target_status)
     await db.commit()
     await db.refresh(form)
     return await build_form_detail_response(db, form)
