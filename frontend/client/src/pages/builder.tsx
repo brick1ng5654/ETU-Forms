@@ -782,7 +782,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
         }
         return [...prev, merged];
       });
-      toast({ title: t("builder.published"), description: `Saved to DB. form_id=${result.id}` });
+      toast({ title: t("builder.published") });
       setIsPublishOpen(false);
     } catch (e: any) {
       toast({ title: t("builder.error"), description: e.message ?? "Publish error", variant: "destructive" });

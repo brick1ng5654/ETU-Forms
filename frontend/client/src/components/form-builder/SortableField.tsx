@@ -268,7 +268,7 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
             const optionItems = part.options ?? [];
             if (optionItems.length > 0) {
               return (
-                <RadioGroup key={part.key} disabled className="flex flex-row flex-wrap gap-6">
+                <RadioGroup key={part.key} disabled className="flex flex-row flex-wrap gap-4">
                   {optionItems.map((option) => {
                     const optionLabel = option.labelKey ? t(option.labelKey) : option.label || option.value;
                     const optionId = `preview-${field.id}-${part.key}-${option.value}`;
@@ -528,7 +528,7 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
         );
       case "radio":
         return editingElement === "options" ? (
-          <div className="space-y-2">
+          <div className="space-y-2 mb-4">
             {editingOptions.map((opt, index) => (
               <div key={index} className="flex items-center gap-2">
                 <RadioGroupItem value={opt} disabled />
@@ -575,7 +575,7 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
             </div>
           </div>
         ) : (
-          <RadioGroup disabled>
+          <RadioGroup disabled className="space-y-3">
             <div
               className="cursor-pointer"
               onClick={(e) => {
@@ -586,7 +586,7 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
               {options.map((opt, i) => (
                 <div key={i} className="flex items-center space-x-2">
                   <RadioGroupItem value={opt} id={`${field.id}-${i}`} />
-                  <Label htmlFor={`${field.id}-${i}`}>{opt}</Label>
+                  <Label htmlFor={`${field.id}-${i}`} className="py-1" >{opt}</Label>
                 </div>
               ))}
             </div>

@@ -931,7 +931,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
 
     if (fieldDef.type === "switch") {
       return (
-        <div key={fieldDef.key} className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+        <div key={fieldDef.key} className="flex items-center justify-between rounded-lg border p-3 shadow-sm space-y-2">
           <div className="space-y-0.5">{label}</div>
           <Switch
             checked={Boolean(value)}
@@ -1067,7 +1067,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
         {schemaFields.map(renderPropertyField)}
         {isPlainText && (
           <>
-            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm space-y-2">
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
                   <Label>{t("propert.longtxt")}</Label>

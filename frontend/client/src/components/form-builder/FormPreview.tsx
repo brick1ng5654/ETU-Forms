@@ -1948,7 +1948,7 @@ export function FormPreview({
           </div>
         )}
 
-        {(!isRespondMode && (props.correctAnswers as string[] | undefined)?.length) ? (
+        (!isRespondMode || (hasResult && results?.[field.id] === false)) && (
   <div className="text-sm text-green-700 mt-2">
     {field.widgetType === "ranking" ? (
       <div>
