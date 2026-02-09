@@ -315,7 +315,7 @@
     "matrixValidationModeAllHelp":"Выберите все правильные ответы",
     "points": "баллов",
     "fixCorrectAnswers":"Распределить правильные ответы",
-    "correctAnswers":"Правильных ответов"
+    "correctAnswers":"Правильных ответов",
     "hideQuestion":"Скрыть поле ответа"
   },
   "descerr": {
