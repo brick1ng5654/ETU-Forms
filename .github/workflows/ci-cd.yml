@@ -47,6 +47,9 @@ jobs:
           POSTGRES_PORT=${DB_PORT}
           EOF
 
+      - name: Give rights for postgres logs directory
+        run: chmod 777 ./logs/db
+        
       - name: Start containers with Docker Compose
         run: docker compose -f "docker-compose.yml" up -d --build
 
