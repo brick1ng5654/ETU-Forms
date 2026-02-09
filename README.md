@@ -129,13 +129,11 @@ ETU-Forms - это веб-сервис для создания форм и оп�
 - `widget` ⇄ `widgetType`
 - `semantic` ⇄ `semanticType`
 - `label` ⇄ `label`
-- `text_hint`/`supportive_text` ⇄ `description`/подсказки
+- `text_hint` ⇄ `text_hint` 
+- `supportive_text` ⇄ `supportive_text`
 - `required_field` ⇄ `required`
 - `other_settings` ⇄ `props`
 - `position` ⇄ `sortIndex`
-
-**Связанные сущности:**
-- `Form_Element_Condition` — хранит условия отображения элементов (ветвления).
 
 ## Итоговый поток данных
 1) Пользователь создаёт/редактирует элементы в UI (`FormElementModel`).
