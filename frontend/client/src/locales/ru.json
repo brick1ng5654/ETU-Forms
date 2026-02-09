@@ -314,7 +314,7 @@
     "matrixValidationModeAnyHelp":"Выберите хотя бы один правильный ответ из списка ПРАВИЛЬНЫХ",
     "matrixValidationModeAllHelp":"Выберите все правильные ответы",
     "points": "баллов",
-    "hideQuestion":"Спрятать поле ответа"
+    "hideQuestion":"Скрыть поле ответа"
   },
   "descerr": {
     "empty": "Имя папки не может быть пустым",
