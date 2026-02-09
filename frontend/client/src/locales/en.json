@@ -349,7 +349,8 @@
     "matrixCorrPoint": "An answer is considered correct if: 1) “At least one correct answer” — at least one cell from the list of correct answers is selected (not just any). 2) “All correct answers” — all correct cells in each row are selected.",
     "matrixTotalPoints": "Points for entire matrix",
     "matrixTotalPointsHelp": "Points are awarded if the entire matrix is filled correctly",
-    "points": "points"
+    "points": "points",
+    "hideQuestion":"Hide the response field"
   },
   "errors": {
     "required": "Required",

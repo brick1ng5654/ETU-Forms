@@ -1479,7 +1479,7 @@ export function FormPreview({
           markTouched(field.id);
         }}
       >
-        {field.widgetType !== "header" && (
+        {field.widgetType !== "header" && !props.hideQuestion && (
           <div className="flex items-center justify-between">
             <Label className="flex items-center gap-2">
               {field.label}
@@ -1518,9 +1518,17 @@ export function FormPreview({
           </p>
         ) : null}
 
-        {field.widgetType === "text_input" && renderTextInput(field, isInputsDisabled)}
+        {field.widgetType === "header" && <h2 className="text-xl font-bold pb-2 border-b">{field.label}</h2>}
 
-        {field.widgetType === "textarea" && (() => {
+        {field.widgetType === "text_input" && !props.hideQuestion && renderTextInput(field, results !== null)}
+        {field.widgetType === "text_input" && Boolean(props.hideQuestion) && (
+          <div className="text-sm text-muted-foreground whitespace-pre-wrap break-all">
+            {field.label}
+          </div>
+)}
+
+
+        {field.widgetType === "textarea" && !props.hideQuestion && (() => {
           const maxChars = getTextMaxChars(field);
           const value = (answers[field.id] as string) || "";
 
@@ -1547,6 +1555,14 @@ export function FormPreview({
             />
           );
         })()}
+        
+        {field.widgetType === "textarea" && (
+          typeof props.hideQuestion === "boolean" && props.hideQuestion
+        ) && (
+          <div className="text-sm text-muted-foreground whitespace-pre-wrap break-all">
+            {field.label}
+          </div>
+        )}
 
         {field.widgetType === "number_input" && (() => {
           const allowDecimals = Boolean(props.allowDecimals);
@@ -1934,8 +1950,16 @@ export function FormPreview({
         )}
 
         <ElementAttachments
-          attachments={(props.attachments as any) || []}
-          displayMode={(props.attachmentsDisplay as any) || "slider"}
+          attachments={(props.attachments as ElementAttachment[]) || []}
+          displayMode={(() => {
+            const mode = (props.attachmentsDisplay as "slider" | "list" | "grid") || "slider";
+            // Type guard: проверяем, является ли mode допустимым значением
+            if (mode === "slider" || mode === "list") {
+              return mode;
+            }
+            // Fallback для "grid" или любых других значений
+            return "list";
+          })()}
         />
 
         {fieldErrors.length > 0 && (
