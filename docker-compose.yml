@@ -49,7 +49,7 @@ services:
     volumes:
     - postgres_data:/var/lib/postgresql/data
     - ./database/init:/docker-entrypoint-initdb.d:ro
-    - ./logs/db:/var/lib/postgresql/data/log
+    - ./logs/db:/var/log/postgresql
     command: 
       postgres
       -c logging_collector=on
