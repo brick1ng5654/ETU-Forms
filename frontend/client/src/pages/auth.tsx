@@ -40,6 +40,12 @@ export default function Auth() {
 
   const { t, i18n } = useTranslation();
   const [, navigate] = useLocation();
+  const nextAfterLogin = useMemo(() => {
+    const query = typeof window !== "undefined" ? window.location.search : "";
+    const params = new URLSearchParams(query);
+    const next = params.get("next");
+    return next && next.startsWith("/") ? next : "/";
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,7 +91,7 @@ export default function Auth() {
       setAccessToken(data.access_token);
       setUser(data.user);
       // После успешной авторизации перенаправляем на главную страницу
-      navigate("/");
+      navigate(nextAfterLogin);
     } catch (err) {
       setError(t("auth.networkError"));
     } finally {

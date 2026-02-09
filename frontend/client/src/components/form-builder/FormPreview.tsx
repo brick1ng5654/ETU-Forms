@@ -19,7 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarDays, Clock, CheckCircle2, XCircle, Star, RotateCcw, GripVertical, Upload, ChevronsUpDown, Check } from "lucide-react";
+import { CalendarDays, Clock, CheckCircle2, Star, GripVertical, Upload, ChevronsUpDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -640,16 +640,29 @@ function SortableItem({ id, disabled }: SortableItemProps) {
 
 interface FormPreviewProps {
   form: FormSchema;
+  mode?: "preview" | "respond";
+  readOnly?: boolean;
+  submitLabel?: string;
+  submitting?: boolean;
+  onSubmitAnswers?: (payload: ReturnType<typeof buildAnswersPayload>) => void | Promise<void>;
 }
 
 type Results = Record<string, boolean>;
 
-export function FormPreview({ form }: FormPreviewProps) {
+export function FormPreview({
+  form,
+  mode = "preview",
+  readOnly = false,
+  submitLabel,
+  submitting = false,
+  onSubmitAnswers,
+}: FormPreviewProps) {
   const { t } = useTranslation();
+  const isRespondMode = mode === "respond";
   const [answers, setAnswers] = useState<AnswersById>({});
   const [results, setResults] = useState<Results | null>(null);
-  const [totalScore, setTotalScore] = useState<number>(0);
-  const [maxScore, setMaxScore] = useState<number>(0);
+  const [, setTotalScore] = useState<number>(0);
+  const [, setMaxScore] = useState<number>(0);
   const [errorsById, setErrorsById] = useState<Record<string, string[]>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [focusedFieldId, setFocusedFieldId] = useState<string | null>(null);
@@ -668,12 +681,13 @@ export function FormPreview({ form }: FormPreviewProps) {
   );
 
   const hasQuizFields = useMemo(() => {
+    if (isRespondMode) return false;
     return form.fields.some((field) => {
       const props = field.props as Record<string, unknown>;
       const correctAnswers = props.correctAnswers as string[] | undefined;
       return Boolean(correctAnswers && correctAnswers.length > 0);
     });
-  }, [form.fields]);
+  }, [form.fields, isRespondMode]);
 
   useEffect(() => {
     setErrorsById(validateForm(form.fields, answers));
@@ -1102,15 +1116,25 @@ export function FormPreview({ form }: FormPreviewProps) {
     setMaxScore(max);
   };
 
-  const resetQuiz = () => {
-    setAnswers({});
-    setResults(null);
-    setTotalScore(0);
-    setMaxScore(0);
-    setTouched({});
-  };
-
   const isFieldVisible = (field: FormElementModel): boolean => {
+    // In read-only preview (e.g. results page), show full form structure
+    // regardless of conditional logic so dependent fields are visible.
+    if (readOnly && !isRespondMode) {
+      return true;
+    }
+
+    const hasAnswerValue = (value: unknown): boolean => {
+      if (value == null) return false;
+      if (typeof value === "string") return value.trim().length > 0;
+      if (Array.isArray(value)) return value.length > 0;
+      if (typeof value === "object") {
+        const values = Object.values(value as Record<string, unknown>);
+        if (values.length === 0) return false;
+        return values.some((item) => hasAnswerValue(item));
+      }
+      return true;
+    };
+
     try {
       const props = field.props as Record<string, unknown>;
       const conditionalLogic = props.conditionalLogic as {
@@ -1120,7 +1144,12 @@ export function FormPreview({ form }: FormPreviewProps) {
       } | undefined;
       if (!conditionalLogic || !conditionalLogic.dependsOn) return true;
       const { dependsOn, condition, expectedValue } = conditionalLogic;
-      const parentAnswer = answers[dependsOn];
+      const dependencyId = String(dependsOn);
+      const parentField = form.fields.find((item) => item.id === dependencyId);
+      // Broken dependency should not hide fields forever in runtime.
+      if (!parentField) return true;
+      if (condition === "answered" && parentField.widgetType === "header") return true;
+      const parentAnswer = answers[dependencyId];
 
       switch (condition) {
         case "equals":
@@ -1129,11 +1158,20 @@ export function FormPreview({ form }: FormPreviewProps) {
               ? expectedValue.some((val) => (parentAnswer as string[]).includes(val))
               : expectedValue.includes(parentAnswer as string);
           }
-          return parentAnswer === expectedValue;
+          return Array.isArray(parentAnswer)
+            ? (parentAnswer as string[]).includes(String(expectedValue ?? ""))
+            : parentAnswer === expectedValue;
         case "not_equals":
-          return parentAnswer !== expectedValue;
+          if (Array.isArray(expectedValue)) {
+            return Array.isArray(parentAnswer)
+              ? !expectedValue.some((val) => (parentAnswer as string[]).includes(val))
+              : !expectedValue.includes(parentAnswer as string);
+          }
+          return Array.isArray(parentAnswer)
+            ? !(parentAnswer as string[]).includes(String(expectedValue ?? ""))
+            : parentAnswer !== expectedValue;
         case "answered":
-          return parentAnswer != null && parentAnswer !== "";
+          return hasAnswerValue(parentAnswer);
         default:
           return true;
       }
@@ -1416,16 +1454,18 @@ export function FormPreview({ form }: FormPreviewProps) {
   const renderField = (field: FormElementModel) => {
     const props = field.props as Record<string, unknown>;
     const options = props.options as string[] | undefined;
+    const correctAnswers = Array.isArray(props.correctAnswers)
+      ? props.correctAnswers.map((answer) => String(answer))
+      : [];
+    const hasCorrectAnswers = correctAnswers.length > 0;
     const isCountrySelect = isCountryField(field);
     const hideDate = Boolean(props.hideDate);
     const hideTime = Boolean(props.hideTime);
     const hasResult = results !== null && field.id in results;
     const isCorrect = hasResult && results[field.id];
-    const isIncorrect = hasResult && !results[field.id];
     const fieldWrapperClass = cn(
       "space-y-2 p-3 rounded-lg transition-colors",
-      isCorrect && "bg-green-50 border border-green-200",
-      isIncorrect && "bg-red-50 border border-red-200"
+      isCorrect && "bg-green-50 border border-green-200"
     );
     const fieldErrors = getErrorsForField(field.id);
 
@@ -1461,28 +1501,41 @@ export function FormPreview({ form }: FormPreviewProps) {
             </Label>
             {hasResult && (
               <div className="flex items-center gap-1">
-                {isCorrect ? (
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
-                ) : (
-                  <XCircle className="h-5 w-5 text-red-600" />
-                )}
+                {isCorrect ? <CheckCircle2 className="h-5 w-5 text-green-600" /> : null}
               </div>
             )}
           </div>
         )}
 
-        {field.description && !props.hideQuestion && (
+        {field.widgetType === "header" ? (
+          <>
+            <h2 className="text-xl font-bold pb-2 border-b">{field.label}</h2>
+            {field.description && (
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap break-all">
+                {field.description}
+              </p>
+            )}
+          </>
+        ) : field.description &&
+          !(Boolean(props.hideQuestion) && (field.widgetType === "text_input" || field.widgetType === "textarea")) ? (
           <p className="text-sm text-muted-foreground whitespace-pre-wrap break-all">
             {field.description}
           </p>
-        )}
+        ) : null}
 
         {field.widgetType === "header" && <h2 className="text-xl font-bold pb-2 border-b">{field.label}</h2>}
 
         {field.widgetType === "text_input" && !props.hideQuestion && renderTextInput(field, results !== null)}
         {field.widgetType === "text_input" && Boolean(props.hideQuestion) && (
-          <div className="text-sm text-muted-foreground whitespace-pre-wrap break-all">
-            {field.label}
+          <div className="space-y-1">
+            <div className="text-sm text-muted-foreground whitespace-pre-wrap break-all">
+              {field.label}
+            </div>
+            {field.description && (
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap break-all">
+                {field.description}
+              </p>
+            )}
           </div>
 )}
 
@@ -1500,7 +1553,7 @@ export function FormPreview({ form }: FormPreviewProps) {
                 updateAnswer(field.id, nextValue);
               }}
               onBlur={() => markTouched(field.id)}
-              disabled={results !== null}
+              disabled={isInputsDisabled}
               maxLength={maxChars}
               className="pb-6"
               indicator={(
@@ -1518,8 +1571,15 @@ export function FormPreview({ form }: FormPreviewProps) {
         {field.widgetType === "textarea" && (
           typeof props.hideQuestion === "boolean" && props.hideQuestion
         ) && (
-          <div className="text-sm text-muted-foreground whitespace-pre-wrap break-all">
-            {field.label}
+          <div className="space-y-1">
+            <div className="text-sm text-muted-foreground whitespace-pre-wrap break-all">
+              {field.label}
+            </div>
+            {field.description && (
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap break-all">
+                {field.description}
+              </p>
+            )}
           </div>
         )}
 
@@ -1540,7 +1600,7 @@ export function FormPreview({ form }: FormPreviewProps) {
                 updateAnswer(field.id, sanitized);
               }}
               onBlur={() => markTouched(field.id)}
-              disabled={results !== null}
+              disabled={isInputsDisabled}
             />
           );
         })()}
@@ -1560,7 +1620,7 @@ export function FormPreview({ form }: FormPreviewProps) {
                         variant="ghost"
                         size="icon"
                         className="absolute left-0 top-0 h-10 w-10 hover:bg-transparent z-10"
-                        disabled={results !== null}
+                        disabled={isInputsDisabled}
                         type="button"
                       >
                         <CalendarDays className="h-4 w-4 text-muted-foreground" />
@@ -1603,7 +1663,7 @@ export function FormPreview({ form }: FormPreviewProps) {
                       }
                     }}
                     onBlur={() => markTouched(field.id)}
-                    disabled={results !== null}
+                    disabled={isInputsDisabled}
                     className="pl-10 h-10 text-muted-foreground"
                     placeholder={t("propert.selectDate")}
                   />
@@ -1618,7 +1678,7 @@ export function FormPreview({ form }: FormPreviewProps) {
                         "w-full justify-start text-left font-normal h-10",
                         !timeValue && "text-muted-foreground"
                       )}
-                      disabled={results !== null}
+                      disabled={isInputsDisabled}
                     >
                       <Clock className="mr-2 h-4 w-4" />
                       {timeValue ? <span>{timeValue}</span> : <span>{t("propert.selectTime")}</span>
@@ -1630,7 +1690,7 @@ export function FormPreview({ form }: FormPreviewProps) {
                       value={timeValue}
                       onChange={(e) => updateAnswer(field.id, { ...dateTime, time: e.target.value })}
                       onBlur={() => markTouched(field.id)}
-                      disabled={results !== null}
+                      disabled={isInputsDisabled}
                       className="w-full"
                       autoFocus
                     />
@@ -1646,7 +1706,7 @@ export function FormPreview({ form }: FormPreviewProps) {
             <CountrySelect
               value={(answers[field.id] as string) || ""}
               placeholder={(props.placeholder as string) || t("common.selectopt")}
-              disabled={results !== null}
+              disabled={isInputsDisabled}
               onValueChange={(value) => {
                 updateAnswer(field.id, value);
               }}
@@ -1659,7 +1719,7 @@ export function FormPreview({ form }: FormPreviewProps) {
                 updateAnswer(field.id, value);
                 markTouched(field.id);
               }}
-              disabled={results !== null}
+              disabled={isInputsDisabled}
             >
               <SelectTrigger>
                 <SelectValue placeholder={(props.placeholder as string) || t("common.selectopt")} />
@@ -1682,7 +1742,7 @@ export function FormPreview({ form }: FormPreviewProps) {
               updateAnswer(field.id, value);
               markTouched(field.id);
             }}
-            disabled={results !== null}
+            disabled={isInputsDisabled}
           >
             {options?.map((option) => (
               <div key={option} className="flex items-center space-x-2">
@@ -1705,7 +1765,7 @@ export function FormPreview({ form }: FormPreviewProps) {
                   <Checkbox
                     id={`${field.id}-${option}`}
                     checked={isChecked}
-                    disabled={results !== null}
+                    disabled={isInputsDisabled}
                     simplifiedAnimation
                     onCheckedChange={(checked) => {
                       if (checked) {
@@ -1741,7 +1801,7 @@ export function FormPreview({ form }: FormPreviewProps) {
               >
                 <div className="space-y-2">
                   {((answers[field.id] as string[]) || options).map((item) => (
-                    <SortableItem key={item} id={item} disabled={results !== null} />
+                    <SortableItem key={item} id={item} disabled={isInputsDisabled} />
                   ))}
                 </div>
               </SortableContext>
@@ -1755,7 +1815,7 @@ export function FormPreview({ form }: FormPreviewProps) {
               <button
                 type="button"
                 key={value}
-                disabled={results !== null}
+                disabled={isInputsDisabled}
                 onClick={() => {
                   updateAnswer(field.id, value);
                   markTouched(field.id);
@@ -1782,7 +1842,7 @@ export function FormPreview({ form }: FormPreviewProps) {
             columns={(props.columns as string[]) || []}
             multiplePerRow={Boolean(props.multiplePerRow)}
             value={(answers[field.id] as string[]) || []}
-            disabled={results !== null}
+            disabled={isInputsDisabled}
             onChange={(nextValue) => updateAnswer(field.id, nextValue)}
             onTouched={() => markTouched(field.id)}
           />
@@ -1799,7 +1859,7 @@ export function FormPreview({ form }: FormPreviewProps) {
             const acceptedTypes = normalizeAcceptedTypes((props as any).acceptedFileTypes);
             const acceptAttr = acceptedTypes.length > 0 ? acceptedTypes.join(", ") : undefined;
             const isUploading = Boolean(uploadingById[field.id]);
-            const canAddMore = attachments.length < maxFiles;
+            const canAddMore = attachments.length < maxFiles && !isInputsDisabled;
             const removeAttachment = (fileId: number) => {
               const nextAttachments = attachments.filter((item) => item.file_id !== fileId);
               if (nextAttachments.length !== attachments.length) {
@@ -1890,7 +1950,7 @@ export function FormPreview({ form }: FormPreviewProps) {
                     variant="outline"
                     size="sm"
                     className="mt-3"
-                    disabled={isUploading}
+                    disabled={isUploading || isInputsDisabled}
                     onClick={() => document.getElementById(`file-upload-${field.id}`)?.click()}
                   >
                     {isUploading ? t("propert.attachmentsUploading") : t("propert.attachmentsAdd")}
@@ -1901,7 +1961,7 @@ export function FormPreview({ form }: FormPreviewProps) {
                   attachments={attachments}
                   displayMode="list"
                   listOnly
-                  onRemove={removeAttachment}
+                  onRemove={isInputsDisabled ? undefined : removeAttachment}
                 />
               </div>
             );
@@ -1931,13 +1991,13 @@ export function FormPreview({ form }: FormPreviewProps) {
           </div>
         )}
 
-  {(hasResult && !results[field.id] && (props.correctAnswers as string[] | undefined)?.length) ? (
+        {hasCorrectAnswers && (!isRespondMode || (hasResult && results?.[field.id] === false)) && (
   <div className="text-sm text-green-700 mt-2">
     {field.widgetType === "ranking" ? (
       <div>
         <p className="font-medium">Правильный порядок:</p>
         <ol className="list-decimal list-inside mt-1">
-          {(props.correctAnswers as string[]).map((answer, idx) => (
+          {correctAnswers.map((answer, idx) => (
             <li key={idx}>{answer}</li>
           ))}
         </ol>
@@ -1946,7 +2006,7 @@ export function FormPreview({ form }: FormPreviewProps) {
       <div>
         <p className="font-medium">Правильные ячейки:</p>
         <div className="mt-1">
-          {(props.correctAnswers as string[]).map((cellKey, idx) => {
+          {correctAnswers.map((cellKey, idx) => {
             const [rowIdx, colIdx] = cellKey.split(':').map(Number);
             const row = ((props.rows as string[]) || [])[rowIdx - 1] || `Row ${rowIdx}`;
             const col = ((props.columns as string[]) || [])[colIdx - 1] || `Column ${colIdx}`;
@@ -1957,10 +2017,10 @@ export function FormPreview({ form }: FormPreviewProps) {
         </div>
       </div>
     ) : (
-      <p>Правильный ответ: {(props.correctAnswers as string[]).join(", ")}</p>
+      <p>Правильный ответ: {correctAnswers.join(", ")}</p>
     )}
   </div>
-) : null}
+        )}
       </div>
     );
   };
@@ -1968,43 +2028,53 @@ export function FormPreview({ form }: FormPreviewProps) {
   const visibleFields = form.fields.filter(isFieldVisible);
   const lastVisibleField = visibleFields[visibleFields.length - 1];
   const needsCountryPadding = Boolean(lastVisibleField && isCountryField(lastVisibleField));
+  const isInputsDisabled = readOnly || submitting;
+
+  const handleSubmitAnswers = async () => {
+    if (!onSubmitAnswers || submitting) return;
+
+    const visibleFieldIds = new Set(visibleFields.map((field) => field.id));
+    setTouched((prev) => {
+      const next = { ...prev };
+      visibleFieldIds.forEach((fieldId) => {
+        next[fieldId] = true;
+      });
+      return next;
+    });
+
+    const visibleErrors = validateForm(visibleFields, answers);
+    if (Object.keys(visibleErrors).length > 0) {
+      return;
+    }
+
+    const payload = buildAnswersPayload(visibleFields, answers);
+    await onSubmitAnswers(payload);
+  };
 
   return (
     <div 
       className={cn("space-y-6 py-4", needsCountryPadding && "pb-24")}
       style={{ overflowX: 'hidden' }}
     >
-      {results !== null && (
-        <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-4 mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-semibold text-lg">Результаты</h3>
-              <p className="text-2xl font-bold text-primary">
-                {totalScore} / {maxScore} баллов
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {Math.round((totalScore / maxScore) * 100)}% правильных ответов
-              </p>
-            </div>
-            <Button variant="outline" onClick={resetQuiz} className="gap-2">
-              <RotateCcw className="h-4 w-4" />
-              Пройти заново
-            </Button>
-          </div>
-        </div>
-      )}
 
       {visibleFields.map(renderField)}
 
-      {hasQuizFields && results === null && (
+      {isRespondMode ? (
         <div className="pt-4 border-t">
-          <Button onClick={checkAnswers} className="w-full">
-            Проверить ответы
+          <Button
+            type="button"
+            onClick={() => void handleSubmitAnswers()}
+            className="w-full"
+            disabled={submitting}
+          >
+            {submitting ? t("respond.submitting") : submitLabel ?? t("respond.submit")}
           </Button>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
 
 export default FormPreview;
+
+

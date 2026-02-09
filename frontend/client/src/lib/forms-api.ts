@@ -1,5 +1,6 @@
 import { apiFetch } from "@/lib/api";
-import type { FormElementModel, FormSchema } from "@/form/types";
+import { authHeader } from "@/lib/auth";
+import type { AnswersById, FormElementModel, FormSchema } from "@/form/types";
 
 type ServerFormStatus = "temp" | "submitted" | "deleted";
 
@@ -49,6 +50,23 @@ type ServerFormDetail = ServerFormSummary & {
   conditions: ServerBuilderCondition[];
 };
 
+type ServerFormStoredResponse = {
+  response_id: number;
+  form_id: number;
+  user_id: number;
+  responder_name: string;
+  responder_email?: string | null;
+  status: "draft" | "submitted" | "cancelled";
+  created_at: string;
+  completed_at?: string | null;
+  version: number;
+  answers: Record<string, unknown>;
+};
+
+type ServerFormStoredResponsesResponse = {
+  responses: ServerFormStoredResponse[];
+};
+
 type FormBuilderPayload = {
   title: string;
   description?: string | null;
@@ -58,6 +76,52 @@ type FormBuilderPayload = {
   access_mode?: "public" | "private" | "unauthenticated" | null;
   elements: ServerBuilderElement[];
   conditions: ServerBuilderCondition[];
+};
+
+export type FormSubmitAnswersPayload = {
+  answers: Record<string, unknown>;
+  started_at?: string;
+};
+
+export type FormSubmitAnswersResult = {
+  response_id: number;
+  submitted_at: string;
+  answers_count: number;
+};
+
+export type HttpError = Error & { status?: number };
+
+export type StoredFormResponse = {
+  responseId: number;
+  formId: string;
+  userId: number;
+  responderName: string;
+  responderEmail?: string | null;
+  status: "draft" | "submitted" | "cancelled";
+  createdAt: string;
+  completedAt: string | null;
+  version: number;
+  answers: AnswersById;
+};
+
+const readErrorMessage = async (res: Response): Promise<string> => {
+  const text = await res.text();
+  if (!text) return `${res.status} ${res.statusText}`;
+  try {
+    const parsed = JSON.parse(text) as { detail?: unknown };
+    if (typeof parsed?.detail === "string" && parsed.detail.trim()) {
+      return parsed.detail;
+    }
+  } catch {
+    // no-op
+  }
+  return text;
+};
+
+const asHttpError = async (res: Response): Promise<HttpError> => {
+  const error = new Error(await readErrorMessage(res)) as HttpError;
+  error.status = res.status;
+  return error;
 };
 
 const toTimestamp = (value?: string | number | null): number => {
@@ -113,10 +177,38 @@ export const mapServerDetailToSchema = (detail: ServerFormDetail): FormSchema =>
   });
 
   const byId = new Map(fields.map((field) => [field.id, field]));
+  const fieldIds = new Set(fields.map((field) => field.id));
+
+  fields.forEach((field) => {
+    const props = field.props as Record<string, unknown>;
+    const rawLogic = props.conditionalLogic as Record<string, unknown> | undefined;
+    if (!rawLogic) return;
+
+    const dependsOn = rawLogic.dependsOn == null ? "" : String(rawLogic.dependsOn);
+    const condition = typeof rawLogic.condition === "string" ? rawLogic.condition : "";
+    const isSupportedCondition = condition === "equals" || condition === "not_equals" || condition === "answered";
+
+    if (!dependsOn || !fieldIds.has(dependsOn) || !isSupportedCondition) {
+      const { conditionalLogic: _drop, ...nextProps } = props;
+      field.props = nextProps;
+      return;
+    }
+
+    field.props = {
+      ...props,
+      conditionalLogic: {
+        ...rawLogic,
+        dependsOn,
+        condition,
+      },
+    };
+  });
+
   detail.conditions.forEach((cond) => {
     const target = byId.get(cond.target_client_id);
     if (!target) return;
     if (!["equals", "not_equals", "answered"].includes(cond.operator)) return;
+    if (!fieldIds.has(cond.source_client_id)) return;
     const value = cond.value ?? {};
     const expectedValue = Array.isArray((value as any).values)
       ? (value as any).values
@@ -169,7 +261,7 @@ export const mapServerSummaryToSchema = (summary: ServerFormSummary): FormSchema
 export async function fetchForms(): Promise<FormSchema[]> {
   const res = await apiFetch("/api/v1/forms");
   if (!res.ok) {
-    throw new Error(await res.text());
+    throw await asHttpError(res);
   }
   const data = (await res.json()) as { forms: ServerFormSummary[] };
   return data.forms.map(mapServerSummaryToSchema);
@@ -178,7 +270,19 @@ export async function fetchForms(): Promise<FormSchema[]> {
 export async function fetchFormDetail(formId: string): Promise<FormSchema> {
   const res = await apiFetch(`/api/v1/forms/${formId}`);
   if (!res.ok) {
-    throw new Error(await res.text());
+    throw await asHttpError(res);
+  }
+  const data = (await res.json()) as ServerFormDetail;
+  return mapServerDetailToSchema(data);
+}
+
+export async function fetchPublicFormDetail(formId: string, key?: string | null): Promise<FormSchema> {
+  const params = new URLSearchParams();
+  if (key) params.set("key", key);
+  const query = params.toString();
+  const res = await apiFetch(`/api/v1/forms/${formId}/public${query ? `?${query}` : ""}`, { method: "GET" });
+  if (!res.ok) {
+    throw await asHttpError(res);
   }
   const data = (await res.json()) as ServerFormDetail;
   return mapServerDetailToSchema(data);
@@ -191,7 +295,7 @@ export async function createForm(payload: { title: string; description?: string 
     body: JSON.stringify(payload),
   });
   if (!res.ok) {
-    throw new Error(await res.text());
+    throw await asHttpError(res);
   }
   const data = (await res.json()) as ServerFormSummary;
   return mapServerSummaryToSchema(data);
@@ -204,7 +308,7 @@ export async function saveForm(formId: string, payload: FormBuilderPayload): Pro
     body: JSON.stringify(payload),
   });
   if (!res.ok) {
-    throw new Error(await res.text());
+    throw await asHttpError(res);
   }
   const data = (await res.json()) as ServerFormDetail;
   return mapServerDetailToSchema(data);
@@ -214,10 +318,11 @@ export async function saveFormInPlace(formId: string, payload: FormBuilderPayloa
   const res = await fetch(`/api/v1/forms/${formId}?in_place=true`, {
     method: "PUT",
     headers: { "Content-Type": "application/json", ...authHeader() },
+    credentials: "include",
     body: JSON.stringify(payload),
   });
   if (!res.ok) {
-    throw new Error(await res.text());
+    throw await asHttpError(res);
   }
   const data = (await res.json()) as ServerFormDetail;
   return mapServerDetailToSchema(data);
@@ -230,10 +335,52 @@ export async function publishForm(formId: string, payload: FormBuilderPayload): 
     body: JSON.stringify(payload),
   });
   if (!res.ok) {
-    throw new Error(await res.text());
+    throw await asHttpError(res);
   }
   const data = (await res.json()) as ServerFormDetail;
   return mapServerDetailToSchema(data);
+}
+
+export async function submitPublicFormResponse(
+  formId: string,
+  payload: FormSubmitAnswersPayload,
+  key?: string | null
+): Promise<FormSubmitAnswersResult> {
+  const params = new URLSearchParams();
+  if (key) params.set("key", key);
+  const query = params.toString();
+
+  const res = await apiFetch(`/api/v1/forms/${formId}/responses${query ? `?${query}` : ""}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    throw await asHttpError(res);
+  }
+  return (await res.json()) as FormSubmitAnswersResult;
+}
+
+const mapStoredResponse = (row: ServerFormStoredResponse): StoredFormResponse => ({
+  responseId: row.response_id,
+  formId: String(row.form_id),
+  userId: row.user_id,
+  responderName: row.responder_name,
+  responderEmail: row.responder_email ?? null,
+  status: row.status,
+  createdAt: row.created_at,
+  completedAt: row.completed_at ?? null,
+  version: row.version,
+  answers: (row.answers ?? {}) as AnswersById,
+});
+
+export async function fetchFormResponses(formId: string): Promise<StoredFormResponse[]> {
+  const res = await apiFetch(`/api/v1/forms/${formId}/responses`);
+  if (!res.ok) {
+    throw await asHttpError(res);
+  }
+  const data = (await res.json()) as ServerFormStoredResponsesResponse;
+  return (data.responses ?? []).map(mapStoredResponse);
 }
 
 export async function deleteForm(formId: string): Promise<void> {
@@ -242,6 +389,6 @@ export async function deleteForm(formId: string): Promise<void> {
     headers: {},
   });
   if (!res.ok) {
-    throw new Error(await res.text());
+    throw await asHttpError(res);
   }
 }

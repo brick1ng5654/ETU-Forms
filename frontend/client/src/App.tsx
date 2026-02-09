@@ -8,6 +8,7 @@ import NotFound from "@/pages/not-found";
 import Builder from "@/pages/builder";
 import Home from "@/pages/home";
 import Auth from "@/pages/auth";
+import FormPass from "@/pages/form-pass";
 import { AuthProvider } from "@/lib/auth";
 import { useAuth } from "@/lib/auth";
 import FormResults from "@/pages/form-results";
@@ -39,6 +40,9 @@ function Router() {
         )}
       </Route>
       <Route path="/auth" component={Auth} />
+      <Route path="/form/:id">
+        {(params) => <FormPass params={params} />}
+      </Route>
       <Route path="/builder/:id">
         {(params) => (
           <RequireAuth>

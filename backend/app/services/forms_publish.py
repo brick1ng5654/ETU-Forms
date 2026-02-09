@@ -73,16 +73,17 @@ async def _replace_elements_and_conditions(
         if len(file_ids) > 10:
             raise ValueError("file_ids must contain at most 10 items")
 
+        supportive_text = el.supportive_text if el.supportive_text is not None else el.description
+
         row = models.FormElement(
             form_id=form_id,
             template_id=None,
             widget=_enum_value(el.widget),
             semantic=_enum_value(el.semantic) if el.semantic is not None else None,
             label=el.label,
-            description=el.description,
             correct_answer=el.correct_answer,
             text_hint=text_hint,
-            supportive_text=el.supportive_text if el.supportive_text is not None else None,
+            supportive_text=supportive_text,
             required_field=bool(el.required_field),
             position=el.sort_index,
             other_settings=other,

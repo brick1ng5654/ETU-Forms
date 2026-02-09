@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Any, Dict, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
@@ -22,6 +22,25 @@ async def build_form_detail_response(
         .order_by(models.FormElement.position.asc())
     )
     elements = elements_result.scalars().all()
+    file_ids: list[int] = []
+    for element in elements:
+        for fid in (element.file_ids or []):
+            try:
+                parsed = int(fid)
+            except (TypeError, ValueError):
+                continue
+            if parsed > 0:
+                file_ids.append(parsed)
+
+    file_map: dict[int, models.UploadedFile] = {}
+    if file_ids:
+        files_result = await db.execute(
+            select(models.UploadedFile)
+            .where(models.UploadedFile.file_id.in_(list(dict.fromkeys(file_ids))))
+            .where(models.UploadedFile.status != "deleted")
+        )
+        for row in files_result.scalars().all():
+            file_map[row.file_id] = row
 
     element_id_to_client: Dict[int, str] = {}
     builder_elements: List[BuilderElementOut] = []
@@ -30,6 +49,24 @@ async def build_form_detail_response(
         other_settings = dict(el.other_settings or {})
         client_id = other_settings.pop("client_id", None)
         sort_index = other_settings.pop("sort_index", None)
+        attachments: list[dict[str, Any]] = []
+        for file_id in list(el.file_ids or []):
+            row = file_map.get(file_id)
+            if not row:
+                continue
+            attachments.append(
+                {
+                    "file_id": row.file_id,
+                    "name": row.name,
+                    "mime_type": row.mime_type,
+                    "size_bytes": row.size_bytes,
+                    "url": f"/api/v1/files/{row.file_id}/download?token={row.access_token}",
+                    "content_hash": row.content_hash,
+                    "status": _enum_value(row.status),
+                }
+            )
+        if attachments:
+            other_settings["attachments"] = attachments
 
         client_id = str(client_id) if client_id else str(el.element_id)
         sort_index = int(sort_index) if sort_index is not None else (el.position if el.position is not None else index)

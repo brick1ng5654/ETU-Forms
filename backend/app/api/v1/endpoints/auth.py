@@ -157,6 +157,7 @@ async def refresh_token(request: Request, response: Response, db: AsyncSession =
     return {
         "access_token": access,
         "token_type": "bearer",
+        "user": {"user_id": user.user_id, "email": user.email, "name": user.name},
     }
 
 @router.post("/logout")

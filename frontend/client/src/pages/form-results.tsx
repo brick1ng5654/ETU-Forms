@@ -6,6 +6,8 @@ import { format, formatDistanceToNow } from "date-fns";
 import type { Locale } from "date-fns";
 import { ru } from "date-fns/locale";
 import {
+  ArrowDown,
+  ArrowUp,
   BarChart3,
   CalendarDays,
   Clock,
@@ -25,17 +27,17 @@ import type {
   FormElementModel,
   FormSchema,
 } from "@/form/types";
-import { fetchFormDetail, fetchForms, saveFormInPlace } from "@/lib/forms-api";
+import { fetchFormDetail, fetchFormResponses, fetchForms, saveFormInPlace } from "@/lib/forms-api";
 import { storage } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import FormPreview from "@/components/form-builder/FormPreview";
+import { ElementAttachments } from "@/components/form-builder/ElementAttachments";
 import { UserMenu } from "@/components/user-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -70,6 +72,9 @@ type Selection =
   | { type: "source" }
   | { type: "summary" }
   | { type: "response"; responseId: string };
+
+type ResponseSortField = "name" | "duration" | "time" | "score";
+type SortDirection = "asc" | "desc";
 
 type PublishCondition = {
   source_client_id: string;
@@ -109,6 +114,16 @@ const getDateInputValue = (value?: string | null) => {
   return format(parsed, "yyyy-MM-dd");
 };
 
+const parseServerDate = (value?: string | null): Date => {
+  if (!value) return new Date(Number.NaN);
+  const raw = value.trim();
+  if (!raw) return new Date(Number.NaN);
+  const hasTimezone = /([zZ]|[+-]\d{2}:\d{2})$/.test(raw);
+  return new Date(hasTimezone ? raw : `${raw}Z`);
+};
+
+const toTimestampSafe = (value?: string | null): number => parseServerDate(value).getTime();
+
 const toIsoDate = (value: string, fallbackTime: string) => {
   if (!value) return null;
   return new Date(`${value}T${fallbackTime}`).toISOString();
@@ -139,12 +154,22 @@ const createPrivateLinkKey = () => {
   return `${Date.now().toString(36)}${random}`;
 };
 
-const formatDuration = (minutes: number) => {
-  if (!Number.isFinite(minutes)) return "0m 00s";
+const formatDuration = (minutes: number, useRussianUnits = false) => {
+  if (!Number.isFinite(minutes)) return useRussianUnits ? "0м 00с" : "0m 00s";
   const totalSeconds = Math.max(0, Math.round(minutes * 60));
   const mins = Math.floor(totalSeconds / 60);
   const secs = totalSeconds % 60;
-  return `${mins}m ${secs.toString().padStart(2, "0")}s`;
+  const minuteUnit = useRussianUnits ? "м" : "m";
+  const secondUnit = useRussianUnits ? "с" : "s";
+  return `${mins}${minuteUnit} ${secs.toString().padStart(2, "0")}${secondUnit}`;
+};
+
+const getLinkViews = (form: FormSchema | null | undefined): number => {
+  const raw = form?.settings_json && typeof form.settings_json === "object"
+    ? (form.settings_json as Record<string, unknown>).linkViews
+    : undefined;
+  const value = typeof raw === "number" ? raw : Number(raw);
+  return Number.isFinite(value) && value > 0 ? Math.round(value) : 0;
 };
 
 const getInitials = (name: string) =>
@@ -287,6 +312,7 @@ const buildFormPayload = (
         semantic: field.semanticType ?? null,
         label: field.label,
         description: field.description ?? null,
+        supportive_text: field.description ?? null,
         text_hint: typeof placeholder === "string" ? placeholder : null,
         correct_answer: normalizedCorrectAnswer,
         required_field: !!field.required,
@@ -350,6 +376,31 @@ const getFieldPoints = (field: FormElementModel) => {
   const props = field.props as Record<string, unknown>;
   const points = Number(props.points);
   return Number.isFinite(points) && points > 0 ? points : 1;
+};
+
+const calculateMaxScore = (fields: FormElementModel[]) =>
+  fields.reduce((sum, field) => {
+    const correctValues = getCorrectAnswerValues(field);
+    if (correctValues.length === 0) return sum;
+    return sum + getFieldPoints(field);
+  }, 0);
+
+const calculateResponseScore = (fields: FormElementModel[], answers: AnswersById) =>
+  fields.reduce((sum, field) => {
+    const correctValues = getCorrectAnswerValues(field);
+    if (correctValues.length === 0) return sum;
+    const isCorrect = isCorrectAnswer(field, answers[field.id], correctValues);
+    return sum + (isCorrect ? getFieldPoints(field) : 0);
+  }, 0);
+
+const calculateMedian = (values: number[]) => {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 === 0) {
+    return (sorted[middle - 1] + sorted[middle]) / 2;
+  }
+  return sorted[middle];
 };
 
 type DateFieldProps = {
@@ -474,14 +525,14 @@ const formatAnswerValue = (
   }
 
   if (field.widgetType === "file_upload" && Array.isArray(value)) {
+    const files = (value as ElementAttachment[]).filter(
+      (file) => file && typeof file === "object" && Number.isFinite(Number(file.file_id))
+    );
+    if (files.length === 0) {
+      return <span className="text-muted-foreground">{t("results.noAnswer")}</span>;
+    }
     return (
-      <div className="flex flex-wrap gap-2">
-        {(value as ElementAttachment[]).map((file) => (
-          <Badge key={file.file_id} variant="outline">
-            {file.name}
-          </Badge>
-        ))}
-      </div>
+      <ElementAttachments attachments={files} displayMode="list" listOnly className="pt-0" />
     );
   }
 
@@ -507,13 +558,17 @@ export default function FormResults({ params }: { params: { id: string } }) {
   const [versionDetailsById, setVersionDetailsById] = useState<Record<string, FormSchema>>({});
   const [activeVersionId, setActiveVersionId] = useState(params.id);
   const [isLoading, setIsLoading] = useState(true);
+  const [responses, setResponses] = useState<ResponseEntry[]>([]);
   const [selection, setSelection] = useState<Selection>({ type: "source" });
   const [searchQuery, setSearchQuery] = useState("");
+  const [responsesSortField, setResponsesSortField] = useState<ResponseSortField>("time");
+  const [responsesSortDirection, setResponsesSortDirection] = useState<SortDirection>("desc");
   const [startAt, setStartAt] = useState("");
   const [endAt, setEndAt] = useState("");
   const [accessMode, setAccessMode] = useState<FormAccessMode>("private");
   const [privateLinkKey, setPrivateLinkKey] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const isRussianLocale = i18n.language.startsWith("ru");
 
   useEffect(() => {
     setActiveVersionId(params.id);
@@ -528,6 +583,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
   useEffect(() => {
     let active = true;
     setIsLoading(true);
+    setResponses([]);
     (async () => {
       try {
         const current = await fetchFormDetail(params.id);
@@ -591,12 +647,46 @@ export default function FormResults({ params }: { params: { id: string } }) {
         if (!active) return;
         setVersions(lineage);
         setVersionDetailsById(Object.fromEntries(detailsEntries));
+
+        const fetchedResponses = await Promise.all(
+          lineage.map(async (item) => {
+            try {
+              return await fetchFormResponses(item.id);
+            } catch {
+              return [];
+            }
+          })
+        );
+
+        if (!active) return;
+        const responseEntries = fetchedResponses
+          .flat()
+          .map<ResponseEntry>((response) => {
+            const createdAtMs = toTimestampSafe(response.createdAt);
+            const completedAtMs = toTimestampSafe(response.completedAt ?? undefined);
+            const durationMinutes = Number.isFinite(createdAtMs) && Number.isFinite(completedAtMs)
+              ? Math.max(0, (completedAtMs - createdAtMs) / 60000)
+              : 0;
+            return {
+              id: String(response.responseId),
+              formId: response.formId,
+              name: response.responderName,
+              submittedAt: response.completedAt ?? response.createdAt,
+              durationMinutes,
+              answers: response.answers,
+              version: response.version,
+            };
+          })
+          .sort((a, b) => toTimestampSafe(b.submittedAt) - toTimestampSafe(a.submittedAt));
+
+        setResponses(responseEntries);
       } catch {
         if (!active) return;
         const local = storage.getForms().find((item) => item.id === params.id) ?? null;
         setForm(local);
         setVersions(local ? [local] : []);
         setVersionDetailsById(local ? { [local.id]: local } : {});
+        setResponses([]);
       } finally {
         if (active) setIsLoading(false);
       }
@@ -617,7 +707,6 @@ export default function FormResults({ params }: { params: { id: string } }) {
     setPrivateLinkKey(savedKey || createPrivateLinkKey());
   }, [form]);
 
-  const responses = useMemo<ResponseEntry[]>(() => [], []);
   const activeVersionForm = useMemo(
     () => versionDetailsById[activeVersionId] ?? versions.find((item) => item.id === activeVersionId) ?? form,
     [activeVersionId, form, versionDetailsById, versions]
@@ -626,11 +715,67 @@ export default function FormResults({ params }: { params: { id: string } }) {
     () => responses.filter((response) => response.formId === activeVersionId),
     [activeVersionId, responses]
   );
+  const answerableFieldsByFormId = useMemo(() => {
+    const mapped = new Map<string, FormElementModel[]>();
+    const put = (schema: FormSchema | null | undefined) => {
+      if (!schema) return;
+      mapped.set(
+        schema.id,
+        (schema.fields ?? []).filter((field) => field.widgetType !== "header")
+      );
+    };
+
+    put(form);
+    versions.forEach(put);
+    Object.values(versionDetailsById).forEach(put);
+    return mapped;
+  }, [form, versionDetailsById, versions]);
+
+  const responseScoreById = useMemo(() => {
+    const scoreMap = new Map<string, number>();
+    responses.forEach((response) => {
+      const fields = answerableFieldsByFormId.get(response.formId) ?? [];
+      scoreMap.set(response.id, calculateResponseScore(fields, response.answers));
+    });
+    return scoreMap;
+  }, [answerableFieldsByFormId, responses]);
+
   const filteredResponses = useMemo(() => {
-    if (!searchQuery.trim()) return responses;
-    const query = searchQuery.toLowerCase();
-    return responses.filter((response) => response.name.toLowerCase().includes(query));
-  }, [responses, searchQuery]);
+    const query = searchQuery.trim().toLowerCase();
+    const searched = query
+      ? responses.filter((response) => response.name.toLowerCase().includes(query))
+      : responses;
+    const collator = new Intl.Collator(isRussianLocale ? "ru" : "en", { sensitivity: "base" });
+
+    const directionFactor = responsesSortDirection === "asc" ? 1 : -1;
+    return [...searched].sort((a, b) => {
+      let comparison = 0;
+      switch (responsesSortField) {
+        case "name":
+          comparison = collator.compare(a.name, b.name);
+          break;
+        case "time":
+          comparison = toTimestampSafe(a.submittedAt) - toTimestampSafe(b.submittedAt);
+          break;
+        case "duration":
+          comparison = a.durationMinutes - b.durationMinutes;
+          break;
+        case "score":
+          comparison = (responseScoreById.get(a.id) ?? 0) - (responseScoreById.get(b.id) ?? 0);
+          break;
+        default:
+          comparison = 0;
+      }
+      return comparison * directionFactor;
+    });
+  }, [
+    isRussianLocale,
+    responses,
+    responsesSortDirection,
+    responsesSortField,
+    responseScoreById,
+    searchQuery,
+  ]);
 
   const answerableFields = useMemo(
     () => (activeVersionForm?.fields ?? []).filter((field) => field.widgetType !== "header"),
@@ -735,34 +880,71 @@ export default function FormResults({ params }: { params: { id: string } }) {
   }, [responses, selection]);
 
   const stats = useMemo(() => {
-    const totalViews = 0;
+    const totalViews = getLinkViews(activeVersionForm);
     const completed = responsesForVersion.length;
-    const avgMinutes = responsesForVersion.length
-      ? responsesForVersion.reduce((sum, item) => sum + item.durationMinutes, 0) / responsesForVersion.length
+    const durationValues = responsesForVersion.map((item) => item.durationMinutes);
+    const avgMinutes = durationValues.length
+      ? durationValues.reduce((sum, value) => sum + value, 0) / durationValues.length
       : 0;
+    const medianMinutes = calculateMedian(durationValues);
     return {
       totalViews,
       completed,
-      avgTime: formatDuration(avgMinutes),
+      avgTime: formatDuration(avgMinutes, isRussianLocale),
+      medianTime: formatDuration(medianMinutes, isRussianLocale),
     };
-  }, [responsesForVersion]);
+  }, [activeVersionForm, isRussianLocale, responsesForVersion]);
 
   const scoreStats = useMemo(() => {
-    const scoredFields = answerableFields.filter((field) => getCorrectAnswerValues(field).length > 0);
-    if (scoredFields.length === 0 || responsesForVersion.length === 0) {
-      return { hasScore: false, avgScore: 0, maxScore: 0 };
+    const maxScore = calculateMaxScore(answerableFields);
+    if (maxScore <= 0) {
+      return {
+        hasScore: false,
+        hasScoredQuestions: false,
+        hasResponses: responsesForVersion.length > 0,
+        avgScore: 0,
+        medianScore: 0,
+        maxScore: 0,
+      };
     }
-    const maxScore = scoredFields.reduce((sum, field) => sum + getFieldPoints(field), 0);
-    const totalScore = responsesForVersion.reduce((sum, response) => {
-      const responseScore = scoredFields.reduce((fieldSum, field) => {
-        const correctValues = getCorrectAnswerValues(field);
-        const isCorrect = isCorrectAnswer(field, response.answers[field.id], correctValues);
-        return fieldSum + (isCorrect ? getFieldPoints(field) : 0);
-      }, 0);
-      return sum + responseScore;
-    }, 0);
-    return { hasScore: true, avgScore: totalScore / responsesForVersion.length, maxScore };
+    if (responsesForVersion.length === 0) {
+      return {
+        hasScore: false,
+        hasScoredQuestions: true,
+        hasResponses: false,
+        avgScore: 0,
+        medianScore: 0,
+        maxScore,
+      };
+    }
+    const scoreValues = responsesForVersion.map((response) =>
+      calculateResponseScore(answerableFields, response.answers)
+    );
+    const totalScore = scoreValues.reduce((sum, value) => sum + value, 0);
+    return {
+      hasScore: true,
+      hasScoredQuestions: true,
+      hasResponses: true,
+      avgScore: totalScore / responsesForVersion.length,
+      medianScore: calculateMedian(scoreValues),
+      maxScore,
+    };
   }, [answerableFields, responsesForVersion]);
+
+  const scoreFallbackLabel = scoreStats.hasScoredQuestions && !scoreStats.hasResponses
+    ? t("results.noResponses")
+    : t("results.noScore");
+
+  const activeResponseScore = useMemo(() => {
+    if (!activeResponse) return null;
+    const fields = answerableFieldsByFormId.get(activeResponse.formId) ?? answerableFields;
+    const maxScore = calculateMaxScore(fields);
+    if (maxScore <= 0) return null;
+    return {
+      score: calculateResponseScore(fields, activeResponse.answers),
+      maxScore,
+    };
+  }, [activeResponse, answerableFields, answerableFieldsByFormId]);
 
   const activeVersionLabel = activeVersionForm
     ? t("results.version", { version: activeVersionForm.version ?? 1 })
@@ -786,9 +968,9 @@ export default function FormResults({ params }: { params: { id: string } }) {
     return [
       t("results.version", { version: activeResponse.version }),
       t("results.submitted", {
-        time: formatDistanceToNow(new Date(activeResponse.submittedAt), { addSuffix: true, locale }),
+        time: formatDistanceToNow(parseServerDate(activeResponse.submittedAt), { addSuffix: true, locale }),
       }),
-      t("results.duration", { time: formatDuration(activeResponse.durationMinutes) }),
+      t("results.duration", { time: formatDuration(activeResponse.durationMinutes, isRussianLocale) }),
     ]
       .filter(Boolean)
       .join(" | ");
@@ -936,6 +1118,35 @@ export default function FormResults({ params }: { params: { id: string } }) {
                   className="pl-9"
                 />
               </div>
+              <div className="flex items-center gap-2">
+                <Select value={responsesSortField} onValueChange={(value) => setResponsesSortField(value as ResponseSortField)}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder={t("results.sortBy")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="name">{t("results.sortName")}</SelectItem>
+                    <SelectItem value="duration">{t("results.sortDuration")}</SelectItem>
+                    <SelectItem value="time">{t("results.sortTime")}</SelectItem>
+                    <SelectItem value="score">{t("results.sortScore")}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-10 w-10 shrink-0"
+                  title={responsesSortDirection === "asc" ? t("results.sortAsc") : t("results.sortDesc")}
+                  onClick={() =>
+                    setResponsesSortDirection((prev) => (prev === "asc" ? "desc" : "asc"))
+                  }
+                >
+                  {responsesSortDirection === "asc" ? (
+                    <ArrowUp className="h-4 w-4" />
+                  ) : (
+                    <ArrowDown className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="space-y-3 overflow-y-auto pr-2">
               <div className="space-y-1">
@@ -1033,7 +1244,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
                         </Badge>
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        {formatDistanceToNow(new Date(response.submittedAt), {
+                        {formatDistanceToNow(parseServerDate(response.submittedAt), {
                           addSuffix: true,
                           locale: i18n.language.startsWith("ru") ? ru : undefined,
                         })}
@@ -1071,8 +1282,8 @@ export default function FormResults({ params }: { params: { id: string } }) {
                     {activeVersionForm.description && (
                       <div className="text-sm text-muted-foreground">{activeVersionForm.description}</div>
                     )}
-                    <div className="pointer-events-none opacity-95">
-                      <FormPreview form={activeVersionForm} />
+                    <div className="opacity-95">
+                      <FormPreview form={activeVersionForm} readOnly />
                     </div>
                   </div>
                 ) : (
@@ -1139,8 +1350,17 @@ export default function FormResults({ params }: { params: { id: string } }) {
                       <Separator orientation="vertical" className="h-4" />
                       <div className="flex items-center gap-2">
                         <Clock className="h-4 w-4" />
-                        <span>{formatDuration(activeResponse.durationMinutes)}</span>
+                        <span>{formatDuration(activeResponse.durationMinutes, isRussianLocale)}</span>
                       </div>
+                      {activeResponseScore && (
+                        <>
+                          <Separator orientation="vertical" className="h-4" />
+                          <div className="flex items-center gap-2">
+                            <BarChart3 className="h-4 w-4" />
+                            <span>{t("results.correctScore", { score: activeResponseScore.score, max: activeResponseScore.maxScore })}</span>
+                          </div>
+                        </>
+                      )}
                       <Separator orientation="vertical" className="h-4" />
                       <Badge variant="outline">{t("results.version", { version: activeResponse.version })}</Badge>
                     </div>
@@ -1154,7 +1374,17 @@ export default function FormResults({ params }: { params: { id: string } }) {
                               <CardDescription>{field.description}</CardDescription>
                             )}
                           </CardHeader>
-                          <CardContent>
+                          <CardContent className="space-y-3">
+                            {Array.isArray((field.props as Record<string, unknown>)?.attachments) && (
+                              <ElementAttachments
+                                attachments={(field.props as Record<string, unknown>).attachments as ElementAttachment[]}
+                                displayMode={
+                                  (field.props as Record<string, unknown>).attachmentsDisplay === "list"
+                                    ? "list"
+                                    : "slider"
+                                }
+                              />
+                            )}
                             {formatAnswerValue(field, activeResponse.answers[field.id], t)}
                           </CardContent>
                         </Card>
@@ -1242,36 +1472,39 @@ export default function FormResults({ params }: { params: { id: string } }) {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="rounded-lg border border-border/60 p-3">
+                <div className="rounded-lg border border-border/60 p-3 min-h-24 flex flex-col">
                   <div className="text-muted-foreground">{t("results.linkClicks")}</div>
-                  <div className="text-xl font-semibold">{stats.totalViews}</div>
+                  <div className="mt-auto text-xl font-semibold">{stats.totalViews}</div>
                 </div>
-                <div className="rounded-lg border border-border/60 p-3">
+                <div className="rounded-lg border border-border/60 p-3 min-h-24 flex flex-col">
                   <div className="text-muted-foreground">{t("results.completed")}</div>
-                  <div className="text-xl font-semibold">{stats.completed}</div>
+                  <div className="mt-auto text-xl font-semibold">{stats.completed}</div>
                 </div>
-                <div className="rounded-lg border border-border/60 p-3">
+                <div className="rounded-lg border border-border/60 p-3 min-h-24 flex flex-col">
                   <div className="text-muted-foreground">{t("results.avgTime")}</div>
-                  <div className="text-xl font-semibold">{stats.avgTime}</div>
+                  <div className="mt-auto text-xl font-semibold">{stats.avgTime}</div>
                 </div>
-                <div className="rounded-lg border border-border/60 p-3">
+                <div className="rounded-lg border border-border/60 p-3 min-h-24 flex flex-col">
+                  <div className="text-muted-foreground">{t("results.medianTime")}</div>
+                  <div className="mt-auto text-xl font-semibold">{stats.medianTime}</div>
+                </div>
+                <div className="rounded-lg border border-border/60 p-3 min-h-24 flex flex-col">
                   <div className="text-muted-foreground">{t("results.averageScore")}</div>
-                  <div className="text-xl font-semibold">
+                  <div className="mt-auto text-xl font-semibold">
                     {scoreStats.hasScore
                       ? `${scoreStats.avgScore.toFixed(1)} / ${scoreStats.maxScore}`
-                      : t("results.noScore")}
+                      : scoreFallbackLabel}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-border/60 p-3 min-h-24 flex flex-col">
+                  <div className="text-muted-foreground">{t("results.medianScore")}</div>
+                  <div className="mt-auto text-xl font-semibold">
+                    {scoreStats.hasScore
+                      ? `${scoreStats.medianScore.toFixed(1)} / ${scoreStats.maxScore}`
+                      : scoreFallbackLabel}
                   </div>
                 </div>
               </div>
-              {scoreStats.hasScore && scoreStats.maxScore > 0 && (
-                <div>
-                  <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
-                    <span>{t("results.averageScore")}</span>
-                    <span>{Math.round((scoreStats.avgScore / scoreStats.maxScore) * 100)}%</span>
-                  </div>
-                  <Progress value={(scoreStats.avgScore / scoreStats.maxScore) * 100} />
-                </div>
-              )}
             </CardContent>
           </Card>
         </aside>

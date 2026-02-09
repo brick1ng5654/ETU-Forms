@@ -24,22 +24,12 @@ const getDisplayName = (user: User | null): string => {
   return user.name?.trim() || user.email?.trim() || "";
 };
 
-const getInitials = (value: string): string => {
-  const trimmed = value.trim();
-  if (!trimmed) return "";
-  const base = trimmed.includes("@") ? trimmed.split("@")[0] : trimmed;
-  const parts = base.split(/\s+/).filter(Boolean);
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-};
-
 export function UserMenu({ className }: UserMenuProps) {
   const [, setLocation] = useLocation();
   const { t } = useTranslation();
   const { user, clearAuth } = useAuth();
 
   const displayName = useMemo(() => getDisplayName(user), [user]);
-  const initials = useMemo(() => getInitials(displayName), [displayName]);
   const secondary = user?.email && user?.name ? user.email : "";
 
   const handleLogout = async () => {
@@ -66,13 +56,7 @@ export function UserMenu({ className }: UserMenuProps) {
           className={cn("h-9 w-9 p-0", className)}
           title={buttonLabel}
         >
-          {initials ? (
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground/80">
-              {initials}
-            </span>
-          ) : (
-            <UserCircle className="h-5 w-5" />
-          )}
+          <UserCircle className="h-5 w-5" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-[220px]">

@@ -710,6 +710,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
           semantic: f.semanticType ?? null,
           label: f.label,
           description: f.description ?? null,
+          supportive_text: f.description ?? null,
           text_hint: typeof placeholder === "string" ? placeholder : null,
           correct_answer: normalizedCorrectAnswer,
           required_field: !!f.required,
