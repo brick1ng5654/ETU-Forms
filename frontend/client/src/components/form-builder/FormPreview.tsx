@@ -1454,6 +1454,10 @@ export function FormPreview({
   const renderField = (field: FormElementModel) => {
     const props = field.props as Record<string, unknown>;
     const options = props.options as string[] | undefined;
+    const correctAnswers = Array.isArray(props.correctAnswers)
+      ? props.correctAnswers.map((answer) => String(answer))
+      : [];
+    const hasCorrectAnswers = correctAnswers.length > 0;
     const isCountrySelect = isCountryField(field);
     const hideDate = Boolean(props.hideDate);
     const hideTime = Boolean(props.hideTime);
@@ -1512,7 +1516,8 @@ export function FormPreview({
               </p>
             )}
           </>
-        ) : field.description ? (
+        ) : field.description &&
+          !(Boolean(props.hideQuestion) && (field.widgetType === "text_input" || field.widgetType === "textarea")) ? (
           <p className="text-sm text-muted-foreground whitespace-pre-wrap break-all">
             {field.description}
           </p>
@@ -1522,8 +1527,15 @@ export function FormPreview({
 
         {field.widgetType === "text_input" && !props.hideQuestion && renderTextInput(field, results !== null)}
         {field.widgetType === "text_input" && Boolean(props.hideQuestion) && (
-          <div className="text-sm text-muted-foreground whitespace-pre-wrap break-all">
-            {field.label}
+          <div className="space-y-1">
+            <div className="text-sm text-muted-foreground whitespace-pre-wrap break-all">
+              {field.label}
+            </div>
+            {field.description && (
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap break-all">
+                {field.description}
+              </p>
+            )}
           </div>
 )}
 
@@ -1559,8 +1571,15 @@ export function FormPreview({
         {field.widgetType === "textarea" && (
           typeof props.hideQuestion === "boolean" && props.hideQuestion
         ) && (
-          <div className="text-sm text-muted-foreground whitespace-pre-wrap break-all">
-            {field.label}
+          <div className="space-y-1">
+            <div className="text-sm text-muted-foreground whitespace-pre-wrap break-all">
+              {field.label}
+            </div>
+            {field.description && (
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap break-all">
+                {field.description}
+              </p>
+            )}
           </div>
         )}
 
@@ -1972,13 +1991,13 @@ export function FormPreview({
           </div>
         )}
 
-        (!isRespondMode || (hasResult && results?.[field.id] === false)) && (
+        {hasCorrectAnswers && (!isRespondMode || (hasResult && results?.[field.id] === false)) && (
   <div className="text-sm text-green-700 mt-2">
     {field.widgetType === "ranking" ? (
       <div>
         <p className="font-medium">Правильный порядок:</p>
         <ol className="list-decimal list-inside mt-1">
-          {(props.correctAnswers as string[]).map((answer, idx) => (
+          {correctAnswers.map((answer, idx) => (
             <li key={idx}>{answer}</li>
           ))}
         </ol>
@@ -1987,7 +2006,7 @@ export function FormPreview({
       <div>
         <p className="font-medium">Правильные ячейки:</p>
         <div className="mt-1">
-          {(props.correctAnswers as string[]).map((cellKey, idx) => {
+          {correctAnswers.map((cellKey, idx) => {
             const [rowIdx, colIdx] = cellKey.split(':').map(Number);
             const row = ((props.rows as string[]) || [])[rowIdx - 1] || `Row ${rowIdx}`;
             const col = ((props.columns as string[]) || [])[colIdx - 1] || `Column ${colIdx}`;
@@ -1998,10 +2017,10 @@ export function FormPreview({
         </div>
       </div>
     ) : (
-      <p>Правильный ответ: {(props.correctAnswers as string[]).join(", ")}</p>
+      <p>Правильный ответ: {correctAnswers.join(", ")}</p>
     )}
   </div>
-) : null}
+        )}
       </div>
     );
   };
