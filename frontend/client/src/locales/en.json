@@ -321,6 +321,7 @@
     "points": "points",
     "fixCorrectAnswers":"Distribute the correct answers",
     "correctAnswers":"Correct answers"
+    "hideQuestion":"Hide the response field"
   },
   "errors": {
     "required": "Required",

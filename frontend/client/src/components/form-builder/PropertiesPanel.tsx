@@ -204,8 +204,18 @@ const MAX_UPLOAD_MB = 20;
 
 const propertiesSchemaByWidgetType: Record<WidgetType, PropertyFieldDef[]> = {
   header: [baseLabelField],
-  text_input: [baseLabelField, placeholderField, helperTextField, requiredField],
-  textarea: [baseLabelField, placeholderField, helperTextField, requiredField],
+  text_input: [baseLabelField, placeholderField, helperTextField, requiredField, {
+    key: "hideQuestion",
+    labelKey: "propert.hideQuestion",
+    type: "switch",
+    target: "props.hideQuestion",
+  }],
+  textarea: [baseLabelField, placeholderField, helperTextField, requiredField, {
+    key: "hideQuestion",
+    labelKey: "propert.hideQuestion",
+    type: "switch",
+    target: "props.hideQuestion",
+  }],
   number_input: [
     baseLabelField,
     placeholderField,
@@ -931,7 +941,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
 
     if (fieldDef.type === "switch") {
       return (
-        <div key={fieldDef.key} className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+        <div key={fieldDef.key} className="flex items-center justify-between rounded-lg border p-3 shadow-sm space-y-2">
           <div className="space-y-0.5">{label}</div>
           <Switch
             checked={Boolean(value)}
@@ -1035,7 +1045,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
     ? (props.attachments as ElementAttachment[])
     : [];
   const imageAttachments = attachments.filter((item) => item.mime_type?.startsWith("image/"));
-  const attachmentsDisplay =
+  const attachmentsDisplay: "list" | "slider" | undefined =
     (props.attachmentsDisplay as "list" | "slider" | undefined) ?? "slider";
 
   const panelClassName = isConditionalSelectOpen
@@ -1067,7 +1077,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
         {schemaFields.map(renderPropertyField)}
         {isPlainText && (
           <>
-            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm space-y-2">
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
                   <Label>{t("propert.longtxt")}</Label>
@@ -1204,8 +1214,12 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
             <div className="space-y-2">
               <Label>{t("propert.attachmentsDisplay")}</Label>
               <Select
-                value={attachmentsDisplay}
-                onValueChange={(value) => updateField(selectedField.id, { props: { attachmentsDisplay: value } })}
+                value={attachmentsDisplay || "slider"}
+                onValueChange={(value) => {
+                  if (value === "list" || value === "slider") {
+                    updateField(selectedField.id, { props: { attachmentsDisplay: value } });
+                  }
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder={t("common.selectopt")} />
