@@ -36,6 +36,13 @@ jobs:
           DB_USER: ${{ secrets.POSTGRES_USER }}
           DB_PASS: ${{ secrets.POSTGRES_PASSWORD }}
           DB_PORT: ${{ secrets.POSTGRES_PORT }}
+          PASSWORD_PEPPER: ${{ secrets.PASSWORD_PEPPER }}
+          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          ADMIN_NAME: ${{ secrets.ADMIN_NAME }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          REDIS_PORT: ${{ secrets.REDIS_PORT }}
+          REDIS_DB: ${{ secrets.REDIS_DB }}
         run: |
           echo "Creating .env file for PostgreSQL..."
 
@@ -45,6 +52,13 @@ jobs:
           POSTGRES_USER=${DB_USER}
           POSTGRES_PASSWORD=${DB_PASS}
           POSTGRES_PORT=${DB_PORT}
+          PASSWORD_PEPPER=${PASSWORD_PEPPER}
+          ADMIN_EMAIL=${ADMIN_EMAIL}
+          ADMIN_PASSWORD=${ADMIN_PASSWORD}
+          ADMIN_NAME=${ADMIN_NAME}
+          SECRET_KEY=${SECRET_KEY}
+          REDIS_PORT=${REDIS_PORT}
+          REDIS_DB=${REDIS_DB}
           EOF
 
       - name: Start containers with Docker Compose
