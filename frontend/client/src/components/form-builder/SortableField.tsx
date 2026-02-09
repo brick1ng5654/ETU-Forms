@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 import { MatrixCorrectAnswersModal } from "./MatrixCorrectAnswersModal";
 import { getCountryOptions, isCountryField } from "@/lib/countries";
+import { t } from "i18next";
 
 const MAX_UPLOAD_MB = 20;
 
@@ -143,7 +144,7 @@ function MatrixPreviewTable({
       {correctAnswers.length > 0 && (
         <div className="text-xs text-green-600 font-medium flex items-center gap-1">
           <Check className="h-3 w-3" />
-          РџСЂР°РІРёР»СЊРЅС‹С… РѕС‚РІРµС‚РѕРІ: {correctAnswers.length}
+          {t("propert.correctAnswers")}: {correctAnswers.length}
         </div>
       )}
 
@@ -158,7 +159,7 @@ function MatrixPreviewTable({
           }}
         >
           <Check className="h-4 w-4 mr-2" />
-          Р’С‹Р±СЂР°С‚СЊ РїСЂР°РІРёР»СЊРЅС‹Рµ РѕС‚РІРµС‚С‹
+          {t("propert.fixCorrectAnswers")}
         </Button>
       </div>
     </div>

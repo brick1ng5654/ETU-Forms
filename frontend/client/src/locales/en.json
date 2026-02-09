@@ -350,6 +350,8 @@
     "matrixTotalPoints": "Points for entire matrix",
     "matrixTotalPointsHelp": "Points are awarded if the entire matrix is filled correctly",
     "points": "points",
+    "fixCorrectAnswers":"Distribute the correct answers",
+    "correctAnswers":"Correct answers",
     "hideQuestion":"Hide the response field"
   },
   "errors": {
