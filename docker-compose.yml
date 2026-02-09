@@ -2,7 +2,7 @@ version: "3.9"
 services:
   redis:
     image: redis:7-alpine
-    container_name: redis
+    container_name: etu-forms-redis
     command: ["redis-server", "--appendonly", "yes"]
     networks:
       - app-network
@@ -16,6 +16,7 @@ services:
 
   frontend:
     build: ./frontend
+    container_name: etu-forms-frontend
     ports:
     - "80:80"
     - "443:443"
@@ -32,7 +33,7 @@ services:
       context: ./database
       dockerfile: Dockerfile
     image: db:latest
-    container_name: postgres_db
+    container_name: etu-forms-postgres_db
     env_file:
       - .env
     environment:
@@ -54,6 +55,7 @@ services:
     
   backend:
     build: ./backend
+    container_name: etu-forms-backend
     ports:
       - "${BACKEND_PORT}:8000"
     environment:
@@ -89,7 +91,7 @@ services:
 
   adminer:
     image: adminer:5
-    container_name: adminer
+    container_name: etu-forms-adminer
     depends_on:
       postgres:
         condition: service_healthy
