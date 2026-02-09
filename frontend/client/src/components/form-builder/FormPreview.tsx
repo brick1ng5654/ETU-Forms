@@ -1909,23 +1909,7 @@ export function FormPreview({ form }: FormPreviewProps) {
           </div>
         )}
 
-        {isIncorrect && (props.correctAnswers as string[] | undefined)?.length ? (
-          <div className="text-sm text-green-700 mt-2">
-            {field.widgetType === "ranking" ? (
-              <div>
-                <p className="font-medium">Правильный порядок:</p>
-                <ol className="list-decimal list-inside mt-1">
-                  {(props.correctAnswers as string[]).map((answer, idx) => (
-                    <li key={idx}>{answer}</li>
-                  ))}
-                </ol>
-              </div>
-            ) : (
-              <p>Правильный ответ: {(props.correctAnswers as string[]).join(", ")}</p>
-            )}
-          </div>
-        ) : null}
-        {(hasResult && !results[field.id] && (props.correctAnswers as string[] | undefined)?.length) ? (
+  {(hasResult && !results[field.id] && (props.correctAnswers as string[] | undefined)?.length) ? (
   <div className="text-sm text-green-700 mt-2">
     {field.widgetType === "ranking" ? (
       <div>
