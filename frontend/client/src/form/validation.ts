@@ -1,5 +1,6 @@
 import type { AnswersById, FormElementModel, FullNameAnswer, PassportAnswer } from "@/form/types";
 import { presets } from "@/form/presets";
+import { getCountryCodes, isCountryField, resolveCountryCode } from "@/lib/countries";
 
 export type ValidationErrorsById = Record<string, string[]>;
 
@@ -36,6 +37,11 @@ export const validateForm = (elements: FormElementModel[], answers: AnswersById)
           elementErrors.push(`${part.key}: Required`);
           return;
         }
+        const optionValues = part.options?.map((option) => option.value) ?? [];
+        if (optionValues.length > 0 && !isEmptyValue(partValue) && !optionValues.includes(String(partValue))) {
+          elementErrors.push(`${part.key}: Invalid selection`);
+          return;
+        }
         if (part.validate) {
           const partErrors = part.validate(partValue ?? "", required);
           partErrors.forEach((err) => elementErrors.push(`${part.key}: ${err}`));
@@ -47,8 +53,12 @@ export const validateForm = (elements: FormElementModel[], answers: AnswersById)
       }
 
       if (element.widgetType === "select" || element.widgetType === "radio") {
-        const options = (props.options as string[]) || [];
-        if (!isEmptyValue(value) && typeof value === "string" && !isOptionValue(value, options)) {
+        const isCountrySelect = isCountryField(element);
+        const options = isCountrySelect ? getCountryCodes() : (props.options as string[]) || [];
+        const normalized = typeof value === "string" && isCountrySelect
+          ? resolveCountryCode(value) || value
+          : value;
+        if (!isEmptyValue(value) && typeof normalized === "string" && !isOptionValue(normalized, options)) {
           elementErrors.push("Invalid selection");
         }
       }
@@ -68,6 +78,31 @@ export const validateForm = (elements: FormElementModel[], answers: AnswersById)
         if (Number.isNaN(numeric)) {
           elementErrors.push("Invalid number");
         }
+      }
+
+      if (element.widgetType === "matrix") {
+        const rows = (props.rows as string[]) || [];
+        const columns = (props.columns as string[]) || [];
+        const selected = Array.isArray(value) ? value : [];
+        selected.forEach((cellKey) => {
+          if (typeof cellKey !== "string") {
+            elementErrors.push("Invalid selection");
+            return;
+          }
+          const [rowIdxStr, colIdxStr] = cellKey.split(":");
+          const rowIdx = parseInt(rowIdxStr, 10);
+          const colIdx = parseInt(colIdxStr, 10);
+          if (
+            Number.isNaN(rowIdx) ||
+            Number.isNaN(colIdx) ||
+            rowIdx < 1 ||
+            rowIdx > rows.length ||
+            colIdx < 1 ||
+            colIdx > columns.length
+          ) {
+            elementErrors.push("Invalid selection");
+          }
+        });
       }
 
       if (preset?.validate && typeof value === "string") {

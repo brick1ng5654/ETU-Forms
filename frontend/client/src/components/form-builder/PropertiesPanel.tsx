@@ -1,4 +1,4 @@
-import type { FormElementModel, SemanticType, WidgetType } from "@/form/types";
+import type { ElementAttachment, FormElementModel, SemanticType, WidgetType } from "@/form/types";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -9,20 +9,36 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { X, Plus, Trash2, Check } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTranslation } from "react-i18next";
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { DndContext, DragEndEvent, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { restrictToVerticalAxis, restrictToParentElement } from "@dnd-kit/modifiers";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
-import { useState, useEffect } from "react";
-
+import { useState, useEffect, useRef } from "react";
+import type { ChangeEvent, ClipboardEvent, KeyboardEvent } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { MatrixCorrectAnswersModal } from "./MatrixCorrectAnswersModal";
+import { toast } from "@/hooks/use-toast";
+import { authHeader } from "@/lib/auth";
+import { cn } from "@/lib/utils";
+import { MouseEvent } from 'react';
+import { getCountryOptions, isCountryField } from "@/lib/countries";
 interface PropertiesPanelProps {
   selectedField: FormElementModel | null;
   selectedIds: string[];
   updateField: (id: string, updates: Partial<FormElementModel>) => void;
   deleteField: (id: string) => void;
   deleteSelected: () => void;
+  fields: FormElementModel[];
+}
+
+interface SortableFieldProps {
+  field: FormElementModel;
+  isSelected: boolean;
+  onSelect: (id: string, event: MouseEvent<HTMLDivElement>) => void;
+  onDelete: (id: string) => void;
+  updateField: (id: string, updates: Partial<FormElementModel>) => void;
   fields: FormElementModel[];
 }
 
@@ -34,7 +50,7 @@ interface SortableOptionItemProps {
 
 function SortableOptionItem({ id, option, disabled }: SortableOptionItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled });
-
+  
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -56,7 +72,55 @@ function SortableOptionItem({ id, option, disabled }: SortableOptionItemProps) {
   );
 }
 
-type PropertyFieldType = "text" | "textarea" | "switch" | "number" | "slider" | "tags";
+interface SortableAttachmentItemProps {
+  id: string;
+  attachment: ElementAttachment;
+  onRemove: (fileId: number) => void;
+}
+
+function SortableAttachmentItem({ id, attachment, onRemove }: SortableAttachmentItemProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "flex items-center justify-between gap-3 rounded-md border border-muted-foreground/20 px-2 py-1.5 bg-white",
+        isDragging && "shadow-lg z-50"
+      )}
+    >
+      <div className="flex items-center gap-2 min-w-0">
+        <button
+          type="button"
+          className="cursor-grab text-muted-foreground"
+          {...attributes}
+          {...listeners}
+          aria-label="Drag attachment"
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+        <p className="text-sm truncate">{attachment.name}</p>
+      </div>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+        onClick={() => onRemove(attachment.file_id)}
+      >
+        <X className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+}
+
+type PropertyFieldType = "text" | "textarea" | "switch" | "number" | "slider" | "tags" | "select";
 
 type PropertyFieldDef = {
   key: string;
@@ -87,9 +151,11 @@ const widgetTypeLabelKey: Record<WidgetType, string> = {
   file_upload: "file",
   rating: "rating",
   ranking: "ranking",
+  matrix: "matrix",
 };
 
 const semanticTypeLabelKey: Record<SemanticType, string> = {
+  email: "email",
   phone: "phone",
   inn: "inn",
   snils: "snils",
@@ -131,10 +197,25 @@ const placeholderField: PropertyFieldDef = {
   maxLength: 80,
 };
 
+const TEXT_SINGLELINE_MAX_CHARS = 255;
+const TEXT_MULTILINE_MAX_CHARS = 10000;
+const MAX_ATTACHMENTS = 10;
+const MAX_UPLOAD_MB = 20;
+
 const propertiesSchemaByWidgetType: Record<WidgetType, PropertyFieldDef[]> = {
   header: [baseLabelField],
-  text_input: [baseLabelField, placeholderField, helperTextField, requiredField],
-  textarea: [baseLabelField, placeholderField, helperTextField, requiredField],
+  text_input: [baseLabelField, placeholderField, helperTextField, requiredField, {
+    key: "hideQuestion",
+    labelKey: "propert.hideQuestion",
+    type: "switch",
+    target: "props.hideQuestion",
+  }],
+  textarea: [baseLabelField, placeholderField, helperTextField, requiredField, {
+    key: "hideQuestion",
+    labelKey: "propert.hideQuestion",
+    type: "switch",
+    target: "props.hideQuestion",
+  }],
   number_input: [
     baseLabelField,
     placeholderField,
@@ -156,6 +237,7 @@ const propertiesSchemaByWidgetType: Record<WidgetType, PropertyFieldDef[]> = {
       labelKey: "propert.allowmult",
       type: "switch",
       target: "props.multiple",
+      visible: (fieldParam) => !isCountryField(fieldParam),
     },
   ],
   checkbox: [baseLabelField, helperTextField, requiredField],
@@ -168,14 +250,14 @@ const propertiesSchemaByWidgetType: Record<WidgetType, PropertyFieldDef[]> = {
       labelKey: "propert.hideDate",
       type: "switch",
       target: "props.hideDate",
-      disabled: (field) => Boolean((field.props as Record<string, any>).hideTime),
+      disabled: (fieldParam) => Boolean((fieldParam.props as Record<string, any>).hideTime),
     },
     {
       key: "hideTime",
       labelKey: "propert.hideTime",
       type: "switch",
       target: "props.hideTime",
-      disabled: (field) => Boolean((field.props as Record<string, any>).hideDate),
+      disabled: (fieldParam) => Boolean((fieldParam.props as Record<string, any>).hideDate),
     },
   ],
   file_upload: [
@@ -187,7 +269,16 @@ const propertiesSchemaByWidgetType: Record<WidgetType, PropertyFieldDef[]> = {
       type: "number",
       target: "props.maxFileSize",
       min: 1,
-      max: 100,
+      max: MAX_UPLOAD_MB,
+      step: 1,
+    },
+    {
+      key: "maxFiles",
+      labelKey: "propert.maxFiles",
+      type: "number",
+      target: "props.maxFiles",
+      min: 1,
+      max: 10,
       step: 1,
     },
     {
@@ -206,12 +297,46 @@ const propertiesSchemaByWidgetType: Record<WidgetType, PropertyFieldDef[]> = {
       labelKey: "propert.maxrati",
       type: "slider",
       target: "props.maxRating",
-      min: 3,
+      min: 1,
       max: 10,
       step: 1,
     },
   ],
   ranking: [baseLabelField, helperTextField, requiredField],
+  matrix: [
+    baseLabelField,
+    helperTextField,
+    requiredField,
+    {
+      key: "multiplePerRow",
+      labelKey: "propert.matrixMultiplePerRow",
+      type: "switch",
+      target: "props.multiplePerRow",
+    },
+  ],
+};
+
+const getPassportVisibleCount = (props: Record<string, any>) =>
+  [
+    !props.hidePassportFullName,
+    !props.hidePassportGender,
+    !props.hidePassportBirthDate,
+    !props.hidePassportSeriesNumber,
+    !props.hidePassportIssuedBy,
+    !props.hidePassportIssueDate,
+    !props.hidePassportDepartmentCode,
+    !props.hidePassportBirthPlace,
+  ].filter(Boolean).length;
+
+const passportHideDisabled = (field: FormElementModel, key: string) => {
+  const props = field.props as Record<string, any>;
+  return !props[key] && getPassportVisibleCount(props) === 1;
+};
+
+const passportHideGuard = (field: FormElementModel, value: unknown) => {
+  if (!value) return true;
+  const props = field.props as Record<string, any>;
+  return getPassportVisibleCount(props) > 1;
 };
 
 const propertiesSchemaBySemanticType: Partial<Record<SemanticType, PropertyFieldDef[]>> = {
@@ -235,152 +360,93 @@ const propertiesSchemaBySemanticType: Partial<Record<SemanticType, PropertyField
   ],
   passport: [
     {
+      key: "hidePassportFullName",
+      labelKey: "propert.hidePassportFullName",
+      type: "switch",
+      target: "props.hidePassportFullName",
+      disabled: (field) => passportHideDisabled(field, "hidePassportFullName"),
+      guard: passportHideGuard,
+    },
+    {
+      key: "hidePassportGender",
+      labelKey: "propert.hidePassportGender",
+      type: "switch",
+      target: "props.hidePassportGender",
+      disabled: (field) => passportHideDisabled(field, "hidePassportGender"),
+      guard: passportHideGuard,
+    },
+    {
+      key: "hidePassportBirthDate",
+      labelKey: "propert.hidePassportBirthDate",
+      type: "switch",
+      target: "props.hidePassportBirthDate",
+      disabled: (field) => passportHideDisabled(field, "hidePassportBirthDate"),
+      guard: passportHideGuard,
+    },
+    {
       key: "hidePassportSeriesNumber",
       labelKey: "propert.hidePassportSeriesNumber",
       type: "switch",
       target: "props.hidePassportSeriesNumber",
-      disabled: (field) => {
-        const props = field.props as Record<string, any>;
-        const visible = [
-          !props.hidePassportSeriesNumber,
-          !props.hidePassportIssuedBy,
-          !props.hidePassportIssueDate,
-          !props.hidePassportDepartmentCode,
-          !props.hidePassportBirthPlace,
-        ].filter(Boolean).length;
-        return !props.hidePassportSeriesNumber && visible === 1;
-      },
-      guard: (field, value) => {
-        if (!value) return true;
-        const props = field.props as Record<string, any>;
-        const visible = [
-          !props.hidePassportSeriesNumber,
-          !props.hidePassportIssuedBy,
-          !props.hidePassportIssueDate,
-          !props.hidePassportDepartmentCode,
-          !props.hidePassportBirthPlace,
-        ].filter(Boolean).length;
-        return visible > 1;
-      },
+      disabled: (field) => passportHideDisabled(field, "hidePassportSeriesNumber"),
+      guard: passportHideGuard,
     },
     {
       key: "hidePassportIssuedBy",
       labelKey: "propert.hidePassportIssuedBy",
       type: "switch",
       target: "props.hidePassportIssuedBy",
-      disabled: (field) => {
-        const props = field.props as Record<string, any>;
-        const visible = [
-          !props.hidePassportSeriesNumber,
-          !props.hidePassportIssuedBy,
-          !props.hidePassportIssueDate,
-          !props.hidePassportDepartmentCode,
-          !props.hidePassportBirthPlace,
-        ].filter(Boolean).length;
-        return !props.hidePassportIssuedBy && visible === 1;
-      },
-      guard: (field, value) => {
-        if (!value) return true;
-        const props = field.props as Record<string, any>;
-        const visible = [
-          !props.hidePassportSeriesNumber,
-          !props.hidePassportIssuedBy,
-          !props.hidePassportIssueDate,
-          !props.hidePassportDepartmentCode,
-          !props.hidePassportBirthPlace,
-        ].filter(Boolean).length;
-        return visible > 1;
-      },
+      disabled: (field) => passportHideDisabled(field, "hidePassportIssuedBy"),
+      guard: passportHideGuard,
     },
     {
       key: "hidePassportIssueDate",
       labelKey: "propert.hidePassportIssueDate",
       type: "switch",
       target: "props.hidePassportIssueDate",
-      disabled: (field) => {
-        const props = field.props as Record<string, any>;
-        const visible = [
-          !props.hidePassportSeriesNumber,
-          !props.hidePassportIssuedBy,
-          !props.hidePassportIssueDate,
-          !props.hidePassportDepartmentCode,
-          !props.hidePassportBirthPlace,
-        ].filter(Boolean).length;
-        return !props.hidePassportIssueDate && visible === 1;
-      },
-      guard: (field, value) => {
-        if (!value) return true;
-        const props = field.props as Record<string, any>;
-        const visible = [
-          !props.hidePassportSeriesNumber,
-          !props.hidePassportIssuedBy,
-          !props.hidePassportIssueDate,
-          !props.hidePassportDepartmentCode,
-          !props.hidePassportBirthPlace,
-        ].filter(Boolean).length;
-        return visible > 1;
-      },
+      disabled: (field) => passportHideDisabled(field, "hidePassportIssueDate"),
+      guard: passportHideGuard,
     },
     {
       key: "hidePassportDepartmentCode",
       labelKey: "propert.hidePassportDepartmentCode",
       type: "switch",
       target: "props.hidePassportDepartmentCode",
-      disabled: (field) => {
-        const props = field.props as Record<string, any>;
-        const visible = [
-          !props.hidePassportSeriesNumber,
-          !props.hidePassportIssuedBy,
-          !props.hidePassportIssueDate,
-          !props.hidePassportDepartmentCode,
-          !props.hidePassportBirthPlace,
-        ].filter(Boolean).length;
-        return !props.hidePassportDepartmentCode && visible === 1;
-      },
-      guard: (field, value) => {
-        if (!value) return true;
-        const props = field.props as Record<string, any>;
-        const visible = [
-          !props.hidePassportSeriesNumber,
-          !props.hidePassportIssuedBy,
-          !props.hidePassportIssueDate,
-          !props.hidePassportDepartmentCode,
-          !props.hidePassportBirthPlace,
-        ].filter(Boolean).length;
-        return visible > 1;
-      },
+      disabled: (field) => passportHideDisabled(field, "hidePassportDepartmentCode"),
+      guard: passportHideGuard,
     },
     {
       key: "hidePassportBirthPlace",
       labelKey: "propert.hidePassportBirthPlace",
       type: "switch",
       target: "props.hidePassportBirthPlace",
-      disabled: (field) => {
-        const props = field.props as Record<string, any>;
-        const visible = [
-          !props.hidePassportSeriesNumber,
-          !props.hidePassportIssuedBy,
-          !props.hidePassportIssueDate,
-          !props.hidePassportDepartmentCode,
-          !props.hidePassportBirthPlace,
-        ].filter(Boolean).length;
-        return !props.hidePassportBirthPlace && visible === 1;
-      },
-      guard: (field, value) => {
-        if (!value) return true;
-        const props = field.props as Record<string, any>;
-        const visible = [
-          !props.hidePassportSeriesNumber,
-          !props.hidePassportIssuedBy,
-          !props.hidePassportIssueDate,
-          !props.hidePassportDepartmentCode,
-          !props.hidePassportBirthPlace,
-        ].filter(Boolean).length;
-        return visible > 1;
-      },
+      disabled: (field) => passportHideDisabled(field, "hidePassportBirthPlace"),
+      guard: passportHideGuard,
     },
   ],
 };
+
+const getTextMaxLimit = (widgetType: WidgetType) =>
+  widgetType === "textarea" ? TEXT_MULTILINE_MAX_CHARS : TEXT_SINGLELINE_MAX_CHARS;
+
+const clampTextMaxChars = (value: number, limit: number) =>
+  Math.min(Math.max(value, 1), limit);
+
+const parseCommaList = (raw: string) =>
+  raw
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+const normalizeCommaList = (raw: string) => parseCommaList(raw).join(", ");
+
+const parseSemicolonList = (raw: string) =>
+  raw
+    .split(";")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+const normalizeSemicolonList = (raw: string) => parseSemicolonList(raw).join("; ");
 
 const getValueByTarget = (field: FormElementModel, target: PropertyFieldDef["target"]) => {
   if (target === "label") return field.label;
@@ -394,7 +460,7 @@ const getValueByTarget = (field: FormElementModel, target: PropertyFieldDef["tar
 };
 
 export function PropertiesPanel({ selectedField, selectedIds, updateField, deleteField, deleteSelected, fields }: PropertiesPanelProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -404,12 +470,28 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
 
   const [rankingOrderOptions, setRankingOrderOptions] = useState<string[]>([]);
   const [isConditionalSelectOpen, setIsConditionalSelectOpen] = useState(false);
-
+  const [isMatrixModalOpen, setIsMatrixModalOpen] = useState(false);
+  const [pointsInput, setPointsInput] = useState<string>("");
+  const [numberDrafts, setNumberDrafts] = useState<Record<string, string>>({});
+  const [commaDrafts, setCommaDrafts] = useState<Record<string, string>>({});
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
   useEffect(() => {
     if (!selectedField) return;
     const options = (selectedField.props as Record<string, any>).options as string[] | undefined;
     setRankingOrderOptions(options ? [...options] : []);
   }, [selectedField?.id, selectedField?.props]);
+  useEffect(() => {
+    if (!selectedField) return;
+    const currentPoints = (selectedField.props as Record<string, any>).points;
+    const fallbackPoints = typeof currentPoints === "number" && currentPoints > 0 ? currentPoints : 1;
+    setPointsInput(String(fallbackPoints));
+  }, [selectedField?.id, (selectedField?.props as Record<string, any>)?.points]);
+
+  useEffect(() => {
+    setNumberDrafts({});
+    setCommaDrafts({});
+  }, [selectedField?.id]);
 
   if (selectedIds.length > 1) {
     const panelClassName = isConditionalSelectOpen
@@ -444,12 +526,16 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
   const props = selectedField.props as Record<string, any>;
   const hideDate = Boolean(props.hideDate);
   const hideTime = Boolean(props.hideTime);
-  const hasOptions = ["select", "radio", "checkbox", "ranking"].includes(selectedField.widgetType);
+  const isCountrySelect = isCountryField(selectedField);
+  const countryOptions = isCountrySelect ? getCountryOptions(i18n.language).map((option) => option.label) : [];
+  const hasOptions = ["select", "radio", "checkbox", "ranking"].includes(selectedField.widgetType) && !isCountrySelect;
+  const isMatrix = selectedField.widgetType === "matrix";
   const isHeader = selectedField.widgetType === "header";
   const isDatetime = selectedField.widgetType === "datetime";
   const showRequiredToggle = !isHeader && !isDatetime && selectedField.semanticType !== "full_name";
   const schemaFields = propertiesSchemaByWidgetType[selectedField.widgetType].filter((fieldDef) => {
     if (fieldDef.key === "required" && !showRequiredToggle) return false;
+    if (selectedField.semanticType === "passport" && fieldDef.key === "placeholder") return false;
     return !fieldDef.visible || fieldDef.visible(selectedField);
   });
   const semanticFields = selectedField.semanticType
@@ -457,7 +543,21 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
     : [];
 
   const specialized = Boolean(selectedField.semanticType);
-  const canHaveCorrectAnswers = !isHeader && selectedField.widgetType !== "file_upload" && !isDatetime && !specialized;
+  const canHaveCorrectAnswers = !isHeader && selectedField.widgetType !== "file_upload" && !isDatetime && !specialized && !isCountrySelect;
+  const isPlainText =
+    (selectedField.widgetType === "text_input" || selectedField.widgetType === "textarea") &&
+    !selectedField.semanticType &&
+    !props.inputType;
+  const isMultiline = selectedField.widgetType === "textarea";
+  const textMaxLimit = getTextMaxLimit(selectedField.widgetType);
+  const rawTextMaxChars = typeof props.maxChars === "number" ? props.maxChars : undefined;
+  const textMaxChars = clampTextMaxChars(rawTextMaxChars ?? textMaxLimit, textMaxLimit);
+  const [textMaxCharsInput, setTextMaxCharsInput] = useState<string>("");
+
+  useEffect(() => {
+    if (!isPlainText) return;
+    setTextMaxCharsInput(String(textMaxChars));
+  }, [isPlainText, selectedField.id, textMaxChars]);
 
   const updateByTarget = (target: PropertyFieldDef["target"], value: unknown) => {
     if (target === "label") {
@@ -476,6 +576,195 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
       const key = target.replace("props.", "");
       updateField(selectedField.id, { props: { [key]: value } });
     }
+  };
+
+  const pointsInputPattern = /^\d*(?:\.\d*)?$/;
+  const pointsValuePattern = /^\d+(?:\.\d*)?$/;
+
+  const handlePointsKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.ctrlKey || event.metaKey || event.altKey) {
+      return;
+    }
+    const { key, currentTarget } = event;
+    if (key.length !== 1) {
+      return;
+    }
+    if (key === ".") {
+      if (currentTarget.value.includes(".")) {
+        event.preventDefault();
+      }
+      return;
+    }
+    if (!/^\d$/.test(key)) {
+      event.preventDefault();
+    }
+  };
+
+  const handlePointsPaste = (event: ClipboardEvent<HTMLInputElement>) => {
+    const text = event.clipboardData.getData("text");
+    if (!pointsInputPattern.test(text)) {
+      event.preventDefault();
+    }
+  };
+
+  const commitPointsInput = () => {
+    const rawValue = pointsInput.trim();
+    const fallback = typeof props.points === "number" && props.points > 0 ? props.points : 1;
+    if (!pointsValuePattern.test(rawValue)) {
+      setPointsInput(String(fallback));
+      updateField(selectedField.id, { props: { points: fallback } });
+      return;
+    }
+    const parsedValue = Number.parseFloat(rawValue);
+    if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
+      setPointsInput(String(fallback));
+      updateField(selectedField.id, { props: { points: fallback } });
+      return;
+    }
+    setPointsInput(String(parsedValue));
+    updateField(selectedField.id, { props: { points: parsedValue } });
+  };
+
+  const bufferToHex = (buffer: ArrayBuffer) =>
+    Array.from(new Uint8Array(buffer))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+
+  const computeFileHash = async (file: File): Promise<string | null> => {
+    if (!crypto?.subtle?.digest) return null;
+    const data = await file.arrayBuffer();
+    const digest = await crypto.subtle.digest("SHA-256", data);
+    return bufferToHex(digest);
+  };
+
+  const uploadAttachment = async (file: File): Promise<ElementAttachment> => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch("/api/v1/files/upload", {
+      method: "POST",
+      headers: authHeader(),
+      body: formData,
+    });
+
+    if (!response.ok) {
+      let detail: string | undefined;
+      const contentType = response.headers.get("content-type") ?? "";
+      if (contentType.includes("application/json")) {
+        const err = await response.json().catch(() => ({}));
+        detail = err?.detail;
+      } else {
+        const text = await response.text().catch(() => "");
+        detail = text.trim() || undefined;
+      }
+      if (response.status === 413 && !detail) {
+        throw new Error(t("propert.attachmentsTooLarge"));
+      }
+      throw new Error(detail ?? t("propert.attachmentsUploadError"));
+    }
+
+    const data = await response.json();
+    if (!data?.file_id) {
+      throw new Error("Upload failed");
+    }
+
+    return {
+      file_id: data.file_id,
+      name: data.name ?? file.name,
+      mime_type: data.mime_type ?? file.type ?? "application/octet-stream",
+      size_bytes: data.size_bytes ?? file.size ?? 0,
+      url: data.url ?? `/api/v1/files/${data.file_id}/download`,
+      content_hash: data.content_hash,
+      status: data.status ?? "temp",
+    };
+  };
+
+  const handleAttachmentChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    if (files.length === 0) return;
+
+    const availableSlots = MAX_ATTACHMENTS - attachments.length;
+    if (availableSlots <= 0) {
+      toast({ title: t("builder.error"), description: t("propert.attachmentsLimit"), variant: "destructive" });
+      return;
+    }
+
+    const uploadQueue = files.slice(0, availableSlots);
+    if (files.length > availableSlots) {
+      toast({ title: t("builder.error"), description: t("propert.attachmentsLimit"), variant: "destructive" });
+    }
+
+    const existingHashes = new Set(
+      attachments
+        .map((item) => item.content_hash)
+        .filter((hash): hash is string => Boolean(hash))
+    );
+    const existingFallbackKeys = new Set(
+      attachments.map((item) => `${item.name}|${item.size_bytes}`)
+    );
+    const queuedHashes = new Set<string>();
+
+    setIsUploadingAttachments(true);
+    const uploaded: ElementAttachment[] = [];
+    for (const file of uploadQueue) {
+      try {
+        const hash = await computeFileHash(file);
+        if (hash) {
+          if (existingHashes.has(hash) || queuedHashes.has(hash)) {
+            toast({ title: t("builder.error"), description: t("propert.attachmentsDuplicate"), variant: "destructive" });
+            continue;
+          }
+          queuedHashes.add(hash);
+        } else {
+          const fallbackKey = `${file.name}|${file.size}`;
+          if (existingFallbackKeys.has(fallbackKey)) {
+            toast({ title: t("builder.error"), description: t("propert.attachmentsDuplicate"), variant: "destructive" });
+            continue;
+          }
+        }
+        const item = await uploadAttachment(file);
+        if (item.content_hash && existingHashes.has(item.content_hash)) {
+          toast({ title: t("builder.error"), description: t("propert.attachmentsDuplicate"), variant: "destructive" });
+          continue;
+        }
+        if (!item.content_hash) {
+          const fallbackKey = `${item.name}|${item.size_bytes}`;
+          if (existingFallbackKeys.has(fallbackKey)) {
+            toast({ title: t("builder.error"), description: t("propert.attachmentsDuplicate"), variant: "destructive" });
+            continue;
+          }
+        }
+        uploaded.push(item);
+      } catch (error: any) {
+        toast({
+          title: t("builder.error"),
+          description: error?.message ?? t("propert.attachmentsUploadError"),
+          variant: "destructive",
+        });
+      }
+    }
+    setIsUploadingAttachments(false);
+
+    if (uploaded.length > 0) {
+      updateField(selectedField.id, { props: { attachments: [...attachments, ...uploaded] } });
+    }
+  };
+
+  const removeAttachment = (fileId: number) => {
+    updateField(selectedField.id, {
+      props: { attachments: attachments.filter((item) => item.file_id !== fileId) },
+    });
+  };
+
+  const handleAttachmentDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = attachments.findIndex((item) => String(item.file_id) === String(active.id));
+    const newIndex = attachments.findIndex((item) => String(item.file_id) === String(over.id));
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove(attachments, oldIndex, newIndex);
+    updateField(selectedField.id, { props: { attachments: reordered } });
   };
 
   const renderPropertyField = (fieldDef: PropertyFieldDef) => {
@@ -504,7 +793,6 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
         )}
       </div>
     );
-
     if (fieldDef.type === "textarea") {
       return (
         <div key={fieldDef.key} className="space-y-2">
@@ -539,6 +827,12 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
     }
 
     if (fieldDef.type === "number") {
+      const draftKey = `${selectedField?.id ?? "field"}:${fieldDef.key}`;
+      const deferValidation = fieldDef.key === "maxFiles" || fieldDef.key === "maxFileSize";
+      const rawValue = deferValidation ? numberDrafts[draftKey] : undefined;
+      const minValue = fieldDef.min ?? 0;
+      const maxValue = fieldDef.max ?? Number.MAX_SAFE_INTEGER;
+      const resolvedValue = Number(value ?? minValue);
       return (
         <div key={fieldDef.key} className="space-y-2">
           {label}
@@ -547,8 +841,44 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
             min={fieldDef.min}
             max={fieldDef.max}
             step={fieldDef.step}
-            value={Number(value ?? fieldDef.min ?? 0)}
-            onChange={(e) => updateByTarget(fieldDef.target, parseInt(e.target.value, 10) || fieldDef.min || 0)}
+            inputMode={deferValidation ? "numeric" : undefined}
+            pattern={deferValidation ? "[0-9]*" : undefined}
+            value={rawValue ?? resolvedValue}
+            onChange={(e) => {
+              if (deferValidation) {
+                const digitsOnly = e.target.value.replace(/\D+/g, "");
+                setNumberDrafts((prev) => ({ ...prev, [draftKey]: digitsOnly }));
+                return;
+              }
+              updateByTarget(fieldDef.target, parseInt(e.target.value, 10) || minValue);
+            }}
+            onKeyDown={(e) => {
+              if (!deferValidation) return;
+              const allowedKeys = [
+                "Backspace",
+                "Delete",
+                "Tab",
+                "ArrowLeft",
+                "ArrowRight",
+                "Home",
+                "End",
+              ];
+              if (allowedKeys.includes(e.key) || (e.ctrlKey || e.metaKey)) {
+                return;
+              }
+              if (!/^\d$/.test(e.key)) {
+                e.preventDefault();
+              }
+            }}
+            onBlur={(e) => {
+              if (!deferValidation) return;
+              const parsed = parseInt(e.target.value, 10);
+              const nextValue = Number.isFinite(parsed)
+                ? Math.min(Math.max(parsed, minValue), maxValue)
+                : minValue;
+              updateByTarget(fieldDef.target, nextValue);
+              setNumberDrafts((prev) => ({ ...prev, [draftKey]: String(nextValue) }));
+            }}
           />
         </div>
       );
@@ -556,6 +886,9 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
 
     if (fieldDef.type === "slider") {
       const sliderValue = typeof value === "number" ? value : fieldDef.min || 0;
+      const showRatingScale = fieldDef.key === "maxRating";
+      const minLabel = fieldDef.min ?? 0;
+      const maxLabel = fieldDef.max ?? 0;
       return (
         <div key={fieldDef.key} className="space-y-2">
           <Label>
@@ -568,24 +901,38 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
             step={fieldDef.step}
             onValueChange={(val) => updateByTarget(fieldDef.target, val[0])}
           />
+          {showRatingScale && (
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>{minLabel}</span>
+              <span>5</span>
+              <span>{maxLabel}</span>
+            </div>
+          )}
         </div>
       );
     }
 
     if (fieldDef.type === "tags") {
       const tagValue = Array.isArray(value) ? (value as string[]).join(", ") : String(value ?? "");
+      const draftKey = `tags:${selectedField.id}:${fieldDef.key}`;
+      const displayValue = Object.prototype.hasOwnProperty.call(commaDrafts, draftKey)
+        ? commaDrafts[draftKey]
+        : tagValue;
       return (
         <div key={fieldDef.key} className="space-y-2">
           {label}
           <Input
             placeholder={fieldDef.placeholder}
-            value={tagValue}
+            value={displayValue}
             onChange={(e) => {
-              const nextValue = e.target.value
-                .split(",")
-                .map((entry) => entry.trim())
-                .filter(Boolean);
+              const raw = e.target.value;
+              setCommaDrafts((prev) => ({ ...prev, [draftKey]: raw }));
+              const nextValue = parseCommaList(raw);
               updateByTarget(fieldDef.target, nextValue);
+            }}
+            onBlur={(e) => {
+              const normalized = normalizeCommaList(e.target.value);
+              setCommaDrafts((prev) => ({ ...prev, [draftKey]: normalized }));
             }}
           />
         </div>
@@ -594,7 +941,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
 
     if (fieldDef.type === "switch") {
       return (
-        <div key={fieldDef.key} className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+        <div key={fieldDef.key} className="flex items-center justify-between rounded-lg border p-3 shadow-sm space-y-2">
           <div className="space-y-0.5">{label}</div>
           <Switch
             checked={Boolean(value)}
@@ -602,10 +949,82 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
               if (fieldDef.guard && !fieldDef.guard(selectedField, checked)) {
                 return;
               }
+              if (fieldDef.key === "multiplePerRow" && selectedField.widgetType === "matrix" && !checked) {
+                const currentProps = selectedField.props as Record<string, any>;
+                const correctAnswers = (currentProps.correctAnswers as string[]) || [];
+                const seenRows = new Set<string>();
+                const prunedAnswers = correctAnswers.filter((cellKey) => {
+                  const [rowKey] = cellKey.split(":");
+                  if (!rowKey || seenRows.has(rowKey)) {
+                    return false;
+                  }
+                  seenRows.add(rowKey);
+                  return true;
+                });
+                updateField(selectedField.id, {
+                  props: {
+                    multiplePerRow: checked,
+                    correctAnswers: prunedAnswers,
+                  },
+                });
+                return;
+              }
               updateByTarget(fieldDef.target, checked);
             }}
             disabled={isDisabled}
           />
+        </div>
+      );
+    }
+
+    if (fieldDef.type === "select") {
+      const selectValue = String(value ?? "");
+      let selectOptions: { value: string; label: string }[] = [];
+      
+      // Special handling for matrixValidationMode
+      if (fieldDef.key === "matrixValidationMode") {
+        
+        selectOptions = [
+          { value: "any", label: t("propert.matrixValidationModeAny") },
+          { value: "all", label: t("propert.matrixValidationModeAll") }
+        ];
+      }
+      
+      return (
+        <div key={fieldDef.key} className="space-y-2">
+          <div className="flex items-center gap-2">
+            {label}
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={t("propert.matrixCorrPoint")}
+                  className="h-4 w-4 rounded-full border border-muted-foreground/40 text-muted-foreground text-[9px] leading-none flex items-center justify-center hover:bg-muted"
+                >
+                  ?
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">
+                {t("propert.matrixCorrPoint")}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+          
+          <Select
+            value={selectValue}
+            onValueChange={(value) => updateByTarget(fieldDef.target, value || undefined)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={t("common.selectopt")} />
+            </SelectTrigger>
+            <SelectContent>
+              {selectOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       );
     }
@@ -617,15 +1036,23 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
     ? semanticTypeLabelKey[selectedField.semanticType]
     : widgetTypeLabelKey[selectedField.widgetType];
 
-  const options = (props.options as string[]) || [];
+  const options = isCountrySelect ? countryOptions : (props.options as string[]) || [];
 
   const correctAnswers = (props.correctAnswers as string[]) || [];
   const hasCorrectAnswers = correctAnswers.length > 0;
+  const hasFilledCorrectAnswers = correctAnswers.some((answer) => String(answer ?? "").trim().length > 0);
+  const attachments = Array.isArray(props.attachments)
+    ? (props.attachments as ElementAttachment[])
+    : [];
+  const imageAttachments = attachments.filter((item) => item.mime_type?.startsWith("image/"));
+  const attachmentsDisplay: "list" | "slider" | undefined =
+    (props.attachmentsDisplay as "list" | "slider" | undefined) ?? "slider";
 
   const panelClassName = isConditionalSelectOpen
     ? "p-4 space-y-6 overflow-y-auto h-full pb-[40vh]"
     : "p-4 space-y-6 overflow-y-auto h-full pb-32";
   const spacerClassName = isConditionalSelectOpen ? "h-[40vh]" : "h-24";
+  const attachmentsProgress = Math.min(attachments.length / MAX_ATTACHMENTS, 1);
 
   return (
     <div className={panelClassName}>
@@ -648,18 +1075,71 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
 
       <div className="space-y-4">
         {schemaFields.map(renderPropertyField)}
-        {(selectedField.widgetType === "text_input" || selectedField.widgetType === "textarea") && (
-          <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-            <div className="space-y-0.5">
-              <Label>{t("propert.longtxt")}</Label>
+        {isPlainText && (
+          <>
+            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm space-y-2">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <Label>{t("propert.longtxt")}</Label>
+                  <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={t("propert.longtxtHelp")}
+                        className="h-5 w-5 rounded-full border border-muted-foreground/40 text-muted-foreground text-[11px] leading-none flex items-center justify-center hover:bg-muted"
+                      >
+                        ?
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">
+                      {t("propert.longtxtHelp")}
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
+              <Switch
+                checked={isMultiline}
+                onCheckedChange={(checked) => {
+                  const nextLimit = checked ? TEXT_MULTILINE_MAX_CHARS : TEXT_SINGLELINE_MAX_CHARS;
+                  const nextMaxChars = rawTextMaxChars
+                    ? clampTextMaxChars(rawTextMaxChars, nextLimit)
+                    : nextLimit;
+                  updateField(selectedField.id, {
+                    widgetType: checked ? "textarea" : "text_input",
+                    props: {
+                      multiline: checked,
+                      maxChars: nextMaxChars,
+                    },
+                  });
+                }}
+              />
             </div>
-            <Switch
-              checked={selectedField.widgetType === "textarea"}
-              onCheckedChange={(checked) => {
-                updateField(selectedField.id, { widgetType: checked ? "textarea" : "text_input" });
-              }}
-            />
-          </div>
+            <div className="space-y-2 rounded-lg border p-3 shadow-sm">
+              <Label>{t("propert.maxChars")}</Label>
+              <Input
+                type="number"
+                min={1}
+                max={textMaxLimit}
+                value={textMaxCharsInput}
+                onChange={(e) => setTextMaxCharsInput(e.target.value)}
+                onBlur={() => {
+                  const nextValue = Number.parseInt(textMaxCharsInput, 10);
+                  if (Number.isNaN(nextValue)) {
+                    setTextMaxCharsInput(String(textMaxChars));
+                    return;
+                  }
+                  const clamped = clampTextMaxChars(nextValue, textMaxLimit);
+                  updateField(selectedField.id, {
+                    props: { maxChars: clamped },
+                  });
+                  setTextMaxCharsInput(String(clamped));
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                {t("propert.maxCharsHint", { limit: textMaxLimit })}
+              </p>
+            </div>
+          </>
         )}
         {semanticFields.length > 0 && (
           <div className="space-y-3 pt-2">
@@ -673,20 +1153,136 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
           </div>
         )}
 
-        {(selectedField.widgetType === "text_input" && props.inputType === "email") && (
+        <div className="space-y-2 rounded-lg border p-3 shadow-sm">
+          <div className="flex items-center gap-2">
+            <Label>{t("propert.attachments")}</Label>
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={t("propert.attachmentsHint", { max: MAX_UPLOAD_MB })}
+                  className="h-5 w-5 rounded-full border border-muted-foreground/40 text-muted-foreground text-[11px] leading-none flex items-center justify-center hover:bg-muted"
+                >
+                  ?
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">
+                {t("propert.attachmentsHint", { max: MAX_UPLOAD_MB })}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+          <input
+            ref={attachmentInputRef}
+            type="file"
+            className="hidden"
+            multiple
+            onChange={handleAttachmentChange}
+          />
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-2 flex-1 justify-center"
+              disabled={isUploadingAttachments || attachments.length >= MAX_ATTACHMENTS}
+              onClick={() => attachmentInputRef.current?.click()}
+            >
+              <Plus className="h-4 w-4" />
+              {isUploadingAttachments ? t("propert.attachmentsUploading") : t("propert.attachmentsAdd")}
+            </Button>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>{attachments.length}/{MAX_ATTACHMENTS}</span>
+              <svg className="h-3 w-3" viewBox="0 0 12 12" aria-hidden="true">
+                <circle cx="6" cy="6" r="5" fill="none" stroke="#e2e8f0" strokeWidth="2" />
+                <circle
+                  cx="6"
+                  cy="6"
+                  r="5"
+                  fill="none"
+                  stroke="#94a3b8"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeDasharray={2 * Math.PI * 5}
+                  strokeDashoffset={(2 * Math.PI * 5) * (1 - attachmentsProgress)}
+                  style={{ transition: "stroke-dashoffset 240ms ease-out" }}
+                  transform="rotate(-90 6 6)"
+                />
+              </svg>
+            </div>
+          </div>
+          {imageAttachments.length > 1 && (
+            <div className="space-y-2">
+              <Label>{t("propert.attachmentsDisplay")}</Label>
+              <Select
+                value={attachmentsDisplay || "slider"}
+                onValueChange={(value) => {
+                  if (value === "list" || value === "slider") {
+                    updateField(selectedField.id, { props: { attachmentsDisplay: value } });
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={t("common.selectopt")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="list">{t("propert.attachmentsDisplayList")}</SelectItem>
+                  <SelectItem value="slider">{t("propert.attachmentsDisplaySlider")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {attachments.length > 0 && (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleAttachmentDragEnd}
+            >
+              <SortableContext
+                items={attachments.map((item) => String(item.file_id))}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-2">
+                  {attachments.map((item) => (
+                    <SortableAttachmentItem
+                      key={item.file_id}
+                      id={String(item.file_id)}
+                      attachment={item}
+                      onRemove={removeAttachment}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          )}
+        </div>
+
+        {(selectedField.semanticType === "email" ||
+          (selectedField.widgetType === "text_input" && props.inputType === "email")) && (
           <div className="space-y-2">
             <Label>{t("propert.domains")}</Label>
-            <Input
-              placeholder="example.com, company.org"
-              value={Array.isArray(props.allowedDomains) ? props.allowedDomains.join(", ") : ""}
-              onChange={(e) => {
-                const nextValue = e.target.value
-                  .split(",")
-                  .map((entry) => entry.trim())
-                  .filter(Boolean);
-                updateField(selectedField.id, { props: { allowedDomains: nextValue } });
-              }}
-            />
+            {(() => {
+              const draftKey = `domains:${selectedField.id}`;
+              const domainValue = Array.isArray(props.allowedDomains) ? props.allowedDomains.join(", ") : "";
+              const displayValue = Object.prototype.hasOwnProperty.call(commaDrafts, draftKey)
+                ? commaDrafts[draftKey]
+                : domainValue;
+              return (
+                <Input
+                  placeholder="example.com, company.org"
+                  value={displayValue}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    setCommaDrafts((prev) => ({ ...prev, [draftKey]: raw }));
+                    const nextValue = parseCommaList(raw);
+                    updateField(selectedField.id, { props: { allowedDomains: nextValue } });
+                  }}
+                  onBlur={(e) => {
+                    const normalized = normalizeCommaList(e.target.value);
+                    setCommaDrafts((prev) => ({ ...prev, [draftKey]: normalized }));
+                  }}
+                />
+              );
+            })()}
           </div>
         )}
 
@@ -738,18 +1334,124 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
           </div>
         )}
 
+        {isMatrix && (
+          <>
+            <div className="space-y-3 pt-2 border-t">
+              <Label>{t("propert.matrixRows")}</Label>
+              <div className="space-y-2">
+                {((props.rows as string[]) || []).map((row, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <Input
+                      value={row}
+                      onChange={(e) => {
+                        const newRows = [...((props.rows as string[]) || [])];
+                        newRows[index] = e.target.value;
+                        updateField(selectedField.id, { props: { rows: newRows } });
+                      }}
+                      className="flex-1"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      onClick={() => {
+                        const newRows = ((props.rows as string[]) || []).filter((_, i) => i !== index);
+                        updateField(selectedField.id, { props: { rows: newRows } });
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full mt-2"
+                  onClick={() => {
+                    const currentRows = (props.rows as string[]) || [];
+                    const newRows = [...currentRows, `Row ${currentRows.length + 1}`];
+                    updateField(selectedField.id, { props: { rows: newRows } });
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-2" /> {t("propert.addopti")}
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-2 border-t">
+              <Label>{t("propert.matrixColumns")}</Label>
+              <div className="space-y-2">
+                {((props.columns as string[]) || []).map((column, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <Input
+                      value={column}
+                      onChange={(e) => {
+                        const newColumns = [...((props.columns as string[]) || [])];
+                        newColumns[index] = e.target.value;
+                        updateField(selectedField.id, { props: { columns: newColumns } });
+                      }}
+                      className="flex-1"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      onClick={() => {
+                        const newColumns = ((props.columns as string[]) || []).filter((_, i) => i !== index);
+                        updateField(selectedField.id, { props: { columns: newColumns } });
+                      }}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full mt-2"
+                  onClick={() => {
+                    const currentColumns = (props.columns as string[]) || [];
+                    const newColumns = [...currentColumns, `Column ${currentColumns.length + 1}`];
+                    updateField(selectedField.id, { props: { columns: newColumns } });
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-2" /> {t("propert.addopti")}
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+
         {canHaveCorrectAnswers && (
           <div className="space-y-3 pt-2 border-t mt-2">
             <Label className="text-green-600 flex items-center gap-1">
               <Check className="h-4 w-4" /> {t("propert.corransw")}
+              {isMatrix && (
+                <Tooltip delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label={t("propert.matrixCorrectAnswersFormatHelp")}
+                      className="h-4 w-4 rounded-full border border-muted-foreground/40 text-muted-foreground text-[9px] leading-none flex items-center justify-center hover:bg-muted"
+                    >
+                      ?
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">
+                    {t("propert.matrixCorrectAnswersFormatHelp")}
+                  </TooltipContent>
+                </Tooltip>
+              )}
             </Label>
-            <p className="text-xs text-muted-foreground">
-              {hasOptions
-                ? selectedField.widgetType === "ranking"
-                  ? t("propert.subranj")
-                  : t("propert.corranopt")
-                : t("propert.subtxt")}
-            </p>
+            {isMatrix && (
+              <p className="text-xs text-muted-foreground">
+                {hasOptions
+                  ? selectedField.widgetType === "ranking"
+                    ? t("propert.subranj")
+                    : t("propert.corranopt")
+                  : t("propert.subtxt")}
+              </p>
+            )}
 
             {hasOptions && options.length > 0 ? (
               <div className="space-y-2">
@@ -861,31 +1563,102 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
               <p className="text-xs text-muted-foreground italic">Add options first to select correct answers.</p>
             ) : (
               <div className="space-y-2">
-                {correctAnswers.map((answer, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <Input
-                      value={answer}
-                      onChange={(e) => {
-                        const newAnswers = [...correctAnswers];
-                        newAnswers[index] = e.target.value;
-                        updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
-                      }}
-                      placeholder={t("propert.correctAnswerPlaceholder")}
-                      className="border-green-200 focus-visible:ring-green-500"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                      onClick={() => {
-                        const newAnswers = correctAnswers.filter((_, i) => i !== index);
-                        updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
-                      }}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
+                {correctAnswers.map((answer, index) => {
+                  // For matrix fields, validate the format and bounds
+                  let isInvalid = false;
+                  if (selectedField.widgetType === "matrix" && answer !== "") {
+                    // Validate format is "number:number"
+                    const formatRegex = /^\d+:\d+$/;
+                    if (!formatRegex.test(answer)) {
+                      isInvalid = true;
+                    } else {
+                      // Validate numbers are within matrix bounds (1-indexed)
+                      const [rowStr, colStr] = answer.split(':');
+                      const row = parseInt(rowStr, 10);
+                      const col = parseInt(colStr, 10);
+                      
+                      const rows = (props.rows as string[]) || [];
+                      const columns = (props.columns as string[]) || [];
+                      
+                      if (row < 1 || row > rows.length || col < 1 || col > columns.length) {
+                        isInvalid = true;
+                      }
+                    }
+                  }
+                  
+                  return (
+                    <div key={index} className="flex items-center gap-2">
+                      <Input
+                        value={answer}
+                        onChange={(e) => {
+                          // For matrix fields, validate the format is "number:number" and within bounds
+                          const value = e.target.value;
+                          if (selectedField.widgetType === "matrix") {
+                            // Allow empty values
+                            if (value === "") {
+                              const newAnswers = [...correctAnswers];
+                              newAnswers[index] = value;
+                              updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
+                              return;
+                            }
+                            
+                            // Validate format is "number:number" and contains only digits and colon
+                            const formatRegex = /^\d+:\d+$/;
+                            const validCharacters = /^[0-9:]*$/.test(value);
+                            if (!validCharacters) {
+                              // Invalid characters, don't update
+                              return;
+                            }
+                            if (!formatRegex.test(value)) {
+                              // Invalid format, still update to allow typing
+                              const newAnswers = [...correctAnswers];
+                              newAnswers[index] = value;
+                              updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
+                              return;
+                            }
+                            
+                            // Validate numbers are within matrix bounds (1-indexed)
+                            const [rowStr, colStr] = value.split(':');
+                            const row = parseInt(rowStr, 10);
+                            const col = parseInt(colStr, 10);
+                            
+                            const rows = (props.rows as string[]) || [];
+                            const columns = (props.columns as string[]) || [];
+                            
+                            if (row >= 1 && row <= rows.length && col >= 1 && col <= columns.length) {
+                              const newAnswers = [...correctAnswers];
+                              newAnswers[index] = value;
+                              updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
+                            } else {
+                              // Out of bounds, still update to allow typing
+                              const newAnswers = [...correctAnswers];
+                              newAnswers[index] = value;
+                              updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
+                            }
+                          } else {
+                            // For non-matrix fields, allow any value
+                            const newAnswers = [...correctAnswers];
+                            newAnswers[index] = value;
+                            updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
+                          }
+                        }}
+                        placeholder={t("propert.correctAnswerPlaceholder")}
+                        className={`focus-visible:ring-green-500 ${isInvalid ? "border-red-500" : "border-green-200"}`}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        onClick={() => {
+                          const newAnswers = correctAnswers.filter((_, i) => i !== index);
+                          updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  );
+                })}
                 <Button
                   variant="outline"
                   size="sm"
@@ -897,22 +1670,75 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                 >
                   <Plus className="h-4 w-4 mr-2" /> {t("propert.addcorransw")}
                 </Button>
+                <MatrixCorrectAnswersModal
+                  field={selectedField}
+                  open={isMatrixModalOpen}
+                  onOpenChange={setIsMatrixModalOpen}
+                  updateField={updateField}
+                />
+
               </div>
             )}
 
-            <div className="space-y-2 mt-3">
-              <Label className="text-green-600">{t("propert.pointcorr")}</Label>
-              <Input
-                type="number"
-                min="0"
-                value={props.points ?? ""}
-                onChange={(e) => updateField(selectedField.id, { props: { points: e.target.value ? parseInt(e.target.value, 10) : undefined } })}
-                placeholder="0"
-                className="border-green-200 focus-visible:ring-green-500"
-              />
-              <p className="text-xs text-muted-foreground">{t("propert.subpoint")}</p>
-            </div>
+            {isMatrix ? (
+              <div className="space-y-2 mt-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsMatrixModalOpen(true);
+                  }}
+                >
+                  {t("propert.distributePoints")}
+                </Button>
+              </div>
+            ) : (
+              hasFilledCorrectAnswers && (
+                <div className="space-y-2 mt-3">
+                  <Label>{t("propert.pointcorr")}</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="text"
+                      inputMode="decimal"
+                      value={pointsInput}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (pointsInputPattern.test(value)) {
+                          setPointsInput(value);
+                        }
+                      }}
+                      onBlur={commitPointsInput}
+                      onKeyDown={handlePointsKeyDown}
+                      onPaste={handlePointsPaste}
+                      className="w-full text-center border-green-200 focus-visible:ring-green-500"
+                      placeholder="1"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">{t("propert.pointcorrHelp")}</p>
+                </div>
+              )
+            )}
+
+            {isMatrix && (() => {
+      const rows = (props.rows as string[]) || [];
+      const columns = (props.columns as string[]) || [];
+      const multiplePerRow = Boolean(props.multiplePerRow);
+      const matrixCorrectAnswers = (props.correctAnswers as string[]) || [];
+      
+      if (rows.length === 0 || columns.length === 0) {
+        return (
+          <p className="text-xs text-muted-foreground italic">
+            {t("propert.addMatrixRowsColumns")}
+            
+          </p>
+        );
+      }
+    })()}
           </div>
+
+          
         )}
 
         <div className="space-y-3 pt-2 border-t mt-2">
@@ -1068,28 +1894,45 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                     return (
                       <>
                         <Input
-                          value={Array.isArray(expectedValue)
-                            ? expectedValue.join(", ")
-                            : (expectedValue as string) || ""}
+                          value={(() => {
+                            const draftKey = `expected:${selectedField.id}`;
+                            const expectedValueText = Array.isArray(expectedValue)
+                              ? expectedValue.join(", ")
+                              : (expectedValue as string) || "";
+                            return Object.prototype.hasOwnProperty.call(commaDrafts, draftKey)
+                              ? commaDrafts[draftKey]
+                              : expectedValueText;
+                          })()}
                           onChange={(e) => {
                             const logic = props.conditionalLogic as Record<string, any>;
-                            const value = e.target.value;
-                            const newExpectedValue = value.includes(",")
-                              ? value.split(",").map((entry) => entry.trim()).filter(Boolean)
-                              : value;
+                            const raw = e.target.value;
+                            const draftKey = `expected:${selectedField.id}`;
+                            setCommaDrafts((prev) => ({ ...prev, [draftKey]: raw }));
+                            const parsedEntries = parseSemicolonList(raw);
+                            const hasValues = parsedEntries.length > 0;
+                            const newExpectedValue = raw.includes(";")
+                              ? (hasValues ? parsedEntries : undefined)
+                              : raw.trim();
                             updateField(selectedField.id, {
                               props: {
                                 conditionalLogic: {
                                   ...logic,
-                                  expectedValue: value ? newExpectedValue : undefined,
+                                  expectedValue: hasValues || raw.trim()
+                                    ? newExpectedValue
+                                    : undefined,
                                 },
                               },
                             });
                           }}
+                          onBlur={(e) => {
+                            const draftKey = `expected:${selectedField.id}`;
+                            const normalized = normalizeSemicolonList(e.target.value);
+                            setCommaDrafts((prev) => ({ ...prev, [draftKey]: normalized }));
+                          }}
                           placeholder="Введите ожидаемое значение"
                         />
                         <p className="text-xs text-muted-foreground">
-                          Для множественных значений разделяйте запятой
+                          Для множественных значений разделяйте точкой с запятой
                         </p>
                       </>
                     );

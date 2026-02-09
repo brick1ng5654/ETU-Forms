@@ -23,7 +23,7 @@ import type { FormElementModel, FormSchema, SemanticType, WidgetType } from "@/f
 import { SortableField } from "./SortableField";
 import { nanoid } from "nanoid";
 import { 
-  Type, AlignLeft, Hash, Calendar, List, CheckSquare, CircleDot, Heading, Star, ListOrdered, Upload, User, Phone, FileText, CreditCard, Undo2, Redo2, ArrowUp, ArrowDown
+  Type, AlignLeft, Hash, Calendar, List, CheckSquare, CircleDot, Heading, Star, ListOrdered, Upload, User, Phone, FileText, CreditCard, Undo2, Redo2, ArrowUp, ArrowDown, Grid
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -38,7 +38,6 @@ interface FormCanvasProps {
   selectedIds: string[];
   onSelectField: (id: string, event: MouseEvent<HTMLDivElement>) => void;
   clearSelection: () => void;
-  deleteField: (id: string) => void;
   updateField: (id: string, updates: Partial<FormElementModel>) => void;
   onUndo: () => void;
   onRedo: () => void;
@@ -88,6 +87,7 @@ export const getIconForElement = (widgetType: WidgetType, semanticType?: Semanti
     case "datetime": return Calendar;
     case "rating": return Star;
     case "ranking": return ListOrdered;
+    case "matrix": return Grid;
     case "file_upload": return Upload;
     
     default: return Type;
@@ -108,7 +108,6 @@ export function FormCanvas({
   selectedIds,
   onSelectField,
   clearSelection,
-  deleteField,
   updateField,
   onUndo,
   onRedo,
@@ -350,7 +349,6 @@ export function FormCanvas({
                     field={field}
                     isSelected={selectedIds.includes(field.id)}
                     onSelect={onSelectField}
-                    onDelete={deleteField}
                     updateField={updateField}
                     fields={fields}
                   />

@@ -8,3 +8,8 @@ pydantic_settings
 asyncpg
 pathlib
 starlette
+argon2-cffi
+pydantic[email]
+python-jose[cryptography]
+python-multipart
+redis>=5.0.0

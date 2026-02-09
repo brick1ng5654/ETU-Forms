@@ -1,4 +1,4 @@
-import type { AnswersById, FormElementModel } from "@/form/types";
+import type { AnswersById, ElementAttachment, FormElementModel } from "@/form/types";
 
 // Example payload (canonical values):
 // {
@@ -18,7 +18,15 @@ export const buildAnswersPayload = (elements: FormElementModel[], answers: Answe
   const payload: AnswersById = {};
   elements.forEach((element) => {
     if (element.id in answers) {
-      payload[element.id] = answers[element.id];
+      const value = answers[element.id];
+      if (element.widgetType === "file_upload") {
+        const attachments = Array.isArray(value) ? (value as ElementAttachment[]) : [];
+        payload[element.id] = {
+          file_ids: attachments.map((item) => item.file_id).filter((id) => Number.isFinite(id) && id > 0),
+        } as unknown as AnswersById[string];
+      } else {
+        payload[element.id] = value;
+      }
     }
   });
   return { answers: payload };

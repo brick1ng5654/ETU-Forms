@@ -1,7 +1,6 @@
 import type { FormElementModel, FormFolder, FormSchema } from "@/form/types";
 import { nanoid } from "nanoid";
 import { t } from "i18next";
-import { fromStructureJsonWithMeta } from "@/form/adapters/fromStructureJson";
 
 const STORAGE_KEY_FORMS = "etu_forms";
 const STORAGE_KEY_FOLDERS = "etu_folders";
@@ -18,11 +17,7 @@ export const storage = {
       if (!Array.isArray(parsed)) return [];
       let didMutate = false;
       const normalizedForms = parsed.map((form: any) => {
-        const rawFields = Array.isArray(form.fields)
-          ? form.fields
-          : Array.isArray(form.structure_json?.fields)
-            ? form.structure_json.fields
-            : [];
+        const rawFields = Array.isArray(form.fields) ? form.fields : [];
         const normalized = normalizeFieldsWithMeta(rawFields);
         if (normalized.didMutate) {
           didMutate = true;
@@ -60,7 +55,14 @@ export const storage = {
     const existingIndex = forms.findIndex(f => f.id === form.id);
 
     const normalized = normalizeFieldsWithMeta(form.fields);
-    const updatedForm = { ...form, fields: normalized.fields, updatedAt: Date.now() };
+    const existing = existingIndex >= 0 ? forms[existingIndex] : undefined;
+    const updatedForm = {
+      ...form,
+      folderId: form.folderId ?? existing?.folderId,
+      fields: normalized.fields,
+      fieldCount: form.fieldCount ?? normalized.fields.length,
+      updatedAt: form.updatedAt ?? Date.now(),
+    };
 
     if (existingIndex >= 0) {
       forms[existingIndex] = updatedForm;
@@ -70,6 +72,28 @@ export const storage = {
 
     localStorage.setItem(STORAGE_KEY_FORMS, JSON.stringify(forms));
     return updatedForm;
+  },
+
+  setForms: (forms: FormSchema[]) => {
+    localStorage.setItem(STORAGE_KEY_FORMS, JSON.stringify(forms));
+  },
+
+  mergeRemoteForms: (remoteForms: FormSchema[]): FormSchema[] => {
+    const localForms = storage.getForms();
+    const folderById = new Map(localForms.map(form => [form.id, form.folderId]));
+    const localById = new Map(localForms.map(form => [form.id, form]));
+    const merged = remoteForms.map(form => {
+      const localForm = localById.get(form.id);
+      const fields = form.fields.length > 0 ? form.fields : (localForm?.fields ?? form.fields);
+      return {
+        ...form,
+        fields,
+        fieldCount: form.fieldCount ?? localForm?.fieldCount,
+        folderId: folderById.get(form.id),
+      };
+    });
+    storage.setForms(merged);
+    return merged;
   },
 
   deleteForm: (id: string) => {
@@ -105,6 +129,31 @@ export const storage = {
       title: t("common.untitled"),
       description: "",
       fields: [],
+      fieldCount: 0,
+      status: "temp",
+      startAt: null,
+      endAt: null,
+      accessMode: "private",
+      updatedAt: Date.now(),
+    };
+    storage.saveForm(newForm);
+    return newForm;
+  },
+
+  createFormWithId: (id: string, folderId?: string): FormSchema => {
+    const existing = storage.getForms().find(form => form.id === id);
+    if (existing) return existing;
+    const newForm: FormSchema = {
+      id,
+      folderId,
+      title: t("common.untitled"),
+      description: "",
+      fields: [],
+      fieldCount: 0,
+      status: "temp",
+      startAt: null,
+      endAt: null,
+      accessMode: "private",
       updatedAt: Date.now(),
     };
     storage.saveForm(newForm);
@@ -123,13 +172,8 @@ const normalizeFieldsWithMeta = (fields: unknown): {
   didMutate: boolean;
 } => {
   if (!Array.isArray(fields)) return { fields: [], didMutate: false };
-  const first = fields[0] as { widgetType?: string; type?: string } | undefined;
-  const normalized = first?.widgetType
-    ? (fields as FormElementModel[])
-    : first?.type
-      ? fromStructureJsonWithMeta({ fields: fields as any }).fields
-      : (fields as FormElementModel[]);
-  let didMutate = Boolean(first?.type && !first?.widgetType);
+  const normalized = fields as FormElementModel[];
+  let didMutate = false;
 
   const normalizedFields = normalized.map((element, index) => {
     const nextProps = (element as FormElementModel).props ?? {};

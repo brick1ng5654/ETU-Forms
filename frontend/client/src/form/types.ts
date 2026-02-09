@@ -9,10 +9,12 @@ export type WidgetType =
   | "datetime"
   | "file_upload"
   | "rating"
-  | "ranking";
+  | "ranking"
+  | "matrix";
 
 export type SemanticType =
   | "phone"
+  | "email"
   | "inn"
   | "snils"
   | "full_name"
@@ -21,7 +23,21 @@ export type SemanticType =
   | "bank_account"
   | "passport";
 
-export type FormElementProps = Record<string, unknown>;
+export type ElementAttachment = {
+  file_id: number;
+  name: string;
+  mime_type: string;
+  size_bytes: number;
+  url: string;
+  content_hash?: string;
+  status?: "temp" | "submitted" | "deleted";
+};
+
+export type FormElementProps = {
+  attachments?: ElementAttachment[];
+  attachmentsDisplay?: "list" | "slider";
+  [key: string]: unknown;
+};
 
 export interface FormElementModel {
   id: string;
@@ -40,12 +56,22 @@ export interface FormFolder {
   name: string;
 }
 
+export type FormAccessMode = "public" | "private" | "unauthenticated";
+
 export interface FormSchema {
   id: string;
   folderId?: string;
   title: string;
   description: string;
   fields: FormElementModel[];
+  fieldCount?: number;
+  status?: "temp" | "submitted" | "deleted";
+  version?: number;
+  prevFormId?: string | null;
+  settings_json?: Record<string, unknown> | null;
+  startAt?: string | null;
+  endAt?: string | null;
+  accessMode?: FormAccessMode;
   updatedAt: number;
 }
 
@@ -73,14 +99,24 @@ export type FullNameAnswer = {
 // - seriesNumber: 10 digits only
 // - departmentCode: 6 digits only
 // - issueDate: YYYY-MM-DD
+// - birthDate: YYYY-MM-DD
 // - issuedBy, birthPlace optional strings
 export type PassportAnswer = {
+  lastName?: string | null;
+  firstName?: string | null;
+  patronymic?: string | null;
+  gender?: string | null;
+  birthDate?: string | null;
   seriesNumber: string;
   issuedBy?: string | null;
   issueDate?: string | null;
   departmentCode?: string | null;
   birthPlace?: string | null;
 };
+
+// Matrix answer is stored as an array of "rowIndex:colIndex" keys
+export type MatrixAnswer = string[];
+export type FileUploadAnswer = ElementAttachment[];
 
 export type AnswerValue =
   | string
@@ -90,6 +126,8 @@ export type AnswerValue =
   | FullNameAnswer
   | PassportAnswer
   | DateTimeAnswer
+  | MatrixAnswer
+  | FileUploadAnswer
   | null;
 
 export type AnswersById = Record<string, AnswerValue>;

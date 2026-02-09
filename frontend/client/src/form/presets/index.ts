@@ -7,6 +7,7 @@ export interface PresetPart {
   placeholder?: string;
   inputMode?: string;
   inputType?: string;
+  options?: Array<{ value: string; labelKey?: string; label?: string }>;
   hiddenProp?: string;
   required?: boolean;
   maxChars?: number;
@@ -21,6 +22,8 @@ export interface Preset {
   normalize?: (value: string, ctx: { previous?: string; props: Record<string, unknown> }) => string;
   format?: (value: string) => string;
   validate?: (value: string, ctx: { required?: boolean; props: Record<string, unknown> }) => string[];
+  labelKey?: string;
+  getLabelKey?: (props: Record<string, unknown>) => string | undefined;
   placeholder?: string;
   placeholderKey?: string;
   getPlaceholderKey?: (props: Record<string, unknown>) => string | undefined;
@@ -101,6 +104,15 @@ const formatPassportDepartmentCode = (value: string) => {
   return part2 ? `${part1}-${part2}` : part1;
 };
 
+const normalizeEmailDomain = (value: string) =>
+  value.trim().toLowerCase().replace(/^@+/, "");
+
+const extractEmailDomain = (value: string) => {
+  const atIndex = value.lastIndexOf("@");
+  if (atIndex < 0) return "";
+  return value.slice(atIndex + 1).trim().toLowerCase();
+};
+
 const normalizeNamePart = (value: string, maxChars = 50) =>
   value.replace(/\s+/g, " ").trim().slice(0, maxChars);
 
@@ -111,6 +123,27 @@ const ogrnLength = (props: Record<string, unknown>) =>
   props.ogrnIp ? 15 : 13;
 
 export const presets: Record<SemanticType, Preset> = {
+  email: {
+    validate: (value, { required, props }) => {
+      if (!value && !required) return [];
+      const normalized = value.trim();
+      if (!normalized) return required ? ["Required"] : [];
+      const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized);
+      if (!isValid) return ["Invalid email"];
+      const allowedDomains = Array.isArray(props.allowedDomains)
+        ? props.allowedDomains.map((entry) => normalizeEmailDomain(String(entry))).filter(Boolean)
+        : [];
+      if (allowedDomains.length > 0) {
+        const domain = extractEmailDomain(normalized);
+        if (!domain || !allowedDomains.includes(domain)) {
+          return [`Invalid email domain: ${allowedDomains.join(", ")}`];
+        }
+      }
+      return [];
+    },
+    inputMode: "email",
+    inputType: "email",
+  },
   phone: {
     normalize: (value, { previous }) => {
       let digits = digitsOnly(value);
@@ -147,7 +180,8 @@ export const presets: Record<SemanticType, Preset> = {
       if (len !== expected) return [`INN must be ${expected} digits`];
       return [];
     },
-    placeholderKey: "placeholders.inn",
+    labelKey: "inputLabels.inn",
+    getPlaceholderKey: (props) => (props.innLegalEntity ? "placeholders.inn10" : "placeholders.inn12"),
     getMaxDigits: (props) => innLength(props),
     inputMode: "numeric",
   },
@@ -160,7 +194,8 @@ export const presets: Record<SemanticType, Preset> = {
       if (len !== 11) return ["SNILS must be 11 digits"];
       return [];
     },
-    placeholder: "000-000-000 00",
+    labelKey: "inputLabels.snils",
+    placeholderKey: "placeholders.snils",
     inputMode: "numeric",
     maxDigits: 11,
   },
@@ -173,6 +208,7 @@ export const presets: Record<SemanticType, Preset> = {
       if (len !== expected) return [`OGRN must be ${expected} digits`];
       return [];
     },
+    getLabelKey: (props) => (props.ogrnIp ? "inputLabels.ogrnIp" : "inputLabels.ogrn"),
     getPlaceholderKey: (props) => (props.ogrnIp ? "placeholders.ogrnIp" : "placeholders.ogrn"),
     getMaxDigits: (props) => ogrnLength(props),
     inputMode: "numeric",
@@ -185,6 +221,7 @@ export const presets: Record<SemanticType, Preset> = {
       if (len !== 9) return ["BIK must be 9 digits"];
       return [];
     },
+    labelKey: "inputLabels.bik",
     placeholderKey: "placeholders.bik",
     inputMode: "numeric",
     maxDigits: 9,
@@ -234,12 +271,57 @@ export const presets: Record<SemanticType, Preset> = {
         placeholderKey: "formParts.fullName.patronymic",
         maxChars: 50,
         hideLengthIndicator: true,
+        required: false,
         normalize: (value) => normalizeNamePart(value, 50),
       },
     ],
   },
   passport: {
     parts: [
+      {
+        key: "lastName",
+        labelKey: "formParts.fullName.lastName",
+        placeholderKey: "formParts.fullName.lastName",
+        hiddenProp: "hidePassportFullName",
+        maxChars: 50,
+        hideLengthIndicator: true,
+        normalize: (value) => normalizeNamePart(value, 50),
+      },
+      {
+        key: "firstName",
+        labelKey: "formParts.fullName.firstName",
+        placeholderKey: "formParts.fullName.firstName",
+        hiddenProp: "hidePassportFullName",
+        maxChars: 50,
+        hideLengthIndicator: true,
+        normalize: (value) => normalizeNamePart(value, 50),
+      },
+      {
+        key: "patronymic",
+        labelKey: "formParts.fullName.patronymic",
+        placeholderKey: "formParts.fullName.patronymic",
+        hiddenProp: "hidePassportFullName",
+        maxChars: 50,
+        hideLengthIndicator: true,
+        required: false,
+        normalize: (value) => normalizeNamePart(value, 50),
+      },
+      {
+        key: "gender",
+        labelKey: "formParts.passport.gender",
+        hiddenProp: "hidePassportGender",
+        options: [
+          { value: "male", labelKey: "formParts.passport.genderMale" },
+          { value: "female", labelKey: "formParts.passport.genderFemale" },
+        ],
+      },
+      {
+        key: "birthDate",
+        labelKey: "formParts.passport.birthDate",
+        placeholderKey: "formParts.passport.birthDate",
+        hiddenProp: "hidePassportBirthDate",
+        inputType: "date",
+      },
       {
         key: "seriesNumber",
         labelKey: "formParts.passport.seriesNumber",

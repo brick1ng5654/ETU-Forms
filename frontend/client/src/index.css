@@ -68,14 +68,31 @@
   --color-ring: #05336e;
 }
 
+@font-face {
+  font-family: 'Glober';
+  src: url('/frontend/client/public/fonts/globersemiboldfree.otf') format('opentype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
 @layer base {
   * {
     @apply border-border;
   }
   body {
-    font-family: var(--font-sans);
-    font-weight: 400;
+    font-family: 'Glober', -apple-system, BlinkMacSystemFont, sans-serif;
   }
+}
+
+.matrix-scroll-container {
+  display: block; /* или flex, если нужно */
+  overflow: auto;
+  max-height: 500px; /* или нужная высота */
+  max-width: 100%;
+  contain: layout;
+  isolation: isolate;
+  position: relative; /* важно для правильного позиционирования */
 }
 
 /* Custom Scrollbar for the builder canvas */
@@ -91,6 +108,24 @@
 }
 .builder-scroll::-webkit-scrollbar-thumb:hover {
   @apply bg-muted-foreground/30;
+}
+
+/* Custom Scrollbar for matrix tables */
+.overflow-x-auto::-webkit-scrollbar,
+.matrix-scroll-container::-webkit-scrollbar {
+  height: 8px;
+}
+.overflow-x-auto::-webkit-scrollbar-track,
+.matrix-scroll-container::-webkit-scrollbar-track {
+  @apply bg-muted/30 rounded;
+}
+.overflow-x-auto::-webkit-scrollbar-thumb,
+.matrix-scroll-container::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground/40 rounded-full;
+}
+.overflow-x-auto::-webkit-scrollbar-thumb:hover,
+.matrix-scroll-container::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground/60;
 }
 
 .color-txt {

@@ -5,7 +5,10 @@ CREATE TABLE IF NOT EXISTS App_User(
     name VARCHAR(100) NOT NULL,
     phone VARCHAR(20),
     email VARCHAR(100) UNIQUE NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    password_hash TEXT NULL, -- NULL на время миграций, даллее ужесточим
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    is_admin BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 COMMENT ON TABLE App_User IS 'Таблица пользователей конструктора форм';
@@ -15,6 +18,13 @@ COMMENT ON COLUMN App_User.name IS 'Имя пользователя';
 COMMENT ON COLUMN App_User.phone IS 'Номер телефона';
 COMMENT ON COLUMN App_User.email IS 'Электронная почта (уникальная)';
 COMMENT ON COLUMN App_User.created_at IS 'Дата и время создания записи';
+
+-- INSERT INTO App_User (user_id, etu_id, name, phone, email, created_at)
+-- VALUES (1, NULL, 'admin', '+79000000000', 'admin@etu.ru', CURRENT_TIMESTAMP)
+-- ON CONFLICT (user_id) DO NOTHING;
+
+SELECT setval(pg_get_serial_sequence('app_user','user_id'),
+              (SELECT max(user_id) FROM app_user));
 
 DO $$
 BEGIN
@@ -46,6 +56,7 @@ BEGIN
             'email_input',
             'rating',
             'ranking', -- ранжирование
+            'matrix', -- матрица ввода
             'file_upload' -- загрузка файла
         );
     END IF;
@@ -54,6 +65,7 @@ BEGIN
         CREATE TYPE semantic_type AS ENUM(
             'full_name', -- фио
             'phone', -- номер телефона
+            'email',
             'passport', -- паспорт
             'inn',
             'snils',
@@ -72,7 +84,8 @@ BEGIN
             'not_in',
             'greater_than',
             'less_than',
-            'contains'
+            'contains',
+            'answered'
         );
     END IF;
 
@@ -86,6 +99,14 @@ BEGIN
 
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'file_status') THEN
         CREATE TYPE file_status AS ENUM (
+            'temp',
+            'submitted',
+            'deleted'
+        );
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'form_status') THEN
+        CREATE TYPE form_status AS ENUM (
             'temp',
             'submitted',
             'deleted'
@@ -107,6 +128,9 @@ CREATE TABLE IF NOT EXISTS Form (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     access_mode form_access_mode DEFAULT 'private',
+    status form_status NOT NULL DEFAULT 'temp',
+    expires_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP + INTERVAL '7 days'),
+    deleted_at TIMESTAMP NULL,
     version INT DEFAULT 1,
     prev_form_id INT NULL,
 
@@ -121,6 +145,20 @@ CREATE TABLE IF NOT EXISTS Form (
     CONSTRAINT valid_version 
         CHECK (version > 0)
 );
+
+-- Все формы пользователя
+CREATE INDEX IF NOT EXISTS idx_form_user_created
+ON form (user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS ix_form_user_status
+ON form (user_id, status);
+
+CREATE INDEX IF NOT EXISTS ix_form_status_expires
+ON form (status, expires_at);
+
+CREATE INDEX IF NOT EXISTS ix_form_status_deleted
+ON form (status, deleted_at);
+
 
 -- Комментарии к таблице и полям
 COMMENT ON TABLE Form IS 'Таблица для хранения форм/опросов';
@@ -154,6 +192,14 @@ CREATE TABLE IF NOT EXISTS Response (
         ON DELETE CASCADE
 );
 
+-- Все ответы на форму, ответы пользователя
+CREATE INDEX IF NOT EXISTS idx_response_form_created
+ON Response (form_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_response_user_created
+ON Response (user_id, created_at DESC);
+
+
 -- Комментарии к таблице и полям
 COMMENT ON TABLE Response IS 'Таблица ответов на формы';
 COMMENT ON COLUMN Response.response_id IS 'Уникальный идентификатор ответа';
@@ -162,7 +208,7 @@ COMMENT ON COLUMN Response.user_id IS 'ID пользователя, которы
 COMMENT ON COLUMN Response.created_at IS 'Дата и время создания ответа';
 COMMENT ON COLUMN Response.completed_at IS 'Дата и время завершения ответа';
 
-CREATE TABLE IF NOT EXISTS AccessControl (
+CREATE TABLE IF NOT EXISTS access_control (
     access_id SERIAL PRIMARY KEY,
     form_id INT NOT NULL,
     user_id INT NOT NULL,
@@ -182,11 +228,15 @@ CREATE TABLE IF NOT EXISTS AccessControl (
         UNIQUE (form_id, user_id)
 );
 
-COMMENT ON TABLE AccessControl IS 'Таблица контроля доступа к формам';
-COMMENT ON COLUMN AccessControl.access_id IS 'Уникальный идентификатор доступа';
-COMMENT ON COLUMN AccessControl.form_id IS 'ID формы';
-COMMENT ON COLUMN AccessControl.user_id IS 'ID пользователя';
-COMMENT ON COLUMN AccessControl.role IS 'Роль пользователя (editor или participant)';
+-- все формы, куда у user доступ
+CREATE INDEX IF NOT EXISTS idx_access_user
+ON access_control (user_id);
+
+COMMENT ON TABLE access_control IS 'Таблица контроля доступа к формам';
+COMMENT ON COLUMN access_control.access_id IS 'Уникальный идентификатор доступа';
+COMMENT ON COLUMN access_control.form_id IS 'ID формы';
+COMMENT ON COLUMN access_control.user_id IS 'ID пользователя';
+COMMENT ON COLUMN access_control.role IS 'Роль пользователя (editor или participant)';
 
 CREATE TABLE IF NOT EXISTS Template(
     template_id SERIAL PRIMARY KEY,
@@ -216,8 +266,9 @@ CREATE TABLE IF NOT EXISTS Form_Element (
     correct_answer JSONB NULL,
     text_hint TEXT NULL,
     supportive_text TEXT NULL,
-    required_field BOOLEAN NOT NULL,
+    required_field BOOLEAN NOT NULL DEFAULT FALSE,
     other_settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+    file_ids INT[] NOT NULL DEFAULT '{}'::INT[],
     position INT NOT NULL,
 
     CONSTRAINT fk_element_form
@@ -241,8 +292,19 @@ CREATE TABLE IF NOT EXISTS Form_Element (
             (form_id IS NOT NULL AND template_id IS NULL)
             OR
             (form_id IS NULL AND template_id IS NOT NULL)
-        )
+        ),
+
+    CONSTRAINT chk_element_file_ids
+        CHECK (COALESCE(array_length(file_ids, 1), 0) <= 10)
 );
+
+-- Все элементы формы, шаблона
+
+CREATE INDEX IF NOT EXISTS idx_form_element_template
+ON Form_Element (template_id);
+
+CREATE INDEX IF NOT EXISTS idx_form_element_position
+ON Form_Element (form_id, position);
 
 COMMENT ON TABLE Form_Element IS 'Элементы (поля) формы';
 
@@ -268,6 +330,14 @@ CREATE TABLE IF NOT EXISTS Response_Answer(
         REFERENCES Form_Element(element_id)
         ON DELETE CASCADE
 );
+
+-- Ответы на конкретную форму
+CREATE INDEX IF NOT EXISTS idx_answer_response
+ON Response_Answer (response_id);
+
+-- Ответы на конкретный элемент
+CREATE INDEX IF NOT EXISTS idx_answer_element
+ON Response_Answer (element_id);
 
 CREATE TABLE IF NOT EXISTS Form_Element_Condition(
     condition_id SERIAL PRIMARY KEY,
@@ -311,12 +381,21 @@ CREATE TABLE IF NOT EXISTS Form_Element_Condition(
         CHECK (source_element_id <> target_element_id)
 );
 
+-- Все условия формы, конкретного таргета
+CREATE INDEX IF NOT EXISTS idx_condition_form
+ON Form_Element_Condition (form_id);
+
+CREATE INDEX IF NOT EXISTS idx_condition_target
+ON Form_Element_Condition (target_element_id);
+
+CREATE INDEX IF NOT EXISTS idx_condition_source
+ON Form_Element_Condition (source_element_id);
 COMMENT ON TABLE Form_Element_Condition IS 'Условия ветвления (зависимости)';
 
 CREATE TABLE IF NOT EXISTS Uploaded_file(
     file_id SERIAL PRIMARY KEY,
 
-    answer_id INT NOT NULL,
+    answer_id INT NULL,
 
     name VARCHAR(512) NOT NULL,
     mime_type VARCHAR(255) NOT NULL,
@@ -324,6 +403,8 @@ CREATE TABLE IF NOT EXISTS Uploaded_file(
 
     storage_provider VARCHAR(50) NOT NULL DEFAULT 'local',
     storage_path TEXT NOT NULL,
+    access_token VARCHAR(64) NOT NULL UNIQUE,
+    content_hash VARCHAR(64) NOT NULL,
 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP WITH TIME ZONE DEFAULT (CURRENT_TIMESTAMP + INTERVAL '1 day'),
@@ -335,5 +416,9 @@ CREATE TABLE IF NOT EXISTS Uploaded_file(
         REFERENCES Response_Answer(answer_id)
         ON DELETE CASCADE
 );
+
+-- Файлы приложенные к ответу
+CREATE INDEX IF NOT EXISTS idx_file_answer
+ON Uploaded_file (answer_id);
 
 COMMENT ON TABLE Uploaded_file IS 'Метаданные загруженных файлов';

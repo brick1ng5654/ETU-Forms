@@ -1,6 +1,6 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Plus, FileText, Calendar, Clock, Trash2, Folder, FolderPlus, MoreVertical, X, Check } from "lucide-react";
+import { Plus, FileText, Calendar, Clock, Trash2, Folder, FolderPlus, MoreVertical, X, Check, BarChart3 } from "lucide-react";
 import { storage } from "@/lib/storage";
 import { useEffect, useState } from "react";
 import { FormSchema, FormFolder } from "@/lib/form-types";
@@ -11,6 +11,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { toast } from "@/hooks/use-toast";
 import { useTranslation } from 'react-i18next';
 import { Languages } from "lucide-react";
+import { UserMenu } from "@/components/user-menu";
+import { createForm, deleteForm as deleteFormApi, fetchForms } from "@/lib/forms-api";
+import { useAuth } from "@/lib/auth";
+import { AppBrand } from "@/components/app-brand";
 
 export default function Home() {
   const [forms, setForms] = useState<FormSchema[]>([]);
@@ -18,50 +22,55 @@ export default function Home() {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [newFolderName, setNewFolderName] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const { accessToken, isLoading } = useAuth();
   const { t, i18n } = useTranslation();
+  const [, setLocation] = useLocation();
 
-  const refreshData = () => {
-    setForms(storage.getForms());
-    setFolders(storage.getFolders());
+  const refreshData = async () => {
+    if (isLoading || !accessToken) {
+      return;
+    }
+    try {
+      const remoteForms = await fetchForms();
+      const merged = storage.mergeRemoteForms(remoteForms);
+      setForms(merged);
+      setFolders(storage.getFolders());
+    } catch (error) {
+      console.error("Failed to load forms:", error);
+      setForms(storage.getForms());
+      setFolders(storage.getFolders());
+    }
   };
 
   useEffect(() => {
-    refreshData();
-  }, []);
+    if (isLoading || !accessToken) {
+      return;
+    }
+    void refreshData();
+  }, [isLoading, accessToken]);
 
   const createNewForm = async () => {
-    try{
-      const formData = {
-        title: "Новая форма",
-        description: "",
-        structure_json: {fields: [] },
-        access_mode: "private"
-      };
-
-      const response = await fetch('http://localhost:8000/api/v1/forms', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          // Токена пока что нет, на бэке заглушка
-        },
-        body: JSON.stringify(formData)
-      });
-
-      if (!response.ok){
-        const errorText = await response.text();
-        throw new Error(`Ошибка создания формы: ${response.status} - ${errorText}`);
-      }
-
-      const newForm = await response.json()
-
-      window.location.href = `/builder/${newForm.id}`;
-    } catch (error){
-      console.error('Ошибка создания формы:', error);
-      alert('Не удалось создать форму')
+    if (isLoading) {
+      return;
     }
-    const newForm = storage.createForm(selectedFolderId || undefined);
-    
+    if (!accessToken) {
+      setLocation("/auth");
+      return;
+    }
+    try {
+      const created = await createForm({
+        title: t("common.untitled"),
+        description: "",
+      });
+      storage.saveForm({ ...created, fields: created.fields ?? [] });
+      setForms(storage.getForms());
+      window.location.href = `/builder/${created.id}`;
+    } catch (error) {
+      console.error("Failed to create form:", error);
+      alert("Failed to create form");
+    }
   };
+
 
   const createFolder = () => {
     if (!newFolderName.trim()) {
@@ -76,7 +85,7 @@ export default function Home() {
 
     storage.createFolder(newFolderName.trim());
     setNewFolderName("");
-    refreshData();
+    void refreshData();
     setIsDialogOpen(false);
   };
 
@@ -84,16 +93,21 @@ export default function Home() {
     if (confirm(t("actions.confirmDeleteFolder"))) {
       storage.deleteFolder(id);
       if (selectedFolderId === id) setSelectedFolderId(null);
-      refreshData();
+      void refreshData();
     }
   };
 
-  const deleteForm = (e: React.MouseEvent, id: string) => {
+  const deleteForm = async (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
     if (confirm(t("actions.confirmDeleteForm"))) {
+      try {
+        await deleteFormApi(id);
+      } catch (error) {
+        console.error("Failed to delete form:", error);
+      }
       storage.deleteForm(id);
-      refreshData();
+      void refreshData();
     }
   };
 
@@ -103,11 +117,25 @@ export default function Home() {
     const form = forms.find(f => f.id === formId);
     if (form) {
       storage.saveForm({ ...form, folderId });
-      refreshData();
+      void refreshData();
     }
   };
 
-  const filteredForms = selectedFolderId 
+  const openResults = (e: React.MouseEvent, form: FormSchema) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (form.status !== "submitted") {
+      toast({
+        title: t("results.openResults"),
+        description: t("results.onlyPublishedShort"),
+        variant: "destructive",
+      });
+      return;
+    }
+    setLocation(`/forms/${form.id}/results`);
+  };
+
+  const filteredForms = selectedFolderId
     ? forms.filter(f => f.folderId === selectedFolderId)
     : forms;
 
@@ -116,14 +144,9 @@ export default function Home() {
     <div className="min-h-screen bg-muted/30 flex flex-col">
       <header className="h-19 border-b border-border bg-white flex items-center justify-between px-8 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="h-16 w-16  rounded-lg flex items-center justify-center">
-              <img src="/logo_etu.png" alt="ETU_LOGO" />
-          </div>
-          <div className="color-txt">
-            <span className="font-bold text-xl">ETU-Form</span>
-          </div>
+          <AppBrand />
         </div>
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <Button
             variant="ghost"
             size="sm"
@@ -141,6 +164,7 @@ export default function Home() {
           <Button onClick={createNewForm} className="gap-2">
             <Plus className="h-4 w-4" /> {t('navigation.createNewForm')}
           </Button>
+          <UserMenu />
         </div>
       </header>
 
@@ -148,33 +172,33 @@ export default function Home() {
         {/* Боковая панель */}
         <aside className="w-64 border-r border-border/50 bg-transparent p-6 space-y-6">
           <div className="space-y-1">
-             <Button 
-               variant={selectedFolderId === null ? "secondary" : "ghost"} 
-               className="w-full justify-start"
-               onClick={() => setSelectedFolderId(null)}
-             >
-               <FileText className="mr-2 h-4 w-4" /> {t('navigation.allForms')}
-             </Button>
-             {folders.map(folder => (
-               <div key={folder.id} className="group flex items-center">
-                 <Button 
-                   variant={selectedFolderId === folder.id ? "secondary" : "ghost"} 
-                   className="w-full justify-start truncate"
-                   onClick={() => setSelectedFolderId(folder.id)}
-                 >
-                   <Folder className="mr-2 h-4 w-4" /> 
-                   <span className="truncate">{folder.name}</span>
-                 </Button>
-                 <Button
-                   variant="ghost"
-                   size="icon"
-                   className="h-8 w-8 opacity-0 group-hover:opacity-100 -ml-8 z-10 hover:bg-destructive/10 hover:text-destructive"
-                   onClick={() => deleteFolder(folder.id)}
-                 >
-                    <X className="h-3 w-3" />
-                 </Button>
-               </div>
-             ))}
+            <Button
+              variant={selectedFolderId === null ? "secondary" : "ghost"}
+              className="w-full justify-start"
+              onClick={() => setSelectedFolderId(null)}
+            >
+              <FileText className="mr-2 h-4 w-4" /> {t('navigation.allForms')}
+            </Button>
+            {folders.map(folder => (
+              <div key={folder.id} className="group flex items-center">
+                <Button
+                  variant={selectedFolderId === folder.id ? "secondary" : "ghost"}
+                  className="w-full justify-start truncate"
+                  onClick={() => setSelectedFolderId(folder.id)}
+                >
+                  <Folder className="mr-2 h-4 w-4" />
+                  <span className="truncate">{folder.name}</span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 opacity-0 group-hover:opacity-100 -ml-8 z-10 hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() => deleteFolder(folder.id)}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            ))}
           </div>
 
           <div className="pt-4 border-t border-border/50">
@@ -189,7 +213,7 @@ export default function Home() {
                   <DialogTitle>{t("navigation.createNewFolder")}</DialogTitle>
                 </DialogHeader>
                 <div className="flex items-center gap-2 pt-4">
-                  <Input 
+                  <Input
                     value={newFolderName}
                     onChange={(e) => setNewFolderName(e.target.value)}
                     placeholder={t("placeholders.folderName")}
@@ -237,15 +261,18 @@ export default function Home() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>{t("actions.act")}</DropdownMenuLabel>
+                          <DropdownMenuItem onClick={(e) => openResults(e, form)}>
+                            <BarChart3 className="mr-2 h-4 w-4" /> {t("results.openResults")}
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={(e) => deleteForm(e, form.id)} className="text-destructive focus:text-destructive">
                             <Trash2 className="mr-2 h-4 w-4" /> {t("actions.delete")}
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuLabel>{t("actions.moveTo")}</DropdownMenuLabel>
                           {folders.map(folder => (
-                             <DropdownMenuItem key={folder.id} onClick={(e) => moveForm(e, form.id, folder.id)}>
-                               {folder.name}
-                             </DropdownMenuItem>
+                            <DropdownMenuItem key={folder.id} onClick={(e) => moveForm(e, form.id, folder.id)}>
+                              {folder.name}
+                            </DropdownMenuItem>
                           ))}
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -264,9 +291,9 @@ export default function Home() {
                       {form.description || t("navigation.descriphome")}
                     </p>
                     <div className="mt-4 pt-4 border-t flex items-center gap-4 text-sm text-muted-foreground">
-                       <div className="flex items-center gap-1">
-                         <span className="font-medium text-foreground">{form.fields.length}</span> {t("navigation.fields")}
-                       </div>
+                      <div className="flex items-center gap-1">
+                        <span className="font-medium text-foreground">{form.fieldCount ?? form.fields.length}</span> {t("navigation.fields")}
+                      </div>
                     </div>
                   </div>
                 </Link>

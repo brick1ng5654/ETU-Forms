@@ -6,6 +6,7 @@ import type { FormElementModel } from "@/form/types";
 import { presets } from "@/form/presets";
 import { cn } from "@/lib/utils";
 import { GripVertical, Star, Upload, GripHorizontal, CalendarDays, Clock, ChevronDown, ChevronUp, X, Plus, Check } from "lucide-react";
+import { ElementAttachments } from "@/components/form-builder/ElementAttachments";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,40 +15,194 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
+import { MatrixCorrectAnswersModal } from "./MatrixCorrectAnswersModal";
+import { getCountryOptions, isCountryField } from "@/lib/countries";
+
+const MAX_UPLOAD_MB = 20;
+
+interface MatrixPreviewProps {
+  fieldId: string;
+  rows: string[];
+  columns: string[];
+  multiplePerRow: boolean;
+  correctAnswers: string[];
+  onOpenModal: () => void;
+}
+
+function MatrixPreviewTable({
+  fieldId,
+  rows,
+  columns,
+  multiplePerRow,
+  correctAnswers,
+  onOpenModal,
+}: MatrixPreviewProps) {
+  const [isScrolling, setIsScrolling] = useState(false);
+  const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (scrollTimeout.current) {
+        clearTimeout(scrollTimeout.current);
+      }
+    };
+  }, []);
+
+  return (
+    <div className="space-y-3">
+      <div
+        className="matrix-scroll-container overflow-auto scroll-smooth relative"
+        style={{ maxHeight: '500px' }}
+        onScroll={(e) => {
+          const el = e.currentTarget;
+
+          if (el.scrollLeft > 0) {
+            setIsScrolling(true);
+          }
+
+          if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
+          scrollTimeout.current = setTimeout(() => setIsScrolling(false), 150);
+        }}
+      >
+        <table className="table-fixed border-collapse border border-muted-foreground/20 text-sm min-w-[600px] relative">
+          <thead className="relative">
+            <tr>
+              <th
+                className={cn(
+                  "sticky left-0 z-30 bg-white p-2 font-medium border border-muted-foreground/20",
+                  "after:absolute after:top-0 after:right-0 after:h-full after:w-[4px] after:bg-white after:shadow-[2px_0_4px_rgba(0,0,0,0.12)]",
+                  isScrolling && "ring-2 ring-primary/40 shadow-lg"
+                )}
+                style={{ minWidth: '80px', maxWidth: '80px' }}
+              >
+                <span className="sr-only">Rows</span>
+              </th>
+              {columns.map((col, idx) => (
+                <th
+                  key={idx}
+                  className={cn(
+                    "border border-muted-foreground/20 p-2 text-center bg-muted/30 font-medium whitespace-nowrap relative z-10",
+                    "sticky top-0 z-20 bg-white",
+                    "after:absolute after:left-0 after:bottom-[-0px] after:w-full after:h-[4px]",
+                    "after:bg-white after:shadow-[0_2px_4px_rgba(0,0,0,0.12)]",
+                    isScrolling && "ring-2 ring-primary/40 shadow-lg"
+                  )}
+                  style={{ minWidth: '100px' }}
+                >
+                  {col || `Column ${idx + 1}`}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, rowIdx) => (
+              <tr key={rowIdx} className="relative group">
+                <td
+                  className={cn(
+                    "sticky left-0 z-30 whitespace-nowrap",
+                    "bg-white p-2 font-medium border border-muted-foreground/20",
+                    "after:absolute after:top-0 after:right-0 after:h-full after:w-[4px] after:bg-white after:shadow-[2px_0_4px_rgba(0,0,0,0.12)]",
+                    isScrolling && "ring-2 ring-primary/40 shadow-lg"
+                  )}
+                  style={{
+                    minWidth: '80px',
+                    maxWidth: '80px',
+                    width: '80px'
+                  }}
+                >
+                  <div className="truncate" title={row || `Row ${rowIdx + 1}`}>
+                    {row || `Row ${rowIdx + 1}`}
+                  </div>
+                </td>
+                {columns.map((_, colIdx) => (
+                  <td
+                    key={`${fieldId}-${rowIdx}-${colIdx}`}
+                    className="border border-muted-foreground/20 p-2 text-center relative z-0"
+                    style={{ minWidth: '100px' }}
+                  >
+                    <div className="relative">
+                      {multiplePerRow ? (
+                        <Checkbox disabled className="mx-auto relative z-0" />
+                      ) : (
+                        <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30 mx-auto relative z-0"></div>
+                      )}
+                    </div>
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <div
+          className="absolute top-0 bottom-0 w-px bg-border pointer-events-none z-20"
+          style={{ left: '80px' }}
+        />
+      </div>
+
+      {correctAnswers.length > 0 && (
+        <div className="text-xs text-green-600 font-medium flex items-center gap-1">
+          <Check className="h-3 w-3" />
+          РџСЂР°РІРёР»СЊРЅС‹С… РѕС‚РІРµС‚РѕРІ: {correctAnswers.length}
+        </div>
+      )}
+
+      <div className="mt-3">
+        <Button
+          size="sm"
+          variant="outline"
+          className="w-full border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenModal();
+          }}
+        >
+          <Check className="h-4 w-4 mr-2" />
+          Р’С‹Р±СЂР°С‚СЊ РїСЂР°РІРёР»СЊРЅС‹Рµ РѕС‚РІРµС‚С‹
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 interface SortableFieldProps {
   field: FormElementModel;
   isSelected: boolean;
   onSelect: (id: string, event: MouseEvent<HTMLDivElement>) => void;
-  onDelete: (id: string) => void;
   updateField: (id: string, updates: Partial<FormElementModel>) => void;
   fields: FormElementModel[];
 }
 
-export function SortableField({ field, isSelected, onSelect, onDelete, updateField, fields }: SortableFieldProps) {
+export function SortableField({ field, isSelected, onSelect, updateField, fields }: SortableFieldProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [editingElement, setEditingElement] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState<string>("");
   const [editingOptions, setEditingOptions] = useState<string[]>([]);
+  const [isMatrixModalOpen, setIsMatrixModalOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if ((editingElement === "helperText" || editingElement === "label") && textareaRef.current) {
-      const len = editingValue.length;
+      const len = textareaRef.current.value.length;
       textareaRef.current.setSelectionRange(len, len);
       textareaRef.current.focus();
     }
-  }, [editingElement, editingValue]);
+  }, [editingElement]);
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.id });
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const props = field.props as Record<string, any>;
+  const isCountrySelect = isCountryField(field);
+  const countryOptions = isCountrySelect ? getCountryOptions(i18n.language).map((option) => option.label) : [];
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
   };
 
   const startEditing = (element: string, initialValue?: string) => {
+    if (element === "options" && isCountrySelect) {
+      return;
+    }
     setEditingElement(element);
     setEditingValue(initialValue || "");
     if (element === "options") {
@@ -66,6 +221,12 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
     } else if (editingElement === "helperText") {
       updateField(field.id, { description: editingValue.slice(0, 1200) });
     } else if (editingElement === "options") {
+      if (isCountrySelect) {
+        setEditingElement(null);
+        setEditingValue("");
+        setEditingOptions([]);
+        return;
+      }
       updateField(field.id, { props: { options: editingOptions.filter(Boolean) } });
     }
 
@@ -81,6 +242,10 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    if (e.key === "Delete" || e.key === "Backspace") {
+      e.stopPropagation();
+      return;
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       saveEditing();
@@ -100,6 +265,38 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
               return null;
             }
             const placeholder = part.placeholderKey ? t(part.placeholderKey) : part.placeholder || "";
+            const optionItems = part.options ?? [];
+            if (optionItems.length > 0) {
+              return (
+                <RadioGroup key={part.key} disabled className="flex flex-row flex-wrap gap-4">
+                  {optionItems.map((option) => {
+                    const optionLabel = option.labelKey ? t(option.labelKey) : option.label || option.value;
+                    const optionId = `preview-${field.id}-${part.key}-${option.value}`;
+                    return (
+                      <div key={option.value} className="flex items-center space-x-2">
+                        <RadioGroupItem value={option.value} id={optionId} disabled />
+                        <Label htmlFor={optionId} className="text-muted-foreground">
+                          {optionLabel}
+                        </Label>
+                      </div>
+                    );
+                  })}
+                </RadioGroup>
+              );
+            }
+            if (part.inputType === "date") {
+              return (
+                <div key={part.key} className="relative">
+                  <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
+                  <Input
+                    type="date"
+                    placeholder={placeholder || t("propert.selectDate")}
+                    disabled
+                    className="pl-10 h-10 bg-white/50 pointer-events-none text-muted-foreground"
+                  />
+                </div>
+              );
+            }
             return (
               <Input
                 key={part.key}
@@ -114,7 +311,12 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
       );
     }
 
-    const placeholderKey = preset?.getPlaceholderKey ? preset.getPlaceholderKey(props) : preset?.placeholderKey;
+    const labelKey = preset?.getLabelKey ? preset.getLabelKey(props) : preset?.labelKey;
+    const placeholderKey = labelKey?.startsWith("inputLabels.")
+      ? labelKey
+      : preset?.getPlaceholderKey
+        ? preset.getPlaceholderKey(props)
+        : preset?.placeholderKey;
     const placeholder = placeholderKey
       ? t(placeholderKey)
       : preset?.placeholder || (props.placeholder as string) || "";
@@ -142,7 +344,7 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
   };
 
   const renderFieldPreview = () => {
-    const options = (props.options as string[]) || [];
+    const options = isCountrySelect ? countryOptions : (props.options as string[]) || [];
 
     switch (field.widgetType) {
       case "text_input":
@@ -326,7 +528,7 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
         );
       case "radio":
         return editingElement === "options" ? (
-          <div className="space-y-2">
+          <div className="space-y-2 mb-4">
             {editingOptions.map((opt, index) => (
               <div key={index} className="flex items-center gap-2">
                 <RadioGroupItem value={opt} disabled />
@@ -373,7 +575,7 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
             </div>
           </div>
         ) : (
-          <RadioGroup disabled>
+          <RadioGroup disabled className="space-y-3">
             <div
               className="cursor-pointer"
               onClick={(e) => {
@@ -384,7 +586,7 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
               {options.map((opt, i) => (
                 <div key={i} className="flex items-center space-x-2">
                   <RadioGroupItem value={opt} id={`${field.id}-${i}`} />
-                  <Label htmlFor={`${field.id}-${i}`}>{opt}</Label>
+                  <Label htmlFor={`${field.id}-${i}`} className="py-1" >{opt}</Label>
                 </div>
               ))}
             </div>
@@ -470,7 +672,7 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
             <Upload className="h-8 w-8 text-muted-foreground mb-2" />
             <p className="text-sm text-muted-foreground font-medium">{t("back.loaddrag")}</p>
             <p className="text-xs text-muted-foreground mt-1">
-              {t("propert.sizefile")} {(props.maxFileSize as number) || 10}MB
+              {t("propert.sizefile")} {(props.maxFileSize as number) || MAX_UPLOAD_MB}MB
               {Array.isArray(props.acceptedFileTypes) && props.acceptedFileTypes.length > 0 && ` (${(props.acceptedFileTypes as string[]).join(", ")})`}
             </p>
           </div>
@@ -502,6 +704,31 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
             )}
           </div>
         );
+      case "matrix": {
+        const rows = (props.rows as string[]) || [];
+        const columns = (props.columns as string[]) || [];
+        const multiplePerRow = Boolean(props.multiplePerRow);
+        const matrixCorrectAnswers = (props.correctAnswers as string[]) || [];
+
+        return (
+          <>
+            <MatrixPreviewTable
+              fieldId={field.id}
+              rows={rows}
+              columns={columns}
+              multiplePerRow={multiplePerRow}
+              correctAnswers={matrixCorrectAnswers}
+              onOpenModal={() => setIsMatrixModalOpen(true)}
+            />
+            <MatrixCorrectAnswersModal
+              field={field}
+              open={isMatrixModalOpen}
+              onOpenChange={setIsMatrixModalOpen}
+              updateField={updateField}
+            />
+          </>
+        );
+      }
       case "header":
         return null;
       default:
@@ -517,12 +744,6 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
       onClick={(e) => {
         e.stopPropagation();
         onSelect(field.id, e);
-      }}
-      onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
-        if (e.key === "Delete") {
-          e.preventDefault();
-          onDelete(field.id);
-        }
       }}
       className={cn(
         "group relative flex items-start gap-2 rounded-lg border border-transparent bg-white transition-all hover:shadow-md",
@@ -643,9 +864,16 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
               );
             })()}
 
-            <div className="pointer-events-none">
+            <div className={cn(
+              "pointer-events-none",
+              field.widgetType === "matrix" && "!pointer-events-auto"
+            )}>
               {renderFieldPreview()}
             </div>
+            <ElementAttachments
+              attachments={(props.attachments as any) || []}
+              displayMode={(props.attachmentsDisplay as any) || "slider"}
+            />
           </>
         )}
       </div>
@@ -659,3 +887,4 @@ export function SortableField({ field, isSelected, onSelect, onDelete, updateFie
     </div>
   );
 }
+

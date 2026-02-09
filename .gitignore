@@ -3,5 +3,29 @@ ssl/
 *.crt
 *.key
 
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.venv/
+venv/
+env/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
 logs/**
 !logs/**/.gitkeep
+uploads/**
+pgadmin_data/

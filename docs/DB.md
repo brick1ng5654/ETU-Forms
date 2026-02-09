@@ -37,15 +37,20 @@
 | start_at | TIMESTAMP |  | NULL | Начало приема ответов |
 | end_at | TIMESTAMP |  | NULL | Конец приема ответов |
 | access_mode | FORM_ACCESS_MODE |  | DEFAULT | Режим доступа к форме |
+| status | FORM_STATUS |  | DEFAULT | Статус формы |
+| expires_at | TIMESTAMP |  | NULL/DEFAULT | Время жизни черновика (temp) |
+| deleted_at | TIMESTAMP |  | NULL | Время мягкого удаления |
 | created_at | TIMESTAMP |  | DEFAULT | Дата создания формы |
 | updated_at | TIMESTAMP |  | DEFAULT | Дата последнего обновления |
 
 **Домены и перечисления**
 - FORM_ACCESS_MODE: Public (публичная), Private (по ссылке), Unauthenticated (для неавторизованных).
+- FORM_STATUS: temp (черновик), submitted (опубликована), deleted (удалена).
 
 **Правила целостности**
 - `user_id` обязателен и ссылается на `User.user_id`.
 - `prev_form_id` ссылается на `Form.form_id` и может быть NULL.
+- Если `status = temp` и `expires_at` в прошлом, форма переводится в `deleted` (soft-delete).
 
 ### Response
 | Поле | Тип | Ключ | Ограничения | Суть |
@@ -116,10 +121,11 @@
 | correct_answer | JSONB |  | NULL | Правильный ответ для проверяемых полей |
 | required_field | BOOLEAN |  | NULL | Флаг обязательного заполнения |
 | props_settings | JSONB |  | NULL | Частные настройки свойств элемента |
+| file_ids | INT[] |  | DEFAULT '{}' | Список file_id прикреплённых файлов (до 10) |
 
 **Домены и перечисления**
-- WIDGET_TYPE: heading, static_text, number_input, text_input, select, checkbox, radio, datetime, email_input, rating, ranking, file_upload.
-- SEMANTIC_TYPE: full_name, phone, passport, inn, snils, bank_account, country, ogrn, bik.
+- WIDGET_TYPE: heading, static_text, number_input, text_input, select, checkbox, radio, datetime, email_input, rating, ranking, matrix, file_upload.
+- SEMANTIC_TYPE: full_name, phone, email, passport, inn, snils, bank_account, country, ogrn, bik.
 
 **Правила целостности**
 - Заполнено ровно одно из `form_id` или `template_id`.
@@ -135,7 +141,7 @@
 | value | JSONB |  | NULL | Значение для сравнения |
 
 **Домены и перечисления**
-- CONDITION_OPERATOR: equals, not_equals, in, not_in, greater_than, less_than, contains. (Больше значений можем появится из-за задачи #25)
+- CONDITION_OPERATOR: equals, not_equals, in, not_in, greater_than, less_than, contains, answered. (Больше значений можем появится из-за задачи #25)
 
 **Правила целостности**
 - `form_id`, `source_element_id`, `target_element_id` ссылаются на соответствующие таблицы.
@@ -156,12 +162,13 @@
 | Поле | Тип | Ключ | Ограничения | Суть |
 | --- | --- | --- | --- | --- |
 | file_id | INT | PK | NOT NULL | Первичный ключ файла |
-| answer_id | INT | FK | REFERENCES Response_Answer(answer_id), NOT NULL | Ответ на элемент, к которому относится файл |
+| answer_id | INT | FK | REFERENCES Response_Answer(answer_id), NULL | Ответ на элемент, к которому относится файл (NULL для файлов, прикреплённых к элементам формы) |
 | name | VARCHAR(512) |  | NOT NULL | Имя файла |
 | mime_type | VARCHAR(255) |  | NOT NULL | MIME-тип файла |
 | size_bytes | BIGINT |  | NOT NULL, CHECK (size_bytes >= 0) | Размер файла в байтах |
 | storage_provider | VARCHAR(50) |  | DEFAULT 'local' | Провайдер хранилища |
 | storage_path | TEXT |  | NOT NULL | Путь в хранилище |
+| access_token | VARCHAR(64) |  | NOT NULL, UNIQUE | Токен доступа к файлу |
 | created_at | TIMESTAMP |  | DEFAULT CURRENT_TIMESTAMP | Дата загрузки |
 
 **Домены и перечисления**
@@ -173,9 +180,12 @@
 
 **Жизненный цикл файла**
 - При прикреплении файла к элементу он получает статус `TEMP`, а поле `expires_at` устанавливается в `now() + 24h`.
-- Если через 24 часа статус остаётся `TEMP`, файл удаляется с диска. Запись в БД остаётся для истории.
+- Если через 24 часа статус остаётся `TEMP`, файл удаляется с диска. Запись в БД остаётся для истории. Для удаления можно использовать `backend/scripts/cleanup_temp_files.py`.
 - Если пользователь отправил форму с прикреплённым файлом, статус меняется на `SUBMITTED`, а `expires_at` становится `NULL`.
 - Если файл удаляется по любой причине, статус меняется на `DELETED`, запись в БД остаётся, файл на диске удаляется.
+
+**Хранилище файлов**
+- Файлы сохраняются в директории `FILES_ROOT`. По умолчанию это `./uploads`, а в docker-compose — `/var/lib/postgresql/data/uploads` (тот же том, что и у БД).
 
 ## Связи
 - User 1—M Form (Form.user_id)
@@ -191,12 +201,29 @@
 - Form_Element 1—M Response_Answer (Response_Answer.element_id)
 - Form_Element 1—M Form_Element_Condition (source_element_id, target_element_id)
 - Response_Answer 1—M Uploaded_file (Uploaded_file.answer_id)
+- Form_Element 1—M Uploaded_file (Form_Element.file_ids)
 
 ## Диагностика БД
 
 ### Требования
 - Docker и запущенный контейнер `postgres_db`.
 - Доступ к пользователю и базе (по умолчанию: `user`/`db`).
+
+### Adminer
+Adminer проброшен только на хост, без доступа снаружи. Доступен по адресу `http://127.0.0.1:8081`. Для просмотра базы данных при входе следует выставить следующие настройки:
+- Движок - PostgreSQL
+- Сервер - postgres
+- Имя пользователя, пароль, база данных - из env файла
+
+Если нужно иногда открыть с ноутбука на удалённый сервер — делается SSH-туннелем:
+```bash
+ssh -L 8081:127.0.0.1:8081 user@server
+```
+
+### Примечание для разработчиков
+- Если в локальной БД появляются "нерабочие" таблицы (битая схема, старые миграции или неконсистентные данные), можно пересоздать том БД командой `docker compose down -v` и поднять сервис заново. Это удаляет все данные в томе и заставляет БД стартовать с чистого состояния.
+В проде так делать нельзя — команда удаляет тома и приводит к полной потере данных.
+- Не забывайте про ; в конце SQL команд
 
 ### Подключение через psql
 
@@ -225,6 +252,7 @@ docker exec -it postgres_db psql -U user -d db
 | `\dn` | Список схем (schemas) |
 | `\x` | Переключение расширенного вывода (on/off) |
 | `\q` | Выход из psql |
+| `\pset pager off` | Отключение постраничного вывода |
 
 ### Примеры
 

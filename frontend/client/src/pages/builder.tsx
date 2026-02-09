@@ -1,41 +1,57 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import type { MouseEvent } from "react";
 import { nanoid } from "nanoid";
-import type { FormElementModel, FormSchema } from "@/form/types";
+import type { FormAccessMode, FormElementModel, FormSchema } from "@/form/types";
 import { FormCanvas, getIconForElement } from "@/components/form-builder/FormCanvas";
 import { PropertiesPanel } from "@/components/form-builder/PropertiesPanel";
 import FormPreview from "@/components/form-builder/FormPreview";
 import { ToolboxItem, ToolboxItemDefinition } from "@/components/form-builder/ToolboxItem";
 import { Button } from "@/components/ui/button";
-import { 
-  Eye, Share2, Save, ChevronLeft, Upload, Download, FileJson, 
-  PanelLeftClose, PanelLeftOpen, Plus, X, Calendar as CalendarIcon
+import {
+  Eye,
+  BarChart3,
+  Share2,
+  Save,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Plus,
+  X,
+  CalendarDays,
+  Clock,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { storage } from "@/lib/storage";
-import { useRoute, useLocation } from "wouter";
+import { useLocation } from "wouter";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
-import type { UnknownTypeWarning } from "@/form/adapters/fromStructureJson";
-import { fromStructureJsonWithMeta, getLastUnknownTypeWarnings } from "@/form/adapters/fromStructureJson";
+import { UserMenu } from "@/components/user-menu";
+import {
+  createForm,
+  fetchFormDetail,
+  fetchForms,
+  publishForm,
+  saveForm,
+  deleteForm as deleteFormApi,
+} from "@/lib/forms-api";
+import { useAuth } from "@/lib/auth";
 
 import { useTranslation } from 'react-i18next';
 import { Languages } from "lucide-react";
+import { AppBrand } from "@/components/app-brand";
 
 const TOOLBOX_ITEMS: ToolboxItemDefinition[] = [
   // Basic
   { widgetType: "header", labelKey: "header", category: "Basic" },
-  { widgetType: "textarea", labelKey: "text", category: "Basic" },
+  { widgetType: "text_input", labelKey: "text", category: "Basic" },
   { widgetType: "number_input", labelKey: "number", category: "Basic" },
 
   // Choice
@@ -45,9 +61,10 @@ const TOOLBOX_ITEMS: ToolboxItemDefinition[] = [
 
   // Advanced
   { widgetType: "datetime", labelKey: "datetime", category: "Advanced" },
-  { widgetType: "text_input", labelKey: "email", category: "Advanced", props: { inputType: "email" } },
+  { widgetType: "text_input", semanticType: "email", labelKey: "email", category: "Advanced" },
   { widgetType: "rating", labelKey: "rating", category: "Advanced" },
   { widgetType: "ranking", labelKey: "ranking", category: "Advanced" },
+  { widgetType: "matrix", labelKey: "matrix", category: "Advanced" },
   { widgetType: "file_upload", labelKey: "file", category: "Advanced" },
 
   // Specialized
@@ -57,16 +74,74 @@ const TOOLBOX_ITEMS: ToolboxItemDefinition[] = [
   { widgetType: "text_input", semanticType: "inn", labelKey: "inn", category: "Specialized" },
   { widgetType: "text_input", semanticType: "snils", labelKey: "snils", category: "Specialized" },
   { widgetType: "text_input", semanticType: "bank_account", labelKey: "account", category: "Specialized" },
-  { widgetType: "select", labelKey: "country", category: "Specialized", props: { options: ["Russia", "USA", "China", "Germany", "France"] } },
+  { widgetType: "select", labelKey: "country", category: "Specialized", props: { optionsSource: "countries" } },
   { widgetType: "text_input", semanticType: "ogrn", labelKey: "ogrn", category: "Specialized" },
   { widgetType: "text_input", semanticType: "bik", labelKey: "bik", category: "Specialized" },
 ];
+
+const formatDateInput = (value: string | null | undefined) => {
+  if (!value) return "";
+  return value;
+};
+
+const isValidDateString = (value: string) => {
+  if (value.length !== 10) return false;
+  const [y, m, d] = value.split("-").map(Number);
+  if (!y || !m || !d) return false;
+  if (m < 1 || m > 12) return false;
+  const parsed = new Date(y, m - 1, d);
+  return parsed.getFullYear() === y && parsed.getMonth() === m - 1 && parsed.getDate() === d;
+};
+
+const parseDateFromString = (value: string) => {
+  if (!isValidDateString(value)) return undefined;
+  const [y, m, d] = value.split("-").map(Number);
+  return new Date(y, m - 1, d);
+};
+
+const getLocalDatePart = (value: string | null | undefined) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return format(parsed, "yyyy-MM-dd");
+};
+
+const getLocalTimePart = (value: string | null | undefined) => {
+  if (!value) return "";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return format(parsed, "HH:mm");
+};
+
+const isEditableElement = (element: Element | null) => {
+  if (!element) return false;
+  if (element instanceof HTMLInputElement) return true;
+  if (element instanceof HTMLTextAreaElement) return true;
+  if (element instanceof HTMLSelectElement) return true;
+  return (element as HTMLElement).isContentEditable === true;
+};
+
+const toIsoFromParts = (dateValue: string | null, timeValue: string) => {
+  if (!dateValue || !isValidDateString(dateValue)) return null;
+  const [y, m, d] = dateValue.split("-").map(Number);
+  let hours = 0;
+  let minutes = 0;
+  if (timeValue) {
+    const [rawHours, rawMinutes] = timeValue.split(":").map(Number);
+    if (!Number.isNaN(rawHours)) hours = rawHours;
+    if (!Number.isNaN(rawMinutes)) minutes = rawMinutes;
+  }
+  const parsed = new Date(y, m - 1, d, hours, minutes);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toISOString();
+};
 
 export default function Builder({ params }: { params: { id?: string } }) {
   const [location, setLocation] = useLocation();
   const [forms, setForms] = useState<FormSchema[]>([]);
   const [activeFormId, setActiveFormId] = useState<string | null>(null);
-  
+  const { accessToken, isLoading } = useAuth();
+
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
   const [history, setHistory] = useState<FormSchema[]>([]);
@@ -77,7 +152,14 @@ export default function Builder({ params }: { params: { id?: string } }) {
   const lastHistoryAtRef = useRef(0);
   const MAX_HISTORY = 50;
   const HISTORY_MERGE_WINDOW_MS = 2000;
-  const [unknownTypeWarnings, setUnknownTypeWarnings] = useState<UnknownTypeWarning[]>([]);
+  const [isPublishOpen, setIsPublishOpen] = useState(false);
+  const [publishStartDate, setPublishStartDate] = useState<string | null>(null);
+  const [publishStartTime, setPublishStartTime] = useState("");
+  const [publishEndDate, setPublishEndDate] = useState<string | null>(null);
+  const [publishEndTime, setPublishEndTime] = useState("");
+  const [publishAccessMode, setPublishAccessMode] = useState<FormAccessMode>("private");
+  const [publishNoStart, setPublishNoStart] = useState(false);
+  const [publishNoEnd, setPublishNoEnd] = useState(false);
 
   const handleSelectField = (id: string, event: MouseEvent<HTMLDivElement>) => {
     console.log('Selecting field:', id);
@@ -113,39 +195,96 @@ export default function Builder({ params }: { params: { id?: string } }) {
     setLastSelectedId(null);
   };
   const [isToolboxOpen, setIsToolboxOpen] = useState(true);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { t, i18n } = useTranslation();
 
   // Initialize
+
   useEffect(() => {
-    const loadedForms = storage.getForms();
-    if (loadedForms.length > 0) {
-      setForms(loadedForms);
-      if (params.id) {
-        setActiveFormId(params.id);
-      } else {
-        setActiveFormId(loadedForms[0].id);
+    if (isLoading || !accessToken) return;
+    if (!params.id) return;
+    setActiveFormId(params.id);
+    const load = async () => {
+      try {
+        const remoteForms = await fetchForms();
+        const merged = storage.mergeRemoteForms(remoteForms);
+        setForms(merged);
+      } catch (error) {
+        console.error("Failed to load forms:", error);
+        setForms(storage.getForms());
       }
-    } else {
-      // Create default form if none exist
-      const newForm = storage.createForm();
-      setForms([newForm]);
-      setActiveFormId(newForm.id);
-    }
-    if (import.meta.env.DEV) {
-      setUnknownTypeWarnings(getLastUnknownTypeWarnings());
-    }
-  }, []);
+    };
+    void load();
+  }, [params.id, isLoading, accessToken]);
 
-  // Sync active form ID with URL if params change
   useEffect(() => {
-    if (params.id && forms.some(f => f.id === params.id)) {
-      setActiveFormId(params.id);
-    }
-  }, [params.id, forms]);
+    if (isLoading || !accessToken) return;
+    if (!activeFormId) return;
+    const loadDetail = async () => {
+      try {
+        const detail = await fetchFormDetail(activeFormId);
+        const localDraft = storage.getForms().find((form) => form.id === detail.id);
+        const preferLocalId = localStorage.getItem("etu_prefer_local_form_id");
+        const forcePreferLocal = Boolean(preferLocalId && preferLocalId === detail.id);
+        const shouldPreferLocal =
+          localDraft &&
+          (forcePreferLocal ||
+            (localDraft.version === detail.version &&
+              typeof localDraft.updatedAt === "number" &&
+              localDraft.updatedAt > detail.updatedAt));
+        const mergedDetail = shouldPreferLocal
+          ? {
+            ...detail,
+            title: localDraft?.title ?? detail.title,
+            description: localDraft?.description ?? detail.description,
+            fields: localDraft?.fields ?? detail.fields,
+            fieldCount: localDraft?.fieldCount ?? localDraft?.fields?.length ?? detail.fieldCount,
+            accessMode: localDraft?.accessMode ?? detail.accessMode,
+            startAt: localDraft?.startAt ?? detail.startAt,
+            endAt: localDraft?.endAt ?? detail.endAt,
+            settings_json: localDraft?.settings_json ?? detail.settings_json,
+            updatedAt: localDraft?.updatedAt ?? detail.updatedAt,
+          }
+          : detail;
+        if (preferLocalId && preferLocalId === detail.id) {
+          localStorage.removeItem("etu_prefer_local_form_id");
+        }
+        storage.saveForm(mergedDetail);
+        setForms((prev) => {
+          const existing = prev.find((form) => form.id === mergedDetail.id);
+          const merged = existing ? { ...mergedDetail, folderId: existing.folderId } : mergedDetail;
+          const exists = Boolean(existing);
+          if (exists) {
+            return prev.map((form) => (form.id === mergedDetail.id ? merged : form));
+          }
+          return [merged, ...prev];
+        });
+      } catch (error) {
+        console.error("Failed to load form detail:", error);
+        toast({ title: t("builder.error"), description: "Form load failed", variant: "destructive" });
+      }
+    };
+    void loadDetail();
+  }, [activeFormId, t]);
 
-  const activeForm = forms.find(f => f.id === activeFormId) || forms[0];
+  const activeForm = forms.find(f => f.id === activeFormId) || forms[0] || null;
   const fields = activeForm?.fields || [];
+
+  useEffect(() => {
+    if (!isPublishOpen || !activeForm) return;
+    setPublishAccessMode(activeForm.accessMode ?? "private");
+    const startDate = getLocalDatePart(activeForm.startAt);
+    const startTime = getLocalTimePart(activeForm.startAt);
+    const endDate = getLocalDatePart(activeForm.endAt);
+    const endTime = getLocalTimePart(activeForm.endAt);
+    const noStart = !startDate;
+    const noEnd = noStart ? true : !endDate;
+    setPublishStartDate(startDate);
+    setPublishStartTime(startTime);
+    setPublishEndDate(endDate);
+    setPublishEndTime(endTime);
+    setPublishNoStart(noStart);
+    setPublishNoEnd(noEnd);
+  }, [activeForm, isPublishOpen]);
 
   // Auto-save effect
   useEffect(() => {
@@ -215,32 +354,42 @@ export default function Builder({ params }: { params: { id?: string } }) {
   };
 
   // Form Management
-  const addNewForm = () => {
-    const newForm = storage.createForm();
-    const activeFormIndex = forms.findIndex(f => f.id === activeFormId);
-    let newForms: FormSchema[];
-    
-    if (activeFormIndex >= 0) {
-      newForms = [...forms.slice(0, activeFormIndex + 1), newForm, ...forms.slice(activeFormIndex + 1)];
-    } else {
-      newForms = [...forms, newForm];
+  const addNewForm = async () => {
+    try {
+      const created = await createForm({
+        title: t("common.untitled"),
+        description: "",
+      });
+      storage.saveForm({ ...created, fields: created.fields ?? [] });
+      const activeFormIndex = forms.findIndex(f => f.id === activeFormId);
+      const nextForms =
+        activeFormIndex >= 0
+          ? [...forms.slice(0, activeFormIndex + 1), created, ...forms.slice(activeFormIndex + 1)]
+          : [...forms, created];
+      setForms(nextForms);
+      setActiveFormId(created.id);
+      setLocation(`/builder/${created.id}`);
+    } catch (error) {
+      console.error("Failed to create form:", error);
+      toast({ title: t("builder.error"), description: "Create form failed", variant: "destructive" });
     }
-    
-    setForms(newForms);
-    setActiveFormId(newForm.id);
-    setLocation(`/builder/${newForm.id}`);
   };
 
-  const closeForm = (e: React.MouseEvent, id: string) => {
+  const closeForm = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     if (forms.length === 1) {
       toast({ title: t('builder.cannotCloseLastForm'), variant: "destructive" });
       return;
     }
+    try {
+      await deleteFormApi(id);
+    } catch (error) {
+      console.error("Failed to delete form:", error);
+    }
     const newForms = forms.filter(f => f.id !== id);
     setForms(newForms);
     storage.deleteForm(id);
-    
+
     // If closed form was active, switch to another
     if (activeFormId === id) {
       const newActiveId = newForms[0]?.id || null;
@@ -255,11 +404,21 @@ export default function Builder({ params }: { params: { id?: string } }) {
     const defaultProps: Record<string, unknown> = { ...(item.props ?? {}) };
     const widgetDefaults: Record<string, unknown> = {};
 
-    if (["select", "radio", "checkbox", "ranking"].includes(item.widgetType)) {
+    const usesCountryOptions = (item.props as Record<string, unknown> | undefined)?.optionsSource === "countries";
+    if (["select", "radio", "checkbox", "ranking"].includes(item.widgetType) && !usesCountryOptions) {
       widgetDefaults.options = ["Option 1", "Option 2"];
     }
     if (item.widgetType === "rating") {
       widgetDefaults.maxRating = 5;
+    }
+    if (item.widgetType === "matrix") {
+      widgetDefaults.rows = ["Row 1", "Row 2"];
+      widgetDefaults.columns = ["Column 1", "Column 2"];
+      widgetDefaults.multiplePerRow = false;
+    }
+    if (item.widgetType === "file_upload") {
+      widgetDefaults.maxFileSize = 20;
+      widgetDefaults.maxFiles = 1;
     }
 
     const newField: FormElementModel = {
@@ -300,7 +459,6 @@ export default function Builder({ params }: { params: { id?: string } }) {
       return { ...field, ...updates, props: nextProps };
     }), { historyKey });
   };
-
   const deleteField = (id: string) => {
     setFields(fields.filter(f => f.id !== id));
     setSelectedIds(prev => prev.filter(existingId => existingId !== id));
@@ -350,6 +508,15 @@ export default function Builder({ params }: { params: { id?: string } }) {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      const isDeleteKey = event.key === "Delete" || event.key === "Backspace";
+      if (isDeleteKey) {
+        if (isEditableElement(document.activeElement)) return;
+        if (selectedIds.length === 0) return;
+        event.preventDefault();
+        deleteSelected();
+        return;
+      }
+
       const isUndo =
         (event.ctrlKey || event.metaKey) &&
         !event.shiftKey &&
@@ -377,7 +544,16 @@ export default function Builder({ params }: { params: { id?: string } }) {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [history.length, redoHistory.length, undoLast, redoLast]);
+  }, [history.length, redoHistory.length, undoLast, redoLast, selectedIds, deleteSelected]);
+
+  useEffect(() => {
+    const pendingLang = localStorage.getItem("etu_pending_lang");
+    if (!pendingLang) return;
+    localStorage.removeItem("etu_pending_lang");
+    if (i18n.language !== pendingLang) {
+      i18n.changeLanguage(pendingLang);
+    }
+  }, [i18n]);
 
   const moveSelected = (direction: "up" | "down") => {
     if (selectedIds.length === 0) return;
@@ -407,57 +583,209 @@ export default function Builder({ params }: { params: { id?: string } }) {
     setFields(newFields);
   };
 
-  const saveFormJson = () => {
-    if (!activeForm) return;
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(activeForm, null, 2));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", `${activeForm.title.toLowerCase().replace(/\s+/g, '_')}_schema.json`);
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
-    toast({ title: t('builder.formSaved'), description: t('builder.formSavedDesc') });
+  const mapWidgetTypeForPublish = (widgetType: FormElementModel["widgetType"]) => {
+    if (widgetType === "header") return "heading";
+    if (widgetType === "textarea") return "text_input";
+    return widgetType;
   };
 
-  const loadFormJson = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  type PublishCondition = {
+    source_client_id: string;
+    target_client_id: string;
+    operator: "equals" | "not_equals" | "in" | "not_in" | "greater_than" | "less_than" | "contains" | "answered";
+    value: any;
+  };
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const content = e.target?.result as string;
-        const schema = JSON.parse(content);
-        const rawFields = Array.isArray(schema.fields)
-          ? schema.fields
-          : Array.isArray(schema.structure_json?.fields)
-            ? schema.structure_json.fields
-            : [];
-        if (Array.isArray(rawFields)) {
-          const normalizedResult =
-            rawFields.length > 0 && !rawFields[0].widgetType && rawFields[0].type
-              ? fromStructureJsonWithMeta({ fields: rawFields })
-              : { fields: rawFields, warnings: [] };
-          if (import.meta.env.DEV) {
-            setUnknownTypeWarnings(normalizedResult.warnings);
-          }
-          const newForm = {
-             ...activeForm,
-             title: schema.title || activeForm.title,
-             description: schema.description || activeForm.description,
-             fields: normalizeFields(normalizedResult.fields as FormElementModel[]),
-          };
-          setForm(newForm);
-          toast({ title: t('builder.formLoaded'), description: t('builder.formLoadedDesc') });
-        } else {
-          throw new Error("Invalid schema");
-        }
-      } catch (error) {
-        toast({ title: t('builder.error'), description: t('builder.invalidJson'), variant: "destructive" });
+  const extractConditionsFromFields = (publishFields: FormElementModel[]): PublishCondition[] => {
+    const out: PublishCondition[] = [];
+
+    for (const target of publishFields) {
+      const logic = (target.props as any)?.conditionalLogic as
+        | { dependsOn?: string; condition?: "equals" | "not_equals" | "answered"; expectedValue?: string | string[] }
+        | undefined;
+      if (!logic?.dependsOn || !logic.condition) continue;
+
+      let operator: PublishCondition["operator"] | null = null;
+      let value: any = null;
+
+      if (logic.condition === "equals") {
+        operator = "equals";
+        if (logic.expectedValue === undefined) continue;
+        value = Array.isArray(logic.expectedValue)
+          ? { values: logic.expectedValue }
+          : { value: logic.expectedValue };
+      } else if (logic.condition === "not_equals") {
+        operator = "not_equals";
+        if (logic.expectedValue === undefined) continue;
+        value = Array.isArray(logic.expectedValue)
+          ? { values: logic.expectedValue }
+          : { value: logic.expectedValue };
+      } else if (logic.condition === "answered") {
+        operator = "answered";
+        value = { value: true };
       }
+
+      if (!operator) continue;
+
+      out.push({
+        source_client_id: String(logic.dependsOn),
+        target_client_id: target.id,
+        operator,
+        value,
+      });
+    }
+
+    return out;
+  };
+
+  const resolvePublishFields = (): FormElementModel[] => {
+    if (!activeForm) return [];
+    return Array.isArray(activeForm.fields) ? activeForm.fields : [];
+  };
+
+  const buildBuilderPayload = (
+    publishFields: FormElementModel[],
+    overrides?: {
+      accessMode?: FormAccessMode;
+      startAt?: string | null;
+      endAt?: string | null;
+    }
+  ) => {
+    if (!activeForm) return null;
+    const accessMode = overrides?.accessMode ?? activeForm.accessMode ?? "private";
+    const startAt = overrides?.startAt ?? activeForm.startAt ?? null;
+    const endAt = overrides?.endAt ?? activeForm.endAt ?? null;
+
+    return {
+      title: activeForm.title,
+      description: activeForm.description,
+      access_mode: accessMode,
+      start_at: startAt,
+      end_at: endAt,
+      settings_json: activeForm.settings_json ?? { client_form_id: activeForm.id },
+      elements: publishFields.map((f, index) => {
+        const props = (f.props ?? {}) as Record<string, unknown>;
+        const { placeholder, correctAnswer, correctAnswers, points, conditionalLogic, attachments, ...otherSettings } = props;
+        const fileIds = Array.isArray(attachments)
+          ? Array.from(
+            new Set(
+              attachments
+                .map((item: any) => Number(item?.file_id))
+                .filter((id: number) => Number.isFinite(id) && id > 0)
+            )
+          )
+          : [];
+        const cleanedOtherSettings: Record<string, unknown> = { ...otherSettings };
+        if (points !== undefined) cleanedOtherSettings.points = points;
+        const inputType = typeof props.inputType === "string" ? props.inputType : undefined;
+        const isEmailField = f.semanticType === "email" || inputType === "email";
+        if (isEmailField) {
+          delete cleanedOtherSettings.multiline;
+        }
+        if (f.semanticType === "passport") {
+          const passportFlags = [
+            "hidePassportFullName",
+            "hidePassportGender",
+            "hidePassportBirthDate",
+            "hidePassportSeriesNumber",
+            "hidePassportIssuedBy",
+            "hidePassportIssueDate",
+            "hidePassportDepartmentCode",
+            "hidePassportBirthPlace",
+          ] as const;
+          for (const key of passportFlags) {
+            cleanedOtherSettings[key] = Boolean((f.props as Record<string, unknown> | undefined)?.[key]);
+          }
+        }
+        const rawCorrectAnswer = correctAnswer ?? correctAnswers;
+        const normalizedCorrectAnswer = (() => {
+          if (rawCorrectAnswer == null) return null;
+          if (Array.isArray(rawCorrectAnswer)) return { values: rawCorrectAnswer };
+          if (typeof rawCorrectAnswer === "object") return rawCorrectAnswer;
+          return { value: rawCorrectAnswer };
+        })();
+        return {
+          client_id: f.id,
+          widget: mapWidgetTypeForPublish(f.widgetType),
+          semantic: f.semanticType ?? null,
+          label: f.label,
+          description: f.description ?? null,
+          text_hint: typeof placeholder === "string" ? placeholder : null,
+          correct_answer: normalizedCorrectAnswer,
+          required_field: !!f.required,
+          other_settings: cleanedOtherSettings,
+          file_ids: fileIds,
+          sort_index: typeof f.sortIndex === "number" ? f.sortIndex : index,
+        };
+      }),
+      conditions: extractConditionsFromFields(publishFields),
     };
-    reader.readAsText(file);
-    event.target.value = "";
+  };
+
+  const saveToServer = async () => {
+    if (!activeForm) return;
+    const publishFields = resolvePublishFields();
+    const payload = buildBuilderPayload(publishFields, {
+      accessMode: activeForm.accessMode ?? "private",
+      startAt: activeForm.startAt ?? null,
+      endAt: activeForm.endAt ?? null,
+    });
+    if (!payload) return;
+    const saved = await saveForm(activeForm.id, payload);
+    storage.saveForm(saved);
+    setForms((prev) => {
+      const existing = prev.find((form) => form.id === saved.id);
+      const merged = existing ? { ...saved, folderId: existing.folderId } : saved;
+      if (existing) {
+        return prev.map((form) => (form.id === saved.id ? merged : form));
+      }
+      return [...prev, merged];
+    });
+    if (saved.id !== activeForm.id) {
+      setActiveFormId(saved.id);
+      setLocation(`/builder/${saved.id}`);
+    }
+    toast({ title: t("builder.formSaved"), description: "Saved to DB" });
+  };
+
+  const publishToServer = async () => {
+    if (!activeForm) return;
+    const publishFields = resolvePublishFields();
+    const payload = buildBuilderPayload(publishFields, {
+      accessMode: publishAccessMode,
+      startAt: publishNoStart ? null : toIsoFromParts(publishStartDate, publishStartTime),
+      endAt: publishNoStart || publishNoEnd ? null : toIsoFromParts(publishEndDate, publishEndTime),
+    });
+    if (!payload) return;
+    return publishForm(activeForm.id, payload);
+  };
+
+  const handleSave = async () => {
+    try {
+      await saveToServer();
+    } catch (e: any) {
+      toast({ title: t("builder.error"), description: e.message ?? "Save error", variant: "destructive" });
+    }
+  };
+
+  const handlePublish = async () => {
+    try {
+      const result = await publishToServer();
+      if (!result) return;
+      storage.saveForm(result);
+      setForms((prev) => {
+        const existing = prev.find((form) => form.id === result.id);
+        const merged = existing ? { ...result, folderId: existing.folderId } : result;
+        if (existing) {
+          return prev.map((form) => (form.id === result.id ? merged : form));
+        }
+        return [...prev, merged];
+      });
+      toast({ title: t("builder.published") });
+      setIsPublishOpen(false);
+    } catch (e: any) {
+      toast({ title: t("builder.error"), description: e.message ?? "Publish error", variant: "destructive" });
+    }
   };
 
   const selectedField = selectedIds.length === 1 ? fields.find(f => f.id === selectedIds[0]) || null : null;
@@ -480,18 +808,13 @@ export default function Builder({ params }: { params: { id?: string } }) {
           <Button variant="ghost" size="icon" className="-ml-2" onClick={() => setIsToolboxOpen(!isToolboxOpen)}>
             {isToolboxOpen ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeftOpen className="h-5 w-5" />}
           </Button>
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setLocation('/')}>
-            <div className="h-16 w-16 rounded-lg flex items-center justify-center">
-               <img src="/logo_etu.png" alt="ETU_LOGO" />
-            </div>
-            <span className="font-bold hidden sm:inline text-xl color-txt">{t('ETU-Form')}</span>
-          </div>
-          
+          <AppBrand onClick={() => setLocation('/')} />
+
           <div className="h-8 w-px bg-border mx-2 hidden md:block" />
           <div className="flex-1 flex items-center overflow-x-auto no-scrollbar max-w-xl">
             <div className="flex items-center gap-1">
               {forms.map(form => (
-                <div 
+                <div
                   key={form.id}
                   onClick={() => {
                     setActiveFormId(form.id);
@@ -499,21 +822,21 @@ export default function Builder({ params }: { params: { id?: string } }) {
                   }}
                   className={cn(
                     "group flex items-center gap-2 px-3 py-1.5 rounded-md text-sm cursor-pointer transition-colors min-w-[100px] max-w-[160px]",
-                    activeFormId === form.id 
-                      ? "bg-secondary text-secondary-foreground font-medium" 
+                    activeFormId === form.id
+                      ? "bg-secondary text-secondary-foreground font-medium"
                       : "hover:bg-muted text-muted-foreground"
                   )}
                 >
                   <span className="truncate">{form.title || t("common.untitled")}</span>
                   <Button
-          variant="ghost"
-          size="icon"
-          className="h-5 w-5 opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive"
-          onClick={(e) => closeForm(e, form.id)}
-          title="Close form"
-        >
-          <X className="h-3 w-3" />
-        </Button>
+                    variant="ghost"
+                    size="icon"
+                    className="h-5 w-5 opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive"
+                    onClick={(e) => closeForm(e, form.id)}
+                    title="Close form"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
                 </div>
               ))}
               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={addNewForm}>
@@ -530,7 +853,12 @@ export default function Builder({ params }: { params: { id?: string } }) {
               className="gap-1 h-9 px-3"
               onClick={() => {
                 const newLang = i18n.language.startsWith('ru') ? 'en' : 'ru';
-                i18n.changeLanguage(newLang);
+                if (activeForm) {
+                  storage.saveForm(activeForm);
+                  localStorage.setItem("etu_prefer_local_form_id", activeForm.id);
+                }
+                localStorage.setItem("etu_pending_lang", newLang);
+                window.location.reload();
               }}
               title={i18n.language.startsWith('ru') ? 'Переключить на Английский' : 'Switch to Russian'}>
               <Languages className="h-4 w-4" />
@@ -538,43 +866,301 @@ export default function Builder({ params }: { params: { id?: string } }) {
                 {i18n.language.startsWith('ru') ? 'RU' : 'EN'}
               </span>
             </Button>
-           <Dialog>
-            <DialogTrigger asChild>
-               <Button variant="outline" size="sm" className="gap-2">
-                <Eye className="h-4 w-4" /> <span className="hidden sm:inline">{t('builder.preview')}</span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>{activeForm.title || t('common.untitled')}</DialogTitle>
-                {activeForm.description && (
-                  <p className="text-sm text-muted-foreground">{activeForm.description}</p>
-                )}
-              </DialogHeader>
-              <FormPreview form={activeForm} />
-              <DialogFooter>
-                <DialogClose asChild>
-                  <Button variant="secondary">{t('builder.closePreview')}</Button>
-                </DialogClose>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Eye className="h-4 w-4" /> <span className="hidden sm:inline">{t('builder.preview')}</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>{activeForm.title || t('common.untitled')}</DialogTitle>
+                  {activeForm.description && (
+                    <p className="text-sm text-muted-foreground">{activeForm.description}</p>
+                  )}
+                </DialogHeader>
+                <FormPreview form={activeForm} />
+                <DialogFooter>
+                  <DialogClose asChild>
+                    <Button variant="secondary">{t('builder.closePreview')}</Button>
+                  </DialogClose>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
 
-          <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={loadFormJson} />
-          <Button variant="outline" size="sm" className="gap-2" onClick={() => fileInputRef.current?.click()}>
-            <Upload className="h-4 w-4" /> <span className="hidden sm:inline">{t('builder.load')}</span>
-          </Button>
-          <Button size="sm" className="gap-2" onClick={saveFormJson}>
-            <Download className="h-4 w-4" /> <span className="hidden sm:inline">{t('builder.save')}</span>
-          </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              disabled={activeForm.status !== "submitted"}
+              onClick={() => {
+                if (activeForm.status !== "submitted") {
+                  toast({
+                    title: t("results.openResults"),
+                    description: t("results.onlyPublishedShort"),
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                setLocation(`/forms/${activeForm.id}/results`);
+              }}
+            >
+              <BarChart3 className="h-4 w-4" />
+              <span className="hidden sm:inline">{t("results.openResults")}</span>
+            </Button>
+
+            <Button variant="outline" size="sm" className="gap-2" onClick={handleSave}>
+              <Save className="h-4 w-4" /> <span className="hidden sm:inline">{t('builder.save')}</span>
+            </Button>
+            <Popover open={isPublishOpen} onOpenChange={setIsPublishOpen}>
+              <PopoverTrigger asChild>
+                <Button size="sm" className="gap-2">
+                  <Share2 className="h-4 w-4" /> <span className="hidden sm:inline">{t("builder.publish")}</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-[360px] p-4">
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-semibold">{t("builder.publishTitle")}</h4>
+                    <p className="text-xs text-muted-foreground">{t("builder.publishHint")}</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>{t("builder.accessMode")}</Label>
+                    <RadioGroup
+                      value={publishAccessMode}
+                      onValueChange={(value) => setPublishAccessMode(value as FormAccessMode)}
+                      className="space-y-2"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="public" id="access-public" />
+                        <Label htmlFor="access-public" className="cursor-pointer">
+                          {t("builder.accessModePublic")}
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="private" id="access-private" />
+                        <Label htmlFor="access-private" className="cursor-pointer">
+                          {t("builder.accessModePrivate")}
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="unauthenticated" id="access-unauthenticated" />
+                        <Label htmlFor="access-unauthenticated" className="cursor-pointer">
+                          {t("builder.accessModeUnauthenticated")}
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>{t("builder.publishStart")}</Label>
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="publish-no-start"
+                          checked={publishNoStart}
+                          simplifiedAnimation
+                          onCheckedChange={(checked) => {
+                            const isChecked = checked === true;
+                            setPublishNoStart(isChecked);
+                            if (isChecked) {
+                              setPublishStartDate(null);
+                              setPublishStartTime("");
+                              setPublishNoEnd(true);
+                            } else {
+                              setPublishNoEnd(!publishEndDate);
+                            }
+                          }}
+                        />
+                        <Label htmlFor="publish-no-start" className="text-xs text-muted-foreground cursor-pointer">
+                          {t("builder.publishNoStart")}
+                        </Label>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="absolute left-0 top-0 h-10 w-10 hover:bg-transparent z-10"
+                              disabled={publishNoStart}
+                              type="button"
+                            >
+                              <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={publishStartDate ? parseDateFromString(publishStartDate) : undefined}
+                              onSelect={(date) => {
+                                setPublishStartDate(date ? format(date, "yyyy-MM-dd") : null);
+                              }}
+                              locale={ru}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <Input
+                          type="date"
+                          value={formatDateInput(publishStartDate)}
+                          onChange={(event) => {
+                            const val = event.target.value;
+                            if (val === "") {
+                              setPublishStartDate(null);
+                              return;
+                            }
+                            if (isValidDateString(val)) {
+                              setPublishStartDate(val);
+                            }
+                          }}
+                          disabled={publishNoStart}
+                          className="pl-10 h-10 text-muted-foreground"
+                          placeholder={t("propert.selectDate")}
+                        />
+                      </div>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal h-10",
+                              !publishStartTime && "text-muted-foreground"
+                            )}
+                            disabled={publishNoStart}
+                            type="button"
+                          >
+                            <Clock className="mr-2 h-4 w-4" />
+                            {publishStartTime ? <span>{publishStartTime}</span> : <span>{t("propert.selectTime")}</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-4" align="start">
+                          <Input
+                            type="time"
+                            value={publishStartTime}
+                            onChange={(event) => setPublishStartTime(event.target.value)}
+                            disabled={publishNoStart}
+                            className="w-full"
+                            autoFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>{t("builder.publishEnd")}</Label>
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="publish-no-end"
+                          checked={publishNoEnd}
+                          simplifiedAnimation
+                          disabled={publishNoStart}
+                          onCheckedChange={(checked) => {
+                            if (publishNoStart) return;
+                            const isChecked = checked === true;
+                            setPublishNoEnd(isChecked);
+                            if (isChecked) {
+                              setPublishEndDate(null);
+                              setPublishEndTime("");
+                            }
+                          }}
+                        />
+                        <Label htmlFor="publish-no-end" className="text-xs text-muted-foreground cursor-pointer">
+                          {t("builder.publishNoEnd")}
+                        </Label>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="absolute left-0 top-0 h-10 w-10 hover:bg-transparent z-10"
+                              disabled={publishNoEnd || publishNoStart}
+                              type="button"
+                            >
+                              <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={publishEndDate ? parseDateFromString(publishEndDate) : undefined}
+                              onSelect={(date) => {
+                                setPublishEndDate(date ? format(date, "yyyy-MM-dd") : null);
+                              }}
+                              locale={ru}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <Input
+                          type="date"
+                          value={formatDateInput(publishEndDate)}
+                          onChange={(event) => {
+                            const val = event.target.value;
+                            if (val === "") {
+                              setPublishEndDate(null);
+                              return;
+                            }
+                            if (isValidDateString(val)) {
+                              setPublishEndDate(val);
+                            }
+                          }}
+                          disabled={publishNoEnd || publishNoStart}
+                          className="pl-10 h-10 text-muted-foreground"
+                          placeholder={t("propert.selectDate")}
+                        />
+                      </div>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal h-10",
+                              !publishEndTime && "text-muted-foreground"
+                            )}
+                            disabled={publishNoEnd || publishNoStart}
+                            type="button"
+                          >
+                            <Clock className="mr-2 h-4 w-4" />
+                            {publishEndTime ? <span>{publishEndTime}</span> : <span>{t("propert.selectTime")}</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-4" align="start">
+                          <Input
+                            type="time"
+                            value={publishEndTime}
+                            onChange={(event) => setPublishEndTime(event.target.value)}
+                            disabled={publishNoEnd || publishNoStart}
+                            className="w-full"
+                            autoFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button variant="outline" size="sm" onClick={() => setIsPublishOpen(false)}>
+                      {t("actions.cancel")}
+                    </Button>
+                    <Button size="sm" onClick={handlePublish}>
+                      {t("builder.publish")}
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
+          <UserMenu />
         </div>
       </header>
-      {import.meta.env.DEV && unknownTypeWarnings.length > 0 && (
-        <div className="bg-red-50 border-b border-red-200 text-red-700 text-sm px-4 py-2">
-          Unknown field types detected. Check console for details.
-        </div>
-      )}
 
       <div className="flex-1 flex overflow-hidden">
         <div className={cn("border-r border-border bg-white flex flex-col shrink-0 z-10 transition-all duration-300 ease-in-out overflow-hidden", isToolboxOpen ? "w-64" : "w-0 border-r-0")}>
@@ -607,7 +1193,6 @@ export default function Builder({ params }: { params: { id?: string } }) {
           moveSelected={moveSelected}
           onSelectField={handleSelectField}
           clearSelection={clearSelection}
-          deleteField={deleteField}
           updateField={updateField}
           onUndo={undoLast}
           onRedo={redoLast}
@@ -617,15 +1202,15 @@ export default function Builder({ params }: { params: { id?: string } }) {
         />
 
         <div className="w-80 border-l border-border bg-white flex flex-col shrink-0 z-10">
-           <PropertiesPanel
-             key={selectedField?.id || selectedIds.join("-") || 'none'}
-             selectedField={selectedField}
-             selectedIds={selectedIds}
-             updateField={updateField}
-             deleteField={deleteField}
-             deleteSelected={deleteSelected}
-             fields={fields}
-           />
+          <PropertiesPanel
+            key={selectedField?.id || selectedIds.join("-") || 'none'}
+            selectedField={selectedField}
+            selectedIds={selectedIds}
+            updateField={updateField}
+            deleteField={deleteField}
+            deleteSelected={deleteSelected}
+            fields={fields}
+          />
         </div>
       </div>
     </div>
