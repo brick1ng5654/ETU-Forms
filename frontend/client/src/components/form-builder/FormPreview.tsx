@@ -57,6 +57,9 @@ interface CollapsibleTextareaProps extends React.ComponentProps<typeof Textarea>
 
 const DEFAULT_TEXTAREA_LINE_HEIGHT = 20;
 const MAX_UPLOAD_MB = 20;
+const REQUIRED_WARNING_DURATION_MS = 6000;
+const REQUIRED_WARNING_FADE_MS = 450;
+const FOCUS_SCROLL_SETTLE_MS = 320;
 
 const getTextareaMetrics = (textarea: HTMLTextAreaElement) => {
   const computed = window.getComputedStyle(textarea);
@@ -668,8 +671,13 @@ export function FormPreview({
   const [focusedFieldId, setFocusedFieldId] = useState<string | null>(null);
   const [calendarMonths, setCalendarMonths] = useState<Record<string, Date>>({});
   const [uploadingById, setUploadingById] = useState<Record<string, boolean>>({});
+  const [showRequiredWarning, setShowRequiredWarning] = useState(false);
+  const [isRequiredWarningFading, setIsRequiredWarningFading] = useState(false);
   const payloadRef = useRef<ReturnType<typeof buildAnswersPayload> | null>(null);
   const matrixContainerRef = useRef<HTMLDivElement>(null);
+  const fieldRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const requiredWarningHideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requiredWarningFadeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dateCacheRef = useRef<Map<string, Date | undefined>>(new Map());
   const calendarInitialMonthRef = useRef<Map<string, Date>>(new Map());
 
@@ -696,6 +704,17 @@ export function FormPreview({
   useEffect(() => {
     payloadRef.current = buildAnswersPayload(form.fields, answers);
   }, [form.fields, answers]);
+
+  useEffect(() => {
+    return () => {
+      if (requiredWarningFadeTimeoutRef.current) {
+        clearTimeout(requiredWarningFadeTimeoutRef.current);
+      }
+      if (requiredWarningHideTimeoutRef.current) {
+        clearTimeout(requiredWarningHideTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const updateAnswer = (fieldId: string, value: AnswerValue) => {
     setAnswers((prev) => ({ ...prev, [fieldId]: value }));
@@ -768,6 +787,29 @@ export function FormPreview({
 
   const markTouched = (fieldId: string) => {
     setTouched((prev) => ({ ...prev, [fieldId]: true }));
+  };
+
+  const showRequiredFieldsWarning = () => {
+    setShowRequiredWarning(true);
+    setIsRequiredWarningFading(false);
+
+    if (requiredWarningFadeTimeoutRef.current) {
+      clearTimeout(requiredWarningFadeTimeoutRef.current);
+    }
+    if (requiredWarningHideTimeoutRef.current) {
+      clearTimeout(requiredWarningHideTimeoutRef.current);
+    }
+
+    requiredWarningFadeTimeoutRef.current = setTimeout(() => {
+      setIsRequiredWarningFading(true);
+      requiredWarningFadeTimeoutRef.current = null;
+    }, REQUIRED_WARNING_DURATION_MS - REQUIRED_WARNING_FADE_MS);
+
+    requiredWarningHideTimeoutRef.current = setTimeout(() => {
+      setShowRequiredWarning(false);
+      setIsRequiredWarningFading(false);
+      requiredWarningHideTimeoutRef.current = null;
+    }, REQUIRED_WARNING_DURATION_MS);
   };
 
   const formatDateInput = (value: string | null | undefined) => {
@@ -1227,6 +1269,37 @@ export function FormPreview({
     return partLabel ? `${partLabel}: ${localized}` : localized;
   };
 
+  const isRequiredError = (error: string) => {
+    const parts = error.split(":");
+    const normalized = parts[parts.length - 1]?.trim();
+    return normalized === "Required";
+  };
+
+  const focusField = (fieldId: string) => {
+    const node = fieldRefs.current[fieldId];
+    if (!node) return;
+
+    node.scrollIntoView({ behavior: "smooth", block: "start", inline: "nearest" });
+
+    const focusable = node.querySelector<HTMLElement>(
+      "input:not([type='hidden']):not([disabled]), textarea:not([disabled]), [role='combobox']:not([aria-disabled='true']), button:not([disabled]), [tabindex]:not([tabindex='-1'])"
+    );
+
+    const applyFocus = () => {
+      if (focusable) {
+        focusable.focus({ preventScroll: true });
+        return;
+      }
+      node.tabIndex = -1;
+      node.focus({ preventScroll: true });
+    };
+
+    // Keep repeated attempts stable while preserving smooth scrolling motion.
+    requestAnimationFrame(() => {
+      setTimeout(applyFocus, FOCUS_SCROLL_SETTLE_MS);
+    });
+  };
+
   const renderTextInput = (field: FormElementModel, isDisabled: boolean) => {
     const props = field.props as Record<string, unknown>;
     const preset = field.semanticType ? presets[field.semanticType] : undefined;
@@ -1472,7 +1545,15 @@ export function FormPreview({
     return (
       <div
         key={field.id}
-        className={cn(fieldWrapperClass, field.widgetType === "matrix" && "overflow-hidden max-w-full")}
+        ref={(node) => {
+          if (node) {
+            fieldRefs.current[field.id] = node;
+            return;
+          }
+          delete fieldRefs.current[field.id];
+        }}
+        data-field-id={field.id}
+        className={cn("scroll-mt-24", fieldWrapperClass, field.widgetType === "matrix" && "overflow-hidden max-w-full")}
         onFocusCapture={() => setFocusedFieldId(field.id)}
         onBlurCapture={(event) => {
           const nextTarget = event.relatedTarget as Node | null;
@@ -2044,6 +2125,25 @@ export function FormPreview({
 
     const visibleErrors = validateForm(visibleFields, answers);
     if (Object.keys(visibleErrors).length > 0) {
+      const firstRequiredField = visibleFields.find((field) => {
+        if (field.widgetType === "header") return false;
+        const fieldErrors = visibleErrors[field.id] || [];
+        return fieldErrors.some(isRequiredError);
+      });
+      const firstInvalidField = visibleFields.find((field) => {
+        if (field.widgetType === "header") return false;
+        return Boolean(visibleErrors[field.id]);
+      });
+      const anyInvalidField = visibleFields.find((field) => Boolean(visibleErrors[field.id]));
+      const targetField = firstRequiredField ?? firstInvalidField ?? anyInvalidField;
+
+      if (targetField) {
+        focusField(targetField.id);
+      }
+
+      if (firstRequiredField) {
+        showRequiredFieldsWarning();
+      }
       return;
     }
 
@@ -2071,6 +2171,19 @@ export function FormPreview({
           </Button>
         </div>
       ) : null}
+
+      {showRequiredWarning && (
+        <div className="fixed right-4 bottom-4 z-[110] pointer-events-none">
+          <div
+            className={cn(
+              "w-[calc(100vw-2rem)] sm:w-auto sm:min-w-[320px] sm:max-w-[420px] rounded-md border border-destructive bg-destructive px-6 py-4 text-base sm:text-lg font-semibold text-destructive-foreground shadow-lg transition-all duration-500 ease-out animate-in fade-in-0 slide-in-from-bottom-full",
+              isRequiredWarningFading ? "translate-x-full opacity-0" : "translate-x-0 opacity-100"
+            )}
+          >
+            {t("respond.requiredFieldsWarning")}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

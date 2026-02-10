@@ -147,6 +147,7 @@
     "submitting": "Отправка...",
     "submitSuccess": "Ответ отправлен",
     "submitError": "Не удалось отправить ответ",
+    "requiredFieldsWarning": "Заполните обязательные поля",
     "loadError": "Не удалось загрузить форму",
     "formUnavailable": "Форма недоступна",
     "submittedTitle": "Ответ успешно отправлен",
