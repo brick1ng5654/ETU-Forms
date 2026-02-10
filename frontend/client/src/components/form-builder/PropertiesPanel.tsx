@@ -548,6 +548,11 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
     (selectedField.widgetType === "text_input" || selectedField.widgetType === "textarea") &&
     !selectedField.semanticType &&
     !props.inputType;
+  const transformableChoiceTypes: WidgetType[] = ["select", "checkbox", "radio"];
+  const canTransformChoice =
+    !selectedField.semanticType &&
+    transformableChoiceTypes.includes(selectedField.widgetType) &&
+    !isCountrySelect;
   const isMultiline = selectedField.widgetType === "textarea";
   const textMaxLimit = getTextMaxLimit(selectedField.widgetType);
   const rawTextMaxChars = typeof props.maxChars === "number" ? props.maxChars : undefined;
@@ -1070,7 +1075,33 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
 
       <div className="space-y-2">
         <Label>{t("propert.fieldType")}</Label>
-        <div className="text-sm text-muted-foreground font-medium">{t(`fields.${typeLabelKey}`)}</div>
+        {canTransformChoice ? (
+          <Select
+            value={selectedField.widgetType}
+            onValueChange={(value) => {
+              const nextType = value as WidgetType;
+              if (nextType === selectedField.widgetType) return;
+              const nextProps: Record<string, unknown> = {};
+              if (nextType !== "select") {
+                nextProps.multiple = undefined;
+              }
+              updateField(selectedField.id, { widgetType: nextType, props: nextProps });
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={t(`fields.${typeLabelKey}`)} />
+            </SelectTrigger>
+            <SelectContent>
+              {transformableChoiceTypes.map((widgetType) => (
+                <SelectItem key={widgetType} value={widgetType}>
+                  {t(`fields.${widgetTypeLabelKey[widgetType]}`)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <div className="text-sm text-muted-foreground font-medium">{t(`fields.${typeLabelKey}`)}</div>
+        )}
       </div>
 
       <div className="space-y-4">
