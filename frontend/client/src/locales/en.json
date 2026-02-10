@@ -149,6 +149,7 @@
     "submitting": "Submitting...",
     "submitSuccess": "Response submitted",
     "submitError": "Failed to submit response",
+    "requiredFieldsWarning": "Fill in required fields",
     "loadError": "Failed to load form",
     "formUnavailable": "Form unavailable",
     "submittedTitle": "Response submitted",
