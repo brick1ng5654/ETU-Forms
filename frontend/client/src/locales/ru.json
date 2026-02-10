@@ -1,7 +1,7 @@
 ﻿{
   "ETU-Form": "ETU-Form",
   "common": {
-    "loading": "Загрузка...",
+    "loading": "Загрузка",
     "untitled": "Без названия",
     "toolbox": "Инструменты",
     "preview": "Предпросмотр",
@@ -26,7 +26,8 @@
     "folder": "Папка",
     "forms": "Формы",
     "fields": "Поля",
-    "descriphome": "Нет описания"
+    "descriphome": "Нет описания",
+    "loadingForms": "Загружаем формы"
   },
   "builder": {
     "toolbox": "Инструменты",

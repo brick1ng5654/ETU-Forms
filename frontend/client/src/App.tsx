@@ -1,5 +1,5 @@
 import { Switch, Route, useRoute, useLocation } from "wouter";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -12,10 +12,12 @@ import FormPass from "@/pages/form-pass";
 import { AuthProvider } from "@/lib/auth";
 import { useAuth } from "@/lib/auth";
 import FormResults from "@/pages/form-results";
+import { CustomLoader } from "@/components/ui/custom-loader";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const [, setLocation] = useLocation();
   const { accessToken, isLoading } = useAuth();
+  const [showLoader, setShowLoader] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !accessToken) {
@@ -23,7 +25,25 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
     }
   }, [accessToken, isLoading, setLocation]);
 
-  if (isLoading) return null;
+  useEffect(() => {
+    if (isLoading) {
+      const timer = setTimeout(() => {
+        setShowLoader(true);
+      }, 300);
+      return () => clearTimeout(timer);
+    } else {
+      setShowLoader(false);
+    }
+  }, [isLoading]);
+
+  if (isLoading) {
+    return showLoader ? (
+      <div className="fixed inset-0 flex items-center justify-center bg-background">
+        <CustomLoader variant="logo-with-dots" size="lg" />
+      </div>
+    ) : null;
+  }
+  
   if (!accessToken) return null;
 
   return <>{children}</>;

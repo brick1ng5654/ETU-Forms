@@ -6,6 +6,7 @@ import { FormCanvas, getIconForElement } from "@/components/form-builder/FormCan
 import { PropertiesPanel } from "@/components/form-builder/PropertiesPanel";
 import FormPreview from "@/components/form-builder/FormPreview";
 import { ToolboxItem, ToolboxItemDefinition } from "@/components/form-builder/ToolboxItem";
+import { CustomLoader } from "@/components/ui/custom-loader";
 import { Button } from "@/components/ui/button";
 import {
   Eye,
@@ -797,7 +798,11 @@ export default function Builder({ params }: { params: { id?: string } }) {
     return acc;
   }, {} as Record<string, ToolboxItemDefinition[]>);
 
-  if (!activeForm) return <div>Loading...</div>;
+  if (!activeForm) return (
+    <div className="flex items-center justify-center h-screen">
+      <CustomLoader size="lg" variant="logo-with-dots" text={t("common.loading")} />
+    </div>
+  );
 
   console.log('Rendering Builder, activeForm:', activeForm, 'selectedIds:', selectedIds);
 

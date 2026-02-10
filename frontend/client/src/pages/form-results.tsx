@@ -46,6 +46,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "@/hooks/use-toast";
 import { AppBrand } from "@/components/app-brand";
+import { CustomLoader } from "@/components/ui/custom-loader";
 
 type ResponseEntry = {
   id: string;
@@ -1273,7 +1274,9 @@ export default function FormResults({ params }: { params: { id: string } }) {
             </CardHeader>
             <CardContent className="flex-1 overflow-y-auto pr-2 pt-6 space-y-6">
               {isLoading && (
-                <div className="text-sm text-muted-foreground">{t("common.loading")}</div>
+                <div className="flex items-center justify-center h-full">
+                  <CustomLoader variant="dots" text={t("common.loading")} />
+                </div>
               )}
 
               {!isLoading && selection.type === "source" && (
