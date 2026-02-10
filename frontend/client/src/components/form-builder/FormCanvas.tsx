@@ -45,6 +45,7 @@ interface FormCanvasProps {
   canRedo: boolean;
   fields: FormElementModel[];
   moveSelected: (direction: "up" | "down") => void;
+  scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 /**
@@ -115,6 +116,7 @@ export function FormCanvas({
   canRedo,
   fields,
   moveSelected,
+  scrollContainerRef,
 }: FormCanvasProps) {
 
   const { t, i18n } = useTranslation()  // Хук для локализации
@@ -230,7 +232,11 @@ export function FormCanvas({
       onDragEnd={handleDragEnd}
     >
     {/* Основная область холста формы */}
-      <div className="flex-1 bg-muted/30 px-8 pb-8 pt-0 overflow-y-auto h-full builder-scroll" onClick={() => { console.log('FormCanvas background click, clearing selection'); clearSelection(); }}>
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 bg-muted/30 px-8 pb-8 pt-0 overflow-y-auto h-full builder-scroll"
+        onClick={() => { console.log('FormCanvas background click, clearing selection'); clearSelection(); }}
+      >
         <div
           className="sticky top-0 z-20 -mx-8 mb-0 bg-white/95 backdrop-blur border-b border-border"
           onClick={(event) => event.stopPropagation()}
