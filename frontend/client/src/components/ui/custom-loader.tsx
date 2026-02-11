@@ -26,8 +26,8 @@ function CustomLoader({
   const iconSizeClasses = {
     sm: "w-3 h-3",
     md: "w-6 h-6",
-    lg: "w-10 h-10",
-    xl: "w-20 h-20",
+    lg: "w-20 h-20",
+    xl: "w-50 h-50",
   };
 
   const LogoLoader = () => (
@@ -73,7 +73,7 @@ function CustomLoader({
           <motion.div
             key={i}
             className={cn(
-              "rounded-full bg-gray-400", // Серый цвет для точек
+              "rounded-full bg-gray-400",
               size === "sm" && "w-2 h-2",
               size === "md" && "w-3 h-3",
               size === "lg" && "w-4 h-4",
@@ -105,10 +105,10 @@ function CustomLoader({
             key={i}
             className={cn(
               "rounded-full bg-primary",
-              size === "sm" && "w-1.5 h-1.5",
-              size === "md" && "w-2 h-2",
-              size === "lg" && "w-3 h-3",
-              size === "xl" && "w-4 h-4"
+              size === "sm" && "w-0.5 h-0.5",
+              size === "md" && "w-1.5 h-1.5",
+              size === "lg" && "w-2 h-2",
+              size === "xl" && "w-3 h-3"
             )}
             animate={{
               y: [0, -6, 0],

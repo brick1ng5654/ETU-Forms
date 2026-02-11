@@ -1149,6 +1149,15 @@ export default function FormResults({ params }: { params: { id: string } }) {
                 </Button>
               </div>
             </CardHeader>
+
+            {isLoading ? (
+              <CardContent className="flex flex-col min-h-0">
+                <div className="flex-1 flex items-center justify-center py-10">
+                  <CustomLoader variant="dots" text={t("common.loadingversion")} />
+                </div>
+              </CardContent>
+            ):(
+
             <CardContent className="space-y-3 overflow-y-auto pr-2">
               <div className="space-y-1">
                 {versions.length === 0 && (
@@ -1255,10 +1264,19 @@ export default function FormResults({ params }: { params: { id: string } }) {
                 ))}
               </div>
             </CardContent>
+            )}
           </Card>
         </aside>
 
         <section className="flex-1 min-h-0">
+          {isLoading ? (
+              <Card className="flex flex-col min-h-0">
+                <div className="flex-1 flex items-center justify-center py-10">
+                  <CustomLoader variant="dots" text={t("common.loadingversion")} />
+                </div>
+              </Card>
+            ):(
+
           <Card className="h-full flex flex-col">
             <CardHeader className="pb-4 border-b">
               <div className="flex items-start justify-between gap-4">
@@ -1273,12 +1291,6 @@ export default function FormResults({ params }: { params: { id: string } }) {
               </div>
             </CardHeader>
             <CardContent className="flex-1 overflow-y-auto pr-2 pt-6 space-y-6">
-              {isLoading && (
-                <div className="flex items-center justify-center h-full">
-                  <CustomLoader variant="dots" text={t("common.loading")} />
-                </div>
-              )}
-
               {!isLoading && selection.type === "source" && (
                 activeVersionForm ? (
                   <div className="space-y-4">
@@ -1408,6 +1420,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
               )}
             </CardContent>
           </Card>
+          )}
         </section>
 
         <aside className="lg:w-80 w-full flex flex-col gap-4 min-h-0">

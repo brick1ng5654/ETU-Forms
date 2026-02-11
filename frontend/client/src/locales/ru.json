@@ -2,6 +2,7 @@
   "ETU-Form": "ETU-Form",
   "common": {
     "loading": "Загрузка",
+    "loadingversion": "Загрузка версий",
     "untitled": "Без названия",
     "toolbox": "Инструменты",
     "preview": "Предпросмотр",
@@ -271,7 +272,7 @@
     "attachments": "Вложения",
     "attachmentsHint": "Можно прикрепить до 10 файлов (до {{max}} МБ каждый). Они отображаются под элементом.",
     "attachmentsAdd": "Добавить файлы",
-    "attachmentsUploading": "Загрузка...",
+    "attachmentsUploading": "Загрузка",
     "attachmentsLimit": "Можно прикрепить не более 10 файлов.",
     "attachmentsUploadError": "Не удалось загрузить файл.",
     "fileUploadLimit": "Можно прикрепить не более {{max}} файлов.",
