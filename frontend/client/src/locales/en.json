@@ -1,7 +1,9 @@
 {
   "ETU-Form": "ETU-Form",
   "common": {
-    "loading": "Loading...",
+    "loading": "Loading",
+    "loadingversion": "Uploading versions",
+    "loadingstats": "Uploading statistics",
     "untitled": "Untitled",
     "toolbox": "Toolbox",
     "preview": "Preview",
@@ -27,7 +29,8 @@
     "folder": "Folder",
     "forms": "Forms",
     "fields": "Fields",
-    "descriphome":"No description"
+    "descriphome":"No description",
+    "loadingForms": "Uploading forms"
   },
 
   "builder": {
@@ -64,6 +67,7 @@
     "redo": "Step forward",
     "moveUp": "Move up",
     "moveDown": "Move down",
+    "transform": "Transform",
     "deleteSelected": "Delete selected",
     "selectedCount": "Selected items: {{count}}",
     "noActiveForm": "No active Form to save"
