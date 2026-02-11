@@ -15,7 +15,7 @@ import { UserMenu } from "@/components/user-menu";
 import { createForm, deleteForm as deleteFormApi, fetchForms } from "@/lib/forms-api";
 import { useAuth } from "@/lib/auth";
 import { AppBrand } from "@/components/app-brand";
-
+import { CustomLoader } from "@/components/ui/custom-loader";
 export default function Home() {
   const [forms, setForms] = useState<FormSchema[]>([]);
   const [folders, setFolders] = useState<FormFolder[]>([]);
@@ -25,12 +25,14 @@ export default function Home() {
   const { accessToken, isLoading } = useAuth();
   const { t, i18n } = useTranslation();
   const [, setLocation] = useLocation();
+  const [isLoadingForms, setIsLoadingForms] = useState(true);
 
   const refreshData = async () => {
     if (isLoading || !accessToken) {
       return;
     }
     try {
+      setIsLoadingForms(true);
       const remoteForms = await fetchForms();
       const merged = storage.mergeRemoteForms(remoteForms);
       setForms(merged);
@@ -39,6 +41,8 @@ export default function Home() {
       console.error("Failed to load forms:", error);
       setForms(storage.getForms());
       setFolders(storage.getFolders());
+    }finally {
+      setIsLoadingForms(false);
     }
   };
 
@@ -70,7 +74,6 @@ export default function Home() {
       alert("Failed to create form");
     }
   };
-
 
   const createFolder = () => {
     if (!newFolderName.trim()) {
@@ -237,8 +240,11 @@ export default function Home() {
               {selectedFolderId ? folders.find(f => f.id === selectedFolderId)?.name || "Folder" : t("navigation.allForms")}
             </h1>
           </div>
-
-          {filteredForms.length === 0 ? (
+          {isLoadingForms ? (
+            <div className="flex flex-col items-center justify-center py-20 bg-white rounded-xl border border-border">
+              <CustomLoader variant="dots" text={t("navigation.loadingForms")} size="lg" />
+            </div>
+          ) : filteredForms.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 bg-white rounded-xl border border-dashed border-border">
               <div className="h-16 w-16 bg-muted rounded-full flex items-center justify-center mb-4">
                 <FileText className="h-8 w-8 text-muted-foreground" />

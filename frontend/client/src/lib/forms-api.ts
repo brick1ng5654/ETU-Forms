@@ -259,6 +259,9 @@ export const mapServerSummaryToSchema = (summary: ServerFormSummary): FormSchema
 };
 
 export async function fetchForms(): Promise<FormSchema[]> {
+  
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  
   const res = await apiFetch("/api/v1/forms");
   if (!res.ok) {
     throw await asHttpError(res);
@@ -268,6 +271,9 @@ export async function fetchForms(): Promise<FormSchema[]> {
 }
 
 export async function fetchFormDetail(formId: string): Promise<FormSchema> {
+  
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  
   const res = await apiFetch(`/api/v1/forms/${formId}`);
   if (!res.ok) {
     throw await asHttpError(res);
@@ -375,6 +381,9 @@ const mapStoredResponse = (row: ServerFormStoredResponse): StoredFormResponse =>
 });
 
 export async function fetchFormResponses(formId: string): Promise<StoredFormResponse[]> {
+ 
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  
   const res = await apiFetch(`/api/v1/forms/${formId}/responses`);
   if (!res.ok) {
     throw await asHttpError(res);
