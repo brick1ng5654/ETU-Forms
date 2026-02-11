@@ -172,12 +172,14 @@ export function MatrixCorrectAnswersModal({
 
   const handleMatrixNumberKeyDown = (e: KeyboardEvent<HTMLInputElement>, currentValue: string) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+    if (["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Home", "End", "ArrowUp", "ArrowDown"].includes(e.key)) return;
     if (e.key.length !== 1) return;
     if (e.key === "-") {
-      if (currentValue.length > 0 || (e.target as HTMLInputElement).selectionStart !== 0) {
-        e.preventDefault();
-      }
+      const el = e.target as HTMLInputElement;
+      const sel = el.selectionStart ?? 0;
+      const atStart = sel === 0;
+      const hasMinus = (el.value ?? currentValue).includes("-");
+      if (!atStart || hasMinus) e.preventDefault();
       return;
     }
     if (!/^\d$/.test(e.key)) e.preventDefault();
@@ -615,23 +617,33 @@ export function MatrixCorrectAnswersModal({
                                     inputMode="numeric"
                                     value={cellValue}
                                     onChange={(e) => {
-                                      const raw = e.target.value;
-                                      if (!MATRIX_NUMBER_ONLY_PATTERN.test(raw)) return;
-                                      if (raw.length > MATRIX_NUMBER_INPUT_MAX_LENGTH) return;
+                                      let raw = e.target.value;
+                                      const hasLeadingMinus = raw.startsWith("-");
+                                      const digitsOnly = raw.replace(/-/g, "").replace(/\D/g, "");
+                                      raw = (hasLeadingMinus ? "-" : "") + digitsOnly.slice(0, 7);
                                       const newValues = { ...correctAnswerValues };
-                                      if (raw === "" || raw === "-") {
+                                      if (raw === "") {
                                         delete newValues[cellKey];
                                         setSelectedAnswers(selectedAnswers.filter(a => a !== cellKey));
                                       } else {
-                                        const numValue = parseFloat(raw);
-                                        if (!isNaN(numValue) && numValue >= min && numValue <= max) {
-                                          newValues[cellKey] = raw;
-                                          if (!selectedAnswers.includes(cellKey)) {
-                                            setSelectedAnswers([...selectedAnswers, cellKey]);
-                                          }
-                                        } else return;
+                                        newValues[cellKey] = raw;
+                                        if (!selectedAnswers.includes(cellKey)) {
+                                          setSelectedAnswers([...selectedAnswers, cellKey]);
+                                        }
                                       }
                                       setCorrectAnswerValues(newValues);
+                                    }}
+                                    onBlur={(e) => {
+                                      const raw = e.target.value.trim();
+                                      if (raw === "" || raw === "-") return;
+                                      const num = parseInt(raw, 10);
+                                      if (!Number.isFinite(num)) return;
+                                      const min = matrixNumberMin ?? MATRIX_NUMBER_MIN_LIMIT;
+                                      const max = matrixNumberMax ?? MATRIX_NUMBER_MAX_LIMIT;
+                                      const clamped = Math.min(Math.max(num, min), max);
+                                      if (String(clamped) !== raw) {
+                                        setCorrectAnswerValues((prev) => ({ ...prev, [cellKey]: String(clamped) }));
+                                      }
                                     }}
                                     onKeyDown={(e) => handleMatrixNumberKeyDown(e, cellValue)}
                                     onPaste={handleMatrixNumberPaste}

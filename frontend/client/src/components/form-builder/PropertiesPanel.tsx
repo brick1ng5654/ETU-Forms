@@ -201,12 +201,12 @@ const placeholderField: PropertyFieldDef = {
 const TEXT_SINGLELINE_MAX_CHARS = 255;
 const TEXT_MULTILINE_MAX_CHARS = 10000;
 const MAX_ATTACHMENTS = 10;
-const MATRIX_NUMBER_MIN_LIMIT = -999999;
+const MATRIX_NUMBER_MIN_LIMIT = -99999;
 const MATRIX_NUMBER_MAX_LIMIT = 999999;
-const MATRIX_NUMBER_DEFAULT_MIN = -99999;
+const MATRIX_NUMBER_DEFAULT_MIN = 0;
 const MATRIX_NUMBER_DEFAULT_MAX = 99999;
 const MATRIX_TEXT_MAX_LENGTH_LIMIT = 256;
-const MATRIX_TEXT_DEFAULT_MAX_LENGTH = 100;
+const MATRIX_TEXT_DEFAULT_MAX_LENGTH = 256;
 const MAX_UPLOAD_MB = 20;
 
 const propertiesSchemaByWidgetType: Record<WidgetType, PropertyFieldDef[]> = {
@@ -894,18 +894,21 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
       const minValue = fieldDef.min ?? 0;
       const maxValue = fieldDef.max ?? Number.MAX_SAFE_INTEGER;
       const resolvedValue = value !== undefined && value !== null ? Number(value) : (isMatrixLimitField ? defaultValue : minValue);
-      
+      const displayValue = isMatrixLimitField
+        ? (numberDrafts[draftKey] !== undefined ? numberDrafts[draftKey] : (value != null ? String(value) : ""))
+        : (rawValue ?? resolvedValue);
+
       return (
         <div key={fieldDef.key} className="space-y-2">
           {label}
           <Input
-            type="number"
+            type={isMatrixLimitField && (fieldDef.key === "matrixNumberMin" || fieldDef.key === "matrixNumberMax") ? "text" : "number"}
             min={fieldDef.min}
             max={fieldDef.max}
             step={fieldDef.step}
-            inputMode={deferValidation ? "numeric" : undefined}
+            inputMode={deferValidation || (isMatrixLimitField && (fieldDef.key === "matrixNumberMin" || fieldDef.key === "matrixNumberMax")) ? "numeric" : undefined}
             pattern={deferValidation ? "[0-9]*" : undefined}
-            value={rawValue ?? resolvedValue}
+            value={displayValue}
             onFocus={(e) => {
               if (isMatrixLimitField) {
                 e.target.select();
@@ -918,16 +921,47 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                 return;
               }
               if (isMatrixLimitField) {
-                const parsed = parseInt(e.target.value, 10);
-                const clamped = Number.isFinite(parsed)
-                  ? Math.min(Math.max(parsed, minValue), maxValue)
-                  : (defaultValue ?? minValue);
+                let raw = e.target.value;
+                if (fieldDef.key === "matrixNumberMin" || fieldDef.key === "matrixNumberMax") {
+                  const hasLeadingMinus = raw.startsWith("-");
+                  const digitsOnly = raw.replace(/-/g, "").replace(/\D/g, "");
+                  raw = (hasLeadingMinus ? "-" : "") + digitsOnly.slice(0, 7);
+                }
+                const allowEmpty = raw === "" || (raw === "-" && fieldDef.key !== "matrixTextMaxLength");
+                if (allowEmpty) {
+                  setNumberDrafts((prev) => ({ ...prev, [draftKey]: raw }));
+                  updateByTarget(fieldDef.target, undefined);
+                  return;
+                }
+                if (fieldDef.key !== "matrixTextMaxLength" && raw.includes("-") && raw.indexOf("-") !== 0) {
+                  return;
+                }
+                const parsed = parseInt(raw, 10);
+                if (!Number.isFinite(parsed)) return;
+                const clamped = Math.min(Math.max(parsed, minValue), maxValue);
+                setNumberDrafts((prev) => ({ ...prev, [draftKey]: String(clamped) }));
                 updateByTarget(fieldDef.target, clamped);
                 return;
               }
               updateByTarget(fieldDef.target, parseInt(e.target.value, 10) || minValue);
             }}
             onKeyDown={(e) => {
+              if (isMatrixLimitField) {
+                if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+                  e.preventDefault();
+                  return;
+                }
+                if ((fieldDef.key === "matrixNumberMin" || fieldDef.key === "matrixNumberMax") && e.key === "-") {
+                  const el = e.currentTarget;
+                  const atStart = el.selectionStart == null || el.selectionStart === 0;
+                  const currentVal = ((el.value ?? "") || (displayValue as string)) ?? "";
+                  const hasMinus = currentVal.includes("-");
+                  if (!atStart || hasMinus) {
+                    e.preventDefault();
+                  }
+                }
+                return;
+              }
               if (!deferValidation) return;
               const allowedKeys = [
                 "Backspace",
@@ -946,11 +980,34 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
               }
             }}
             onBlur={(e) => {
-              if (!deferValidation) return;
+              if (deferValidation) {
+                const parsed = parseInt(e.target.value, 10);
+                const nextValue = Number.isFinite(parsed)
+                  ? Math.min(Math.max(parsed, minValue), maxValue)
+                  : minValue;
+                updateByTarget(fieldDef.target, nextValue);
+                setNumberDrafts((prev) => ({ ...prev, [draftKey]: String(nextValue) }));
+                return;
+              }
+              if (isMatrixLimitField) {
+                const raw = e.target.value.trim();
+                if (raw === "" || (raw === "-" && fieldDef.key !== "matrixTextMaxLength")) {
+                  updateByTarget(fieldDef.target, undefined);
+                  setNumberDrafts((prev) => ({ ...prev, [draftKey]: "" }));
+                  return;
+                }
+                const parsed = parseInt(raw, 10);
+                const nextValue = Number.isFinite(parsed)
+                  ? Math.min(Math.max(parsed, minValue), maxValue)
+                  : undefined;
+                updateByTarget(fieldDef.target, nextValue);
+                setNumberDrafts((prev) => ({ ...prev, [draftKey]: nextValue !== undefined ? String(nextValue) : "" }));
+                return;
+              }
               const parsed = parseInt(e.target.value, 10);
               const nextValue = Number.isFinite(parsed)
                 ? Math.min(Math.max(parsed, minValue), maxValue)
-                : (isMatrixLimitField ? defaultValue ?? minValue : minValue);
+                : minValue;
               updateByTarget(fieldDef.target, nextValue);
               setNumberDrafts((prev) => ({ ...prev, [draftKey]: String(nextValue) }));
             }}
