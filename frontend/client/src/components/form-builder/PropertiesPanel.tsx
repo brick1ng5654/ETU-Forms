@@ -309,10 +309,41 @@ const propertiesSchemaByWidgetType: Record<WidgetType, PropertyFieldDef[]> = {
     helperTextField,
     requiredField,
     {
-      key: "multiplePerRow",
-      labelKey: "propert.matrixMultiplePerRow",
-      type: "switch",
-      target: "props.multiplePerRow",
+      key: "matrixInputType",
+      labelKey: "propert.matrixInputType",
+      type: "select",
+      target: "props.matrixInputType",
+    },
+    {
+      key: "matrixNumberMin",
+      labelKey: "propert.matrixNumberMin",
+      type: "number",
+      target: "props.matrixNumberMin",
+      visible: (field) => {
+        const props = field.props as Record<string, any>;
+        return props.matrixInputType === "number";
+      },
+    },
+    {
+      key: "matrixNumberMax",
+      labelKey: "propert.matrixNumberMax",
+      type: "number",
+      target: "props.matrixNumberMax",
+      visible: (field) => {
+        const props = field.props as Record<string, any>;
+        return props.matrixInputType === "number";
+      },
+    },
+    {
+      key: "matrixTextMaxLength",
+      labelKey: "propert.matrixTextMaxLength",
+      type: "number",
+      target: "props.matrixTextMaxLength",
+      min: 1,
+      visible: (field) => {
+        const props = field.props as Record<string, any>;
+        return props.matrixInputType === "text";
+      },
     },
   ],
 };
@@ -835,10 +866,24 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
     if (fieldDef.type === "number") {
       const draftKey = `${selectedField?.id ?? "field"}:${fieldDef.key}`;
       const deferValidation = fieldDef.key === "maxFiles" || fieldDef.key === "maxFileSize";
+      const isMatrixLimitField = fieldDef.key === "matrixNumberMin" || fieldDef.key === "matrixNumberMax" || fieldDef.key === "matrixTextMaxLength";
+      
+      let defaultValue: number | undefined;
+      if (isMatrixLimitField) {
+        if (fieldDef.key === "matrixNumberMin") {
+          defaultValue = -999999999;
+        } else if (fieldDef.key === "matrixNumberMax") {
+          defaultValue = 999999999;
+        } else if (fieldDef.key === "matrixTextMaxLength") {
+          defaultValue = TEXT_SINGLELINE_MAX_CHARS;
+        }
+      }
+      
       const rawValue = deferValidation ? numberDrafts[draftKey] : undefined;
       const minValue = fieldDef.min ?? 0;
       const maxValue = fieldDef.max ?? Number.MAX_SAFE_INTEGER;
-      const resolvedValue = Number(value ?? minValue);
+      const resolvedValue = value !== undefined && value !== null ? Number(value) : (isMatrixLimitField ? defaultValue : minValue);
+      
       return (
         <div key={fieldDef.key} className="space-y-2">
           {label}
@@ -850,13 +895,18 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
             inputMode={deferValidation ? "numeric" : undefined}
             pattern={deferValidation ? "[0-9]*" : undefined}
             value={rawValue ?? resolvedValue}
+            onFocus={(e) => {
+              if (isMatrixLimitField) {
+                e.target.select();
+              }
+            }}
             onChange={(e) => {
               if (deferValidation) {
                 const digitsOnly = e.target.value.replace(/\D+/g, "");
                 setNumberDrafts((prev) => ({ ...prev, [draftKey]: digitsOnly }));
                 return;
               }
-              updateByTarget(fieldDef.target, parseInt(e.target.value, 10) || minValue);
+              updateByTarget(fieldDef.target, parseInt(e.target.value, 10) || (isMatrixLimitField ? defaultValue ?? minValue : minValue));
             }}
             onKeyDown={(e) => {
               if (!deferValidation) return;
@@ -881,7 +931,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
               const parsed = parseInt(e.target.value, 10);
               const nextValue = Number.isFinite(parsed)
                 ? Math.min(Math.max(parsed, minValue), maxValue)
-                : minValue;
+                : (isMatrixLimitField ? defaultValue ?? minValue : minValue);
               updateByTarget(fieldDef.target, nextValue);
               setNumberDrafts((prev) => ({ ...prev, [draftKey]: String(nextValue) }));
             }}
@@ -994,6 +1044,70 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
           { value: "any", label: t("propert.matrixValidationModeAny") },
           { value: "all", label: t("propert.matrixValidationModeAll") }
         ];
+      }
+      
+      if (fieldDef.key === "matrixInputType") {
+        const currentProps = selectedField.props as Record<string, any>;
+        const currentValue = value as string | undefined;
+        const multiplePerRow = Boolean(currentProps.multiplePerRow);
+        const defaultValue = currentValue || (multiplePerRow ? "checkbox" : "radio");
+        selectOptions = [
+          { value: "radio", label: t("propert.matrixInputTypeRadio") },
+          { value: "checkbox", label: t("propert.matrixInputTypeCheckbox") },
+          { value: "number", label: t("propert.matrixInputTypeNumber") },
+          { value: "text", label: t("propert.matrixInputTypeText") }
+        ];
+        
+        return (
+          <div key={fieldDef.key} className="space-y-2">
+            {label}
+            <Select
+              value={defaultValue}
+              onValueChange={(newValue) => {
+                const updates: Record<string, any> = { matrixInputType: newValue };
+
+                if (newValue === "number") {
+
+                  if (currentProps.matrixNumberMin === undefined) {
+                    updates.matrixNumberMin = -999999;
+                  }
+                  if (currentProps.matrixNumberMax === undefined) {
+                    updates.matrixNumberMax = 999999;
+                  }
+                } else if (newValue === "text") {
+
+                  if (currentProps.matrixTextMaxLength === undefined) {
+                    updates.matrixTextMaxLength = TEXT_SINGLELINE_MAX_CHARS;
+                  }
+                } else {
+                  
+                  delete updates.matrixNumberMin;
+                  delete updates.matrixNumberMax;
+                  delete updates.matrixTextMaxLength;
+                }
+                
+                if (newValue === "checkbox") {
+                  updates.multiplePerRow = true;
+                } else {
+                  updates.multiplePerRow = false;
+                }
+                
+                updateField(selectedField.id, { props: { ...currentProps, ...updates } });
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={t("common.selectopt")} />
+              </SelectTrigger>
+              <SelectContent>
+                {selectOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        );
       }
       
       return (

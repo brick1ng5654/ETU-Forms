@@ -335,9 +335,13 @@ interface MatrixAnswerProps {
   rows: string[];
   columns: string[];
   multiplePerRow: boolean;
-  value: string[];
+  matrixInputType?: "radio" | "checkbox" | "number" | "text";
+  matrixNumberMin?: number;
+  matrixNumberMax?: number;
+  matrixTextMaxLength?: number;
+  value: string[] | Record<string, string>;
   disabled: boolean;
-  onChange: (value: string[]) => void;
+  onChange: (value: string[] | Record<string, string>) => void;
   onTouched: () => void;
 }
 
@@ -346,6 +350,10 @@ function MatrixAnswerInput({
   rows,
   columns,
   multiplePerRow,
+  matrixInputType = "radio",
+  matrixNumberMin,
+  matrixNumberMax,
+  matrixTextMaxLength,
   value,
   disabled,
   onChange,
@@ -362,27 +370,78 @@ function MatrixAnswerInput({
     };
   }, []);
 
+  // Determine if value is array (for radio/checkbox) or object (for number/text)
+  const isArrayValue = Array.isArray(value);
+  const arrayValue = isArrayValue ? (value as string[]) : [];
+  const objectValue = isArrayValue ? {} : (value as Record<string, string>);
+
   const isCellSelected = (rowIdx: number, colIdx: number) => {
-    return value.includes(`${rowIdx + 1}:${colIdx + 1}`);
+    if (matrixInputType === "number" || matrixInputType === "text") {
+      const cellKey = `${rowIdx + 1}:${colIdx + 1}`;
+      return Boolean(objectValue[cellKey]);
+    }
+    return arrayValue.includes(`${rowIdx + 1}:${colIdx + 1}`);
   };
 
   const toggleCell = (rowIdx: number, colIdx: number) => {
     const cellKey = `${rowIdx + 1}:${colIdx + 1}`;
+    if (matrixInputType === "number" || matrixInputType === "text") {
+      return;
+    }
     let newAnswer: string[];
     if (multiplePerRow) {
       if (isCellSelected(rowIdx, colIdx)) {
-        newAnswer = value.filter((key) => key !== cellKey);
+        newAnswer = arrayValue.filter((key) => key !== cellKey);
       } else {
-        newAnswer = [...value, cellKey];
+        newAnswer = [...arrayValue, cellKey];
       }
     } else {
-      newAnswer = value.filter((key) => !key.startsWith(`${rowIdx + 1}:`));
+      newAnswer = arrayValue.filter((key) => !key.startsWith(`${rowIdx + 1}:`));
       if (!isCellSelected(rowIdx, colIdx)) {
         newAnswer.push(cellKey);
       }
     }
     onChange(newAnswer);
     onTouched();
+  };
+
+  const handleInputChange = (rowIdx: number, colIdx: number, inputValue: string) => {
+    const cellKey = `${rowIdx + 1}:${colIdx + 1}`;
+    const newValue = { ...objectValue };
+    
+    if (matrixInputType === "number") {
+      const min = matrixNumberMin ?? -999999999;
+      const max = matrixNumberMax ?? 999999999;
+
+      const maxInputLength = 36;
+      
+      if (inputValue.length > maxInputLength) {
+        return; 
+      }
+      
+      const numValue = parseFloat(inputValue);
+      if (inputValue === "" || (!isNaN(numValue) && numValue >= min && numValue <= max)) {
+        newValue[cellKey] = inputValue;
+      } else {
+        return; 
+      }
+    } else if (matrixInputType === "text") {
+      const maxLength = matrixTextMaxLength ?? TEXT_SINGLELINE_MAX_CHARS; // 255
+
+      if (inputValue.length <= maxLength) {
+        newValue[cellKey] = inputValue;
+      } else {
+        return; 
+      }
+    }
+    
+    onChange(newValue);
+    onTouched();
+  };
+
+  const getCellValue = (rowIdx: number, colIdx: number): string => {
+    const cellKey = `${rowIdx + 1}:${colIdx + 1}`;
+    return objectValue[cellKey] || "";
   };
 
   return (
@@ -451,6 +510,55 @@ function MatrixAnswerInput({
               </td>
               {columns.map((_, colIdx) => {
                 const selected = isCellSelected(rowIdx, colIdx);
+                const cellValue = getCellValue(rowIdx, colIdx);
+                
+                if (matrixInputType === "number") {
+                  // Use default limits if not set
+                  const min = matrixNumberMin ?? -999999999;
+                  const max = matrixNumberMax ?? 999999999;
+                  
+                  return (
+                    <td
+                      key={colIdx}
+                      className="border border-muted-foreground/20 p-2 min-w-[100px]"
+                    >
+                      <Input
+                        type="number"
+                        value={cellValue}
+                        disabled={disabled}
+                        onChange={(e) => handleInputChange(rowIdx, colIdx, e.target.value)}
+                        min={min}
+                        max={max}
+                        maxLength={36} // Prevent extremely long numbers
+                        className="w-full h-8 text-sm"
+                        placeholder="-"
+                      />
+                    </td>
+                  );
+                }
+                
+                if (matrixInputType === "text") {
+                  // Use default max length if not set
+                  const maxLength = matrixTextMaxLength ?? TEXT_SINGLELINE_MAX_CHARS; // 255
+                  
+                  return (
+                    <td
+                      key={colIdx}
+                      className="border border-muted-foreground/20 p-2 min-w-[100px]"
+                    >
+                      <Input
+                        type="text"
+                        value={cellValue}
+                        disabled={disabled}
+                        onChange={(e) => handleInputChange(rowIdx, colIdx, e.target.value)}
+                        maxLength={maxLength}
+                        className="w-full h-8 text-sm"
+                        placeholder="-"
+                      />
+                    </td>
+                  );
+                }
+                
                 return (
                   <td
                     key={colIdx}
@@ -1922,7 +2030,11 @@ export function FormPreview({
             rows={(props.rows as string[]) || []}
             columns={(props.columns as string[]) || []}
             multiplePerRow={Boolean(props.multiplePerRow)}
-            value={(answers[field.id] as string[]) || []}
+            matrixInputType={(props.matrixInputType as "radio" | "checkbox" | "number" | "text") || (props.multiplePerRow ? "checkbox" : "radio")}
+            matrixNumberMin={props.matrixNumberMin as number | undefined}
+            matrixNumberMax={props.matrixNumberMax as number | undefined}
+            matrixTextMaxLength={props.matrixTextMaxLength as number | undefined}
+            value={(answers[field.id] as string[] | Record<string, string>) || (props.matrixInputType === "number" || props.matrixInputType === "text" ? {} : [])}
             disabled={isInputsDisabled}
             onChange={(nextValue) => updateAnswer(field.id, nextValue)}
             onTouched={() => markTouched(field.id)}

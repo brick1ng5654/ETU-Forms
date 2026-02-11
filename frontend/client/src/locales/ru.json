@@ -1,4 +1,4 @@
-﻿{
+{
   "ETU-Form": "ETU-Form",
   "common": {
     "loading": "Загрузка",
@@ -324,6 +324,14 @@
     "matrixRows": "Строки матрицы",
     "matrixColumns": "Столбцы матрицы",
     "matrixMultiplePerRow": "Разрешить несколько выборов в строке",
+    "matrixInputType": "Тип поля матрицы",
+    "matrixInputTypeRadio": "Переключатель",
+    "matrixInputTypeCheckbox": "Флажок",
+    "matrixInputTypeNumber": "Число",
+    "matrixInputTypeText": "Текстовое поле",
+    "matrixNumberMin": "Минимальное значение",
+    "matrixNumberMax": "Максимальное значение",
+    "matrixTextMaxLength": "Максимальная длина текста",
     "matrixCorrectAnswers": "Правильные ответы матрицы",
     "matrixCorrectAnswersHelp": "Выберите ячейки, которые являются правильными ответами",
     "matrixCorrectAnswersFormatHelp": "Формат ответа: строка:столбец (например, 3:1). На каждом поле — только одна отмеченная клетка.",

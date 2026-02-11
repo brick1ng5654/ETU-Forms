@@ -36,7 +36,12 @@ export function MatrixCorrectAnswersModal({
   const rows = (props.rows as string[]) || [];
   const columns = (props.columns as string[]) || [];
   const multiplePerRow = Boolean(props.multiplePerRow);
+  const matrixInputType = (props.matrixInputType as "radio" | "checkbox" | "number" | "text") || (multiplePerRow ? "checkbox" : "radio");
+  const matrixNumberMin = props.matrixNumberMin as number | undefined;
+  const matrixNumberMax = props.matrixNumberMax as number | undefined;
+  const matrixTextMaxLength = props.matrixTextMaxLength as number | undefined;
   const matrixCorrectAnswers = (props.correctAnswers as string[]) || [];
+  const matrixCorrectAnswerValues = (props.correctAnswerValues as Record<string, string> | undefined) || {};
   const pointsPerCell = (props.pointsPerCell as Record<string, number> | undefined) || {};
   const pointsPerRow = (props.pointsPerRow as Record<string, number> | undefined) || {};
   const pointsPerColumn = (props.pointsPerColumn as Record<string, number> | undefined) || {};
@@ -55,6 +60,8 @@ export function MatrixCorrectAnswersModal({
   
   // Локальное состояние для выбранных ответов
   const [selectedAnswers, setSelectedAnswers] = useState<string[]>(matrixCorrectAnswers);
+  // Локальное состояние для значений правильных ответов (для number/text режимов)
+  const [correctAnswerValues, setCorrectAnswerValues] = useState<Record<string, string>>(matrixCorrectAnswerValues);
   // Локальное состояние для баллов по ячейкам
   const [cellPoints, setCellPoints] = useState<Record<string, number>>(pointsPerCell || {});
   const [cellPointsInput, setCellPointsInput] = useState<Record<string, string>>(mapPointsToInputs(pointsPerCell));
@@ -84,6 +91,7 @@ export function MatrixCorrectAnswersModal({
   // Обновление состояния при изменении props
   useEffect(() => {
     setSelectedAnswers(matrixCorrectAnswers);
+    setCorrectAnswerValues(matrixCorrectAnswerValues);
     setCellPoints(pointsPerCell || {});
     setCellPointsInput(mapPointsToInputs(pointsPerCell));
     setRowPoints(pointsPerRow || {});
@@ -110,7 +118,7 @@ export function MatrixCorrectAnswersModal({
     
     // Устанавливаем режим проверки
     setValidationMode(matrixValidationMode);
-  }, [field.id, matrixCorrectAnswers.length, JSON.stringify(pointsPerCell), JSON.stringify(pointsPerRow), JSON.stringify(pointsPerColumn), matrixValidationMode, matrixTotalPoints, props.pointsDistributionType]);
+  }, [field.id, matrixCorrectAnswers.length, JSON.stringify(pointsPerCell), JSON.stringify(pointsPerRow), JSON.stringify(pointsPerColumn), JSON.stringify(matrixCorrectAnswerValues), matrixValidationMode, matrixTotalPoints, props.pointsDistributionType]);
 
   const decimalInputPattern = /^\d*(?:\.\d*)?$/;
   const decimalValuePattern = /^\d+(?:\.\d*)?$/;
@@ -488,16 +496,22 @@ export function MatrixCorrectAnswersModal({
       matrixTotalPointsToSave = parsedValue > 0 ? parsedValue : undefined;
     }
     
+    const updateProps: Record<string, any> = {
+      correctAnswers: selectedAnswers,
+      pointsPerCell: pointsPerCellToSave,
+      pointsPerRow: pointsPerRowToSave,
+      pointsPerColumn: pointsPerColumnToSave,
+      matrixValidationMode: matrixValidationModeToSave,
+      matrixTotalPoints: matrixTotalPointsToSave,
+      pointsDistributionType: resolvedPointsDistributionType
+    };
+    
+    if (matrixInputType === "number" || matrixInputType === "text") {
+      updateProps.correctAnswerValues = Object.keys(correctAnswerValues).length > 0 ? correctAnswerValues : undefined;
+    }
+    
     updateField(field.id, {
-      props: {
-        correctAnswers: selectedAnswers,
-        pointsPerCell: pointsPerCellToSave,
-        pointsPerRow: pointsPerRowToSave,
-        pointsPerColumn: pointsPerColumnToSave,
-        matrixValidationMode: matrixValidationModeToSave,
-        matrixTotalPoints: matrixTotalPointsToSave,
-        pointsDistributionType: resolvedPointsDistributionType
-      }
+      props: updateProps
     });
     onOpenChange(false);
   };
@@ -505,6 +519,7 @@ export function MatrixCorrectAnswersModal({
   // Отмена изменений
   const handleCancel = () => {
     setSelectedAnswers(matrixCorrectAnswers);
+    setCorrectAnswerValues(matrixCorrectAnswerValues);
     setCellPoints(pointsPerCell || {});
     onOpenChange(false);
   };
@@ -558,6 +573,88 @@ export function MatrixCorrectAnswersModal({
                             const isChecked = multiplePerRow
                               ? selectedAnswers.includes(cellKey)
                               : selectedInRow === cellKey;
+                            const cellValue = correctAnswerValues[cellKey] || "";
+                            
+                            if (matrixInputType === "number") {
+                              const min = matrixNumberMin ?? -999999999;
+                              const max = matrixNumberMax ?? 999999999;
+                              
+                              return (
+                                <td key={colIdx} className="border border-muted-foreground/20 p-2">
+                                  <Input
+                                    type="number"
+                                    value={cellValue}
+                                    onChange={(e) => {
+                                      const newValue = e.target.value;
+                                      const newValues = { ...correctAnswerValues };
+                                      if (newValue === "") {
+                                        delete newValues[cellKey];
+                                        const newAnswers = selectedAnswers.filter(a => a !== cellKey);
+                                        setSelectedAnswers(newAnswers);
+                                      } else {
+                                        if (newValue.length > 36) {
+                                          return; 
+                                        }
+                                        
+                                        const numValue = parseFloat(newValue);
+                                        if (!isNaN(numValue) && numValue >= min && numValue <= max) {
+                                          newValues[cellKey] = newValue;
+                                          
+                                          if (!selectedAnswers.includes(cellKey)) {
+                                            setSelectedAnswers([...selectedAnswers, cellKey]);
+                                          }
+                                        } else {
+                                          return; 
+                                        }
+                                      }
+                                      setCorrectAnswerValues(newValues);
+                                    }}
+                                    min={min}
+                                    max={max}
+                                    maxLength={36}
+                                    className="w-full h-8 text-sm"
+                                    placeholder="-"
+                                  />
+                                </td>
+                              );
+                            }
+                            
+                            if (matrixInputType === "text") {
+                              const maxLength = matrixTextMaxLength ?? 255; 
+                              
+                              return (
+                                <td key={colIdx} className="border border-muted-foreground/20 p-2">
+                                  <Input
+                                    type="text"
+                                    value={cellValue}
+                                    onChange={(e) => {
+                                      const newValue = e.target.value;
+                                      const newValues = { ...correctAnswerValues };
+                                      if (newValue === "") {
+                                        delete newValues[cellKey];
+                                        
+                                        const newAnswers = selectedAnswers.filter(a => a !== cellKey);
+                                        setSelectedAnswers(newAnswers);
+                                      } else {
+                                        if (newValue.length <= maxLength) {
+                                          newValues[cellKey] = newValue;
+                                        
+                                          if (!selectedAnswers.includes(cellKey)) {
+                                            setSelectedAnswers([...selectedAnswers, cellKey]);
+                                          }
+                                        } else {
+                                          return; 
+                                        }
+                                      }
+                                      setCorrectAnswerValues(newValues);
+                                    }}
+                                    maxLength={maxLength}
+                                    className="w-full h-8 text-sm"
+                                    placeholder="-"
+                                  />
+                                </td>
+                              );
+                            }
                             
                             return (
                               <td key={colIdx} className="border border-muted-foreground/20 p-2 text-center">
