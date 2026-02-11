@@ -426,7 +426,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
       widgetDefaults.options = ["Option 1", "Option 2"];
     }
     if (item.widgetType === "rating") {
-      widgetDefaults.maxRating = 5;
+      widgetDefaults.maxRating = 10;
     }
     if (item.widgetType === "matrix") {
       widgetDefaults.rows = ["Row 1", "Row 2"];

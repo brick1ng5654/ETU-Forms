@@ -1523,7 +1523,7 @@ export function FormPreview({
                   <div className="relative">
                     <Input
                       type={part.inputType || "text"}
-                      inputMode={part.inputMode}
+                      inputMode={part.inputMode as React.InputHTMLAttributes<HTMLInputElement>["inputMode"]}
                       value={displayValue}
                       onChange={(e) => {
                         const normalized = part.normalize ? part.normalize(e.target.value) : e.target.value;
@@ -1541,9 +1541,9 @@ export function FormPreview({
                     {showIndicator && (
                       <LengthIndicator
                         len={len}
-                        limit={limit}
+                        limit={limit ?? 0}
                         isError={partError}
-                        isComplete={len > 0 && len === limit}
+                        isComplete={len > 0 && len === (limit ?? 0)}
                       />
                     )}
                   </div>
@@ -1574,7 +1574,7 @@ export function FormPreview({
       <div className="relative">
         <Input
           type={(preset?.inputType as string) || (props.inputType as string) || "text"}
-          inputMode={(preset?.inputMode as string) || (props.inputMode as string) || undefined}
+          inputMode={((preset?.inputMode ?? props.inputMode) as React.InputHTMLAttributes<HTMLInputElement>["inputMode"]) ?? undefined}
           placeholder={placeholder}
           value={displayValue}
           onChange={(e) => {
@@ -1592,7 +1592,7 @@ export function FormPreview({
             hasError ? "border-destructive focus-visible:ring-destructive/20" : ""
           )}
         />
-        {limit && (
+        {limit != null && (
           <LengthIndicator
             len={len}
             limit={limit}
@@ -1667,12 +1667,12 @@ export function FormPreview({
             <Label className="flex items-center gap-2">
               {field.label}
               {field.required && <span className="text-destructive">*</span>}
-              {props.points && typeof props.points === "number" && props.points > 0 && (
+              {typeof props.points === "number" && props.points > 0 && (
                 <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
                   {props.points} pts
                 </span>
               )}
-              {field.widgetType === "matrix" && props.matrixTotalPoints && typeof props.matrixTotalPoints === "number" && props.matrixTotalPoints > 0 && (
+              {field.widgetType === "matrix" && typeof props.matrixTotalPoints === "number" && props.matrixTotalPoints > 0 && (
                 <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
                   {props.matrixTotalPoints} pts (за всю матрицу)
                 </span>
@@ -1990,27 +1990,35 @@ export function FormPreview({
 
         {field.widgetType === "rating" && (
           <div className="flex items-center gap-1">
-            {Array.from({ length: (props.maxRating as number) || 5 }, (_, i) => i + 1).map((value) => (
-              <button
-                type="button"
-                key={value}
-                disabled={isInputsDisabled}
-                onClick={() => {
-                  updateAnswer(field.id, value);
-                  markTouched(field.id);
-                }}
-                className="p-1 hover:scale-110 transition-transform disabled:cursor-not-allowed"
-              >
-                <Star
-                  className={cn(
-                    "h-6 w-6 transition-colors",
-                    (answers[field.id] as number) >= value
-                      ? "fill-yellow-400 text-yellow-400"
-                      : "text-gray-300"
-                  )}
-                />
-              </button>
-            ))}
+            {(() => {
+              const maxR = Number(props.maxRating);
+              const maxRating = Number.isFinite(maxR) ? Math.min(10, Math.max(1, maxR)) : 10;
+              const values = Array.from(
+                { length: Math.max(0, maxRating) },
+                (_, i) => i + 1
+              );
+              return values.map((value) => (
+                <button
+                  type="button"
+                  key={value}
+                  disabled={isInputsDisabled}
+                  onClick={() => {
+                    updateAnswer(field.id, value);
+                    markTouched(field.id);
+                  }}
+                  className="p-1 hover:scale-110 transition-transform disabled:cursor-not-allowed"
+                >
+                  <Star
+                    className={cn(
+                      "h-6 w-6 transition-colors",
+                      (answers[field.id] as number) >= value
+                        ? "fill-yellow-400 text-yellow-400"
+                        : "text-gray-300"
+                    )}
+                  />
+                </button>
+              ));
+            })()}
           </div>
         )}
 

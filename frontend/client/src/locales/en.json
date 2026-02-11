@@ -295,6 +295,7 @@
     "attachmentsDisplay": "Image display",
     "attachmentsDisplayList": "List",
     "attachmentsDisplaySlider": "Slider",
+    "minrati": "Min Rating Value",
     "maxrati":"Max Rating Value",
     "domains":"Allowed Domains (comma separated)",
     "innLegalEntity": "Legal entity",

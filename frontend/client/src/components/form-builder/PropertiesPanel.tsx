@@ -1017,26 +1017,28 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
     }
 
     if (fieldDef.type === "slider") {
-      const sliderValue = typeof value === "number" ? value : fieldDef.min || 0;
+      const effectiveMin = typeof fieldDef.min === "number" ? fieldDef.min : 0;
+      const effectiveMax = typeof fieldDef.max === "number" ? fieldDef.max : 10;
+      const sliderValue = typeof value === "number" ? value : effectiveMin;
       const showRatingScale = fieldDef.key === "maxRating";
-      const minLabel = fieldDef.min ?? 0;
-      const maxLabel = fieldDef.max ?? 0;
+      const minLabel = effectiveMin;
+      const maxLabel = effectiveMax;
       return (
         <div key={fieldDef.key} className="space-y-2">
           <Label>
             {t(fieldDef.labelKey)} ({sliderValue})
           </Label>
           <Slider
-            value={[sliderValue]}
-            min={fieldDef.min}
-            max={fieldDef.max}
+            value={[Math.min(Math.max(sliderValue, effectiveMin), effectiveMax)]}
+            min={effectiveMin}
+            max={effectiveMax}
             step={fieldDef.step}
             onValueChange={(val) => updateByTarget(fieldDef.target, val[0])}
           />
           {showRatingScale && (
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>{minLabel}</span>
-              <span>5</span>
+              <span>{Math.round((effectiveMin + effectiveMax) / 2)}</span>
               <span>{maxLabel}</span>
             </div>
           )}
@@ -1837,14 +1839,30 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                       }
                     }
                   }
+                  // For rating: only 1–10
+                  if (selectedField.widgetType === "rating" && answer !== "") {
+                    const num = parseInt(answer, 10);
+                    if (answer !== String(num) || num < 1 || num > 10) {
+                      isInvalid = true;
+                    }
+                  }
                   
                   return (
                     <div key={index} className="flex items-center gap-2">
                       <Input
                         value={answer}
                         onChange={(e) => {
-                          // For matrix fields, validate the format is "number:number" and within bounds
                           const value = e.target.value;
+                          if (selectedField.widgetType === "rating") {
+                            // Only digits, max 2 chars; only allow value in 1–10
+                            const digitsOnly = value.replace(/\D/g, "").slice(0, 2);
+                            const num = digitsOnly === "" ? NaN : parseInt(digitsOnly, 10);
+                            if (digitsOnly !== "" && (num < 1 || num > 10)) return;
+                            const newAnswers = [...correctAnswers];
+                            newAnswers[index] = digitsOnly;
+                            updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
+                            return;
+                          }
                           if (selectedField.widgetType === "matrix") {
                             // Allow empty values
                             if (value === "") {
@@ -1858,22 +1876,18 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                             const formatRegex = /^\d+:\d+$/;
                             const validCharacters = /^[0-9:]*$/.test(value);
                             if (!validCharacters) {
-                              // Invalid characters, don't update
                               return;
                             }
                             if (!formatRegex.test(value)) {
-                              // Invalid format, still update to allow typing
                               const newAnswers = [...correctAnswers];
                               newAnswers[index] = value;
                               updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
                               return;
                             }
                             
-                            // Validate numbers are within matrix bounds (1-indexed)
                             const [rowStr, colStr] = value.split(':');
                             const row = parseInt(rowStr, 10);
                             const col = parseInt(colStr, 10);
-                            
                             const rows = (props.rows as string[]) || [];
                             const columns = (props.columns as string[]) || [];
                             
@@ -1882,19 +1896,17 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                               newAnswers[index] = value;
                               updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
                             } else {
-                              // Out of bounds, still update to allow typing
                               const newAnswers = [...correctAnswers];
                               newAnswers[index] = value;
                               updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
                             }
                           } else {
-                            // For non-matrix fields, allow any value
                             const newAnswers = [...correctAnswers];
                             newAnswers[index] = value;
                             updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
                           }
                         }}
-                        placeholder={t("propert.correctAnswerPlaceholder")}
+                        placeholder={selectedField.widgetType === "rating" ? "1–10" : t("propert.correctAnswerPlaceholder")}
                         className={`focus-visible:ring-green-500 ${isInvalid ? "border-red-500" : "border-green-200"}`}
                       />
                       <Button

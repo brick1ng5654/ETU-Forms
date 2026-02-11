@@ -602,14 +602,18 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
             </div>
           </RadioGroup>
         );
-      case "rating":
+      case "rating": {
+        const maxR = Number(props.maxRating);
+        const maxRating = Number.isFinite(maxR) ? Math.min(10, Math.max(1, maxR)) : 10;
+        const count = Math.max(0, maxRating);
         return (
           <div className="flex gap-2">
-            {Array.from({ length: (props.maxRating as number) || 5 }).map((_, i) => (
+            {Array.from({ length: count }).map((_, i) => (
               <Star key={i} className="h-6 w-6 text-muted-foreground/30" fill="currentColor" />
             ))}
           </div>
         );
+      }
       case "ranking":
         return editingElement === "options" ? (
           <div className="space-y-2">

@@ -286,6 +286,7 @@
     "attachmentsDisplay": "Отображение фото",
     "attachmentsDisplayList": "Последовательно",
     "attachmentsDisplaySlider": "Слайдер",
+    "minrati": "Минимальная оценка",
     "maxrati": "Максимальная оценка",
     "domains": "Разрешенные домены (через запятую)",
     "innLegalEntity": "Юридическое лицо",
