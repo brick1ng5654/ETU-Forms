@@ -2,6 +2,8 @@
   "ETU-Form": "ETU-Form",
   "common": {
     "loading": "Loading",
+    "loadingversion": "Uploading versions",
+    "loadingstats": "Uploading statistics",
     "untitled": "Untitled",
     "toolbox": "Toolbox",
     "preview": "Preview",

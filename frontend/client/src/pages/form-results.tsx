@@ -1272,7 +1272,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
           {isLoading ? (
               <Card className="flex flex-col min-h-0">
                 <div className="flex-1 flex items-center justify-center py-10">
-                  <CustomLoader variant="dots" text={t("common.loadingversion")} />
+                  <CustomLoader variant="dots" text={t("navigation.loadingForms")} />
                 </div>
               </Card>
             ):(
@@ -1482,6 +1482,13 @@ export default function FormResults({ params }: { params: { id: string } }) {
             </CardContent>
           </Card>
 
+          {isLoading ? (
+              <Card className="flex flex-col min-h-0">
+                <div className="flex-1 flex items-center justify-center py-10">
+                  <CustomLoader variant="dots" text={t("common.loadingstats")} />
+                </div>
+              </Card>
+          ) : (
           <Card>
             <CardHeader className="pb-4">
               <CardTitle className="text-base">{t("results.stats")}</CardTitle>
@@ -1523,6 +1530,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
               </div>
             </CardContent>
           </Card>
+          )}
         </aside>
       </div>
       )}
