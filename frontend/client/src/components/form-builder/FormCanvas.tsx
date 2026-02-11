@@ -23,7 +23,7 @@ import type { FormElementModel, FormSchema, SemanticType, WidgetType } from "@/f
 import { SortableField } from "./SortableField";
 import { nanoid } from "nanoid";
 import { 
-  Type, AlignLeft, Hash, Calendar, List, CheckSquare, CircleDot, Heading, Star, ListOrdered, Upload, User, Phone, FileText, CreditCard, Undo2, Redo2, ArrowUp, ArrowDown, Grid
+  Type, AlignLeft, Hash, Calendar, List, CheckSquare, CircleDot, Heading, Star, ListOrdered, Upload, User, Phone, FileText, CreditCard, Undo2, Redo2, ArrowUp, ArrowDown, Grid, Repeat2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -260,6 +260,21 @@ export function FormCanvas({
       if (nextType !== "select") {
         nextProps.multiple = undefined;
       }
+      const rawCorrectAnswers = (field.props as Record<string, unknown>).correctAnswers;
+      const correctAnswers = Array.isArray(rawCorrectAnswers) ? rawCorrectAnswers : [];
+      let normalizedCorrectAnswers = correctAnswers
+        .map((answer) => String(answer ?? "").trim())
+        .filter(Boolean);
+      const isMultipleSelect =
+        nextType === "select" &&
+        ((field.props as Record<string, unknown>).multiple === true || nextProps.multiple === true);
+      const shouldSingleCorrect = nextType === "radio" || (nextType === "select" && !isMultipleSelect);
+      if (shouldSingleCorrect && normalizedCorrectAnswers.length > 1) {
+        normalizedCorrectAnswers = normalizedCorrectAnswers.slice(0, 1);
+      }
+      if (correctAnswers.length > 0 || normalizedCorrectAnswers.length > 0) {
+        nextProps.correctAnswers = normalizedCorrectAnswers;
+      }
       updateField(field.id, { widgetType: nextType, props: nextProps });
     });
   };
@@ -331,6 +346,7 @@ export function FormCanvas({
                   disabled={!canTransform}
                   className={cn("gap-2", !canTransform && "text-muted-foreground")}
                 >
+                  <Repeat2 className="h-4 w-4" />
                   {t("builder.transform")}
                 </Button>
               </DropdownMenuTrigger>
