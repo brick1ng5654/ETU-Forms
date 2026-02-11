@@ -23,7 +23,7 @@ import type { FormElementModel, FormSchema, SemanticType, WidgetType } from "@/f
 import { SortableField } from "./SortableField";
 import { nanoid } from "nanoid";
 import { 
-  Type, AlignLeft, Hash, Calendar, List, CheckSquare, CircleDot, Heading, Star, ListOrdered, Upload, User, Phone, FileText, CreditCard, Undo2, Redo2, ArrowUp, ArrowDown, Grid
+  Type, AlignLeft, Hash, Calendar, List, CheckSquare, CircleDot, Heading, Star, ListOrdered, Upload, User, Phone, FileText, CreditCard, Undo2, Redo2, ArrowUp, ArrowDown, Grid, Repeat2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -32,6 +32,23 @@ import { Textarea } from "@/components/ui/textarea";
 import React from "react";
 import { useTranslation } from 'react-i18next';
 import { Languages } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { isCountryField } from "@/lib/countries";
+const widgetTypeLabelKey: Record<WidgetType, string> = {
+  header: "header",
+  text_input: "text",
+  textarea: "text",
+  number_input: "number",
+  select: "select",
+  checkbox: "checkbox",
+  radio: "radio",
+  datetime: "datetime",
+  file_upload: "file",
+  rating: "rating",
+  ranking: "ranking",
+  matrix: "matrix",
+};
+
 interface FormCanvasProps {
   form: FormSchema;
   setForm: (form: FormSchema) => void;
@@ -223,6 +240,45 @@ export function FormCanvas({
     return false;
   })();
 
+  const transformableWidgetTypes: WidgetType[] = ["select", "checkbox", "radio"];
+  const selectedFields = fields.filter((field) => selectedSet.has(field.id));
+  const isTransformableSelection =
+    selectedFields.length > 0 &&
+    selectedFields.every(
+      (field) =>
+        transformableWidgetTypes.includes(field.widgetType) &&
+        !field.semanticType &&
+        !isCountryField(field)
+    );
+  const excludedTypes = new Set(selectedFields.map((field) => field.widgetType));
+  const transformTargets = transformableWidgetTypes.filter((type) => !excludedTypes.has(type));
+  const canTransform = isTransformableSelection && transformTargets.length > 0;
+
+  const handleTransform = (nextType: WidgetType) => {
+    selectedFields.forEach((field) => {
+      const nextProps: Record<string, unknown> = {};
+      if (nextType !== "select") {
+        nextProps.multiple = undefined;
+      }
+      const rawCorrectAnswers = (field.props as Record<string, unknown>).correctAnswers;
+      const correctAnswers = Array.isArray(rawCorrectAnswers) ? rawCorrectAnswers : [];
+      let normalizedCorrectAnswers = correctAnswers
+        .map((answer) => String(answer ?? "").trim())
+        .filter(Boolean);
+      const isMultipleSelect =
+        nextType === "select" &&
+        ((field.props as Record<string, unknown>).multiple === true || nextProps.multiple === true);
+      const shouldSingleCorrect = nextType === "radio" || (nextType === "select" && !isMultipleSelect);
+      if (shouldSingleCorrect && normalizedCorrectAnswers.length > 1) {
+        normalizedCorrectAnswers = normalizedCorrectAnswers.slice(0, 1);
+      }
+      if (correctAnswers.length > 0 || normalizedCorrectAnswers.length > 0) {
+        nextProps.correctAnswers = normalizedCorrectAnswers;
+      }
+      updateField(field.id, { widgetType: nextType, props: nextProps });
+    });
+  };
+
   return (
     // DndContext - компонент для Drag & Drop функциональности
     <DndContext
@@ -282,6 +338,26 @@ export function FormCanvas({
               <ArrowDown className={cn("h-4 w-4", !canMoveDown && "text-muted-foreground")} />
               {t("builder.moveDown")}
             </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={!canTransform}
+                  className={cn("gap-2", !canTransform && "text-muted-foreground")}
+                >
+                  <Repeat2 className="h-4 w-4" />
+                  {t("builder.transform")}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {transformTargets.map((widgetType) => (
+                  <DropdownMenuItem key={widgetType} onClick={() => handleTransform(widgetType)}>
+                    {t(`fields.${widgetTypeLabelKey[widgetType]}`)}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
         

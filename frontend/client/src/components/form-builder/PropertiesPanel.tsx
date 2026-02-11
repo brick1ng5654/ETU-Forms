@@ -18,6 +18,7 @@ import { GripVertical } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import type { ChangeEvent, ClipboardEvent, KeyboardEvent } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { MatrixCorrectAnswersModal } from "./MatrixCorrectAnswersModal";
 import { toast } from "@/hooks/use-toast";
 import { authHeader } from "@/lib/auth";
@@ -548,6 +549,11 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
     (selectedField.widgetType === "text_input" || selectedField.widgetType === "textarea") &&
     !selectedField.semanticType &&
     !props.inputType;
+  const transformableChoiceTypes: WidgetType[] = ["select", "checkbox", "radio"];
+  const canTransformChoice =
+    !selectedField.semanticType &&
+    transformableChoiceTypes.includes(selectedField.widgetType) &&
+    !isCountrySelect;
   const isMultiline = selectedField.widgetType === "textarea";
   const textMaxLimit = getTextMaxLimit(selectedField.widgetType);
   const rawTextMaxChars = typeof props.maxChars === "number" ? props.maxChars : undefined;
@@ -1070,7 +1076,33 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
 
       <div className="space-y-2">
         <Label>{t("propert.fieldType")}</Label>
-        <div className="text-sm text-muted-foreground font-medium">{t(`fields.${typeLabelKey}`)}</div>
+        {canTransformChoice ? (
+          <Select
+            value={selectedField.widgetType}
+            onValueChange={(value) => {
+              const nextType = value as WidgetType;
+              if (nextType === selectedField.widgetType) return;
+              const nextProps: Record<string, unknown> = {};
+              if (nextType !== "select") {
+                nextProps.multiple = undefined;
+              }
+              updateField(selectedField.id, { widgetType: nextType, props: nextProps });
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={t(`fields.${typeLabelKey}`)} />
+            </SelectTrigger>
+            <SelectContent>
+              {transformableChoiceTypes.map((widgetType) => (
+                <SelectItem key={widgetType} value={widgetType}>
+                  {t(`fields.${widgetTypeLabelKey[widgetType]}`)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <div className="text-sm text-muted-foreground font-medium">{t(`fields.${typeLabelKey}`)}</div>
+        )}
       </div>
 
       <div className="space-y-4">
@@ -1523,40 +1555,72 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                     )}
                   </div>
                 ) : (
-                  options.map((option, index) => {
-                    const isSelected = correctAnswers.includes(option);
-                    return (
-                      <div
-                        key={index}
-                        className="flex items-center gap-2 p-2 rounded border border-green-100 hover:bg-green-50"
-                      >
-                        <input
-                          type="checkbox"
-                          id={`correct-${selectedField.id}-${index}`}
-                          checked={isSelected}
-                          onChange={(e) => {
-                            const currentAnswers = correctAnswers || [];
-                            let newAnswers: string[];
-                            if (e.target.checked) {
-                              if (selectedField.widgetType === "radio" || selectedField.widgetType === "select") {
-                                newAnswers = [option];
-                              } else {
-                                newAnswers = [...currentAnswers, option];
-                              }
-                            } else {
-                              newAnswers = currentAnswers.filter((a) => a !== option);
-                            }
+                  (() => {
+                    const isSingleChoice =
+                      selectedField.widgetType === "radio" ||
+                      (selectedField.widgetType === "select" && !Boolean(props.multiple));
+                    if (isSingleChoice) {
+                      const selectedValue = correctAnswers[0] ?? "";
+                      return (
+                        <RadioGroup
+                          value={selectedValue}
+                          onValueChange={(value) => {
+                            const newAnswers = value ? [value] : [];
                             updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
                           }}
-                          className="h-4 w-4 text-green-600 border-green-300 rounded focus:ring-green-500"
-                        />
-                        <label htmlFor={`correct-${selectedField.id}-${index}`} className="flex-1 text-sm cursor-pointer">
-                          {option}
-                        </label>
-                        {isSelected && <Check className="h-4 w-4 text-green-600" />}
-                      </div>
-                    );
-                  })
+                          className="gap-2"
+                        >
+                          {options.map((option, index) => (
+                            <div
+                              key={index}
+                              className="flex items-center gap-2 p-2 rounded border border-green-100 hover:bg-green-50"
+                            >
+                              <RadioGroupItem value={option} id={`correct-${selectedField.id}-${index}`} />
+                              <Label
+                                htmlFor={`correct-${selectedField.id}-${index}`}
+                                className="flex-1 text-sm cursor-pointer"
+                              >
+                                {option}
+                              </Label>
+                            </div>
+                          ))}
+                        </RadioGroup>
+                      );
+                    }
+
+                    return options.map((option, index) => {
+                      const isSelected = correctAnswers.includes(option);
+                      return (
+                        <div
+                          key={index}
+                          className="flex items-center gap-2 p-2 rounded border border-green-100 hover:bg-green-50"
+                        >
+                          <Checkbox
+                            id={`correct-${selectedField.id}-${index}`}
+                            checked={isSelected}
+                            simplifiedAnimation
+                            onCheckedChange={(checked) => {
+                              const currentAnswers = correctAnswers || [];
+                              let newAnswers: string[];
+                              if (checked) {
+                                newAnswers = [...currentAnswers, option];
+                              } else {
+                                newAnswers = currentAnswers.filter((a) => a !== option);
+                              }
+                              updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
+                            }}
+                          />
+                          <Label
+                            htmlFor={`correct-${selectedField.id}-${index}`}
+                            className="flex-1 text-sm cursor-pointer"
+                          >
+                            {option}
+                          </Label>
+                          {isSelected && <Check className="h-4 w-4 text-green-600" />}
+                        </div>
+                      );
+                    });
+                  })()
                 )}
               </div>
             ) : hasOptions ? (

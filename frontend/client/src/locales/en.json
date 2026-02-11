@@ -65,6 +65,7 @@
     "redo": "Step forward",
     "moveUp": "Move up",
     "moveDown": "Move down",
+    "transform": "Transform",
     "deleteSelected": "Delete selected",
     "selectedCount": "Selected items: {{count}}",
     "noActiveForm": "No active Form to save"
