@@ -16,7 +16,13 @@ import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { FormElementModel } from "@/form/types";
 import { Check } from "lucide-react"; 
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"; 
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+
+const MATRIX_NUMBER_MIN_LIMIT = -999999;
+const MATRIX_NUMBER_MAX_LIMIT = 999999;
+const MATRIX_NUMBER_INPUT_MAX_LENGTH = 7;
+const MATRIX_TEXT_MAX_LENGTH_LIMIT = 256;
+const MATRIX_NUMBER_ONLY_PATTERN = /^-?\d*$/;
 
 interface MatrixCorrectAnswersModalProps {
   field: FormElementModel;
@@ -161,6 +167,30 @@ export function MatrixCorrectAnswersModal({
     const text = event.clipboardData.getData("text");
     if (!decimalInputPattern.test(text)) {
       event.preventDefault();
+    }
+  };
+
+  const handleMatrixNumberKeyDown = (e: KeyboardEvent<HTMLInputElement>, currentValue: string) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+    if (e.key.length !== 1) return;
+    if (e.key === "-") {
+      if (currentValue.length > 0 || (e.target as HTMLInputElement).selectionStart !== 0) {
+        e.preventDefault();
+      }
+      return;
+    }
+    if (!/^\d$/.test(e.key)) e.preventDefault();
+  };
+
+  const handleMatrixNumberPaste = (e: ClipboardEvent<HTMLInputElement>) => {
+    const text = e.clipboardData.getData("text");
+    if (/[^\d-]/.test(text)) {
+      e.preventDefault();
+      return;
+    }
+    if ((text.match(/-/g) || []).length > 1 || (text.includes("-") && !text.startsWith("-"))) {
+      e.preventDefault();
     }
   };
   
@@ -350,7 +380,7 @@ export function MatrixCorrectAnswersModal({
   const resolvedPointsDistributionType = pointsDistributionType || "cell";
   const showValidationMode =
     resolvedPointsDistributionType === "column" ||
-    (resolvedPointsDistributionType === "row" && multiplePerRow);
+    (resolvedPointsDistributionType === "row" && (multiplePerRow || matrixInputType === "number" || matrixInputType === "text"));
   
   useEffect(() => {
     if (showValidationMode && !validationMode) {
@@ -576,42 +606,36 @@ export function MatrixCorrectAnswersModal({
                             const cellValue = correctAnswerValues[cellKey] || "";
                             
                             if (matrixInputType === "number") {
-                              const min = matrixNumberMin ?? -999999999;
-                              const max = matrixNumberMax ?? 999999999;
-                              
+                              const min = matrixNumberMin ?? MATRIX_NUMBER_MIN_LIMIT;
+                              const max = matrixNumberMax ?? MATRIX_NUMBER_MAX_LIMIT;
                               return (
                                 <td key={colIdx} className="border border-muted-foreground/20 p-2">
                                   <Input
-                                    type="number"
+                                    type="text"
+                                    inputMode="numeric"
                                     value={cellValue}
                                     onChange={(e) => {
-                                      const newValue = e.target.value;
+                                      const raw = e.target.value;
+                                      if (!MATRIX_NUMBER_ONLY_PATTERN.test(raw)) return;
+                                      if (raw.length > MATRIX_NUMBER_INPUT_MAX_LENGTH) return;
                                       const newValues = { ...correctAnswerValues };
-                                      if (newValue === "") {
+                                      if (raw === "" || raw === "-") {
                                         delete newValues[cellKey];
-                                        const newAnswers = selectedAnswers.filter(a => a !== cellKey);
-                                        setSelectedAnswers(newAnswers);
+                                        setSelectedAnswers(selectedAnswers.filter(a => a !== cellKey));
                                       } else {
-                                        if (newValue.length > 36) {
-                                          return; 
-                                        }
-                                        
-                                        const numValue = parseFloat(newValue);
+                                        const numValue = parseFloat(raw);
                                         if (!isNaN(numValue) && numValue >= min && numValue <= max) {
-                                          newValues[cellKey] = newValue;
-                                          
+                                          newValues[cellKey] = raw;
                                           if (!selectedAnswers.includes(cellKey)) {
                                             setSelectedAnswers([...selectedAnswers, cellKey]);
                                           }
-                                        } else {
-                                          return; 
-                                        }
+                                        } else return;
                                       }
                                       setCorrectAnswerValues(newValues);
                                     }}
-                                    min={min}
-                                    max={max}
-                                    maxLength={36}
+                                    onKeyDown={(e) => handleMatrixNumberKeyDown(e, cellValue)}
+                                    onPaste={handleMatrixNumberPaste}
+                                    maxLength={MATRIX_NUMBER_INPUT_MAX_LENGTH}
                                     className="w-full h-8 text-sm"
                                     placeholder="-"
                                   />
@@ -620,7 +644,7 @@ export function MatrixCorrectAnswersModal({
                             }
                             
                             if (matrixInputType === "text") {
-                              const maxLength = matrixTextMaxLength ?? 255; 
+                              const maxLength = matrixTextMaxLength ?? MATRIX_TEXT_MAX_LENGTH_LIMIT; 
                               
                               return (
                                 <td key={colIdx} className="border border-muted-foreground/20 p-2">

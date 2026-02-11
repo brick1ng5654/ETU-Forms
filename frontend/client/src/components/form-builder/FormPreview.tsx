@@ -410,29 +410,18 @@ function MatrixAnswerInput({
     const newValue = { ...objectValue };
     
     if (matrixInputType === "number") {
-      const min = matrixNumberMin ?? -999999999;
-      const max = matrixNumberMax ?? 999999999;
-
-      const maxInputLength = 36;
-      
-      if (inputValue.length > maxInputLength) {
-        return; 
-      }
-      
+      const min = matrixNumberMin ?? MATRIX_NUMBER_MIN_LIMIT;
+      const max = matrixNumberMax ?? MATRIX_NUMBER_MAX_LIMIT;
+      if (inputValue.length > MATRIX_NUMBER_INPUT_MAX_LENGTH) return;
       const numValue = parseFloat(inputValue);
       if (inputValue === "" || (!isNaN(numValue) && numValue >= min && numValue <= max)) {
         newValue[cellKey] = inputValue;
-      } else {
-        return; 
-      }
+      } else return;
     } else if (matrixInputType === "text") {
-      const maxLength = matrixTextMaxLength ?? TEXT_SINGLELINE_MAX_CHARS; // 255
-
+      const maxLength = matrixTextMaxLength ?? MATRIX_TEXT_MAX_LENGTH_LIMIT;
       if (inputValue.length <= maxLength) {
         newValue[cellKey] = inputValue;
-      } else {
-        return; 
-      }
+      } else return;
     }
     
     onChange(newValue);
@@ -513,10 +502,8 @@ function MatrixAnswerInput({
                 const cellValue = getCellValue(rowIdx, colIdx);
                 
                 if (matrixInputType === "number") {
-                  // Use default limits if not set
-                  const min = matrixNumberMin ?? -999999999;
-                  const max = matrixNumberMax ?? 999999999;
-                  
+                  const min = matrixNumberMin ?? MATRIX_NUMBER_MIN_LIMIT;
+                  const max = matrixNumberMax ?? MATRIX_NUMBER_MAX_LIMIT;
                   return (
                     <td
                       key={colIdx}
@@ -529,7 +516,7 @@ function MatrixAnswerInput({
                         onChange={(e) => handleInputChange(rowIdx, colIdx, e.target.value)}
                         min={min}
                         max={max}
-                        maxLength={36} // Prevent extremely long numbers
+                        maxLength={MATRIX_NUMBER_INPUT_MAX_LENGTH}
                         className="w-full h-8 text-sm"
                         placeholder="-"
                       />
@@ -538,8 +525,7 @@ function MatrixAnswerInput({
                 }
                 
                 if (matrixInputType === "text") {
-                  // Use default max length if not set
-                  const maxLength = matrixTextMaxLength ?? TEXT_SINGLELINE_MAX_CHARS; // 255
+                  const maxLength = matrixTextMaxLength ?? MATRIX_TEXT_MAX_LENGTH_LIMIT;
                   
                   return (
                     <td
@@ -609,6 +595,10 @@ interface TextLengthIndicatorProps {
 const TEXT_SINGLELINE_MAX_CHARS = 255;
 const TEXT_MULTILINE_MAX_CHARS = 10000;
 const MAX_NUMBER_INPUT_CHARS = 36;
+const MATRIX_NUMBER_MIN_LIMIT = -999999;
+const MATRIX_NUMBER_MAX_LIMIT = 999999;
+const MATRIX_NUMBER_INPUT_MAX_LENGTH = 7;
+const MATRIX_TEXT_MAX_LENGTH_LIMIT = 256;
 
 const getTextMaxLimit = (field: FormElementModel) =>
   field.widgetType === "textarea" ? TEXT_MULTILINE_MAX_CHARS : TEXT_SINGLELINE_MAX_CHARS;

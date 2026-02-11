@@ -201,6 +201,12 @@ const placeholderField: PropertyFieldDef = {
 const TEXT_SINGLELINE_MAX_CHARS = 255;
 const TEXT_MULTILINE_MAX_CHARS = 10000;
 const MAX_ATTACHMENTS = 10;
+const MATRIX_NUMBER_MIN_LIMIT = -999999;
+const MATRIX_NUMBER_MAX_LIMIT = 999999;
+const MATRIX_NUMBER_DEFAULT_MIN = -99999;
+const MATRIX_NUMBER_DEFAULT_MAX = 99999;
+const MATRIX_TEXT_MAX_LENGTH_LIMIT = 256;
+const MATRIX_TEXT_DEFAULT_MAX_LENGTH = 100;
 const MAX_UPLOAD_MB = 20;
 
 const propertiesSchemaByWidgetType: Record<WidgetType, PropertyFieldDef[]> = {
@@ -319,6 +325,8 @@ const propertiesSchemaByWidgetType: Record<WidgetType, PropertyFieldDef[]> = {
       labelKey: "propert.matrixNumberMin",
       type: "number",
       target: "props.matrixNumberMin",
+      min: MATRIX_NUMBER_MIN_LIMIT,
+      max: MATRIX_NUMBER_MAX_LIMIT,
       visible: (field) => {
         const props = field.props as Record<string, any>;
         return props.matrixInputType === "number";
@@ -329,6 +337,8 @@ const propertiesSchemaByWidgetType: Record<WidgetType, PropertyFieldDef[]> = {
       labelKey: "propert.matrixNumberMax",
       type: "number",
       target: "props.matrixNumberMax",
+      min: MATRIX_NUMBER_MIN_LIMIT,
+      max: MATRIX_NUMBER_MAX_LIMIT,
       visible: (field) => {
         const props = field.props as Record<string, any>;
         return props.matrixInputType === "number";
@@ -340,6 +350,7 @@ const propertiesSchemaByWidgetType: Record<WidgetType, PropertyFieldDef[]> = {
       type: "number",
       target: "props.matrixTextMaxLength",
       min: 1,
+      max: MATRIX_TEXT_MAX_LENGTH_LIMIT,
       visible: (field) => {
         const props = field.props as Record<string, any>;
         return props.matrixInputType === "text";
@@ -871,11 +882,11 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
       let defaultValue: number | undefined;
       if (isMatrixLimitField) {
         if (fieldDef.key === "matrixNumberMin") {
-          defaultValue = -999999999;
+          defaultValue = MATRIX_NUMBER_DEFAULT_MIN;
         } else if (fieldDef.key === "matrixNumberMax") {
-          defaultValue = 999999999;
+          defaultValue = MATRIX_NUMBER_DEFAULT_MAX;
         } else if (fieldDef.key === "matrixTextMaxLength") {
-          defaultValue = TEXT_SINGLELINE_MAX_CHARS;
+          defaultValue = MATRIX_TEXT_DEFAULT_MAX_LENGTH;
         }
       }
       
@@ -906,7 +917,15 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                 setNumberDrafts((prev) => ({ ...prev, [draftKey]: digitsOnly }));
                 return;
               }
-              updateByTarget(fieldDef.target, parseInt(e.target.value, 10) || (isMatrixLimitField ? defaultValue ?? minValue : minValue));
+              if (isMatrixLimitField) {
+                const parsed = parseInt(e.target.value, 10);
+                const clamped = Number.isFinite(parsed)
+                  ? Math.min(Math.max(parsed, minValue), maxValue)
+                  : (defaultValue ?? minValue);
+                updateByTarget(fieldDef.target, clamped);
+                return;
+              }
+              updateByTarget(fieldDef.target, parseInt(e.target.value, 10) || minValue);
             }}
             onKeyDown={(e) => {
               if (!deferValidation) return;
@@ -1067,17 +1086,15 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                 const updates: Record<string, any> = { matrixInputType: newValue };
 
                 if (newValue === "number") {
-
                   if (currentProps.matrixNumberMin === undefined) {
-                    updates.matrixNumberMin = -999999;
+                    updates.matrixNumberMin = MATRIX_NUMBER_DEFAULT_MIN;
                   }
                   if (currentProps.matrixNumberMax === undefined) {
-                    updates.matrixNumberMax = 999999;
+                    updates.matrixNumberMax = MATRIX_NUMBER_DEFAULT_MAX;
                   }
                 } else if (newValue === "text") {
-
                   if (currentProps.matrixTextMaxLength === undefined) {
-                    updates.matrixTextMaxLength = TEXT_SINGLELINE_MAX_CHARS;
+                    updates.matrixTextMaxLength = MATRIX_TEXT_DEFAULT_MAX_LENGTH;
                   }
                 } else {
                   
