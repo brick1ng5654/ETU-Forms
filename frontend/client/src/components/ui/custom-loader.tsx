@@ -12,21 +12,21 @@ function CustomLoader({
   className, 
   size = "md", 
   showText = true,
-  text = "Загрузка...",
+  text = "Загрузка",
   variant = "logo",
   ...props 
 }: CustomLoaderProps) {
   const sizeClasses = {
     sm: "w-8 h-8",
     md: "w-16 h-16",
-    lg: "w-24 h-24",
+    lg: "w-25 h-25",
     xl: "w-32 h-32",
   };
 
   const iconSizeClasses = {
     sm: "w-3 h-3",
     md: "w-6 h-6",
-    lg: "w-20 h-20",
+    lg: "w-25 h-25",
     xl: "w-50 h-50",
   };
 
@@ -35,10 +35,10 @@ function CustomLoader({
       <div className="relative w-full h-full">
         <motion.div
           className="absolute inset-0 flex items-center justify-center"
-          animate={{ 
-            scale: [1, 1.1, 1],
-            rotate: [0, 5, 0, -5, 0]
-          }}
+          // animate={{ 
+          //   scale: [1, 1.1, 1],
+          //   rotate: [0, 5, 0, -5, 0]
+          // }}
           transition={{
             duration: 3,
             repeat: Infinity,
@@ -49,7 +49,7 @@ function CustomLoader({
             src="/logo_etu.png"
             alt="Логотип"
             className={cn(
-              "rounded-full bg-white shadow-lg p-1",
+              "rounded-full bg-white p-1",
               iconSizeClasses[size]
             )}
             animate={{ 
@@ -111,7 +111,7 @@ function CustomLoader({
               size === "xl" && "w-3 h-3"
             )}
             animate={{
-              y: [0, -6, 0],
+              y: [0, -3, 0],
               scale: [1, 1.5, 1],
               opacity: [0.3, 1, 0.3],
             }}
@@ -148,7 +148,7 @@ function CustomLoader({
 
       {showText && variant !== "dots" && (
         <motion.div
-          className="mt-6 text-center"
+          className="mt-3 text-center"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
