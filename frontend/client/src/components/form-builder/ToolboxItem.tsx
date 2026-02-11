@@ -24,21 +24,14 @@ export function ToolboxItem({ item, icon: Icon, label, collapsed = false, onAddF
       onClick={() => onAddField(item, label)}
       title={collapsed ? label : undefined}
       className={cn(
-        "rounded-md border border-border bg-white cursor-pointer hover:border-primary/50 hover:shadow-sm transition-[padding,gap,border-color,box-shadow] duration-300 ease-out",
-        collapsed ? "flex h-12 items-center justify-center p-0" : "flex items-center gap-3 p-3"
+        "flex h-12 items-center rounded-md border border-border bg-white cursor-pointer hover:border-primary/50 hover:shadow-sm transition-[border-color,box-shadow] duration-200",
+        collapsed ? "justify-center px-0" : "justify-start gap-3 px-3"
       )}
     >
-      <div className={cn("rounded-sm bg-muted text-muted-foreground transition-[padding] duration-300 ease-out", collapsed ? "p-2.5" : "p-2")}>
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-muted text-muted-foreground">
         <Icon className="h-4 w-4" />
       </div>
-      <span
-        className={cn(
-          "text-sm font-medium text-foreground whitespace-nowrap overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-out",
-          collapsed ? "max-w-0 opacity-0 ml-0" : "max-w-40 opacity-100 ml-0"
-        )}
-      >
-        {label}
-      </span>
+      {!collapsed ? <span className="text-sm font-medium text-foreground truncate">{label}</span> : null}
     </div>
   );
 }
