@@ -68,20 +68,12 @@
   --color-ring: #05336e;
 }
 
-@font-face {
-  font-family: 'Glober';
-  src: url('/frontend/client/public/fonts/globersemiboldfree.otf') format('opentype');
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
-
 @layer base {
   * {
     @apply border-border;
   }
   body {
-    font-family: 'Glober', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
   }
 }
 

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
 import type { MouseEvent } from "react";
 import { nanoid } from "nanoid";
 import type { FormAccessMode, FormElementModel, FormSchema } from "@/form/types";
@@ -160,6 +160,8 @@ export default function Builder({ params }: { params: { id?: string } }) {
   const [publishAccessMode, setPublishAccessMode] = useState<FormAccessMode>("private");
   const [publishNoStart, setPublishNoStart] = useState(false);
   const [publishNoEnd, setPublishNoEnd] = useState(false);
+  const canvasScrollRef = useRef<HTMLDivElement | null>(null);
+  const pendingCanvasScrollTopRef = useRef<number | null>(null);
 
   const handleSelectField = (id: string, event: MouseEvent<HTMLDivElement>) => {
     console.log('Selecting field:', id);
@@ -268,6 +270,20 @@ export default function Builder({ params }: { params: { id?: string } }) {
 
   const activeForm = forms.find(f => f.id === activeFormId) || forms[0] || null;
   const fields = activeForm?.fields || [];
+
+  const rememberCanvasScrollPosition = useCallback(() => {
+    if (!canvasScrollRef.current) return;
+    pendingCanvasScrollTopRef.current = canvasScrollRef.current.scrollTop;
+  }, []);
+
+  useLayoutEffect(() => {
+    const pendingScrollTop = pendingCanvasScrollTopRef.current;
+    if (pendingScrollTop == null) return;
+    if (canvasScrollRef.current) {
+      canvasScrollRef.current.scrollTop = pendingScrollTop;
+    }
+    pendingCanvasScrollTopRef.current = null;
+  }, [forms, activeFormId]);
 
   useEffect(() => {
     if (!isPublishOpen || !activeForm) return;
@@ -762,9 +778,11 @@ export default function Builder({ params }: { params: { id?: string } }) {
   };
 
   const handleSave = async () => {
+    rememberCanvasScrollPosition();
     try {
       await saveToServer();
     } catch (e: any) {
+      pendingCanvasScrollTopRef.current = null;
       toast({ title: t("builder.error"), description: e.message ?? "Save error", variant: "destructive" });
     }
   };
@@ -1188,6 +1206,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
 
         <FormCanvas
           key={activeForm.id}
+          scrollContainerRef={canvasScrollRef}
           form={activeForm}
           setForm={setForm}
           selectedIds={selectedIds}
