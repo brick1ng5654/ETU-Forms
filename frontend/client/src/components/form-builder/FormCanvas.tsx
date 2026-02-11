@@ -23,7 +23,7 @@ import type { FormElementModel, FormSchema, SemanticType, WidgetType } from "@/f
 import { SortableField } from "./SortableField";
 import { nanoid } from "nanoid";
 import { 
-  Type, AlignLeft, Hash, Calendar, List, CheckSquare, CircleDot, Heading, Star, ListOrdered, Upload, User, Phone, FileText, CreditCard, Undo2, Redo2, ArrowUp, ArrowDown, Grid
+  Type, AlignLeft, Hash, Calendar, List, CheckSquare, CircleDot, Heading, Star, ListOrdered, Upload, User, Phone, FileText, CreditCard, Undo2, Redo2, ArrowUp, ArrowDown, Grid, UserCircle, Users, Folder, Link
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -63,11 +63,15 @@ export const getIconForElement = (widgetType: WidgetType, semanticType?: Semanti
       case "bank_account":
         return CreditCard;
       case "passport":
+        return UserCircle;
       case "inn":
-      case "snils":
-      case "ogrn":
-      case "bik":
         return FileText;
+      case "snils":
+        return Users;
+      case "ogrn":
+        return Folder;
+      case "bik":
+        return Link;
       default:
         return Type;
     }

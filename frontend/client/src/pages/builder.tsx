@@ -18,7 +18,14 @@ import {
   X,
   CalendarDays,
   Clock,
+  List,
+  Languages,
+  FolderPlus,
+  Copy,
+  Search,
+  AlertCircle,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -45,7 +52,6 @@ import {
 import { useAuth } from "@/lib/auth";
 
 import { useTranslation } from 'react-i18next';
-import { Languages } from "lucide-react";
 import { AppBrand } from "@/components/app-brand";
 
 const TOOLBOX_ITEMS: ToolboxItemDefinition[] = [
@@ -78,6 +84,13 @@ const TOOLBOX_ITEMS: ToolboxItemDefinition[] = [
   { widgetType: "text_input", semanticType: "ogrn", labelKey: "ogrn", category: "Specialized" },
   { widgetType: "text_input", semanticType: "bik", labelKey: "bik", category: "Specialized" },
 ];
+
+const CATEGORY_ICONS: Record<string, LucideIcon> = {
+  Basic: FolderPlus,
+  Choice: Copy,
+  Advanced: Search,
+  Specialized: AlertCircle,
+};
 
 const formatDateInput = (value: string | null | undefined) => {
   if (!value) return "";
@@ -824,10 +837,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
       {/* Navbar */}
       <header className="h-19 border-b border-border bg-white flex items-center justify-between px-4 shrink-0 z-20">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" className="-ml-2" onClick={() => setIsToolboxOpen(!isToolboxOpen)}>
-            {isToolboxOpen ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeftOpen className="h-5 w-5" />}
-          </Button>
-          <AppBrand onClick={() => setLocation('/')} />
+          <AppBrand onClick={() => setLocation('/')} showText={isToolboxOpen} />
 
           <div className="h-8 w-px bg-border mx-2 hidden md:block" />
           <div className="flex-1 flex items-center overflow-x-auto no-scrollbar max-w-xl">
@@ -1182,25 +1192,76 @@ export default function Builder({ params }: { params: { id?: string } }) {
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        <div className={cn("border-r border-border bg-white flex flex-col shrink-0 z-10 transition-all duration-300 ease-in-out overflow-hidden", isToolboxOpen ? "w-64" : "w-0 border-r-0")}>
-          <div className="p-4 border-b border-border min-w-[256px]">
-            <h2 className="font-semibold text-sm text-foreground uppercase tracking-wider">{t('builder.toolbox')}</h2>
+        <div
+          className={cn(
+            "border-r border-border bg-white flex flex-col shrink-0 z-10 overflow-hidden transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
+            isToolboxOpen ? "w-64" : "w-24"
+          )}
+        >
+          <div className={cn("border-b border-border transition-[padding] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]", isToolboxOpen ? "p-4" : "px-3 py-4")}>
+            <div className={cn("flex items-center", isToolboxOpen ? "justify-between gap-2" : "justify-center")}>
+              <h2
+                className={cn(
+                  "font-semibold text-sm text-foreground uppercase tracking-wider whitespace-nowrap overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-out",
+                  isToolboxOpen ? "max-w-40 opacity-100 mr-2" : "max-w-0 opacity-0 mr-0"
+                )}
+              >
+                {t('builder.toolbox')}
+              </h2>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0"
+                onClick={() => setIsToolboxOpen(!isToolboxOpen)}
+                title={isToolboxOpen ? t("builder.collapseToolbox") : t("builder.expandToolbox")}
+                aria-label={isToolboxOpen ? t("builder.collapseToolbox") : t("builder.expandToolbox")}
+              >
+                {isToolboxOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
+              </Button>
+            </div>
           </div>
-          <div className="flex-1 p-4 overflow-y-auto space-y-6 min-w-[256px]">
-            {Object.entries(groupedToolbox).map(([category, items]) => (
-              <div key={category} className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground mb-3 pl-1 uppercase">{t(`categories.${category}`)}</p>
-                {items.map((item) => (
-                  <ToolboxItem
-                    key={`${item.category}-${item.labelKey}`}
-                    item={item}
-                    label={t(`fields.${item.labelKey}`)}
-                    icon={getIconForElement(item.widgetType, item.semanticType)}
-                    onAddField={addField}
-                  />
-                ))}
-              </div>
-            ))}
+          <div
+            className={cn(
+              "flex-1 overflow-y-auto transition-[padding] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
+              isToolboxOpen ? "p-4 space-y-6" : "p-3 space-y-5"
+            )}
+          >
+            {Object.entries(groupedToolbox).map(([category, items]) => {
+              const CategoryIcon = CATEGORY_ICONS[category] ?? List;
+              const categoryLabel = t(`categories.${category}`);
+
+              return (
+                <div key={category} className={cn("space-y-1", !isToolboxOpen && "space-y-2")}>
+                  <p
+                    className={cn(
+                      "text-xs font-medium text-muted-foreground uppercase flex items-center transition-[gap,margin] duration-300 ease-out",
+                      isToolboxOpen ? "mb-3 pl-1 gap-2" : "mb-2 justify-center gap-0"
+                    )}
+                    title={!isToolboxOpen ? categoryLabel : undefined}
+                  >
+                    <CategoryIcon className="h-4 w-4 shrink-0" />
+                    <span
+                      className={cn(
+                        "whitespace-nowrap overflow-hidden transition-[max-width,opacity] duration-300 ease-out",
+                        isToolboxOpen ? "max-w-40 opacity-100" : "max-w-0 opacity-0"
+                      )}
+                    >
+                      {categoryLabel}
+                    </span>
+                  </p>
+                  {items.map((item) => (
+                    <ToolboxItem
+                      key={`${item.category}-${item.labelKey}`}
+                      item={item}
+                      label={t(`fields.${item.labelKey}`)}
+                      icon={getIconForElement(item.widgetType, item.semanticType)}
+                      collapsed={!isToolboxOpen}
+                      onAddField={addField}
+                    />
+                  ))}
+                </div>
+              );
+            })}
           </div>
         </div>
 
