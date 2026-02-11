@@ -221,6 +221,7 @@ async def _ensure_editor_or_owner(
     db: AsyncSession,
     form_id: int,
     current_user: AppUser,
+    allowed_roles: tuple[str, ...] = ("editor",),
 ) -> Form:
     result = await db.execute(select(Form).where(Form.form_id == form_id))
     form = result.scalar_one_or_none()
@@ -230,11 +231,14 @@ async def _ensure_editor_or_owner(
     if form.user_id == current_user.user_id:
         return form
 
+    if not allowed_roles:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
     access = await db.execute(
         select(AccessControl)
         .where(AccessControl.form_id == form_id)
         .where(AccessControl.user_id == current_user.user_id)
-        .where(AccessControl.role == "editor")
+        .where(AccessControl.role.in_(allowed_roles))
     )
     if not access.scalar_one_or_none():
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
@@ -379,7 +383,7 @@ async def get_form_responses(
     db: AsyncSession = Depends(get_db),
     current_user: AppUser = Depends(get_current_user),
 ):
-    form = await _ensure_editor_or_owner(db, form_id, current_user)
+    form = await _ensure_editor_or_owner(db, form_id, current_user, allowed_roles=("editor", "participant"))
 
     responses_result = await db.execute(
         select(Response)

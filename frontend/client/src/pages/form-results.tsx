@@ -27,7 +27,7 @@ import type {
   FormElementModel,
   FormSchema,
 } from "@/form/types";
-import { fetchFormDetail, fetchFormResponses, fetchForms, saveFormInPlace } from "@/lib/forms-api";
+import { fetchFormDetail, fetchFormResponses, fetchForms, fetchFormsCatalog, saveFormInPlace } from "@/lib/forms-api";
 import { storage } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import FormPreview from "@/components/form-builder/FormPreview";
@@ -570,6 +570,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
   const [privateLinkKey, setPrivateLinkKey] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const isRussianLocale = i18n.language.startsWith("ru");
+  const canEditCurrentForm = form?.canEdit === true;
 
   useEffect(() => {
     setActiveVersionId(params.id);
@@ -589,11 +590,27 @@ export default function FormResults({ params }: { params: { id: string } }) {
       try {
         const current = await fetchFormDetail(params.id);
         if (!active) return;
-        setForm(current);
 
-        const summaries = await fetchForms().catch(() => [current]);
+        const summaries = await fetchFormsCatalog().catch(async () => {
+          return await fetchForms().catch(() => [current]);
+        });
         const formsById = new Map<string, FormSchema>(summaries.map((item) => [item.id, item]));
-        formsById.set(current.id, current);
+        const currentSummary = formsById.get(current.id);
+        const currentWithPermissions: FormSchema = {
+          ...current,
+          ownerName: current.ownerName ?? currentSummary?.ownerName,
+          canEdit: typeof current.canEdit === "boolean" ? current.canEdit : currentSummary?.canEdit,
+          canViewResponses:
+            typeof current.canViewResponses === "boolean"
+              ? current.canViewResponses
+              : currentSummary?.canViewResponses,
+          canContinuePassage:
+            typeof current.canContinuePassage === "boolean"
+              ? current.canContinuePassage
+              : currentSummary?.canContinuePassage,
+        };
+        setForm(currentWithPermissions);
+        formsById.set(current.id, currentWithPermissions);
 
         let rootId = current.id;
         const guard = new Set<string>();
@@ -1011,7 +1028,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
     : false;
 
   const handleSaveSettings = async () => {
-    if (!form) return;
+    if (!form || !canEditCurrentForm) return;
     setIsSaving(true);
     const payload = buildFormPayload(form, {
       accessMode,
@@ -1055,15 +1072,17 @@ export default function FormResults({ params }: { params: { id: string } }) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2"
-            onClick={() => setLocation(`/builder/${params.id}`)}
-          >
-            <PencilLine className="h-4 w-4" />
-            <span className="hidden sm:inline">{t("results.editForm")}</span>
-          </Button>
+          {canEditCurrentForm ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => setLocation(`/builder/${params.id}`)}
+            >
+              <PencilLine className="h-4 w-4" />
+              <span className="hidden sm:inline">{t("results.editForm")}</span>
+            </Button>
+          ) : null}
           <Button
             variant="ghost"
             size="sm"
@@ -1093,11 +1112,13 @@ export default function FormResults({ params }: { params: { id: string } }) {
                   <EmptyDescription>{t("results.onlyPublishedDesc")}</EmptyDescription>
                 </EmptyHeader>
               </Empty>
-              <div className="mt-6 flex justify-center">
-                <Button onClick={() => setLocation(`/builder/${params.id}`)}>
-                  {t("results.openBuilder")}
-                </Button>
-              </div>
+              {canEditCurrentForm ? (
+                <div className="mt-6 flex justify-center">
+                  <Button onClick={() => setLocation(`/builder/${params.id}`)}>
+                    {t("results.openBuilder")}
+                  </Button>
+                </div>
+              ) : null}
             </CardContent>
           </Card>
         </div>
@@ -1474,7 +1495,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
               </div>
               <Button
                 onClick={handleSaveSettings}
-                disabled={!isDirty || isSaving}
+                disabled={!canEditCurrentForm || !isDirty || isSaving}
                 className="w-full"
               >
                 {isSaving ? t("results.saving") : t("results.saveSettings")}

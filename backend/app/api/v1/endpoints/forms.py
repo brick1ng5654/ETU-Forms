@@ -24,6 +24,18 @@ router = APIRouter(prefix="/forms", tags=["forms"])
 MAX_TEMP_FORMS_PER_USER = 25
 
 
+async def _cleanup_expired_temp_forms(db: AsyncSession) -> None:
+    now = datetime.utcnow()
+    await db.execute(
+        update(Form)
+        .where(Form.status == "temp")
+        .where(Form.expires_at.is_not(None))
+        .where(Form.expires_at <= now)
+        .values(status="deleted", deleted_at=now)
+    )
+    await db.commit()
+
+
 async def _count_active_temp_forms(db: AsyncSession, user_id: int) -> int:
     now = datetime.utcnow()
     await db.execute(
@@ -108,16 +120,7 @@ async def get_my_forms(
     db: AsyncSession = Depends(get_db),
     current_user: AppUser = Depends(get_current_user_dep)
 ):
-
-    now = datetime.utcnow()
-    await db.execute(
-        update(Form)
-        .where(Form.status == "temp")
-        .where(Form.expires_at.is_not(None))
-        .where(Form.expires_at <= now)
-        .values(status="deleted", deleted_at=now)
-    )
-    await db.commit()
+    await _cleanup_expired_temp_forms(db)
 
     access_filter = or_(
         Form.user_id == current_user.user_id,
@@ -155,8 +158,77 @@ async def get_my_forms(
     return FormListResponse(forms=form_responses, total=total)
 
 
+@router.get("/catalog", response_model=FormListResponse)
+async def get_forms_catalog(
+    db: AsyncSession = Depends(get_db),
+    current_user: AppUser = Depends(get_current_user_dep),
+):
+    await _cleanup_expired_temp_forms(db)
+
+    query = (
+        select(Form, AccessControl.role)
+        .outerjoin(
+            AccessControl,
+            and_(
+                AccessControl.form_id == Form.form_id,
+                AccessControl.user_id == current_user.user_id,
+            ),
+        )
+        .where(Form.status != "deleted")
+        .where(
+            or_(
+                Form.user_id == current_user.user_id,
+                AccessControl.user_id == current_user.user_id,
+            )
+        )
+        .order_by(Form.updated_at.desc(), Form.created_at.desc(), Form.form_id.desc())
+    )
+    result = await db.execute(query)
+
+    forms_by_id: dict[int, Form] = {}
+    roles_by_form_id: dict[int, set[str]] = {}
+    for form, role in result.all():
+        forms_by_id.setdefault(form.form_id, form)
+        if role is not None:
+            role_value = role.value if hasattr(role, "value") else str(role)
+            roles_by_form_id.setdefault(form.form_id, set()).add(role_value)
+
+    accessible_forms: list[Form] = []
+    permissions_by_form: dict[int, dict[str, bool]] = {}
+
+    for form in forms_by_id.values():
+        status_value = form.status.value if hasattr(form.status, "value") else str(form.status)
+        role_set = roles_by_form_id.get(form.form_id, set())
+        is_owner = form.user_id == current_user.user_id
+        can_edit = is_owner or "editor" in role_set
+        can_view_responses = (
+            status_value == "submitted"
+            and (is_owner or "editor" in role_set or "participant" in role_set)
+        )
+        can_continue_passage = (
+            status_value == "submitted"
+            and (is_owner or "editor" in role_set or "participant" in role_set)
+        )
+
+        if not (can_edit or can_view_responses or can_continue_passage):
+            continue
+
+        accessible_forms.append(form)
+        permissions_by_form[form.form_id] = {
+            "can_edit": can_edit,
+            "can_view_responses": can_view_responses,
+            "can_continue_passage": can_continue_passage,
+        }
+
+    summaries = await build_form_summaries(db, accessible_forms, permissions_by_form)
+    return FormListResponse(forms=summaries, total=len(summaries))
+
+
 async def _ensure_editor_or_owner(
-    db: AsyncSession, form_id: int, current_user: AppUser
+    db: AsyncSession,
+    form_id: int,
+    current_user: AppUser,
+    allowed_roles: tuple[str, ...] = ("editor",),
 ) -> Form:
     result = await db.execute(select(Form).where(Form.form_id == form_id))
     form = result.scalar_one_or_none()
@@ -175,11 +247,14 @@ async def _ensure_editor_or_owner(
     if form.user_id == current_user.user_id:
         return form
 
+    if not allowed_roles:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
     access = await db.execute(
         select(AccessControl)
         .where(AccessControl.form_id == form_id)
         .where(AccessControl.user_id == current_user.user_id)
-        .where(AccessControl.role == "editor")
+        .where(AccessControl.role.in_(allowed_roles))
     )
     if not access.scalar_one_or_none():
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
@@ -192,7 +267,7 @@ async def get_form(
     db: AsyncSession = Depends(get_db),
     current_user: AppUser = Depends(get_current_user_dep),
 ):
-    form = await _ensure_editor_or_owner(db, form_id, current_user)
+    form = await _ensure_editor_or_owner(db, form_id, current_user, allowed_roles=("editor", "participant"))
     return await build_form_detail_response(db, form)
 
 
@@ -207,6 +282,7 @@ async def save_form(
     form = await _ensure_editor_or_owner(db, form_id, current_user)
 
     if form.status == "submitted" and not in_place:
+        source_form_id = form.form_id
         temp_count = await _count_active_temp_forms(db, current_user.user_id)
         if temp_count >= MAX_TEMP_FORMS_PER_USER:
             raise HTTPException(
@@ -228,6 +304,17 @@ async def save_form(
         )
         db.add(draft)
         await db.flush()
+        source_access_rows = await db.execute(
+            select(AccessControl).where(AccessControl.form_id == source_form_id)
+        )
+        for row in source_access_rows.scalars().all():
+            db.add(
+                AccessControl(
+                    form_id=draft.form_id,
+                    user_id=row.user_id,
+                    role=row.role,
+                )
+            )
         form = draft
 
     target_status = "submitted" if form.status == "submitted" and in_place else "temp"

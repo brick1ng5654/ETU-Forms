@@ -130,6 +130,10 @@ class FormListResponse(BaseModel):
 
 class FormSummaryResponse(FormResponse):
     elements_count: int = 0
+    owner_name: Optional[str] = None
+    can_edit: bool = False
+    can_view_responses: bool = False
+    can_continue_passage: bool = False
 
 class FormDetailResponse(FormResponse):
     elements: List["BuilderElementOut"] = Field(default_factory=list)
