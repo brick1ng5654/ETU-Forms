@@ -1204,13 +1204,8 @@ export default function Builder({ params }: { params: { id?: string } }) {
           )}
         >
           <div className="border-b border-border">
-            <div className="h-[52px] px-4 flex items-center">
-              <div className={cn("relative flex w-full items-center", isToolboxOpen ? "justify-end" : "justify-center")}>
-                {isToolboxOpen ? (
-                  <h2 className="pointer-events-none absolute left-1/2 -translate-x-1/2 font-semibold text-sm text-foreground uppercase tracking-wider whitespace-nowrap">
-                    {t('builder.toolbox')}
-                  </h2>
-                ) : null}
+            <div className="h-[52px] px-6 flex items-center">
+              <div className={cn("flex w-full items-center", isToolboxOpen ? "justify-start gap-2" : "justify-start")}>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -1221,6 +1216,11 @@ export default function Builder({ params }: { params: { id?: string } }) {
                 >
                   {isToolboxOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
                 </Button>
+                {isToolboxOpen ? (
+                  <h2 className="font-semibold text-sm text-foreground uppercase tracking-wider whitespace-nowrap overflow-hidden">
+                    {t('builder.toolbox')}
+                  </h2>
+                ) : null}
               </div>
             </div>
           </div>
