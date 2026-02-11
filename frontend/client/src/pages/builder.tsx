@@ -20,10 +20,10 @@ import {
   Clock,
   List,
   Languages,
-  FolderPlus,
+  Diamond,
   Copy,
-  Search,
-  AlertCircle,
+  Hexagon,
+  SquareAsterisk,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
@@ -86,10 +86,10 @@ const TOOLBOX_ITEMS: ToolboxItemDefinition[] = [
 ];
 
 const CATEGORY_ICONS: Record<string, LucideIcon> = {
-  Basic: FolderPlus,
+  Basic: Diamond,
   Choice: Copy,
-  Advanced: Search,
-  Specialized: AlertCircle,
+  Advanced: Hexagon,
+  Specialized: SquareAsterisk,
 };
 
 const formatDateInput = (value: string | null | undefined) => {
@@ -1240,7 +1240,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
                       key={`${item.category}-${item.labelKey}`}
                       item={item}
                       label={t(`fields.${item.labelKey}`)}
-                      icon={getIconForElement(item.widgetType, item.semanticType)}
+                      icon={getIconForElement(item.widgetType, item.semanticType, item.props)}
                       collapsed={!isToolboxOpen}
                       onAddField={addField}
                     />
