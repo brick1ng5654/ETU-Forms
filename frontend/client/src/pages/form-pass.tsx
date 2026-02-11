@@ -13,6 +13,7 @@ import { CheckCircle2, FileText, Languages } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { fetchPublicFormDetail, submitPublicFormResponse, type HttpError } from "@/lib/forms-api";
 import { useAuth } from "@/lib/auth";
+import { CustomLoader } from "@/components/ui/custom-loader";
 
 export default function FormPass({ params }: { params: { id: string } }) {
   const { t, i18n } = useTranslation();
@@ -135,7 +136,9 @@ export default function FormPass({ params }: { params: { id: string } }) {
       <main className="max-w-4xl mx-auto px-4 py-6">
         {isLoading ? (
           <Card>
-            <CardContent className="py-8 text-sm text-muted-foreground">{t("common.loading")}</CardContent>
+            <CardContent className="py-8 flex items-center justify-center">
+              <CustomLoader variant="dots" text={t("common.loading")} />
+            </CardContent>
           </Card>
         ) : error ? (
           <Card>
