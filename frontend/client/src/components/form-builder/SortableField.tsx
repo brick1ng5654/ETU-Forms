@@ -26,6 +26,7 @@ interface MatrixPreviewProps {
   rows: string[];
   columns: string[];
   multiplePerRow: boolean;
+  matrixInputType?: "radio" | "checkbox" | "number" | "text";
   correctAnswers: string[];
   onOpenModal: () => void;
 }
@@ -35,6 +36,7 @@ function MatrixPreviewTable({
   rows,
   columns,
   multiplePerRow,
+  matrixInputType = "radio",
   correctAnswers,
   onOpenModal,
 }: MatrixPreviewProps) {
@@ -118,11 +120,18 @@ function MatrixPreviewTable({
                 {columns.map((_, colIdx) => (
                   <td
                     key={`${fieldId}-${rowIdx}-${colIdx}`}
-                    className="border border-muted-foreground/20 p-2 text-center relative z-0"
+                    className={cn(
+                      "border border-muted-foreground/20 p-2 relative z-0",
+                      (matrixInputType === "number" || matrixInputType === "text") ? "" : "text-center"
+                    )}
                     style={{ minWidth: '100px' }}
                   >
                     <div className="relative">
-                      {multiplePerRow ? (
+                      {matrixInputType === "number" ? (
+                        <Input disabled type="number" className="w-full h-8 text-sm" placeholder="-" />
+                      ) : matrixInputType === "text" ? (
+                        <Input disabled type="text" className="w-full h-8 text-sm" placeholder="-" />
+                      ) : multiplePerRow ? (
                         <Checkbox disabled className="mx-auto relative z-0" />
                       ) : (
                         <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/30 mx-auto relative z-0"></div>
@@ -593,14 +602,18 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
             </div>
           </RadioGroup>
         );
-      case "rating":
+      case "rating": {
+        const maxR = Number(props.maxRating);
+        const maxRating = Number.isFinite(maxR) ? Math.min(10, Math.max(1, maxR)) : 10;
+        const count = Math.max(0, maxRating);
         return (
           <div className="flex gap-2">
-            {Array.from({ length: (props.maxRating as number) || 5 }).map((_, i) => (
+            {Array.from({ length: count }).map((_, i) => (
               <Star key={i} className="h-6 w-6 text-muted-foreground/30" fill="currentColor" />
             ))}
           </div>
         );
+      }
       case "ranking":
         return editingElement === "options" ? (
           <div className="space-y-2">
@@ -709,6 +722,7 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
         const rows = (props.rows as string[]) || [];
         const columns = (props.columns as string[]) || [];
         const multiplePerRow = Boolean(props.multiplePerRow);
+        const matrixInputType = (props.matrixInputType as "radio" | "checkbox" | "number" | "text") || (multiplePerRow ? "checkbox" : "radio");
         const matrixCorrectAnswers = (props.correctAnswers as string[]) || [];
 
         return (
@@ -718,6 +732,7 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
               rows={rows}
               columns={columns}
               multiplePerRow={multiplePerRow}
+              matrixInputType={matrixInputType}
               correctAnswers={matrixCorrectAnswers}
               onOpenModal={() => setIsMatrixModalOpen(true)}
             />

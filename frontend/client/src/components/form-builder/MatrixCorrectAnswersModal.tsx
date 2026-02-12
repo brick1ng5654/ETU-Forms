@@ -16,7 +16,13 @@ import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { FormElementModel } from "@/form/types";
 import { Check } from "lucide-react"; 
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"; 
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+
+const MATRIX_NUMBER_MIN_LIMIT = -999999;
+const MATRIX_NUMBER_MAX_LIMIT = 999999;
+const MATRIX_NUMBER_INPUT_MAX_LENGTH = 7;
+const MATRIX_TEXT_MAX_LENGTH_LIMIT = 256;
+const MATRIX_NUMBER_ONLY_PATTERN = /^-?\d*$/;
 
 interface MatrixCorrectAnswersModalProps {
   field: FormElementModel;
@@ -36,7 +42,12 @@ export function MatrixCorrectAnswersModal({
   const rows = (props.rows as string[]) || [];
   const columns = (props.columns as string[]) || [];
   const multiplePerRow = Boolean(props.multiplePerRow);
+  const matrixInputType = (props.matrixInputType as "radio" | "checkbox" | "number" | "text") || (multiplePerRow ? "checkbox" : "radio");
+  const matrixNumberMin = props.matrixNumberMin as number | undefined;
+  const matrixNumberMax = props.matrixNumberMax as number | undefined;
+  const matrixTextMaxLength = props.matrixTextMaxLength as number | undefined;
   const matrixCorrectAnswers = (props.correctAnswers as string[]) || [];
+  const matrixCorrectAnswerValues = (props.correctAnswerValues as Record<string, string> | undefined) || {};
   const pointsPerCell = (props.pointsPerCell as Record<string, number> | undefined) || {};
   const pointsPerRow = (props.pointsPerRow as Record<string, number> | undefined) || {};
   const pointsPerColumn = (props.pointsPerColumn as Record<string, number> | undefined) || {};
@@ -55,6 +66,8 @@ export function MatrixCorrectAnswersModal({
   
   // Локальное состояние для выбранных ответов
   const [selectedAnswers, setSelectedAnswers] = useState<string[]>(matrixCorrectAnswers);
+  // Локальное состояние для значений правильных ответов (для number/text режимов)
+  const [correctAnswerValues, setCorrectAnswerValues] = useState<Record<string, string>>(matrixCorrectAnswerValues);
   // Локальное состояние для баллов по ячейкам
   const [cellPoints, setCellPoints] = useState<Record<string, number>>(pointsPerCell || {});
   const [cellPointsInput, setCellPointsInput] = useState<Record<string, string>>(mapPointsToInputs(pointsPerCell));
@@ -84,6 +97,7 @@ export function MatrixCorrectAnswersModal({
   // Обновление состояния при изменении props
   useEffect(() => {
     setSelectedAnswers(matrixCorrectAnswers);
+    setCorrectAnswerValues(matrixCorrectAnswerValues);
     setCellPoints(pointsPerCell || {});
     setCellPointsInput(mapPointsToInputs(pointsPerCell));
     setRowPoints(pointsPerRow || {});
@@ -110,7 +124,7 @@ export function MatrixCorrectAnswersModal({
     
     // Устанавливаем режим проверки
     setValidationMode(matrixValidationMode);
-  }, [field.id, matrixCorrectAnswers.length, JSON.stringify(pointsPerCell), JSON.stringify(pointsPerRow), JSON.stringify(pointsPerColumn), matrixValidationMode, matrixTotalPoints, props.pointsDistributionType]);
+  }, [field.id, matrixCorrectAnswers.length, JSON.stringify(pointsPerCell), JSON.stringify(pointsPerRow), JSON.stringify(pointsPerColumn), JSON.stringify(matrixCorrectAnswerValues), matrixValidationMode, matrixTotalPoints, props.pointsDistributionType]);
 
   const decimalInputPattern = /^\d*(?:\.\d*)?$/;
   const decimalValuePattern = /^\d+(?:\.\d*)?$/;
@@ -153,6 +167,32 @@ export function MatrixCorrectAnswersModal({
     const text = event.clipboardData.getData("text");
     if (!decimalInputPattern.test(text)) {
       event.preventDefault();
+    }
+  };
+
+  const handleMatrixNumberKeyDown = (e: KeyboardEvent<HTMLInputElement>, currentValue: string) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Home", "End", "ArrowUp", "ArrowDown"].includes(e.key)) return;
+    if (e.key.length !== 1) return;
+    if (e.key === "-") {
+      const el = e.target as HTMLInputElement;
+      const sel = el.selectionStart ?? 0;
+      const atStart = sel === 0;
+      const hasMinus = (el.value ?? currentValue).includes("-");
+      if (!atStart || hasMinus) e.preventDefault();
+      return;
+    }
+    if (!/^\d$/.test(e.key)) e.preventDefault();
+  };
+
+  const handleMatrixNumberPaste = (e: ClipboardEvent<HTMLInputElement>) => {
+    const text = e.clipboardData.getData("text");
+    if (/[^\d-]/.test(text)) {
+      e.preventDefault();
+      return;
+    }
+    if ((text.match(/-/g) || []).length > 1 || (text.includes("-") && !text.startsWith("-"))) {
+      e.preventDefault();
     }
   };
   
@@ -342,7 +382,7 @@ export function MatrixCorrectAnswersModal({
   const resolvedPointsDistributionType = pointsDistributionType || "cell";
   const showValidationMode =
     resolvedPointsDistributionType === "column" ||
-    (resolvedPointsDistributionType === "row" && multiplePerRow);
+    (resolvedPointsDistributionType === "row" && (multiplePerRow || matrixInputType === "number" || matrixInputType === "text"));
   
   useEffect(() => {
     if (showValidationMode && !validationMode) {
@@ -488,16 +528,22 @@ export function MatrixCorrectAnswersModal({
       matrixTotalPointsToSave = parsedValue > 0 ? parsedValue : undefined;
     }
     
+    const updateProps: Record<string, any> = {
+      correctAnswers: selectedAnswers,
+      pointsPerCell: pointsPerCellToSave,
+      pointsPerRow: pointsPerRowToSave,
+      pointsPerColumn: pointsPerColumnToSave,
+      matrixValidationMode: matrixValidationModeToSave,
+      matrixTotalPoints: matrixTotalPointsToSave,
+      pointsDistributionType: resolvedPointsDistributionType
+    };
+    
+    if (matrixInputType === "number" || matrixInputType === "text") {
+      updateProps.correctAnswerValues = Object.keys(correctAnswerValues).length > 0 ? correctAnswerValues : undefined;
+    }
+    
     updateField(field.id, {
-      props: {
-        correctAnswers: selectedAnswers,
-        pointsPerCell: pointsPerCellToSave,
-        pointsPerRow: pointsPerRowToSave,
-        pointsPerColumn: pointsPerColumnToSave,
-        matrixValidationMode: matrixValidationModeToSave,
-        matrixTotalPoints: matrixTotalPointsToSave,
-        pointsDistributionType: resolvedPointsDistributionType
-      }
+      props: updateProps
     });
     onOpenChange(false);
   };
@@ -505,6 +551,7 @@ export function MatrixCorrectAnswersModal({
   // Отмена изменений
   const handleCancel = () => {
     setSelectedAnswers(matrixCorrectAnswers);
+    setCorrectAnswerValues(matrixCorrectAnswerValues);
     setCellPoints(pointsPerCell || {});
     onOpenChange(false);
   };
@@ -558,6 +605,92 @@ export function MatrixCorrectAnswersModal({
                             const isChecked = multiplePerRow
                               ? selectedAnswers.includes(cellKey)
                               : selectedInRow === cellKey;
+                            const cellValue = correctAnswerValues[cellKey] || "";
+                            
+                            if (matrixInputType === "number") {
+                              const min = matrixNumberMin ?? MATRIX_NUMBER_MIN_LIMIT;
+                              const max = matrixNumberMax ?? MATRIX_NUMBER_MAX_LIMIT;
+                              return (
+                                <td key={colIdx} className="border border-muted-foreground/20 p-2">
+                                  <Input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={cellValue}
+                                    onChange={(e) => {
+                                      let raw = e.target.value;
+                                      const hasLeadingMinus = raw.startsWith("-");
+                                      const digitsOnly = raw.replace(/-/g, "").replace(/\D/g, "");
+                                      raw = (hasLeadingMinus ? "-" : "") + digitsOnly.slice(0, 7);
+                                      const newValues = { ...correctAnswerValues };
+                                      if (raw === "") {
+                                        delete newValues[cellKey];
+                                        setSelectedAnswers(selectedAnswers.filter(a => a !== cellKey));
+                                      } else {
+                                        newValues[cellKey] = raw;
+                                        if (!selectedAnswers.includes(cellKey)) {
+                                          setSelectedAnswers([...selectedAnswers, cellKey]);
+                                        }
+                                      }
+                                      setCorrectAnswerValues(newValues);
+                                    }}
+                                    onBlur={(e) => {
+                                      const raw = e.target.value.trim();
+                                      if (raw === "" || raw === "-") return;
+                                      const num = parseInt(raw, 10);
+                                      if (!Number.isFinite(num)) return;
+                                      const min = matrixNumberMin ?? MATRIX_NUMBER_MIN_LIMIT;
+                                      const max = matrixNumberMax ?? MATRIX_NUMBER_MAX_LIMIT;
+                                      const clamped = Math.min(Math.max(num, min), max);
+                                      if (String(clamped) !== raw) {
+                                        setCorrectAnswerValues((prev) => ({ ...prev, [cellKey]: String(clamped) }));
+                                      }
+                                    }}
+                                    onKeyDown={(e) => handleMatrixNumberKeyDown(e, cellValue)}
+                                    onPaste={handleMatrixNumberPaste}
+                                    maxLength={MATRIX_NUMBER_INPUT_MAX_LENGTH}
+                                    className="w-full h-8 text-sm"
+                                    placeholder="-"
+                                  />
+                                </td>
+                              );
+                            }
+                            
+                            if (matrixInputType === "text") {
+                              const maxLength = matrixTextMaxLength ?? MATRIX_TEXT_MAX_LENGTH_LIMIT; 
+                              
+                              return (
+                                <td key={colIdx} className="border border-muted-foreground/20 p-2">
+                                  <Input
+                                    type="text"
+                                    value={cellValue}
+                                    onChange={(e) => {
+                                      const newValue = e.target.value;
+                                      const newValues = { ...correctAnswerValues };
+                                      if (newValue === "") {
+                                        delete newValues[cellKey];
+                                        
+                                        const newAnswers = selectedAnswers.filter(a => a !== cellKey);
+                                        setSelectedAnswers(newAnswers);
+                                      } else {
+                                        if (newValue.length <= maxLength) {
+                                          newValues[cellKey] = newValue;
+                                        
+                                          if (!selectedAnswers.includes(cellKey)) {
+                                            setSelectedAnswers([...selectedAnswers, cellKey]);
+                                          }
+                                        } else {
+                                          return; 
+                                        }
+                                      }
+                                      setCorrectAnswerValues(newValues);
+                                    }}
+                                    maxLength={maxLength}
+                                    className="w-full h-8 text-sm"
+                                    placeholder="-"
+                                  />
+                                </td>
+                              );
+                            }
                             
                             return (
                               <td key={colIdx} className="border border-muted-foreground/20 p-2 text-center">
