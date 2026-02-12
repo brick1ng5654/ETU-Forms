@@ -203,8 +203,8 @@ const TEXT_MULTILINE_MAX_CHARS = 10000;
 const MAX_ATTACHMENTS = 10;
 const MATRIX_NUMBER_MIN_LIMIT = -99999;
 const MATRIX_NUMBER_MAX_LIMIT = 999999;
-const MATRIX_NUMBER_DEFAULT_MIN = 0;
-const MATRIX_NUMBER_DEFAULT_MAX = 99999;
+const MATRIX_NUMBER_DEFAULT_MIN = -1;
+const MATRIX_NUMBER_DEFAULT_MAX = 1;
 const MATRIX_TEXT_MAX_LENGTH_LIMIT = 256;
 const MATRIX_TEXT_DEFAULT_MAX_LENGTH = 256;
 const MAX_UPLOAD_MB = 20;
@@ -622,6 +622,30 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
     }
     if (target.startsWith("props.")) {
       const key = target.replace("props.", "");
+      if (selectedField.widgetType === "rating" && key === "maxRating") {
+        const nextMaxRaw = Number(value);
+        const nextMaxRating = Number.isFinite(nextMaxRaw)
+          ? Math.min(10, Math.max(1, nextMaxRaw))
+          : 10;
+        const currentCorrectAnswers = Array.isArray(props.correctAnswers) ? props.correctAnswers : [];
+        const hasOutOfRangeAnswer = currentCorrectAnswers.some((answer) => {
+          const normalized = String(answer ?? "").trim();
+          if (!normalized) return false;
+          const parsed = Number.parseInt(normalized, 10);
+          return normalized !== String(parsed) || parsed < 1 || parsed > nextMaxRating;
+        });
+        if (hasOutOfRangeAnswer) {
+          updateField(selectedField.id, {
+            props: {
+              [key]: nextMaxRating,
+              correctAnswers: undefined,
+            },
+          });
+          return;
+        }
+        updateField(selectedField.id, { props: { [key]: nextMaxRating } });
+        return;
+      }
       updateField(selectedField.id, { props: { [key]: value } });
     }
   };
@@ -878,6 +902,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
       const draftKey = `${selectedField?.id ?? "field"}:${fieldDef.key}`;
       const deferValidation = fieldDef.key === "maxFiles" || fieldDef.key === "maxFileSize";
       const isMatrixLimitField = fieldDef.key === "matrixNumberMin" || fieldDef.key === "matrixNumberMax" || fieldDef.key === "matrixTextMaxLength";
+      const isMatrixNumberLimitField = fieldDef.key === "matrixNumberMin" || fieldDef.key === "matrixNumberMax";
       
       let defaultValue: number | undefined;
       if (isMatrixLimitField) {
@@ -922,7 +947,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
               }
               if (isMatrixLimitField) {
                 let raw = e.target.value;
-                if (fieldDef.key === "matrixNumberMin" || fieldDef.key === "matrixNumberMax") {
+                if (isMatrixNumberLimitField) {
                   const hasLeadingMinus = raw.startsWith("-");
                   const digitsOnly = raw.replace(/-/g, "").replace(/\D/g, "");
                   raw = (hasLeadingMinus ? "-" : "") + digitsOnly.slice(0, 7);
@@ -930,7 +955,9 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                 const allowEmpty = raw === "" || (raw === "-" && fieldDef.key !== "matrixTextMaxLength");
                 if (allowEmpty) {
                   setNumberDrafts((prev) => ({ ...prev, [draftKey]: raw }));
-                  updateByTarget(fieldDef.target, undefined);
+                  if (!isMatrixNumberLimitField) {
+                    updateByTarget(fieldDef.target, undefined);
+                  }
                   return;
                 }
                 if (fieldDef.key !== "matrixTextMaxLength" && raw.includes("-") && raw.indexOf("-") !== 0) {
@@ -992,14 +1019,20 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
               if (isMatrixLimitField) {
                 const raw = e.target.value.trim();
                 if (raw === "" || (raw === "-" && fieldDef.key !== "matrixTextMaxLength")) {
-                  updateByTarget(fieldDef.target, undefined);
-                  setNumberDrafts((prev) => ({ ...prev, [draftKey]: "" }));
+                  if (isMatrixNumberLimitField) {
+                    const fallbackValue = defaultValue ?? minValue;
+                    updateByTarget(fieldDef.target, fallbackValue);
+                    setNumberDrafts((prev) => ({ ...prev, [draftKey]: String(fallbackValue) }));
+                  } else {
+                    updateByTarget(fieldDef.target, undefined);
+                    setNumberDrafts((prev) => ({ ...prev, [draftKey]: "" }));
+                  }
                   return;
                 }
                 const parsed = parseInt(raw, 10);
                 const nextValue = Number.isFinite(parsed)
                   ? Math.min(Math.max(parsed, minValue), maxValue)
-                  : undefined;
+                  : (isMatrixNumberLimitField ? (defaultValue ?? minValue) : undefined);
                 updateByTarget(fieldDef.target, nextValue);
                 setNumberDrafts((prev) => ({ ...prev, [draftKey]: nextValue !== undefined ? String(nextValue) : "" }));
                 return;
