@@ -15,7 +15,7 @@ export function AppBrand({
   showTextOnMobile = false,
 }: AppBrandProps) {
   const { i18n } = useTranslation();
-  const brandText = i18n.language.startsWith("ru") ? "\u041b\u042d\u0422\u0418.\u0424\u043e\u0440\u043c\u044b" : "ETU.Forms";
+  const brandText = i18n.language.startsWith("ru") ? "ЛЭТИ.Формы" : "ETU.Forms";
 
   const content = (
     <>

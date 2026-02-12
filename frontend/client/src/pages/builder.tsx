@@ -19,7 +19,14 @@ import {
   X,
   CalendarDays,
   Clock,
+  List,
+  Languages,
+  Diamond,
+  Copy,
+  Hexagon,
+  SquareAsterisk,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -46,7 +53,6 @@ import {
 import { useAuth } from "@/lib/auth";
 
 import { useTranslation } from 'react-i18next';
-import { Languages } from "lucide-react";
 import { AppBrand } from "@/components/app-brand";
 
 const TOOLBOX_ITEMS: ToolboxItemDefinition[] = [
@@ -79,6 +85,13 @@ const TOOLBOX_ITEMS: ToolboxItemDefinition[] = [
   { widgetType: "text_input", semanticType: "ogrn", labelKey: "ogrn", category: "Specialized" },
   { widgetType: "text_input", semanticType: "bik", labelKey: "bik", category: "Specialized" },
 ];
+
+const CATEGORY_ICONS: Record<string, LucideIcon> = {
+  Basic: Diamond,
+  Choice: Copy,
+  Advanced: Hexagon,
+  Specialized: SquareAsterisk,
+};
 
 const formatDateInput = (value: string | null | undefined) => {
   if (!value) return "";
@@ -829,9 +842,6 @@ export default function Builder({ params }: { params: { id?: string } }) {
       {/* Navbar */}
       <header className="h-19 border-b border-border bg-white flex items-center justify-between px-4 shrink-0 z-20">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" className="-ml-2" onClick={() => setIsToolboxOpen(!isToolboxOpen)}>
-            {isToolboxOpen ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeftOpen className="h-5 w-5" />}
-          </Button>
           <AppBrand onClick={() => setLocation('/')} />
 
           <div className="h-8 w-px bg-border mx-2 hidden md:block" />
@@ -1187,25 +1197,62 @@ export default function Builder({ params }: { params: { id?: string } }) {
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        <div className={cn("border-r border-border bg-white flex flex-col shrink-0 z-10 transition-all duration-300 ease-in-out overflow-hidden", isToolboxOpen ? "w-64" : "w-0 border-r-0")}>
-          <div className="p-4 border-b border-border min-w-[256px]">
-            <h2 className="font-semibold text-sm text-foreground uppercase tracking-wider">{t('builder.toolbox')}</h2>
-          </div>
-          <div className="flex-1 p-4 overflow-y-auto space-y-6 min-w-[256px]">
-            {Object.entries(groupedToolbox).map(([category, items]) => (
-              <div key={category} className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground mb-3 pl-1 uppercase">{t(`categories.${category}`)}</p>
-                {items.map((item) => (
-                  <ToolboxItem
-                    key={`${item.category}-${item.labelKey}`}
-                    item={item}
-                    label={t(`fields.${item.labelKey}`)}
-                    icon={getIconForElement(item.widgetType, item.semanticType)}
-                    onAddField={addField}
-                  />
-                ))}
+        <div
+          className={cn(
+            "border-r border-border bg-white flex flex-col shrink-0 z-10 overflow-hidden transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
+            isToolboxOpen ? "w-64" : "w-24"
+          )}
+        >
+          <div className="border-b border-border">
+            <div className="h-[52px] px-6 flex items-center">
+              <div className={cn("flex w-full items-center", isToolboxOpen ? "justify-start gap-2" : "justify-start")}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  onClick={() => setIsToolboxOpen(!isToolboxOpen)}
+                  title={isToolboxOpen ? t("builder.collapseToolbox") : t("builder.expandToolbox")}
+                  aria-label={isToolboxOpen ? t("builder.collapseToolbox") : t("builder.expandToolbox")}
+                >
+                  {isToolboxOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
+                </Button>
+                {isToolboxOpen ? (
+                  <h2 className="font-semibold text-sm text-foreground uppercase tracking-wider whitespace-nowrap overflow-hidden">
+                    {t('builder.toolbox')}
+                  </h2>
+                ) : null}
               </div>
-            ))}
+            </div>
+          </div>
+          <div
+            className="flex-1 overflow-y-auto px-3 py-4 space-y-6"
+          >
+            {Object.entries(groupedToolbox).map(([category, items]) => {
+              const CategoryIcon = CATEGORY_ICONS[category] ?? List;
+              const categoryLabel = t(`categories.${category}`);
+
+              return (
+                <div key={category} className="space-y-1">
+                  <p
+                    className="text-xs font-medium text-muted-foreground uppercase flex items-center mb-3 pl-5 gap-2"
+                    title={!isToolboxOpen ? categoryLabel : undefined}
+                  >
+                    <CategoryIcon className="h-4 w-4 shrink-0" />
+                    {isToolboxOpen ? <span className="whitespace-nowrap overflow-hidden">{categoryLabel}</span> : null}
+                  </p>
+                  {items.map((item) => (
+                    <ToolboxItem
+                      key={`${item.category}-${item.labelKey}`}
+                      item={item}
+                      label={t(`fields.${item.labelKey}`)}
+                      icon={getIconForElement(item.widgetType, item.semanticType, item.props)}
+                      collapsed={!isToolboxOpen}
+                      onAddField={addField}
+                    />
+                  ))}
+                </div>
+              );
+            })}
           </div>
         </div>
 

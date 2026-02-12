@@ -14,21 +14,24 @@ interface ToolboxItemProps {
   item: ToolboxItemDefinition;
   icon: LucideIcon;
   label: string;
+  collapsed?: boolean;
   onAddField: (item: ToolboxItemDefinition, label: string) => void;
 }
 
-export function ToolboxItem({ item, icon: Icon, label, onAddField }: ToolboxItemProps) {
+export function ToolboxItem({ item, icon: Icon, label, collapsed = false, onAddField }: ToolboxItemProps) {
   return (
     <div
       onClick={() => onAddField(item, label)}
+      title={collapsed ? label : undefined}
       className={cn(
-        "flex items-center gap-3 p-3 rounded-md border border-border bg-white cursor-pointer hover:border-primary/50 hover:shadow-sm transition-all"
+        "flex h-12 items-center rounded-md border border-border bg-white cursor-pointer hover:border-primary/50 hover:shadow-sm transition-[border-color,box-shadow] duration-200",
+        collapsed ? "justify-center px-0" : "justify-start gap-3 px-3"
       )}
     >
-      <div className="p-2 rounded-sm bg-muted text-muted-foreground">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-muted text-muted-foreground">
         <Icon className="h-4 w-4" />
       </div>
-      <span className="text-sm font-medium text-foreground">{label}</span>
+      {!collapsed ? <span className="text-sm font-medium text-foreground truncate">{label}</span> : null}
     </div>
   );
 }

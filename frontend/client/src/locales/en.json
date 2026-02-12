@@ -35,6 +35,8 @@
 
   "builder": {
     "toolbox": "Toolbox",
+    "collapseToolbox": "Collapse toolbox",
+    "expandToolbox": "Expand toolbox",
     "preview": "Preview",
     "load": "Load",
     "save": "Save",
