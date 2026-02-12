@@ -1,0 +1,29 @@
+{
+  "cookies": [
+    {
+      "name": "refresh_token",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1IiwiaWF0IjoxNzcwODczMDc4LCJleHAiOjE3NzE0Nzc4NzgsInR5cGUiOiJyZWZyZXNoIiwiZW1haWwiOiJ0ZXN0QGV4YW1wbGUuY29tIn0.xQNjpOhO--8_UnNYhyx9PT-miSlE4z7maQ7drPMd67E",
+      "domain": "localhost",
+      "path": "/api/v1/auth",
+      "expires": 1771477878.837464,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "https://localhost",
+      "localStorage": [
+        {
+          "name": "i18nextLng",
+          "value": "en-US"
+        },
+        {
+          "name": "etu_forms",
+          "value": "[{\"id\":\"1\",\"title\":\"Demo Form\",\"description\":\"Form for testing roles: editor/participant\",\"fields\":[],\"fieldCount\":0,\"status\":\"temp\",\"version\":1,\"prevFormId\":null,\"settings_json\":null,\"startAt\":null,\"endAt\":null,\"accessMode\":\"private\",\"updatedAt\":1770862261378}]"
+        }
+      ]
+    }
+  ]
+}

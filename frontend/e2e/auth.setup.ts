@@ -6,9 +6,9 @@ setup("auth", async ({ page }) => {
 
     await page.goto("/auth");
 
-    await page.fill('input[name="email"]', email || "");
-    await page.fill('input[name="password"]', password || "");
-    await page.click('button[type="submit"]').click();
+    await page.fill("#email", email || "");
+    await page.fill("#password", password || "");
+    await page.click('button[type="submit"]');
 
     await expect(page).toHaveURL("/");
 

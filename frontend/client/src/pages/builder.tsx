@@ -892,11 +892,11 @@ export default function Builder({ params }: { params: { id?: string } }) {
             </Button>
             <Dialog>
               <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
+                <Button data-testid="builder-preview-open" variant="outline" size="sm" className="gap-2">
                   <Eye className="h-4 w-4" /> <span className="hidden sm:inline">{t('builder.preview')}</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+              <DialogContent data-testid="preview-dialog" className="max-w-3xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>{activeForm.title || t('common.untitled')}</DialogTitle>
                   {activeForm.description && (
@@ -933,16 +933,16 @@ export default function Builder({ params }: { params: { id?: string } }) {
               <span className="hidden sm:inline">{t("results.openResults")}</span>
             </Button>
 
-            <Button variant="outline" size="sm" className="gap-2" onClick={handleSave}>
+            <Button data-testid="builder-save" variant="outline" size="sm" className="gap-2" onClick={handleSave}>
               <Save className="h-4 w-4" /> <span className="hidden sm:inline">{t('builder.save')}</span>
             </Button>
             <Popover open={isPublishOpen} onOpenChange={setIsPublishOpen}>
               <PopoverTrigger asChild>
-                <Button size="sm" className="gap-2">
+                <Button data-testid="builder-publish-open" size="sm" className="gap-2">
                   <Share2 className="h-4 w-4" /> <span className="hidden sm:inline">{t("builder.publish")}</span>
                 </Button>
               </PopoverTrigger>
-              <PopoverContent align="end" className="w-[360px] p-4">
+              <PopoverContent data-testid="builder-publish-popover" align="end" className="w-[360px] p-4">
                 <div className="space-y-4">
                   <div className="space-y-1">
                     <h4 className="text-sm font-semibold">{t("builder.publishTitle")}</h4>

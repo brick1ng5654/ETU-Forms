@@ -18,8 +18,13 @@ interface ToolboxItemProps {
 }
 
 export function ToolboxItem({ item, icon: Icon, label, onAddField }: ToolboxItemProps) {
+  const testId = `toolbox-item-${item.category}-${item.widgetType}${item.semanticType ? `-${item.semanticType}` : ""}`
+    .toLowerCase()
+    .replace(/\s+/g, "-");
+
   return (
     <div
+      data-testid={testId}
       onClick={() => onAddField(item, label)}
       className={cn(
         "flex items-center gap-3 p-3 rounded-md border border-border bg-white cursor-pointer hover:border-primary/50 hover:shadow-sm transition-all"
