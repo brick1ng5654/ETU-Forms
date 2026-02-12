@@ -1,7 +1,9 @@
 ﻿{
   "ETU-Form": "ETU-Form",
   "common": {
-    "loading": "Загрузка...",
+    "loading": "Загрузка",
+    "loadingversion": "Загрузка версий",
+    "loadingstats": "Загрузка статистики",
     "untitled": "Без названия",
     "toolbox": "Инструменты",
     "preview": "Предпросмотр",
@@ -26,7 +28,8 @@
     "folder": "Папка",
     "forms": "Формы",
     "fields": "Поля",
-    "descriphome": "Нет описания"
+    "descriphome": "Нет описания",
+    "loadingForms": "Загрузка форм"
   },
   "builder": {
     "toolbox": "Инструменты",
@@ -60,6 +63,7 @@
     "redo": "Шаг вперед",
     "moveUp": "Переместить выше",
     "moveDown": "Переместить ниже",
+    "transform": "Трансформировать",
     "deleteSelected": "Удалить элементы",
     "selectedCount": "Выбрано элементов: {{count}}",
     "noActiveForm": "Нет активной формы для сохранения"
@@ -271,7 +275,7 @@
     "attachments": "Вложения",
     "attachmentsHint": "Можно прикрепить до 10 файлов (до {{max}} МБ каждый). Они отображаются под элементом.",
     "attachmentsAdd": "Добавить файлы",
-    "attachmentsUploading": "Загрузка...",
+    "attachmentsUploading": "Загрузка",
     "attachmentsLimit": "Можно прикрепить не более 10 файлов.",
     "attachmentsUploadError": "Не удалось загрузить файл.",
     "fileUploadLimit": "Можно прикрепить не более {{max}} файлов.",
