@@ -19,15 +19,21 @@
 
   "navigation": {
     "allForms": "All Forms",
+    "categories": "Categories",
+    "folders": "Folders",
+    "allFolders": "All folders",
+    "availableForEdit": "Available for editing",
+    "availableForViewResponses": "Available for viewing responses",
     "newFolder": "New Folder",
     "createNewFolder":"Create New Folder",
     "create":"Create",
     "createNewForm": "Create New Form",
     "createForm": "Create Form",
     "noForms": "No forms found",
-    "noFormsDesc": "Create a new form in this folder to get started",
+    "noFormsDesc": "Create a new form to get started",
     "folder": "Folder",
     "forms": "Forms",
+    "availableForContinue": "Available for continuing passage",
     "fields": "Fields",
     "descriphome":"No description",
     "loadingForms": "Uploading forms"
@@ -195,6 +201,7 @@
 
   "actions": {
     "act":"Actions",
+    "properties": "Properties",
     "delete": "Delete",
     "moveTo": "Move to",
     "create": "Create",
@@ -374,6 +381,21 @@
   "descerr":{
     "empty":"Folder name cannot be empty",
     "query":"Folder with this name already exists"
+  },
+  "home": {
+    "name": "Name",
+    "author": "Author",
+    "version": "Version",
+    "createdAt": "Created at",
+    "updatedAt": "Last updated",
+    "unknownAuthor": "Unknown author",
+    "notAvailable": "Not available",
+    "continuePassage": "Continue passage",
+    "noContinueForms": "No forms for continuing passage.",
+    "noEditAccess": "You do not have permission to edit this form",
+    "noResultsAccess": "You do not have permission to view responses",
+    "noContinueAccess": "You do not have permission to continue passage",
+    "createError": "Failed to create form"
   },
   "logic": {
   "conditional": "Conditional Logic",

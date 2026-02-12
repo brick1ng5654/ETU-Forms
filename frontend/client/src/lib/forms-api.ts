@@ -7,6 +7,7 @@ type ServerFormStatus = "temp" | "submitted" | "deleted";
 type ServerFormSummary = {
   form_id: number;
   user_id: number;
+  owner_name?: string | null;
   title: string;
   description?: string | null;
   settings_json?: Record<string, unknown> | null;
@@ -21,6 +22,9 @@ type ServerFormSummary = {
   created_at: string;
   updated_at: string;
   elements_count?: number;
+  can_edit?: boolean;
+  can_view_responses?: boolean;
+  can_continue_passage?: boolean;
 };
 
 type ServerBuilderElement = {
@@ -236,6 +240,7 @@ export const mapServerDetailToSchema = (detail: ServerFormDetail): FormSchema =>
     startAt: detail.start_at ?? null,
     endAt: detail.end_at ?? null,
     accessMode: detail.access_mode ?? undefined,
+    createdAt: toTimestamp(detail.created_at),
     updatedAt: toTimestamp(detail.updated_at),
   };
 };
@@ -245,6 +250,7 @@ export const mapServerSummaryToSchema = (summary: ServerFormSummary): FormSchema
     id: String(summary.form_id),
     title: summary.title,
     description: summary.description ?? "",
+    ownerName: summary.owner_name ?? undefined,
     fields: [],
     fieldCount: summary.elements_count ?? 0,
     status: summary.status,
@@ -254,13 +260,25 @@ export const mapServerSummaryToSchema = (summary: ServerFormSummary): FormSchema
     startAt: summary.start_at ?? null,
     endAt: summary.end_at ?? null,
     accessMode: summary.access_mode ?? undefined,
+    createdAt: toTimestamp(summary.created_at),
     updatedAt: toTimestamp(summary.updated_at),
+    canEdit: summary.can_edit ?? undefined,
+    canViewResponses: summary.can_view_responses ?? undefined,
+    canContinuePassage: summary.can_continue_passage ?? undefined,
   };
 };
 
 export async function fetchForms(): Promise<FormSchema[]> {
-  
   const res = await apiFetch("/api/v1/forms");
+  if (!res.ok) {
+    throw await asHttpError(res);
+  }
+  const data = (await res.json()) as { forms: ServerFormSummary[] };
+  return data.forms.map(mapServerSummaryToSchema);
+}
+
+export async function fetchFormsCatalog(): Promise<FormSchema[]> {
+  const res = await apiFetch("/api/v1/forms/catalog");
   if (!res.ok) {
     throw await asHttpError(res);
   }

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Mapping
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
@@ -134,10 +134,13 @@ async def build_form_detail_response(
 async def build_form_summaries(
     db: AsyncSession,
     forms: List[models.Form],
+    permissions_by_form: Mapping[int, Dict[str, bool]] | None = None,
 ) -> List[FormSummaryResponse]:
     if not forms:
         return []
     form_ids = [f.form_id for f in forms]
+    owner_ids = list({f.user_id for f in forms})
+
     counts_result = await db.execute(
         select(models.FormElement.form_id, func.count(models.FormElement.element_id))
         .where(models.FormElement.form_id.in_(form_ids))
@@ -145,8 +148,26 @@ async def build_form_summaries(
     )
     counts_map = {row[0]: row[1] for row in counts_result.all()}
 
+    owners_result = await db.execute(
+        select(models.AppUser.user_id, models.AppUser.name)
+        .where(models.AppUser.user_id.in_(owner_ids))
+    )
+    owner_name_map = {row[0]: row[1] for row in owners_result.all()}
+
     summaries: List[FormSummaryResponse] = []
     for form in forms:
+        status_value = _enum_value(form.status)
+        default_permissions = {
+            "can_edit": True,
+            "can_view_responses": status_value == "submitted",
+            "can_continue_passage": status_value == "submitted",
+        }
+        resolved_permissions = (
+            permissions_by_form.get(form.form_id, default_permissions)
+            if permissions_by_form
+            else default_permissions
+        )
+
         summaries.append(
             FormSummaryResponse(
                 form_id=form.form_id,
@@ -165,6 +186,10 @@ async def build_form_summaries(
                 created_at=form.created_at,
                 updated_at=form.updated_at,
                 elements_count=counts_map.get(form.form_id, 0),
+                owner_name=owner_name_map.get(form.user_id),
+                can_edit=bool(resolved_permissions.get("can_edit", False)),
+                can_view_responses=bool(resolved_permissions.get("can_view_responses", False)),
+                can_continue_passage=bool(resolved_permissions.get("can_continue_passage", False)),
             )
         )
     return summaries
