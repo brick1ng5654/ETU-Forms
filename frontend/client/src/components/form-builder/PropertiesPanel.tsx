@@ -1839,12 +1839,17 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                       }
                     }
                   }
-                  // For rating: only 1–10
+                  // For rating: use min=1, max=maxRating from props
                   if (selectedField.widgetType === "rating" && answer !== "") {
+                    const maxR = Number(props.maxRating);
+                    const maxRatingVal = Number.isFinite(maxR) ? Math.min(10, Math.max(1, maxR)) : 10;
+                    const minRatingVal = 1;
                     const num = parseInt(answer, 10);
-                    if (answer !== String(num) || num < 1 || num > 10) {
+                    if (answer !== String(num) || num < minRatingVal || num > maxRatingVal) {
                       isInvalid = true;
                     }
+                  } else if (selectedField.widgetType === "rating" && answer === "") {
+                    isInvalid = true;
                   }
                   
                   return (
@@ -1854,10 +1859,15 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                         onChange={(e) => {
                           const value = e.target.value;
                           if (selectedField.widgetType === "rating") {
-                            // Only digits, max 2 chars; only allow value in 1–10
+                            const maxR = Number(props.maxRating);
+                            const maxRatingVal = Number.isFinite(maxR) ? Math.min(10, Math.max(1, maxR)) : 10;
+                            const minRatingVal = 1;
                             const digitsOnly = value.replace(/\D/g, "").slice(0, 2);
-                            const num = digitsOnly === "" ? NaN : parseInt(digitsOnly, 10);
-                            if (digitsOnly !== "" && (num < 1 || num > 10)) return;
+                            // Allow empty while typing (restore on blur)
+                            if (digitsOnly !== "") {
+                              const num = parseInt(digitsOnly, 10);
+                              if (num < minRatingVal || num > maxRatingVal) return;
+                            }
                             const newAnswers = [...correctAnswers];
                             newAnswers[index] = digitsOnly;
                             updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
@@ -1906,7 +1916,17 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                             updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
                           }
                         }}
-                        placeholder={selectedField.widgetType === "rating" ? "1–10" : t("propert.correctAnswerPlaceholder")}
+                        onBlur={(e) => {
+                          if (selectedField.widgetType === "rating") {
+                            const val = (e.target.value || "").trim().replace(/\D/g, "");
+                            if (val === "") {
+                              const newAnswers = [...correctAnswers];
+                              newAnswers[index] = "1";
+                              updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
+                            }
+                          }
+                        }}
+                        placeholder={selectedField.widgetType === "rating" ? `1–${Number.isFinite(Number(props.maxRating)) ? Math.min(10, Math.max(1, Number(props.maxRating))) : 10}` : t("propert.correctAnswerPlaceholder")}
                         className={`focus-visible:ring-green-500 ${isInvalid ? "border-red-500" : "border-green-200"}`}
                       />
                       <Button
@@ -1928,7 +1948,8 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                   size="sm"
                   className="w-full mt-2 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
                   onClick={() => {
-                    const newAnswers = [...correctAnswers, ""];
+                    const defaultNew = selectedField.widgetType === "rating" ? "1" : "";
+                    const newAnswers = [...correctAnswers, defaultNew];
                     updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
                   }}
                 >
