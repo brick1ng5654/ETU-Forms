@@ -289,12 +289,12 @@ export default function Builder({ params }: { params: { id?: string } }) {
 
   const activeForm = forms.find(f => f.id === activeFormId) || forms[0] || null;
   const tabForms = useMemo(() => {
-    const tempPrevIds = new Set(
+    const prevIds = new Set(
       forms
-        .filter((form) => form.status === "temp" && form.prevFormId)
+        .filter((form) => form.prevFormId)
         .map((form) => form.prevFormId)
     );
-    return forms.filter((form) => !(form.status === "submitted" && tempPrevIds.has(form.id)));
+    return forms.filter((form) => !prevIds.has(form.id));
   }, [forms]);
   const fields = activeForm?.fields || [];
 
