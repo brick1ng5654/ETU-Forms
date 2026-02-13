@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
 import type { MouseEvent } from "react";
 import { nanoid } from "nanoid";
 import type { FormAccessMode, FormElementModel, FormSchema } from "@/form/types";
@@ -155,6 +155,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
   const [forms, setForms] = useState<FormSchema[]>([]);
   const [activeFormId, setActiveFormId] = useState<string | null>(null);
   const { accessToken, isLoading } = useAuth();
+  const activeFormIdRef = useRef<string | null>(null);
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
@@ -233,6 +234,10 @@ export default function Builder({ params }: { params: { id?: string } }) {
   }, [params.id, isLoading, accessToken]);
 
   useEffect(() => {
+    activeFormIdRef.current = activeFormId;
+  }, [activeFormId]);
+
+  useEffect(() => {
     if (isLoading || !accessToken) return;
     if (!activeFormId) return;
     const loadDetail = async () => {
@@ -283,6 +288,14 @@ export default function Builder({ params }: { params: { id?: string } }) {
   }, [activeFormId, t]);
 
   const activeForm = forms.find(f => f.id === activeFormId) || forms[0] || null;
+  const tabForms = useMemo(() => {
+    const tempPrevIds = new Set(
+      forms
+        .filter((form) => form.status === "temp" && form.prevFormId)
+        .map((form) => form.prevFormId)
+    );
+    return forms.filter((form) => !(form.status === "submitted" && tempPrevIds.has(form.id)));
+  }, [forms]);
   const fields = activeForm?.fields || [];
 
   const rememberCanvasScrollPosition = useCallback(() => {
@@ -767,14 +780,33 @@ export default function Builder({ params }: { params: { id?: string } }) {
     setForms((prev) => {
       const existing = prev.find((form) => form.id === saved.id);
       const merged = existing ? { ...saved, folderId: existing.folderId } : saved;
-      if (existing) {
-        return prev.map((form) => (form.id === saved.id ? merged : form));
+      const activeIndex = prev.findIndex((form) => form.id === activeForm.id);
+      let next = prev;
+
+      if (activeForm.id !== saved.id) {
+        next = next.filter((form) => form.id !== activeForm.id);
       }
-      return [...prev, merged];
+
+      if (existing) {
+        next = next.map((form) => (form.id === saved.id ? merged : form));
+      } else {
+        const insertAt = activeIndex >= 0 ? Math.min(activeIndex, next.length) : next.length;
+        next = [...next.slice(0, insertAt), merged, ...next.slice(insertAt)];
+      }
+
+      const seen = new Set<string>();
+      return next.filter((form) => {
+        if (seen.has(form.id)) return false;
+        seen.add(form.id);
+        return true;
+      });
     });
     if (saved.id !== activeForm.id) {
-      setActiveFormId(saved.id);
-      setLocation(`/builder/${saved.id}`);
+      storage.deleteForm(activeForm.id);
+      if (activeFormIdRef.current === activeForm.id) {
+        setActiveFormId(saved.id);
+        setLocation(`/builder/${saved.id}`);
+      }
     }
     toast({ title: t("builder.formSaved"), description: "Saved to DB" });
   };
@@ -847,7 +879,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
           <div className="h-8 w-px bg-border mx-2 hidden md:block" />
           <div className="flex-1 flex items-center overflow-x-auto no-scrollbar max-w-xl">
             <div className="flex items-center gap-1">
-              {forms.map(form => (
+              {tabForms.map(form => (
                 <div
                   key={form.id}
                   onClick={() => {

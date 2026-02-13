@@ -519,6 +519,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
   const [commaDrafts, setCommaDrafts] = useState<Record<string, string>>({});
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
+  const [textMaxCharsInput, setTextMaxCharsInput] = useState<string>("");
   useEffect(() => {
     if (!selectedField) return;
     const options = (selectedField.props as Record<string, any>).options as string[] | undefined;
@@ -535,6 +536,26 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
     setNumberDrafts({});
     setCommaDrafts({});
   }, [selectedField?.id]);
+
+  useEffect(() => {
+    if (!selectedField) return;
+    const props = selectedField.props as Record<string, any>;
+    const isPlainText =
+      (selectedField.widgetType === "text_input" || selectedField.widgetType === "textarea") &&
+      !selectedField.semanticType &&
+      !props.inputType;
+    if (!isPlainText) return;
+    const textMaxLimit = getTextMaxLimit(selectedField.widgetType);
+    const rawTextMaxChars = typeof props.maxChars === "number" ? props.maxChars : undefined;
+    const textMaxChars = clampTextMaxChars(rawTextMaxChars ?? textMaxLimit, textMaxLimit);
+    setTextMaxCharsInput(String(textMaxChars));
+  }, [
+    selectedField?.id,
+    selectedField?.widgetType,
+    selectedField?.semanticType,
+    (selectedField?.props as Record<string, any> | undefined)?.inputType,
+    (selectedField?.props as Record<string, any> | undefined)?.maxChars,
+  ]);
 
   if (selectedIds.length > 1) {
     const panelClassName = isConditionalSelectOpen
@@ -600,12 +621,6 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
   const textMaxLimit = getTextMaxLimit(selectedField.widgetType);
   const rawTextMaxChars = typeof props.maxChars === "number" ? props.maxChars : undefined;
   const textMaxChars = clampTextMaxChars(rawTextMaxChars ?? textMaxLimit, textMaxLimit);
-  const [textMaxCharsInput, setTextMaxCharsInput] = useState<string>("");
-
-  useEffect(() => {
-    if (!isPlainText) return;
-    setTextMaxCharsInput(String(textMaxChars));
-  }, [isPlainText, selectedField.id, textMaxChars]);
 
   const updateByTarget = (target: PropertyFieldDef["target"], value: unknown) => {
     if (target === "label") {
