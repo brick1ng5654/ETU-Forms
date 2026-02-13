@@ -12,6 +12,7 @@ DEFAULT_USERS = [
     ("editor@example.com", "Editor", settings.ADMIN_PASSWORD, False),
     ("participant@example.com", "Participant", settings.ADMIN_PASSWORD, False),
     ("noperms@example.com", "NoPerms", settings.ADMIN_PASSWORD, False),
+    ("test@example.com", "Test_User", settings.ADMIN_PASSWORD, False),
 ]
 
 async def _get_user_by_email(db: AsyncSession, email: str) -> models.AppUser | None:
@@ -97,6 +98,8 @@ async def seed_users(db: AsyncSession) -> None:
 
     editor = created["editor@example.com"]
     participant = created["participant@example.com"]
+    test_user = created["test@example.com"]
 
     await _ensure_access(db, form_id=demo_form.form_id, user_id=editor.user_id, role="editor")
     await _ensure_access(db, form_id=demo_form.form_id, user_id=participant.user_id, role="participant")
+    await _ensure_access(db, form_id=demo_form.form_id, user_id=test_user.user_id, role="editor")

@@ -13,3 +13,4 @@ pydantic[email]
 python-jose[cryptography]
 python-multipart
 redis>=5.0.0
+playwright
