@@ -19,6 +19,10 @@ interface ToolboxItemProps {
 }
 
 export function ToolboxItem({ item, icon: Icon, label, collapsed = false, onAddField }: ToolboxItemProps) {
+  const testId = item.semanticType
+    ? `toolbox-item-${item.widgetType}-${item.semanticType}`
+    : `toolbox-item-${item.widgetType}`;
+
   return (
     <div
       data-testid={testId}

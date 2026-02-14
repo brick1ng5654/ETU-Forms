@@ -309,6 +309,7 @@ export function FormCanvas({
             <Button
               variant="ghost"
               size="sm"
+              data-testid="builder-undo"
               onClick={onUndo}
               disabled={!canUndo}
               className={cn("gap-2", !canUndo && "text-muted-foreground")}
@@ -319,6 +320,7 @@ export function FormCanvas({
             <Button
               variant="ghost"
               size="sm"
+              data-testid="builder-redo"
               onClick={onRedo}
               disabled={!canRedo}
               className={cn("gap-2", !canRedo && "text-muted-foreground")}

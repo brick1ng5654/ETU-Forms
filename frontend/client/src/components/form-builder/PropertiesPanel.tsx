@@ -571,7 +571,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
           <p className="text-sm text-muted-foreground">{t("builder.selectedCount", { count: selectedIds.length })}</p>
         </div>
         <div className="grid gap-2">
-          <Button variant="destructive" onClick={deleteSelected}>
+          <Button variant="destructive" data-testid="prop-delete-selected" onClick={deleteSelected}>
             {t("builder.deleteSelected")}
           </Button>
         </div>
@@ -1306,6 +1306,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
           variant="destructive"
           size="icon"
           className="h-8 w-8"
+          data-testid="prop-delete-field"
           onClick={() => deleteField(selectedField.id)}
         >
           <Trash2 className="h-4 w-4" />
