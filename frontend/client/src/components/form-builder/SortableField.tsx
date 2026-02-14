@@ -327,9 +327,22 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
       : preset?.getPlaceholderKey
         ? preset.getPlaceholderKey(props)
         : preset?.placeholderKey;
-    const placeholder = placeholderKey
+    const canEditPlaceholder = field.semanticType !== "inn" && field.semanticType !== "ogrn";
+    const placeholder = canEditPlaceholder && placeholderKey
       ? t(placeholderKey)
-      : preset?.placeholder || (props.placeholder as string) || "";
+      : canEditPlaceholder
+        ? preset?.placeholder || (props.placeholder as string) || ""
+        : "";
+
+    if (!canEditPlaceholder) {
+      return (
+        <Input
+          placeholder={placeholder}
+          disabled
+          className="bg-white/50 pointer-events-none"
+        />
+      );
+    }
 
     return editingElement === "placeholder" ? (
       <Input
