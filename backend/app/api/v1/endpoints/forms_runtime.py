@@ -63,7 +63,7 @@ def _increment_link_views(form: Form) -> None:
 
 
 def _is_auth_required(form: Form) -> bool:
-    return _enum_value(form.access_mode) != "unauthenticated"
+    return _enum_value(form.access_mode) == "private"
 
 
 def _now_for_compare(form: Form) -> datetime:

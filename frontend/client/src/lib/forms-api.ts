@@ -13,7 +13,7 @@ type ServerFormSummary = {
   settings_json?: Record<string, unknown> | null;
   start_at?: string | null;
   end_at?: string | null;
-  access_mode?: "public" | "private" | "unauthenticated" | null;
+  access_mode?: "private" | "unauthenticated" | null;
   status: ServerFormStatus;
   deleted_at?: string | null;
   expires_at?: string | null;
@@ -77,7 +77,7 @@ type FormBuilderPayload = {
   settings_json?: Record<string, unknown> | null;
   start_at?: string | null;
   end_at?: string | null;
-  access_mode?: "public" | "private" | "unauthenticated" | null;
+  access_mode?: "private" | "unauthenticated" | null;
   elements: ServerBuilderElement[];
   conditions: ServerBuilderCondition[];
 };

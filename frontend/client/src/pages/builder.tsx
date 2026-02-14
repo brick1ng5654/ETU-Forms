@@ -999,12 +999,6 @@ export default function Builder({ params }: { params: { id?: string } }) {
                       className="space-y-2"
                     >
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="public" id="access-public" />
-                        <Label htmlFor="access-public" className="cursor-pointer">
-                          {t("builder.accessModePublic")}
-                        </Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
                         <RadioGroupItem value="private" id="access-private" />
                         <Label htmlFor="access-private" className="cursor-pointer">
                           {t("builder.accessModePrivate")}

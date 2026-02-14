@@ -1472,7 +1472,6 @@ export default function FormResults({ params }: { params: { id: string } }) {
                     <SelectValue placeholder={t("builder.accessModePlaceholder")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="public">{t("builder.accessModePublic")}</SelectItem>
                     <SelectItem value="private">{t("builder.accessModePrivate")}</SelectItem>
                     <SelectItem value="unauthenticated">{t("builder.accessModeUnauthenticated")}</SelectItem>
                   </SelectContent>

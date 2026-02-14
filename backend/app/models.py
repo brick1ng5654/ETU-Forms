@@ -21,7 +21,7 @@ class FormStatus(str, enum.Enum):
     DELETED = 'deleted'
 
 form_access_mode_enum = ENUM(
-    'public', 'private', 'unauthenticated',
+    'private', 'unauthenticated',
     name='form_access_mode'
 )
 
