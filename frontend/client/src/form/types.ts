@@ -63,6 +63,7 @@ export interface FormSchema {
   folderId?: string;
   title: string;
   description: string;
+  ownerName?: string;
   fields: FormElementModel[];
   fieldCount?: number;
   status?: "temp" | "submitted" | "deleted";
@@ -72,7 +73,11 @@ export interface FormSchema {
   startAt?: string | null;
   endAt?: string | null;
   accessMode?: FormAccessMode;
+  createdAt?: number;
   updatedAt: number;
+  canEdit?: boolean;
+  canViewResponses?: boolean;
+  canContinuePassage?: boolean;
 }
 
 export interface ConditionalLogic {

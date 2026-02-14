@@ -1,4 +1,4 @@
-﻿{
+{
   "ETU-Form": "ETU-Form",
   "common": {
     "loading": "Загрузка",
@@ -18,21 +18,29 @@
   },
   "navigation": {
     "allForms": "Все формы",
+    "categories": "Категории",
+    "folders": "Папки",
+    "allFolders": "Все папки",
+    "availableForEdit": "Доступные для редактирования",
+    "availableForViewResponses": "Доступные для просмотра ответов",
     "newFolder": "Новая папка",
     "createNewFolder": "Создать новую папку",
     "create": "Создать",
     "createNewForm": "Создать новую форму",
     "createForm": "Создать форму",
     "noForms": "Формы не найдены",
-    "noFormsDesc": "Создайте новую форму в этой папке, чтобы начать",
+    "noFormsDesc": "Создайте новую форму, чтобы начать",
     "folder": "Папка",
     "forms": "Формы",
+    "availableForContinue": "Доступные для продолжения прохождения формы",
     "fields": "Поля",
     "descriphome": "Нет описания",
     "loadingForms": "Загрузка форм"
   },
   "builder": {
     "toolbox": "Инструменты",
+    "collapseToolbox": "Свернуть панель инструментов",
+    "expandToolbox": "Развернуть панель инструментов",
     "preview": "Предпросмотр",
     "load": "Ответы",
     "save": "Сохранить",
@@ -188,6 +196,7 @@
   },
   "actions": {
     "act": "Действия",
+    "properties": "Свойства",
     "delete": "Удалить",
     "moveTo": "Переместить в",
     "create": "Создать",
@@ -286,6 +295,7 @@
     "attachmentsDisplay": "Отображение фото",
     "attachmentsDisplayList": "Последовательно",
     "attachmentsDisplaySlider": "Слайдер",
+    "minrati": "Минимальная оценка",
     "maxrati": "Максимальная оценка",
     "domains": "Разрешенные домены (через запятую)",
     "innLegalEntity": "Юридическое лицо",
@@ -324,6 +334,14 @@
     "matrixRows": "Строки матрицы",
     "matrixColumns": "Столбцы матрицы",
     "matrixMultiplePerRow": "Разрешить несколько выборов в строке",
+    "matrixInputType": "Тип поля матрицы",
+    "matrixInputTypeRadio": "Переключатель",
+    "matrixInputTypeCheckbox": "Флажок",
+    "matrixInputTypeNumber": "Число",
+    "matrixInputTypeText": "Текстовое поле",
+    "matrixNumberMin": "Минимальное значение",
+    "matrixNumberMax": "Максимальное значение",
+    "matrixTextMaxLength": "Максимальная длина текста",
     "matrixCorrectAnswers": "Правильные ответы матрицы",
     "matrixCorrectAnswersHelp": "Выберите ячейки, которые являются правильными ответами",
     "matrixCorrectAnswersFormatHelp": "Формат ответа: строка:столбец (например, 3:1). На каждом поле — только одна отмеченная клетка.",
@@ -357,6 +375,21 @@
   "descerr": {
     "empty": "Имя папки не может быть пустым",
     "query": "Папка с таким именем уже существует"
+  },
+  "home": {
+    "name": "Название",
+    "author": "Автор",
+    "version": "Версия",
+    "createdAt": "Время создания",
+    "updatedAt": "Время последнего изменения",
+    "unknownAuthor": "Неизвестный автор",
+    "notAvailable": "Нет данных",
+    "continuePassage": "Продолжить прохождение",
+    "noContinueForms": "Нет форм для продолжения прохождения.",
+    "noEditAccess": "Недостаточно прав для редактирования формы",
+    "noResultsAccess": "Недостаточно прав для просмотра ответов",
+    "noContinueAccess": "Недостаточно прав для продолжения прохождения",
+    "createError": "Не удалось создать форму"
   },
   "logic": {
     "conditional": "Условная логика",
@@ -398,4 +431,3 @@
     "footerText": "Введите учетные данные для доступа к системе"
   }
 }
-

@@ -23,7 +23,7 @@ import type { FormElementModel, FormSchema, SemanticType, WidgetType } from "@/f
 import { SortableField } from "./SortableField";
 import { nanoid } from "nanoid";
 import { 
-  Type, AlignLeft, Hash, Calendar, List, CheckSquare, CircleDot, Heading, Star, ListOrdered, Upload, User, Phone, FileText, CreditCard, Undo2, Redo2, ArrowUp, ArrowDown, Grid, Repeat2
+  Type, AlignLeft, Hash, Calendar, List, CheckSquare, CircleDot, Heading, Star, ListOrdered, Upload, User, Phone, FileText, CreditCard, Undo2, Redo2, ArrowUp, ArrowDown, Grid, Languages, IdCardLanyard, StickyNote, Building, BriefcaseBusiness, Globe, Repeat2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -70,7 +70,11 @@ interface FormCanvasProps {
  * @param type - тип поля (text, number, email и т.д.)
  * @returns React-компонент иконки из библиотеки lucide-react
 */
-export const getIconForElement = (widgetType: WidgetType, semanticType?: SemanticType) => {
+export const getIconForElement = (
+  widgetType: WidgetType,
+  semanticType?: SemanticType,
+  props?: Record<string, unknown>
+) => {
   if (semanticType) {
     switch (semanticType) {
       case "full_name":
@@ -80,11 +84,15 @@ export const getIconForElement = (widgetType: WidgetType, semanticType?: Semanti
       case "bank_account":
         return CreditCard;
       case "passport":
+        return IdCardLanyard;
       case "inn":
-      case "snils":
-      case "ogrn":
-      case "bik":
         return FileText;
+      case "snils":
+        return StickyNote;
+      case "ogrn":
+        return Building;
+      case "bik":
+        return BriefcaseBusiness;
       default:
         return Type;
     }
@@ -97,7 +105,7 @@ export const getIconForElement = (widgetType: WidgetType, semanticType?: Semanti
     case "header": return Heading;
     
     // ???????? ?? ???????????????????????? ????????????
-    case "select": return List;
+    case "select": return props?.optionsSource === "countries" ? Globe : List;
     case "checkbox": return CheckSquare;
     case "radio": return CircleDot;
     
@@ -451,8 +459,8 @@ export function FormCanvas({
               <div className="p-2 rounded-sm bg-primary/10 text-primary">
 
                 {/* Динамическое отображение иконки типа поля */}
-                {getIconForElement(activeDragItem.widgetType, activeDragItem.semanticType) &&
-                  React.createElement(getIconForElement(activeDragItem.widgetType, activeDragItem.semanticType), { className: "h-4 w-4" })}
+                {getIconForElement(activeDragItem.widgetType, activeDragItem.semanticType, activeDragItem.props) &&
+                  React.createElement(getIconForElement(activeDragItem.widgetType, activeDragItem.semanticType, activeDragItem.props), { className: "h-4 w-4" })}
               </div>
               <span className="text-sm font-medium">{activeDragItem.label}</span>
             </div>

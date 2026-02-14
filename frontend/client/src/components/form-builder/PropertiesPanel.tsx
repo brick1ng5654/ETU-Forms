@@ -201,6 +201,12 @@ const placeholderField: PropertyFieldDef = {
 const TEXT_SINGLELINE_MAX_CHARS = 255;
 const TEXT_MULTILINE_MAX_CHARS = 10000;
 const MAX_ATTACHMENTS = 10;
+const MATRIX_NUMBER_MIN_LIMIT = -99999;
+const MATRIX_NUMBER_MAX_LIMIT = 999999;
+const MATRIX_NUMBER_DEFAULT_MIN = -1;
+const MATRIX_NUMBER_DEFAULT_MAX = 1;
+const MATRIX_TEXT_MAX_LENGTH_LIMIT = 256;
+const MATRIX_TEXT_DEFAULT_MAX_LENGTH = 256;
 const MAX_UPLOAD_MB = 20;
 
 const propertiesSchemaByWidgetType: Record<WidgetType, PropertyFieldDef[]> = {
@@ -309,10 +315,46 @@ const propertiesSchemaByWidgetType: Record<WidgetType, PropertyFieldDef[]> = {
     helperTextField,
     requiredField,
     {
-      key: "multiplePerRow",
-      labelKey: "propert.matrixMultiplePerRow",
-      type: "switch",
-      target: "props.multiplePerRow",
+      key: "matrixInputType",
+      labelKey: "propert.matrixInputType",
+      type: "select",
+      target: "props.matrixInputType",
+    },
+    {
+      key: "matrixNumberMin",
+      labelKey: "propert.matrixNumberMin",
+      type: "number",
+      target: "props.matrixNumberMin",
+      min: MATRIX_NUMBER_MIN_LIMIT,
+      max: MATRIX_NUMBER_MAX_LIMIT,
+      visible: (field) => {
+        const props = field.props as Record<string, any>;
+        return props.matrixInputType === "number";
+      },
+    },
+    {
+      key: "matrixNumberMax",
+      labelKey: "propert.matrixNumberMax",
+      type: "number",
+      target: "props.matrixNumberMax",
+      min: MATRIX_NUMBER_MIN_LIMIT,
+      max: MATRIX_NUMBER_MAX_LIMIT,
+      visible: (field) => {
+        const props = field.props as Record<string, any>;
+        return props.matrixInputType === "number";
+      },
+    },
+    {
+      key: "matrixTextMaxLength",
+      labelKey: "propert.matrixTextMaxLength",
+      type: "number",
+      target: "props.matrixTextMaxLength",
+      min: 1,
+      max: MATRIX_TEXT_MAX_LENGTH_LIMIT,
+      visible: (field) => {
+        const props = field.props as Record<string, any>;
+        return props.matrixInputType === "text";
+      },
     },
   ],
 };
@@ -477,6 +519,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
   const [commaDrafts, setCommaDrafts] = useState<Record<string, string>>({});
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
+  const [textMaxCharsInput, setTextMaxCharsInput] = useState<string>("");
   useEffect(() => {
     if (!selectedField) return;
     const options = (selectedField.props as Record<string, any>).options as string[] | undefined;
@@ -493,6 +536,26 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
     setNumberDrafts({});
     setCommaDrafts({});
   }, [selectedField?.id]);
+
+  useEffect(() => {
+    if (!selectedField) return;
+    const props = selectedField.props as Record<string, any>;
+    const isPlainText =
+      (selectedField.widgetType === "text_input" || selectedField.widgetType === "textarea") &&
+      !selectedField.semanticType &&
+      !props.inputType;
+    if (!isPlainText) return;
+    const textMaxLimit = getTextMaxLimit(selectedField.widgetType);
+    const rawTextMaxChars = typeof props.maxChars === "number" ? props.maxChars : undefined;
+    const textMaxChars = clampTextMaxChars(rawTextMaxChars ?? textMaxLimit, textMaxLimit);
+    setTextMaxCharsInput(String(textMaxChars));
+  }, [
+    selectedField?.id,
+    selectedField?.widgetType,
+    selectedField?.semanticType,
+    (selectedField?.props as Record<string, any> | undefined)?.inputType,
+    (selectedField?.props as Record<string, any> | undefined)?.maxChars,
+  ]);
 
   if (selectedIds.length > 1) {
     const panelClassName = isConditionalSelectOpen
@@ -558,12 +621,6 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
   const textMaxLimit = getTextMaxLimit(selectedField.widgetType);
   const rawTextMaxChars = typeof props.maxChars === "number" ? props.maxChars : undefined;
   const textMaxChars = clampTextMaxChars(rawTextMaxChars ?? textMaxLimit, textMaxLimit);
-  const [textMaxCharsInput, setTextMaxCharsInput] = useState<string>("");
-
-  useEffect(() => {
-    if (!isPlainText) return;
-    setTextMaxCharsInput(String(textMaxChars));
-  }, [isPlainText, selectedField.id, textMaxChars]);
 
   const updateByTarget = (target: PropertyFieldDef["target"], value: unknown) => {
     if (target === "label") {
@@ -580,6 +637,30 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
     }
     if (target.startsWith("props.")) {
       const key = target.replace("props.", "");
+      if (selectedField.widgetType === "rating" && key === "maxRating") {
+        const nextMaxRaw = Number(value);
+        const nextMaxRating = Number.isFinite(nextMaxRaw)
+          ? Math.min(10, Math.max(1, nextMaxRaw))
+          : 10;
+        const currentCorrectAnswers = Array.isArray(props.correctAnswers) ? props.correctAnswers : [];
+        const hasOutOfRangeAnswer = currentCorrectAnswers.some((answer) => {
+          const normalized = String(answer ?? "").trim();
+          if (!normalized) return false;
+          const parsed = Number.parseInt(normalized, 10);
+          return normalized !== String(parsed) || parsed < 1 || parsed > nextMaxRating;
+        });
+        if (hasOutOfRangeAnswer) {
+          updateField(selectedField.id, {
+            props: {
+              [key]: nextMaxRating,
+              correctAnswers: undefined,
+            },
+          });
+          return;
+        }
+        updateField(selectedField.id, { props: { [key]: nextMaxRating } });
+        return;
+      }
       updateField(selectedField.id, { props: { [key]: value } });
     }
   };
@@ -835,30 +916,94 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
     if (fieldDef.type === "number") {
       const draftKey = `${selectedField?.id ?? "field"}:${fieldDef.key}`;
       const deferValidation = fieldDef.key === "maxFiles" || fieldDef.key === "maxFileSize";
+      const isMatrixLimitField = fieldDef.key === "matrixNumberMin" || fieldDef.key === "matrixNumberMax" || fieldDef.key === "matrixTextMaxLength";
+      const isMatrixNumberLimitField = fieldDef.key === "matrixNumberMin" || fieldDef.key === "matrixNumberMax";
+      
+      let defaultValue: number | undefined;
+      if (isMatrixLimitField) {
+        if (fieldDef.key === "matrixNumberMin") {
+          defaultValue = MATRIX_NUMBER_DEFAULT_MIN;
+        } else if (fieldDef.key === "matrixNumberMax") {
+          defaultValue = MATRIX_NUMBER_DEFAULT_MAX;
+        } else if (fieldDef.key === "matrixTextMaxLength") {
+          defaultValue = MATRIX_TEXT_DEFAULT_MAX_LENGTH;
+        }
+      }
+      
       const rawValue = deferValidation ? numberDrafts[draftKey] : undefined;
       const minValue = fieldDef.min ?? 0;
       const maxValue = fieldDef.max ?? Number.MAX_SAFE_INTEGER;
-      const resolvedValue = Number(value ?? minValue);
+      const resolvedValue = value !== undefined && value !== null ? Number(value) : (isMatrixLimitField ? defaultValue : minValue);
+      const displayValue = isMatrixLimitField
+        ? (numberDrafts[draftKey] !== undefined ? numberDrafts[draftKey] : (value != null ? String(value) : ""))
+        : (rawValue ?? resolvedValue);
+
       return (
         <div key={fieldDef.key} className="space-y-2">
           {label}
           <Input
-            type="number"
+            type={isMatrixLimitField && (fieldDef.key === "matrixNumberMin" || fieldDef.key === "matrixNumberMax") ? "text" : "number"}
             min={fieldDef.min}
             max={fieldDef.max}
             step={fieldDef.step}
-            inputMode={deferValidation ? "numeric" : undefined}
+            inputMode={deferValidation || (isMatrixLimitField && (fieldDef.key === "matrixNumberMin" || fieldDef.key === "matrixNumberMax")) ? "numeric" : undefined}
             pattern={deferValidation ? "[0-9]*" : undefined}
-            value={rawValue ?? resolvedValue}
+            value={displayValue}
+            onFocus={(e) => {
+              if (isMatrixLimitField) {
+                e.target.select();
+              }
+            }}
             onChange={(e) => {
               if (deferValidation) {
                 const digitsOnly = e.target.value.replace(/\D+/g, "");
                 setNumberDrafts((prev) => ({ ...prev, [draftKey]: digitsOnly }));
                 return;
               }
+              if (isMatrixLimitField) {
+                let raw = e.target.value;
+                if (isMatrixNumberLimitField) {
+                  const hasLeadingMinus = raw.startsWith("-");
+                  const digitsOnly = raw.replace(/-/g, "").replace(/\D/g, "");
+                  raw = (hasLeadingMinus ? "-" : "") + digitsOnly.slice(0, 7);
+                }
+                const allowEmpty = raw === "" || (raw === "-" && fieldDef.key !== "matrixTextMaxLength");
+                if (allowEmpty) {
+                  setNumberDrafts((prev) => ({ ...prev, [draftKey]: raw }));
+                  if (!isMatrixNumberLimitField) {
+                    updateByTarget(fieldDef.target, undefined);
+                  }
+                  return;
+                }
+                if (fieldDef.key !== "matrixTextMaxLength" && raw.includes("-") && raw.indexOf("-") !== 0) {
+                  return;
+                }
+                const parsed = parseInt(raw, 10);
+                if (!Number.isFinite(parsed)) return;
+                const clamped = Math.min(Math.max(parsed, minValue), maxValue);
+                setNumberDrafts((prev) => ({ ...prev, [draftKey]: String(clamped) }));
+                updateByTarget(fieldDef.target, clamped);
+                return;
+              }
               updateByTarget(fieldDef.target, parseInt(e.target.value, 10) || minValue);
             }}
             onKeyDown={(e) => {
+              if (isMatrixLimitField) {
+                if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+                  e.preventDefault();
+                  return;
+                }
+                if ((fieldDef.key === "matrixNumberMin" || fieldDef.key === "matrixNumberMax") && e.key === "-") {
+                  const el = e.currentTarget;
+                  const atStart = el.selectionStart == null || el.selectionStart === 0;
+                  const currentVal = ((el.value ?? "") || (displayValue as string)) ?? "";
+                  const hasMinus = currentVal.includes("-");
+                  if (!atStart || hasMinus) {
+                    e.preventDefault();
+                  }
+                }
+                return;
+              }
               if (!deferValidation) return;
               const allowedKeys = [
                 "Backspace",
@@ -877,7 +1022,36 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
               }
             }}
             onBlur={(e) => {
-              if (!deferValidation) return;
+              if (deferValidation) {
+                const parsed = parseInt(e.target.value, 10);
+                const nextValue = Number.isFinite(parsed)
+                  ? Math.min(Math.max(parsed, minValue), maxValue)
+                  : minValue;
+                updateByTarget(fieldDef.target, nextValue);
+                setNumberDrafts((prev) => ({ ...prev, [draftKey]: String(nextValue) }));
+                return;
+              }
+              if (isMatrixLimitField) {
+                const raw = e.target.value.trim();
+                if (raw === "" || (raw === "-" && fieldDef.key !== "matrixTextMaxLength")) {
+                  if (isMatrixNumberLimitField) {
+                    const fallbackValue = defaultValue ?? minValue;
+                    updateByTarget(fieldDef.target, fallbackValue);
+                    setNumberDrafts((prev) => ({ ...prev, [draftKey]: String(fallbackValue) }));
+                  } else {
+                    updateByTarget(fieldDef.target, undefined);
+                    setNumberDrafts((prev) => ({ ...prev, [draftKey]: "" }));
+                  }
+                  return;
+                }
+                const parsed = parseInt(raw, 10);
+                const nextValue = Number.isFinite(parsed)
+                  ? Math.min(Math.max(parsed, minValue), maxValue)
+                  : (isMatrixNumberLimitField ? (defaultValue ?? minValue) : undefined);
+                updateByTarget(fieldDef.target, nextValue);
+                setNumberDrafts((prev) => ({ ...prev, [draftKey]: nextValue !== undefined ? String(nextValue) : "" }));
+                return;
+              }
               const parsed = parseInt(e.target.value, 10);
               const nextValue = Number.isFinite(parsed)
                 ? Math.min(Math.max(parsed, minValue), maxValue)
@@ -891,26 +1065,28 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
     }
 
     if (fieldDef.type === "slider") {
-      const sliderValue = typeof value === "number" ? value : fieldDef.min || 0;
+      const effectiveMin = typeof fieldDef.min === "number" ? fieldDef.min : 0;
+      const effectiveMax = typeof fieldDef.max === "number" ? fieldDef.max : 10;
+      const sliderValue = typeof value === "number" ? value : effectiveMin;
       const showRatingScale = fieldDef.key === "maxRating";
-      const minLabel = fieldDef.min ?? 0;
-      const maxLabel = fieldDef.max ?? 0;
+      const minLabel = effectiveMin;
+      const maxLabel = effectiveMax;
       return (
         <div key={fieldDef.key} className="space-y-2">
           <Label>
             {t(fieldDef.labelKey)} ({sliderValue})
           </Label>
           <Slider
-            value={[sliderValue]}
-            min={fieldDef.min}
-            max={fieldDef.max}
+            value={[Math.min(Math.max(sliderValue, effectiveMin), effectiveMax)]}
+            min={effectiveMin}
+            max={effectiveMax}
             step={fieldDef.step}
             onValueChange={(val) => updateByTarget(fieldDef.target, val[0])}
           />
           {showRatingScale && (
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>{minLabel}</span>
-              <span>5</span>
+              <span>{Math.round((effectiveMin + effectiveMax) / 2)}</span>
               <span>{maxLabel}</span>
             </div>
           )}
@@ -994,6 +1170,68 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
           { value: "any", label: t("propert.matrixValidationModeAny") },
           { value: "all", label: t("propert.matrixValidationModeAll") }
         ];
+      }
+      
+      if (fieldDef.key === "matrixInputType") {
+        const currentProps = selectedField.props as Record<string, any>;
+        const currentValue = value as string | undefined;
+        const multiplePerRow = Boolean(currentProps.multiplePerRow);
+        const defaultValue = currentValue || (multiplePerRow ? "checkbox" : "radio");
+        selectOptions = [
+          { value: "radio", label: t("propert.matrixInputTypeRadio") },
+          { value: "checkbox", label: t("propert.matrixInputTypeCheckbox") },
+          { value: "number", label: t("propert.matrixInputTypeNumber") },
+          { value: "text", label: t("propert.matrixInputTypeText") }
+        ];
+        
+        return (
+          <div key={fieldDef.key} className="space-y-2">
+            {label}
+            <Select
+              value={defaultValue}
+              onValueChange={(newValue) => {
+                const updates: Record<string, any> = { matrixInputType: newValue };
+
+                if (newValue === "number") {
+                  if (currentProps.matrixNumberMin === undefined) {
+                    updates.matrixNumberMin = MATRIX_NUMBER_DEFAULT_MIN;
+                  }
+                  if (currentProps.matrixNumberMax === undefined) {
+                    updates.matrixNumberMax = MATRIX_NUMBER_DEFAULT_MAX;
+                  }
+                } else if (newValue === "text") {
+                  if (currentProps.matrixTextMaxLength === undefined) {
+                    updates.matrixTextMaxLength = MATRIX_TEXT_DEFAULT_MAX_LENGTH;
+                  }
+                } else {
+                  
+                  delete updates.matrixNumberMin;
+                  delete updates.matrixNumberMax;
+                  delete updates.matrixTextMaxLength;
+                }
+                
+                if (newValue === "checkbox") {
+                  updates.multiplePerRow = true;
+                } else {
+                  updates.multiplePerRow = false;
+                }
+                
+                updateField(selectedField.id, { props: { ...currentProps, ...updates } });
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={t("common.selectopt")} />
+              </SelectTrigger>
+              <SelectContent>
+                {selectOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        );
       }
       
       return (
@@ -1649,14 +1887,40 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                       }
                     }
                   }
+                  // For rating: use min=1, max=maxRating from props
+                  if (selectedField.widgetType === "rating" && answer !== "") {
+                    const maxR = Number(props.maxRating);
+                    const maxRatingVal = Number.isFinite(maxR) ? Math.min(10, Math.max(1, maxR)) : 10;
+                    const minRatingVal = 1;
+                    const num = parseInt(answer, 10);
+                    if (answer !== String(num) || num < minRatingVal || num > maxRatingVal) {
+                      isInvalid = true;
+                    }
+                  } else if (selectedField.widgetType === "rating" && answer === "") {
+                    isInvalid = true;
+                  }
                   
                   return (
                     <div key={index} className="flex items-center gap-2">
                       <Input
                         value={answer}
                         onChange={(e) => {
-                          // For matrix fields, validate the format is "number:number" and within bounds
                           const value = e.target.value;
+                          if (selectedField.widgetType === "rating") {
+                            const maxR = Number(props.maxRating);
+                            const maxRatingVal = Number.isFinite(maxR) ? Math.min(10, Math.max(1, maxR)) : 10;
+                            const minRatingVal = 1;
+                            const digitsOnly = value.replace(/\D/g, "").slice(0, 2);
+                            // Allow empty while typing (restore on blur)
+                            if (digitsOnly !== "") {
+                              const num = parseInt(digitsOnly, 10);
+                              if (num < minRatingVal || num > maxRatingVal) return;
+                            }
+                            const newAnswers = [...correctAnswers];
+                            newAnswers[index] = digitsOnly;
+                            updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
+                            return;
+                          }
                           if (selectedField.widgetType === "matrix") {
                             // Allow empty values
                             if (value === "") {
@@ -1670,22 +1934,18 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                             const formatRegex = /^\d+:\d+$/;
                             const validCharacters = /^[0-9:]*$/.test(value);
                             if (!validCharacters) {
-                              // Invalid characters, don't update
                               return;
                             }
                             if (!formatRegex.test(value)) {
-                              // Invalid format, still update to allow typing
                               const newAnswers = [...correctAnswers];
                               newAnswers[index] = value;
                               updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
                               return;
                             }
                             
-                            // Validate numbers are within matrix bounds (1-indexed)
                             const [rowStr, colStr] = value.split(':');
                             const row = parseInt(rowStr, 10);
                             const col = parseInt(colStr, 10);
-                            
                             const rows = (props.rows as string[]) || [];
                             const columns = (props.columns as string[]) || [];
                             
@@ -1694,19 +1954,27 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                               newAnswers[index] = value;
                               updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
                             } else {
-                              // Out of bounds, still update to allow typing
                               const newAnswers = [...correctAnswers];
                               newAnswers[index] = value;
                               updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
                             }
                           } else {
-                            // For non-matrix fields, allow any value
                             const newAnswers = [...correctAnswers];
                             newAnswers[index] = value;
                             updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
                           }
                         }}
-                        placeholder={t("propert.correctAnswerPlaceholder")}
+                        onBlur={(e) => {
+                          if (selectedField.widgetType === "rating") {
+                            const val = (e.target.value || "").trim().replace(/\D/g, "");
+                            if (val === "") {
+                              const newAnswers = [...correctAnswers];
+                              newAnswers[index] = "1";
+                              updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
+                            }
+                          }
+                        }}
+                        placeholder={selectedField.widgetType === "rating" ? `1–${Number.isFinite(Number(props.maxRating)) ? Math.min(10, Math.max(1, Number(props.maxRating))) : 10}` : t("propert.correctAnswerPlaceholder")}
                         className={`focus-visible:ring-green-500 ${isInvalid ? "border-red-500" : "border-green-200"}`}
                       />
                       <Button
@@ -1728,7 +1996,8 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
                   size="sm"
                   className="w-full mt-2 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
                   onClick={() => {
-                    const newAnswers = [...correctAnswers, ""];
+                    const defaultNew = selectedField.widgetType === "rating" ? "1" : "";
+                    const newAnswers = [...correctAnswers, defaultNew];
                     updateField(selectedField.id, { props: { correctAnswers: newAnswers } });
                   }}
                 >

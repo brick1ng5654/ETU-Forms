@@ -46,7 +46,8 @@ async def _ensure_demo_form(db: AsyncSession, owner_id: int) -> models.Form:
     q = (
         select(models.Form)
         .where(models.Form.user_id == owner_id)
-        .order_by(models.Form.created_at.asc())
+        .where(models.Form.status != "deleted")
+        .order_by(models.Form.created_at.desc())
         .limit(1)
     )
     form = (await db.execute(q)).scalar_one_or_none()
@@ -58,6 +59,7 @@ async def _ensure_demo_form(db: AsyncSession, owner_id: int) -> models.Form:
         title="Demo Form",
         description="Form for testing roles: editor/participant",
         access_mode="private",
+        status="submitted",
         version=1,
     )
     db.add(form)
