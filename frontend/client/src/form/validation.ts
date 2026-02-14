@@ -22,6 +22,9 @@ export const validateForm = (elements: FormElementModel[], answers: AnswersById)
     const elementErrors: string[] = [];
     const props = element.props as Record<string, unknown>;
     const preset = element.semanticType ? presets[element.semanticType] : undefined;
+    if (props.readOnly) {
+      return;
+    }
 
     // Composite answers (full_name, passport) are validated per part.key using preset.parts.
     if (preset?.parts) {
