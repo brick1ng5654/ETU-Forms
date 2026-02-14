@@ -73,8 +73,8 @@ jobs:
           cat << EOF > frontend/.env.e2e
           E2E_BASE_URL=${E2E_BASE_URL}
           E2E_FORM_ID=${E2E_FORM_ID}
-          E2E_AUTH_EMAIL=${E2E_AUTH_EMAIL}
-          E2E_AUTH_PASSWORD=${E2E_AUTH_PASSWORD}
+          E2E_AUTH_EMAIL=${ADMIN_EMAIL}
+          E2E_AUTH_PASSWORD=${ADMIN_PASSWORD}
           EOF
 
       - name: Start containers with Docker Compose
