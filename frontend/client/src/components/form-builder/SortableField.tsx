@@ -328,11 +328,9 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
         ? preset.getPlaceholderKey(props)
         : preset?.placeholderKey;
     const canEditPlaceholder = field.semanticType !== "inn" && field.semanticType !== "ogrn";
-    const placeholder = canEditPlaceholder && placeholderKey
+    const placeholder = placeholderKey
       ? t(placeholderKey)
-      : canEditPlaceholder
-        ? preset?.placeholder || (props.placeholder as string) || ""
-        : "";
+      : preset?.placeholder || (canEditPlaceholder ? (props.placeholder as string) || "" : "");
 
     if (!canEditPlaceholder) {
       return (

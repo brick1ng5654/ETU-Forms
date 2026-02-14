@@ -181,6 +181,7 @@ export const presets: Record<SemanticType, Preset> = {
       return [];
     },
     labelKey: "inputLabels.inn",
+    getPlaceholderKey: (props) => (props.innLegalEntity ? "placeholders.inn10" : "placeholders.inn12"),
     getMaxDigits: (props) => innLength(props),
     inputMode: "numeric",
   },
@@ -208,6 +209,7 @@ export const presets: Record<SemanticType, Preset> = {
       return [];
     },
     getLabelKey: (props) => (props.ogrnIp ? "inputLabels.ogrnIp" : "inputLabels.ogrn"),
+    getPlaceholderKey: (props) => (props.ogrnIp ? "placeholders.ogrnIp" : "placeholders.ogrn"),
     getMaxDigits: (props) => ogrnLength(props),
     inputMode: "numeric",
   },
