@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { X, Plus, Trash2, Check } from "lucide-react";
+import { X, Plus, Trash2, Check, Lock, Unlock } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTranslation } from "react-i18next";
 import { DndContext, DragEndEvent, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
@@ -211,18 +211,8 @@ const MAX_UPLOAD_MB = 20;
 
 const propertiesSchemaByWidgetType: Record<WidgetType, PropertyFieldDef[]> = {
   header: [baseLabelField],
-  text_input: [baseLabelField, placeholderField, helperTextField, requiredField, {
-    key: "hideQuestion",
-    labelKey: "propert.hideQuestion",
-    type: "switch",
-    target: "props.hideQuestion",
-  }],
-  textarea: [baseLabelField, placeholderField, helperTextField, requiredField, {
-    key: "hideQuestion",
-    labelKey: "propert.hideQuestion",
-    type: "switch",
-    target: "props.hideQuestion",
-  }],
+  text_input: [baseLabelField, placeholderField, helperTextField, requiredField],
+  textarea: [baseLabelField, placeholderField, helperTextField, requiredField],
   number_input: [
     baseLabelField,
     placeholderField,
@@ -558,6 +548,9 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
   ]);
 
   if (selectedIds.length > 1) {
+    const selectedFields = fields.filter((field) => selectedIds.includes(field.id));
+    const allReadOnly = selectedFields.length > 0
+      && selectedFields.every((field) => Boolean((field.props as Record<string, any>).readOnly));
     const panelClassName = isConditionalSelectOpen
       ? "p-4 space-y-6 overflow-y-auto h-full pb-[40vh]"
       : "p-4 space-y-6 overflow-y-auto h-full pb-32";
@@ -566,6 +559,20 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
       <div className={panelClassName}>
         <div className="flex items-center justify-between border-b pb-4">
           <h3 className="font-semibold text-lg">{t("propert.propet")}</h3>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => {
+              const nextReadOnly = !allReadOnly;
+              selectedFields.forEach((field) => {
+                updateField(field.id, { props: { readOnly: nextReadOnly } });
+              });
+            }}
+            aria-label={t("propert.readOnly")}
+          >
+            {allReadOnly ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+          </Button>
         </div>
         <div className="space-y-1">
           <p className="text-sm text-muted-foreground">{t("builder.selectedCount", { count: selectedIds.length })}</p>
@@ -588,6 +595,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
   }
 
   const props = selectedField.props as Record<string, any>;
+  const isReadOnly = Boolean(props.readOnly);
   const hideDate = Boolean(props.hideDate);
   const hideTime = Boolean(props.hideTime);
   const isCountrySelect = isCountryField(selectedField);
@@ -1303,14 +1311,25 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
     <div className={panelClassName}>
       <div className="flex items-center justify-between border-b pb-4">
         <h3 className="font-semibold text-lg">{t("propert.propet")}</h3>
-        <Button
-          variant="destructive"
-          size="icon"
-          className="h-8 w-8"
-          onClick={() => deleteField(selectedField.id)}
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => updateField(selectedField.id, { props: { readOnly: !isReadOnly } })}
+            aria-label={t("propert.readOnly")}
+          >
+            {isReadOnly ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+          </Button>
+          <Button
+            variant="destructive"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => deleteField(selectedField.id)}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-2">
