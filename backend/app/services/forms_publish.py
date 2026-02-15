@@ -35,7 +35,7 @@ def _ensure_form_settings(
         merged.update(incoming_settings)
 
     merged.setdefault("client_form_id", str(form_id))
-    if access_mode == "private" and not merged.get("privateLinkKey"):
+    if access_mode in {"private", "unauthenticated"} and not merged.get("privateLinkKey"):
         merged["privateLinkKey"] = token_urlsafe(24)
 
     return merged

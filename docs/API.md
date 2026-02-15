@@ -138,7 +138,7 @@ Query:
 - `settings_json` (object, optional)
 - `start_at` (datetime, optional)
 - `end_at` (datetime, optional)
-- `access_mode` (string: `public|private|unauthenticated`, default `private`)
+- `access_mode` (string: `private|unauthenticated`, default `private`)
 - `user_id` (int, optional; сейчас игнорируется, берется из токена)
 
 Ответ: `FormResponse`
@@ -247,11 +247,12 @@ Query:
 
 Query:
 
-- `key` (string, optional) — ключ приватной ссылки для `access_mode=private`.
+- `key` (string, required) — защищённый ключ ссылки для `access_mode=private|unauthenticated`.
 
 Auth:
 
-- Если `access_mode != unauthenticated`, требуется Bearer токен.
+- Если `access_mode = private`, требуется Bearer токен.
+- Если `access_mode = unauthenticated`, токен не требуется.
 
 Ответ: `PublicFormDetailResponse`
 
@@ -264,7 +265,7 @@ Auth:
 Ошибки:
 
 - `401 Not authenticated`
-- `403 Form is not open yet` / `Form is closed` / `Invalid private link key`
+- `403 Form is not open yet` / `Form is closed` / `Invalid link key`
 - `404 Form not found`
 
 ### POST `/api/v1/forms/{form_id}/responses`
@@ -273,11 +274,11 @@ Auth:
 
 Query:
 
-- `key` (string, optional) — ключ приватной ссылки для `access_mode=private`.
+- `key` (string, required) — защищённый ключ ссылки для `access_mode=private|unauthenticated`.
 
 Auth:
 
-- Если `access_mode != unauthenticated`, требуется Bearer токен.
+- Если `access_mode = private`, требуется Bearer токен.
 - Если пользователь не авторизован и доступ разрешен, ответ привязывается к анонимному пользователю.
 
 Запрос: `FormSubmitAnswersRequest`
@@ -336,7 +337,7 @@ Auth:
 - `description` (string, optional)
 - `settings_json` (object, optional)
 - `start_at` / `end_at` (datetime, optional)
-- `access_mode` (string: `public|private|unauthenticated`)
+- `access_mode` (string: `private|unauthenticated`)
 - `version` (int)
 - `prev_form_id` (int, optional)
 - `status` (string: `temp|submitted|deleted`)
