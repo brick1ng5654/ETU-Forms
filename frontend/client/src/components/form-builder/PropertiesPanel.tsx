@@ -608,6 +608,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
   const schemaFields = propertiesSchemaByWidgetType[selectedField.widgetType].filter((fieldDef) => {
     if (fieldDef.key === "required" && !showRequiredToggle) return false;
     if (selectedField.semanticType === "passport" && fieldDef.key === "placeholder") return false;
+    if ((selectedField.semanticType === "inn" || selectedField.semanticType === "ogrn") && fieldDef.key === "placeholder") return false;
     return !fieldDef.visible || fieldDef.visible(selectedField);
   });
   const semanticFields = selectedField.semanticType
