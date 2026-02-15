@@ -280,6 +280,9 @@
     "subpoint":"Points are awarded for the correct answer",
     "allowdec":"Allow Decimals",
     "requered":"Required field",
+    "readOnly":"Read-only",
+    "readOnlyEnableTooltip":"Enable read-only: users cannot fill in this field.",
+    "readOnlyDisableTooltip":"Disable read-only: users can fill in this field again.",
     "variabl":"Answer options",
     "addopti":"Add Option",
     "longtxt":"Multiline text",
@@ -373,8 +376,7 @@
     "matrixTotalPointsHelp": "Points are awarded if the entire matrix is filled correctly",
     "points": "points",
     "fixCorrectAnswers":"Distribute the correct answers",
-    "correctAnswers":"Correct answers",
-    "hideQuestion":"Hide the response field"
+    "correctAnswers":"Correct answers"
   },
   "errors": {
     "required": "Required",

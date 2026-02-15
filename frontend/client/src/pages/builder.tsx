@@ -502,6 +502,17 @@ export default function Builder({ params }: { params: { id?: string } }) {
       return { ...field, ...updates, props: nextProps };
     }), { historyKey });
   };
+  const updateFields = (ids: string[], updates: Partial<FormElementModel>) => {
+    if (ids.length == 0) return;
+    const idSet = new Set(ids);
+    setFields(fields.map(field => {
+      if (!idSet.has(field.id)) return field;
+      const nextProps = updates.props
+        ? { ...field.props, ...updates.props }
+        : field.props;
+      return { ...field, ...updates, props: nextProps };
+    }));
+  };
   const deleteField = (id: string) => {
     setFields(fields.filter(f => f.id !== id));
     setSelectedIds(prev => prev.filter(existingId => existingId !== id));
@@ -756,7 +767,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
           supportive_text: f.description ?? null,
           text_hint: typeof placeholder === "string" ? placeholder : null,
           correct_answer: normalizedCorrectAnswer,
-          required_field: !!f.required,
+          required_field: !!f.required && !Boolean(props.readOnly),
           other_settings: cleanedOtherSettings,
           file_ids: fileIds,
           sort_index: typeof f.sortIndex === "number" ? f.sortIndex : index,
@@ -1305,6 +1316,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
             selectedField={selectedField}
             selectedIds={selectedIds}
             updateField={updateField}
+            updateFields={updateFields}
             deleteField={deleteField}
             deleteSelected={deleteSelected}
             fields={fields}

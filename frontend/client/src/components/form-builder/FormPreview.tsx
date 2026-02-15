@@ -1632,6 +1632,8 @@ export function FormPreview({
     const isCountrySelect = isCountryField(field);
     const hideDate = Boolean(props.hideDate);
     const hideTime = Boolean(props.hideTime);
+    const isFieldReadOnly = Boolean(props.readOnly);
+    const isFieldDisabled = isInputsDisabled || isFieldReadOnly;
     const hasResult = results !== null && field.id in results;
     const isCorrect = hasResult && results[field.id];
     const fieldWrapperClass = cn(
@@ -1662,7 +1664,7 @@ export function FormPreview({
           markTouched(field.id);
         }}
       >
-        {field.widgetType !== "header" && !props.hideQuestion && (
+        {field.widgetType !== "header" && (
           <div className="flex items-center justify-between">
             <Label className="flex items-center gap-2">
               {field.label}
@@ -1695,8 +1697,7 @@ export function FormPreview({
               </p>
             )}
           </>
-        ) : field.description &&
-          !(Boolean(props.hideQuestion) && (field.widgetType === "text_input" || field.widgetType === "textarea")) ? (
+        ) : field.description ? (
           <p className="text-sm text-muted-foreground whitespace-pre-wrap break-all">
             {field.description}
           </p>
@@ -1704,22 +1705,9 @@ export function FormPreview({
 
         {field.widgetType === "header" && <h2 className="text-xl font-bold pb-2 border-b">{field.label}</h2>}
 
-        {field.widgetType === "text_input" && !props.hideQuestion && renderTextInput(field, results !== null)}
-        {field.widgetType === "text_input" && Boolean(props.hideQuestion) && (
-          <div className="space-y-1">
-            <div className="text-sm text-muted-foreground whitespace-pre-wrap break-all">
-              {field.label}
-            </div>
-            {field.description && (
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap break-all">
-                {field.description}
-              </p>
-            )}
-          </div>
-)}
+        {field.widgetType === "text_input" && renderTextInput(field, isFieldDisabled)}
 
-
-        {field.widgetType === "textarea" && !props.hideQuestion && (() => {
+        {field.widgetType === "textarea" && (() => {
           const maxChars = getTextMaxChars(field);
           const value = (answers[field.id] as string) || "";
 
@@ -1732,7 +1720,7 @@ export function FormPreview({
                 updateAnswer(field.id, nextValue);
               }}
               onBlur={() => markTouched(field.id)}
-              disabled={isInputsDisabled}
+              disabled={isFieldDisabled}
               maxLength={maxChars}
               className="pb-6"
               indicator={(
@@ -1746,21 +1734,6 @@ export function FormPreview({
             />
           );
         })()}
-        
-        {field.widgetType === "textarea" && (
-          typeof props.hideQuestion === "boolean" && props.hideQuestion
-        ) && (
-          <div className="space-y-1">
-            <div className="text-sm text-muted-foreground whitespace-pre-wrap break-all">
-              {field.label}
-            </div>
-            {field.description && (
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap break-all">
-                {field.description}
-              </p>
-            )}
-          </div>
-        )}
 
         {field.widgetType === "number_input" && (() => {
           const allowDecimals = Boolean(props.allowDecimals);
@@ -1779,7 +1752,7 @@ export function FormPreview({
                 updateAnswer(field.id, sanitized);
               }}
               onBlur={() => markTouched(field.id)}
-              disabled={isInputsDisabled}
+              disabled={isFieldDisabled}
             />
           );
         })()}
@@ -1799,7 +1772,7 @@ export function FormPreview({
                         variant="ghost"
                         size="icon"
                         className="absolute left-0 top-0 h-10 w-10 hover:bg-transparent z-10"
-                        disabled={isInputsDisabled}
+                        disabled={isFieldDisabled}
                         type="button"
                       >
                         <CalendarDays className="h-4 w-4 text-muted-foreground" />
@@ -1842,7 +1815,7 @@ export function FormPreview({
                       }
                     }}
                     onBlur={() => markTouched(field.id)}
-                    disabled={isInputsDisabled}
+                    disabled={isFieldDisabled}
                     className="pl-10 h-10 text-muted-foreground"
                     placeholder={t("propert.selectDate")}
                   />
@@ -1857,7 +1830,7 @@ export function FormPreview({
                         "w-full justify-start text-left font-normal h-10",
                         !timeValue && "text-muted-foreground"
                       )}
-                      disabled={isInputsDisabled}
+                      disabled={isFieldDisabled}
                     >
                       <Clock className="mr-2 h-4 w-4" />
                       {timeValue ? <span>{timeValue}</span> : <span>{t("propert.selectTime")}</span>
@@ -1869,7 +1842,7 @@ export function FormPreview({
                       value={timeValue}
                       onChange={(e) => updateAnswer(field.id, { ...dateTime, time: e.target.value })}
                       onBlur={() => markTouched(field.id)}
-                      disabled={isInputsDisabled}
+                      disabled={isFieldDisabled}
                       className="w-full"
                       autoFocus
                     />
@@ -1885,7 +1858,7 @@ export function FormPreview({
             <CountrySelect
               value={(answers[field.id] as string) || ""}
               placeholder={(props.placeholder as string) || t("common.selectopt")}
-              disabled={isInputsDisabled}
+              disabled={isFieldDisabled}
               onValueChange={(value) => {
                 updateAnswer(field.id, value);
               }}
@@ -1898,7 +1871,7 @@ export function FormPreview({
                 updateAnswer(field.id, value);
                 markTouched(field.id);
               }}
-              disabled={isInputsDisabled}
+              disabled={isFieldDisabled}
             >
               <SelectTrigger>
                 <SelectValue placeholder={(props.placeholder as string) || t("common.selectopt")} />
@@ -1921,7 +1894,7 @@ export function FormPreview({
               updateAnswer(field.id, value);
               markTouched(field.id);
             }}
-            disabled={isInputsDisabled}
+            disabled={isFieldDisabled}
           >
             {options?.map((option) => (
               <div key={option} className="flex items-center space-x-2">
@@ -1944,7 +1917,7 @@ export function FormPreview({
                   <Checkbox
                     id={`${field.id}-${option}`}
                     checked={isChecked}
-                    disabled={isInputsDisabled}
+                    disabled={isFieldDisabled}
                     simplifiedAnimation
                     onCheckedChange={(checked) => {
                       if (checked) {
@@ -1980,7 +1953,7 @@ export function FormPreview({
               >
                 <div className="space-y-2">
                   {((answers[field.id] as string[]) || options).map((item) => (
-                    <SortableItem key={item} id={item} disabled={isInputsDisabled} />
+                    <SortableItem key={item} id={item} disabled={isFieldDisabled} />
                   ))}
                 </div>
               </SortableContext>
@@ -2001,7 +1974,7 @@ export function FormPreview({
                 <button
                   type="button"
                   key={value}
-                  disabled={isInputsDisabled}
+                  disabled={isFieldDisabled}
                   onClick={() => {
                     updateAnswer(field.id, value);
                     markTouched(field.id);
@@ -2033,7 +2006,7 @@ export function FormPreview({
             matrixNumberMax={props.matrixNumberMax as number | undefined}
             matrixTextMaxLength={props.matrixTextMaxLength as number | undefined}
             value={(answers[field.id] as string[] | Record<string, string>) || (props.matrixInputType === "number" || props.matrixInputType === "text" ? {} : [])}
-            disabled={isInputsDisabled}
+            disabled={isFieldDisabled}
             onChange={(nextValue) => updateAnswer(field.id, nextValue)}
             onTouched={() => markTouched(field.id)}
           />
@@ -2050,7 +2023,7 @@ export function FormPreview({
             const acceptedTypes = normalizeAcceptedTypes((props as any).acceptedFileTypes);
             const acceptAttr = acceptedTypes.length > 0 ? acceptedTypes.join(", ") : undefined;
             const isUploading = Boolean(uploadingById[field.id]);
-            const canAddMore = attachments.length < maxFiles && !isInputsDisabled;
+            const canAddMore = attachments.length < maxFiles && !isFieldDisabled;
             const removeAttachment = (fileId: number) => {
               const nextAttachments = attachments.filter((item) => item.file_id !== fileId);
               if (nextAttachments.length !== attachments.length) {
@@ -2141,7 +2114,7 @@ export function FormPreview({
                     variant="outline"
                     size="sm"
                     className="mt-3"
-                    disabled={isUploading || isInputsDisabled}
+                    disabled={isUploading || isFieldDisabled}
                     onClick={() => document.getElementById(`file-upload-${field.id}`)?.click()}
                   >
                     {isUploading ? t("propert.attachmentsUploading") : t("propert.attachmentsAdd")}
@@ -2152,7 +2125,7 @@ export function FormPreview({
                   attachments={attachments}
                   displayMode="list"
                   listOnly
-                  onRemove={isInputsDisabled ? undefined : removeAttachment}
+                  onRemove={isFieldDisabled ? undefined : removeAttachment}
                 />
               </div>
             );
