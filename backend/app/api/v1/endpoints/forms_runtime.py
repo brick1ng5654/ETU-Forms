@@ -38,7 +38,7 @@ def _enum_value(x: Any) -> Any:
     return x.value if hasattr(x, "value") else x
 
 
-def _private_link_key(form: Form) -> str | None:
+def _protected_link_key(form: Form) -> str | None:
     settings = form.settings_json if isinstance(form.settings_json, dict) else {}
     raw = settings.get("privateLinkKey")
     return raw if isinstance(raw, str) and raw else None
@@ -89,11 +89,11 @@ def _check_form_access(form: Form, key: str | None, current_user: AppUser | None
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Form is closed")
 
     access_mode = _enum_value(form.access_mode)
-    if access_mode == "private":
-        expected = _private_link_key(form)
+    if access_mode in {"private", "unauthenticated"}:
+        expected = _protected_link_key(form)
         provided = key.strip() if isinstance(key, str) else None
         if not expected or provided != expected:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid private link key")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid link key")
 
 
 async def _get_published_form(db: AsyncSession, form_id: int) -> Form:

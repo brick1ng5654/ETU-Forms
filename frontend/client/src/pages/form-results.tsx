@@ -997,10 +997,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
   const formLink = useMemo(() => {
     const base = typeof window !== "undefined" ? window.location.origin : "";
     const formId = form?.id ?? params.id;
-    if (accessMode === "private") {
-      return `${base}/form/${formId}?key=${privateLinkKey}`;
-    }
-    return `${base}/form/${formId}`;
+    return `${base}/form/${formId}?key=${privateLinkKey}`;
   }, [accessMode, form?.id, params.id, privateLinkKey]);
 
   const handleCopyLink = async () => {
@@ -1017,7 +1014,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
         const storedKey = typeof form.settings_json?.privateLinkKey === "string"
           ? form.settings_json.privateLinkKey
           : "";
-        const keyChanged = accessMode === "private" && privateLinkKey !== storedKey;
+        const keyChanged = privateLinkKey !== storedKey;
         return (
           startAt !== getDateInputValue(form.startAt) ||
           endAt !== getDateInputValue(form.endAt) ||

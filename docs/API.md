@@ -247,11 +247,12 @@ Query:
 
 Query:
 
-- `key` (string, optional) — ключ приватной ссылки для `access_mode=private`.
+- `key` (string, required) — защищённый ключ ссылки для `access_mode=private|unauthenticated`.
 
 Auth:
 
 - Если `access_mode = private`, требуется Bearer токен.
+- Если `access_mode = unauthenticated`, токен не требуется.
 
 Ответ: `PublicFormDetailResponse`
 
@@ -264,7 +265,7 @@ Auth:
 Ошибки:
 
 - `401 Not authenticated`
-- `403 Form is not open yet` / `Form is closed` / `Invalid private link key`
+- `403 Form is not open yet` / `Form is closed` / `Invalid link key`
 - `404 Form not found`
 
 ### POST `/api/v1/forms/{form_id}/responses`
@@ -273,7 +274,7 @@ Auth:
 
 Query:
 
-- `key` (string, optional) — ключ приватной ссылки для `access_mode=private`.
+- `key` (string, required) — защищённый ключ ссылки для `access_mode=private|unauthenticated`.
 
 Auth:
 
