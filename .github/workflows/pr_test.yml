@@ -1,5 +1,5 @@
 name: "Test PR Merge"
-on: 
+on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
@@ -36,31 +36,59 @@ jobs:
           echo "$SSL_CERT_CONTENT" > ./ssl/nginx.crt
           echo "$SSL_KEY_CONTENT" > ./ssl/nginx.key
           chmod 600 ./ssl/nginx.key
-      - name: Create .env file from GitHub Secrets
+
+      - name: Create .env file
         env:
-          # Загружаем значения секретов во временные переменные
           DB_NAME: ${{ secrets.POSTGRES_DB }}
           DB_USER: ${{ secrets.POSTGRES_USER }}
           DB_PASS: ${{ secrets.POSTGRES_PASSWORD }}
           DB_PORT: ${{ secrets.POSTGRES_PORT }}
+          BACKEND_PORT: ${{ secrets.BACKEND_PORT }}
+          PASSWORD_PEPPER: ${{ secrets.PASSWORD_PEPPER }}
+          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          ADMIN_NAME: ${{ secrets.ADMIN_NAME }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          REDIS_PORT: ${{ secrets.REDIS_PORT }}
+          REDIS_DB: ${{ secrets.REDIS_DB }}
         run: |
-          echo "Creating .env file for PostgreSQL..."
+          echo "Creating .env file for services..."
+          DB_NAME_VALUE=${DB_NAME:-db}
+          DB_USER_VALUE=${DB_USER:-user}
+          DB_PASS_VALUE=${DB_PASS:-pass123}
+          DB_PORT_VALUE=${DB_PORT:-5432}
+          BACKEND_PORT_VALUE=${BACKEND_PORT:-8000}
+          PASSWORD_PEPPER_VALUE=${PASSWORD_PEPPER:-ci_pepper_1234567890}
+          ADMIN_EMAIL_VALUE=${ADMIN_EMAIL:-admin@example.com}
+          ADMIN_PASSWORD_VALUE=${ADMIN_PASSWORD:-ChangeMe_12345}
+          ADMIN_NAME_VALUE=${ADMIN_NAME:-Admin}
+          SECRET_KEY_VALUE=${SECRET_KEY:-ci_secret_key_please_change_for_prod_only}
+          REDIS_PORT_VALUE=${REDIS_PORT:-6379}
+          REDIS_DB_VALUE=${REDIS_DB:-0}
+
           cat << EOF > .env
-          POSTGRES_DB=${DB_NAME}
-          POSTGRES_USER=${DB_USER}
-          POSTGRES_PASSWORD=${DB_PASS}
-          POSTGRES_PORT=${DB_PORT}
+          POSTGRES_DB=${DB_NAME_VALUE}
+          POSTGRES_USER=${DB_USER_VALUE}
+          POSTGRES_PASSWORD=${DB_PASS_VALUE}
+          POSTGRES_PORT=${DB_PORT_VALUE}
+          BACKEND_PORT=${BACKEND_PORT_VALUE}
+          PASSWORD_PEPPER=${PASSWORD_PEPPER_VALUE}
+          ADMIN_EMAIL=${ADMIN_EMAIL_VALUE}
+          ADMIN_PASSWORD=${ADMIN_PASSWORD_VALUE}
+          ADMIN_NAME=${ADMIN_NAME_VALUE}
+          SECRET_KEY=${SECRET_KEY_VALUE}
+          REDIS_PORT=${REDIS_PORT_VALUE}
+          REDIS_DB=${REDIS_DB_VALUE}
           EOF
 
       - name: Reset docker volumes
         run: docker compose -f "docker-compose.yml" down -v
-        
+
       - name: Start containers with Docker Compose
         run: docker compose -f "docker-compose.yml" up -d --build
 
       - name: Check frontend HTML for logo_etu.png
         run: |
-          # Ждем доступность фронтенда (макс 30 сек)
           echo "Waiting for frontend starting..."
           timeout=30
           elapsed=0
@@ -71,38 +99,31 @@ jobs:
               echo "Frontend did not started for $timeout seconds"
               exit 1
             fi
-            echo "Try connection... ($elapsed сек.)"
+            echo "Try connection... ($elapsed sec.)"
           done
-          echo "Frontend work correctly, check HTML..."
+
+          echo "Frontend works, checking HTML..."
           html_content=$(curl -s -k https://localhost)
+
           if [ -z "$html_content" ]; then
-            echo "Pages HTML is empty!"
+            echo "Page HTML is empty"
             exit 1
           fi
+
           if [[ ! "$html_content" =~ \<html ]] || [[ ! "$html_content" =~ \<body ]]; then
-            echo "HTML do not have basic tags (html/body)"
+            echo "HTML does not have basic tags (html/body)"
             exit 1
           fi
+
           if [[ "$html_content" =~ logo_etu\.png ]]; then
             echo "Found: logo_etu.png in HTML"
           else
-            echo "TOTAL ERROR: HTML do not has logo_etu.png !"
+            echo "ERROR: HTML does not contain logo_etu.png"
             echo "--- Start HTML for debug ---"
             echo "$html_content" | head -20
             echo "--- End of HTML ---"
             exit 1
           fi
-          title=$(echo "$html_content" | grep -o '<title>[^<]*</title>' | sed 's/<title>//;s/<\/title>//')
-          if [ -n "$title" ]; then
-            echo "Title of page: $title"
-          fi
-          echo ""
-          echo "HTML Stats:"
-          echo "All checkpoints have been completed! Frontend work correctly."
-          
-      - name: Stop containers
-        if: always()
-        run: docker compose -f "docker-compose.yml" down
 
       - name: Dump container status and logs (on failure)
         if: failure()
@@ -121,3 +142,7 @@ jobs:
           echo ""
           echo "=== docker events (last 50) ==="
           docker events --since 30m --until 0s --filter type=container --filter event=die --format '{{.Time}} {{.Actor.Attributes.name}} {{.Status}} {{.Actor.Attributes.exitCode}}' | tail -50 || true
+
+      - name: Stop containers
+        if: always()
+        run: docker compose -f "docker-compose.yml" down
