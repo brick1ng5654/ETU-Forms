@@ -502,6 +502,17 @@ export default function Builder({ params }: { params: { id?: string } }) {
       return { ...field, ...updates, props: nextProps };
     }), { historyKey });
   };
+  const updateFields = (ids: string[], updates: Partial<FormElementModel>) => {
+    if (ids.length == 0) return;
+    const idSet = new Set(ids);
+    setFields(fields.map(field => {
+      if (!idSet.has(field.id)) return field;
+      const nextProps = updates.props
+        ? { ...field.props, ...updates.props }
+        : field.props;
+      return { ...field, ...updates, props: nextProps };
+    }));
+  };
   const deleteField = (id: string) => {
     setFields(fields.filter(f => f.id !== id));
     setSelectedIds(prev => prev.filter(existingId => existingId !== id));
@@ -756,7 +767,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
           supportive_text: f.description ?? null,
           text_hint: typeof placeholder === "string" ? placeholder : null,
           correct_answer: normalizedCorrectAnswer,
-          required_field: !!f.required,
+          required_field: !!f.required && !Boolean(props.readOnly),
           other_settings: cleanedOtherSettings,
           file_ids: fileIds,
           sort_index: typeof f.sortIndex === "number" ? f.sortIndex : index,
@@ -934,11 +945,11 @@ export default function Builder({ params }: { params: { id?: string } }) {
             </Button>
             <Dialog>
               <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
+                <Button data-testid="builder-preview-open" variant="outline" size="sm" className="gap-2">
                   <Eye className="h-4 w-4" /> <span className="hidden sm:inline">{t('builder.preview')}</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+              <DialogContent data-testid="preview-dialog" className="max-w-3xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>{activeForm.title || t('common.untitled')}</DialogTitle>
                   {activeForm.description && (
@@ -975,16 +986,16 @@ export default function Builder({ params }: { params: { id?: string } }) {
               <span className="hidden sm:inline">{t("results.openResults")}</span>
             </Button>
 
-            <Button variant="outline" size="sm" className="gap-2" onClick={handleSave}>
+            <Button data-testid="builder-save" variant="outline" size="sm" className="gap-2" onClick={handleSave}>
               <Save className="h-4 w-4" /> <span className="hidden sm:inline">{t('builder.save')}</span>
             </Button>
             <Popover open={isPublishOpen} onOpenChange={setIsPublishOpen}>
               <PopoverTrigger asChild>
-                <Button size="sm" className="gap-2">
+                <Button data-testid="builder-publish-open" size="sm" className="gap-2">
                   <Share2 className="h-4 w-4" /> <span className="hidden sm:inline">{t("builder.publish")}</span>
                 </Button>
               </PopoverTrigger>
-              <PopoverContent align="end" className="w-[360px] p-4">
+              <PopoverContent data-testid="builder-publish-popover" align="end" className="w-[360px] p-4">
                 <div className="space-y-4">
                   <div className="space-y-1">
                     <h4 className="text-sm font-semibold">{t("builder.publishTitle")}</h4>
@@ -998,12 +1009,6 @@ export default function Builder({ params }: { params: { id?: string } }) {
                       onValueChange={(value) => setPublishAccessMode(value as FormAccessMode)}
                       className="space-y-2"
                     >
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="public" id="access-public" />
-                        <Label htmlFor="access-public" className="cursor-pointer">
-                          {t("builder.accessModePublic")}
-                        </Label>
-                      </div>
                       <div className="flex items-center space-x-2">
                         <RadioGroupItem value="private" id="access-private" />
                         <Label htmlFor="access-private" className="cursor-pointer">
@@ -1311,6 +1316,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
             selectedField={selectedField}
             selectedIds={selectedIds}
             updateField={updateField}
+            updateFields={updateFields}
             deleteField={deleteField}
             deleteSelected={deleteSelected}
             fields={fields}

@@ -327,9 +327,20 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
       : preset?.getPlaceholderKey
         ? preset.getPlaceholderKey(props)
         : preset?.placeholderKey;
+    const canEditPlaceholder = field.semanticType !== "inn" && field.semanticType !== "ogrn";
     const placeholder = placeholderKey
       ? t(placeholderKey)
-      : preset?.placeholder || (props.placeholder as string) || "";
+      : preset?.placeholder || (canEditPlaceholder ? (props.placeholder as string) || "" : "");
+
+    if (!canEditPlaceholder) {
+      return (
+        <Input
+          placeholder={placeholder}
+          disabled
+          className="bg-white/50 pointer-events-none"
+        />
+      );
+    }
 
     return editingElement === "placeholder" ? (
       <Input
@@ -755,6 +766,8 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
   return (
     <div
       ref={setNodeRef}
+      data-testid="canvas-field"
+      data-field-id={field.id}
       style={style}
       tabIndex={0}
       onClick={(e) => {

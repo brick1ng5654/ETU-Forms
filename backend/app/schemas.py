@@ -7,7 +7,6 @@ from enum import Enum
 from app.security.constants import PASSWORD_MAX_LEN, PASSWORD_MIN_LEN
 # Enum
 class FormAccessMode(str, Enum):
-    PUBLIC = 'public'
     PRIVATE = 'private'
     UNAUTHENTICATED = 'unauthenticated'
 
@@ -334,6 +333,7 @@ class HealthResponse(BaseModel):
     status: str
     timestamp: datetime
     environment: str
+    services: Dict[str, str] = Field(default_factory=dict)
 
 class ErrorResponse(BaseModel):
     detail: str

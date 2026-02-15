@@ -109,7 +109,6 @@ export const getIconForElement = (
     case "checkbox": return CheckSquare;
     case "radio": return CircleDot;
     
-    // ?????????????????????? ????????
     case "datetime": return Calendar;
     case "rating": return Star;
     case "ranking": return ListOrdered;
@@ -298,6 +297,7 @@ export function FormCanvas({
     {/* Основная область холста формы */}
       <div
         ref={scrollContainerRef}
+        data-testid="builder-canvas"
         className="flex-1 bg-muted/30 px-8 pb-8 pt-0 overflow-y-auto h-full builder-scroll"
         onClick={() => { console.log('FormCanvas background click, clearing selection'); clearSelection(); }}
       >
@@ -309,6 +309,7 @@ export function FormCanvas({
             <Button
               variant="ghost"
               size="sm"
+              data-testid="builder-undo"
               onClick={onUndo}
               disabled={!canUndo}
               className={cn("gap-2", !canUndo && "text-muted-foreground")}
@@ -319,6 +320,7 @@ export function FormCanvas({
             <Button
               variant="ghost"
               size="sm"
+              data-testid="builder-redo"
               onClick={onRedo}
               disabled={!canRedo}
               className={cn("gap-2", !canRedo && "text-muted-foreground")}

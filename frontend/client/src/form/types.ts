@@ -56,7 +56,7 @@ export interface FormFolder {
   name: string;
 }
 
-export type FormAccessMode = "public" | "private" | "unauthenticated";
+export type FormAccessMode = "private" | "unauthenticated";
 
 export interface FormSchema {
   id: string;

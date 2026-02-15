@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { X, Plus, Trash2, Check } from "lucide-react";
+import { X, Plus, Trash2, Check, Lock, Unlock } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTranslation } from "react-i18next";
 import { DndContext, DragEndEvent, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
@@ -29,6 +29,7 @@ interface PropertiesPanelProps {
   selectedField: FormElementModel | null;
   selectedIds: string[];
   updateField: (id: string, updates: Partial<FormElementModel>) => void;
+  updateFields: (ids: string[], updates: Partial<FormElementModel>) => void;
   deleteField: (id: string) => void;
   deleteSelected: () => void;
   fields: FormElementModel[];
@@ -211,18 +212,8 @@ const MAX_UPLOAD_MB = 20;
 
 const propertiesSchemaByWidgetType: Record<WidgetType, PropertyFieldDef[]> = {
   header: [baseLabelField],
-  text_input: [baseLabelField, placeholderField, helperTextField, requiredField, {
-    key: "hideQuestion",
-    labelKey: "propert.hideQuestion",
-    type: "switch",
-    target: "props.hideQuestion",
-  }],
-  textarea: [baseLabelField, placeholderField, helperTextField, requiredField, {
-    key: "hideQuestion",
-    labelKey: "propert.hideQuestion",
-    type: "switch",
-    target: "props.hideQuestion",
-  }],
+  text_input: [baseLabelField, placeholderField, helperTextField, requiredField],
+  textarea: [baseLabelField, placeholderField, helperTextField, requiredField],
   number_input: [
     baseLabelField,
     placeholderField,
@@ -502,7 +493,7 @@ const getValueByTarget = (field: FormElementModel, target: PropertyFieldDef["tar
   return undefined;
 };
 
-export function PropertiesPanel({ selectedField, selectedIds, updateField, deleteField, deleteSelected, fields }: PropertiesPanelProps) {
+export function PropertiesPanel({ selectedField, selectedIds, updateField, updateFields, deleteField, deleteSelected, fields }: PropertiesPanelProps) {
   const { t, i18n } = useTranslation();
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -557,7 +548,13 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
     (selectedField?.props as Record<string, any> | undefined)?.maxChars,
   ]);
 
+  const readOnlyEnableHint = t("propert.readOnlyEnableTooltip");
+  const readOnlyDisableHint = t("propert.readOnlyDisableTooltip");
+
   if (selectedIds.length > 1) {
+    const selectedFields = fields.filter((field) => selectedIds.includes(field.id));
+    const allReadOnly = selectedFields.length > 0
+      && selectedFields.every((field) => Boolean((field.props as Record<string, any>).readOnly));
     const panelClassName = isConditionalSelectOpen
       ? "p-4 space-y-6 overflow-y-auto h-full pb-[40vh]"
       : "p-4 space-y-6 overflow-y-auto h-full pb-32";
@@ -566,12 +563,39 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
       <div className={panelClassName}>
         <div className="flex items-center justify-between border-b pb-4">
           <h3 className="font-semibold text-lg">{t("propert.propet")}</h3>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => {
+                const nextReadOnly = !allReadOnly;
+                updateFields(selectedIds, {
+                  props: { readOnly: nextReadOnly },
+                  ...(nextReadOnly ? { required: false } : {}),
+                });
+              }}
+              aria-label={t("propert.readOnly")}
+              title={allReadOnly ? readOnlyDisableHint : readOnlyEnableHint}
+            >
+              {allReadOnly ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+            </Button>
+            <Button
+              variant="destructive"
+              size="icon"
+              className="h-8 w-8"
+              onClick={deleteSelected}
+              aria-label={t("builder.deleteSelected")}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
         <div className="space-y-1">
           <p className="text-sm text-muted-foreground">{t("builder.selectedCount", { count: selectedIds.length })}</p>
         </div>
         <div className="grid gap-2">
-          <Button variant="destructive" onClick={deleteSelected}>
+          <Button variant="destructive" data-testid="prop-delete-selected" onClick={deleteSelected}>
             {t("builder.deleteSelected")}
           </Button>
         </div>
@@ -588,6 +612,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
   }
 
   const props = selectedField.props as Record<string, any>;
+  const isReadOnly = Boolean(props.readOnly);
   const hideDate = Boolean(props.hideDate);
   const hideTime = Boolean(props.hideTime);
   const isCountrySelect = isCountryField(selectedField);
@@ -600,6 +625,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
   const schemaFields = propertiesSchemaByWidgetType[selectedField.widgetType].filter((fieldDef) => {
     if (fieldDef.key === "required" && !showRequiredToggle) return false;
     if (selectedField.semanticType === "passport" && fieldDef.key === "placeholder") return false;
+    if ((selectedField.semanticType === "inn" || selectedField.semanticType === "ogrn") && fieldDef.key === "placeholder") return false;
     return !fieldDef.visible || fieldDef.visible(selectedField);
   });
   const semanticFields = selectedField.semanticType
@@ -632,7 +658,11 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
       return;
     }
     if (target === "required") {
-      updateField(selectedField.id, { required: Boolean(value) });
+      const nextRequired = Boolean(value);
+      updateField(selectedField.id, {
+        required: nextRequired,
+        ...(nextRequired ? { props: { readOnly: false } } : {}),
+      });
       return;
     }
     if (target.startsWith("props.")) {
@@ -857,7 +887,10 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
   const renderPropertyField = (fieldDef: PropertyFieldDef) => {
     const value = getValueByTarget(selectedField, fieldDef.target);
     const isDisabled = fieldDef.disabled?.(selectedField) ?? false;
-    const showTooltip = Boolean(fieldDef.tooltipKey);
+    const tooltipText = fieldDef.tooltipKey
+      ? t(fieldDef.tooltipKey)
+      : null;
+    const showTooltip = Boolean(tooltipText);
 
     const label = (
       <div className="flex items-center gap-2">
@@ -867,14 +900,14 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
             <TooltipTrigger asChild>
               <button
                 type="button"
-                aria-label={t(fieldDef.tooltipKey!)}
+                aria-label={tooltipText!}
                 className="h-5 w-5 rounded-full border border-muted-foreground/40 text-muted-foreground text-[11px] leading-none flex items-center justify-center hover:bg-muted"
               >
                 ?
               </button>
             </TooltipTrigger>
             <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">
-              {t(fieldDef.tooltipKey!)}
+              {tooltipText}
             </TooltipContent>
           </Tooltip>
         )}
@@ -1123,7 +1156,10 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
 
     if (fieldDef.type === "switch") {
       return (
-        <div key={fieldDef.key} className="flex items-center justify-between rounded-lg border p-3 shadow-sm space-y-2">
+        <div
+          key={fieldDef.key}
+          className="flex items-center justify-between rounded-lg border p-3 shadow-sm space-y-2"
+        >
           <div className="space-y-0.5">{label}</div>
           <Switch
             checked={Boolean(value)}
@@ -1302,14 +1338,32 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
     <div className={panelClassName}>
       <div className="flex items-center justify-between border-b pb-4">
         <h3 className="font-semibold text-lg">{t("propert.propet")}</h3>
-        <Button
-          variant="destructive"
-          size="icon"
-          className="h-8 w-8"
-          onClick={() => deleteField(selectedField.id)}
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => {
+              const nextReadOnly = !isReadOnly;
+              updateField(selectedField.id, {
+                props: { readOnly: nextReadOnly },
+                ...(nextReadOnly ? { required: false } : {}),
+              });
+            }}
+            aria-label={t("propert.readOnly")}
+            title={isReadOnly ? readOnlyDisableHint : readOnlyEnableHint}
+          >
+            {isReadOnly ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+          </Button>
+          <Button
+            variant="destructive"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => deleteField(selectedField.id)}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-2">
