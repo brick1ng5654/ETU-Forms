@@ -29,6 +29,7 @@ interface PropertiesPanelProps {
   selectedField: FormElementModel | null;
   selectedIds: string[];
   updateField: (id: string, updates: Partial<FormElementModel>) => void;
+  updateFields: (ids: string[], updates: Partial<FormElementModel>) => void;
   deleteField: (id: string) => void;
   deleteSelected: () => void;
   fields: FormElementModel[];
@@ -492,7 +493,7 @@ const getValueByTarget = (field: FormElementModel, target: PropertyFieldDef["tar
   return undefined;
 };
 
-export function PropertiesPanel({ selectedField, selectedIds, updateField, deleteField, deleteSelected, fields }: PropertiesPanelProps) {
+export function PropertiesPanel({ selectedField, selectedIds, updateField, updateFields, deleteField, deleteSelected, fields }: PropertiesPanelProps) {
   const { t, i18n } = useTranslation();
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -559,28 +560,35 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
       <div className={panelClassName}>
         <div className="flex items-center justify-between border-b pb-4">
           <h3 className="font-semibold text-lg">{t("propert.propet")}</h3>
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => {
-              const nextReadOnly = !allReadOnly;
-              selectedFields.forEach((field) => {
-                updateField(field.id, { props: { readOnly: nextReadOnly } });
-              });
-            }}
-            aria-label={t("propert.readOnly")}
-          >
-            {allReadOnly ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => {
+                const nextReadOnly = !allReadOnly;
+                updateFields(selectedIds, {
+                  props: { readOnly: nextReadOnly },
+                  ...(nextReadOnly ? { required: false } : {}),
+                });
+              }}
+              aria-label={t("propert.readOnly")}
+            >
+              {allReadOnly ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+            </Button>
+            <Button
+              variant="destructive"
+              size="icon"
+              className="h-8 w-8"
+              onClick={deleteSelected}
+              aria-label={t("builder.deleteSelected")}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
         <div className="space-y-1">
           <p className="text-sm text-muted-foreground">{t("builder.selectedCount", { count: selectedIds.length })}</p>
-        </div>
-        <div className="grid gap-2">
-          <Button variant="destructive" onClick={deleteSelected}>
-            {t("builder.deleteSelected")}
-          </Button>
         </div>
         <div className={spacerClassName} />
       </div>
@@ -1316,7 +1324,13 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, delet
             variant="outline"
             size="icon"
             className="h-8 w-8"
-            onClick={() => updateField(selectedField.id, { props: { readOnly: !isReadOnly } })}
+            onClick={() => {
+              const nextReadOnly = !isReadOnly;
+              updateField(selectedField.id, {
+                props: { readOnly: nextReadOnly },
+                ...(nextReadOnly ? { required: false } : {}),
+              });
+            }}
             aria-label={t("propert.readOnly")}
           >
             {isReadOnly ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
