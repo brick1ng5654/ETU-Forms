@@ -14,6 +14,15 @@ import hashlib
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+
+def _resolve_user_role(user: models.AppUser) -> str | None:
+    # Keep compatibility with legacy records where only is_admin was set.
+    if user.role:
+        return str(user.role)
+    if user.is_admin:
+        return "admin"
+    return None
+
 def set_refresh_cookie(response: Response, token: str) -> None:
     response.set_cookie(
         key="refresh_token",
@@ -122,7 +131,12 @@ async def login(request: Request, payload: LoginRequest, response: Response,db: 
     return {
         "access_token": access,
         "token_type": "bearer",
-        "user": {"user_id": user.user_id, "email": user.email, "name": user.name},
+        "user": {
+            "user_id": user.user_id,
+            "email": user.email,
+            "name": user.name,
+            "role": _resolve_user_role(user),
+        },
     }
 
 @router.post("/refresh")
@@ -157,7 +171,12 @@ async def refresh_token(request: Request, response: Response, db: AsyncSession =
     return {
         "access_token": access,
         "token_type": "bearer",
-        "user": {"user_id": user.user_id, "email": user.email, "name": user.name},
+        "user": {
+            "user_id": user.user_id,
+            "email": user.email,
+            "name": user.name,
+            "role": _resolve_user_role(user),
+        },
     }
 
 @router.post("/logout")

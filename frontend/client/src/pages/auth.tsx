@@ -13,7 +13,7 @@ import { useAuth } from "@/lib/auth";
 type LoginOk = {
   access_token: string;
   token_type: "bearer";
-  user: { user_id: number; email: string; name: string };
+  user: { user_id: number; email: string; name: string; role?: "form_creator" | "admin" | null };
 };
 
 type LoginErr = {
