@@ -8,6 +8,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -179,7 +180,7 @@ jobs:
           E2E_AUTH_EMAIL: ${{ secrets.E2E_AUTH_EMAIL }}
           E2E_AUTH_PASSWORD: ${{ secrets.E2E_AUTH_PASSWORD }}
         working-directory: frontend
-        run: npx playwright test --reporter=html
+        run: npx playwright test --max-failures=1 --reporter=line,html
 
       - name: Upload Playwright report
         if: always()
