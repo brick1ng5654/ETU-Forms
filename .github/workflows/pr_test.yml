@@ -54,6 +54,12 @@ jobs:
 
       - name: Reset docker volumes
         run: docker compose -f "docker-compose.yml" down -v
+
+      - name: Prepare writable log directories
+        run: |
+          mkdir -p ./logs/db ./logs/backend
+          touch ./logs/db/postgresql.log
+          chmod -R 777 ./logs/db ./logs/backend
         
       - name: Start containers with Docker Compose
         run: docker compose -f "docker-compose.yml" up -d --build
