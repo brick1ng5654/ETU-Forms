@@ -81,9 +81,17 @@ export default function Auth() {
         setError(data.detail ?? t("auth.tooManyAttempts"));
         return;
       }
-      if (!res.ok) {
-        await res.json().catch(() => ({}));
+      if (res.status === 401 || res.status === 403) {
         setError(t("auth.invalidCredentials"));
+        return;
+      }
+      if (res.status >= 500) {
+        setError(t("auth.serviceUnavailable"));
+        return;
+      }
+      if (!res.ok) {
+        const data: LoginErr = await res.json().catch(() => ({}));
+        setError(data.detail ?? t("auth.networkError"));
         return;
       }
 
@@ -93,7 +101,7 @@ export default function Auth() {
       // После успешной авторизации перенаправляем на главную страницу
       navigate(nextAfterLogin);
     } catch (err) {
-      setError(t("auth.networkError"));
+      setError(t("auth.serviceUnavailable"));
     } finally {
       setLoading(false);
     }

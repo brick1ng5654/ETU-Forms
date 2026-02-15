@@ -2,10 +2,10 @@
   "cookies": [
     {
       "name": "refresh_token",
-      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1IiwiaWF0IjoxNzcxMTM1MDUyLCJleHAiOjE3NzE3Mzk4NTIsInR5cGUiOiJyZWZyZXNoIiwiZW1haWwiOiJ0ZXN0QGV4YW1wbGUuY29tIn0.6yEPXQiA0VT1cbetk4EstvsMlHqwcySoU0qrcHqukGs",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1IiwiaWF0IjoxNzcxMTQ4NTAwLCJleHAiOjE3NzE3NTMzMDAsInR5cGUiOiJyZWZyZXNoIiwiZW1haWwiOiJ0ZXN0QGV4YW1wbGUuY29tIn0.fm0QHAsVvetFbdsI1mWE2Bw0RnXTid5lefXoeiMSE3A",
       "domain": "localhost",
       "path": "/api/v1/auth",
-      "expires": 1771739852.66269,
+      "expires": 1771753300.891532,
       "httpOnly": true,
       "secure": true,
       "sameSite": "None"
@@ -18,10 +18,6 @@
         {
           "name": "i18nextLng",
           "value": "en-US"
-        },
-        {
-          "name": "etu_forms",
-          "value": "[{\"id\":\"1\",\"title\":\"Demo Form\",\"description\":\"Form for testing roles: editor/participant\",\"ownerName\":\"Admin\",\"fields\":[],\"fieldCount\":0,\"status\":\"submitted\",\"version\":1,\"prevFormId\":null,\"settings_json\":null,\"startAt\":null,\"endAt\":null,\"accessMode\":\"private\",\"createdAt\":1771124192107,\"updatedAt\":1771124192107,\"canEdit\":true,\"canViewResponses\":true,\"canContinuePassage\":true}]"
         }
       ]
     }

@@ -147,6 +147,31 @@ jobs:
         working-directory: frontend
         run: npx playwright install --with-deps
 
+      - name: Wait until API is ready
+        env:
+          E2E_BASE_URL: ${{ secrets.E2E_BASE_URL }}
+        run: |
+          echo "Initial API probe:"
+          curl -k -i "${E2E_BASE_URL}/api/v1/health" || true
+
+          timeout=180
+          elapsed=0
+          until curl -k -f -sS "${E2E_BASE_URL}/api/v1/health" >/dev/null; do
+            elapsed=$((elapsed + 3))
+            if [ $elapsed -ge $timeout ]; then
+              echo "API did not become ready in ${timeout}s"
+              echo "Final API probe before fail:"
+              curl -k -i "${E2E_BASE_URL}/api/v1/health" || true
+              exit 1
+            fi
+            echo "API is not ready yet (${elapsed}s/${timeout}s)."
+            curl -k -i "${E2E_BASE_URL}/api/v1/health" || true
+            sleep 3
+          done
+
+          echo "API is ready:"
+          curl -k -i "${E2E_BASE_URL}/api/v1/health"
+
       - name: Run Playwright tests
         env:
           E2E_BASE_URL: ${{ secrets.E2E_BASE_URL }}
@@ -164,6 +189,24 @@ jobs:
           path: |
             frontend/playwright-report
             frontend/test-results
+          if-no-files-found: warn
+
+      - name: Collect docker diagnostics
+        if: failure()
+        run: |
+          mkdir -p artifacts/compose
+          docker compose -f docker-compose.yml ps > artifacts/compose/docker-compose-ps.txt || true
+
+          for service in frontend backend postgres redis; do
+            docker compose -f docker-compose.yml logs --no-color --tail=500 $service > "artifacts/compose/${service}.log" || true
+          done
+
+      - name: Upload docker diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-diagnostics
+          path: artifacts/compose
           if-no-files-found: warn
           
       - name: Stop containers
