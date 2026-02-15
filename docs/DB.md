@@ -120,9 +120,12 @@
 | position | INT |  | NULL | Позиция элемента в форме |
 | correct_answer | JSONB |  | NULL | Правильный ответ для проверяемых полей |
 | required_field | BOOLEAN |  | NULL | Флаг обязательного заполнения |
+| other_settings | JSONB |  | NULL | Частные настройки свойств элемента |
+| file_ids | INT[] |  | DEFAULT '{}' | Список file_id прикреплённых файлов (до 10) |
+
 **Примечания по props_settings**
-- `readOnly: true` - элемент залочен (только для чтения).
-- При `readOnly: true` обязательность игнорируется; при установке лока в билдере `required_field` сбрасывается.
+- `readOnly: true` - элемент помечен как доступный только для чтения.
+- При `readOnly: true` обязательность игнорируется; при включении режима только для чтения в конструкторе формы `required_field` сбрасывается.
 
 **Домены и перечисления**
 - WIDGET_TYPE: heading, static_text, number_input, text_input, select, checkbox, radio, datetime, email_input, rating, ranking, matrix, file_upload.
