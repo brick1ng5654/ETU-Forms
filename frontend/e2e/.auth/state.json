@@ -2,10 +2,10 @@
   "cookies": [
     {
       "name": "refresh_token",
-      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1IiwiaWF0IjoxNzcxMDUxNzQ2LCJleHAiOjE3NzE2NTY1NDYsInR5cGUiOiJyZWZyZXNoIiwiZW1haWwiOiJ0ZXN0QGV4YW1wbGUuY29tIn0.Wyh0_yFCXDC3WTWRflZ8GtTxRA-M-jJABKQ2ofWSruo",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1IiwiaWF0IjoxNzcxMTM1MDUyLCJleHAiOjE3NzE3Mzk4NTIsInR5cGUiOiJyZWZyZXNoIiwiZW1haWwiOiJ0ZXN0QGV4YW1wbGUuY29tIn0.6yEPXQiA0VT1cbetk4EstvsMlHqwcySoU0qrcHqukGs",
       "domain": "localhost",
       "path": "/api/v1/auth",
-      "expires": 1771656546.157672,
+      "expires": 1771739852.66269,
       "httpOnly": true,
       "secure": true,
       "sameSite": "None"
@@ -21,7 +21,7 @@
         },
         {
           "name": "etu_forms",
-          "value": "[{\"id\":\"6\",\"title\":\"Demo Form\",\"description\":\"Form for testing roles: editor/participant\",\"ownerName\":\"Admin\",\"fields\":[],\"fieldCount\":0,\"status\":\"temp\",\"version\":2,\"prevFormId\":\"1\",\"settings_json\":{\"client_form_id\":\"1\",\"privateLinkKey\":\"E9Zwglc_-POsKjHaNT0dBI0nvUgigApI\"},\"startAt\":null,\"endAt\":null,\"accessMode\":\"private\",\"createdAt\":1771040798207,\"updatedAt\":1771040798207,\"canEdit\":true,\"canViewResponses\":false,\"canContinuePassage\":false},{\"id\":\"5\",\"title\":\"Demo Form\",\"description\":\"Form for testing roles: editor/participant\",\"ownerName\":\"Admin\",\"fields\":[],\"fieldCount\":0,\"status\":\"temp\",\"version\":2,\"prevFormId\":\"1\",\"settings_json\":{\"client_form_id\":\"1\",\"privateLinkKey\":\"dNpy7HCaQHI_oNBDV0PX-8C8-PN3GnbP\"},\"startAt\":null,\"endAt\":null,\"accessMode\":\"private\",\"createdAt\":1771040579517,\"updatedAt\":1771040579517,\"canEdit\":true,\"canViewResponses\":false,\"canContinuePassage\":false},{\"id\":\"4\",\"title\":\"Demo Form\",\"description\":\"Form for testing roles: editor/participant\",\"ownerName\":\"Admin\",\"fields\":[],\"fieldCount\":0,\"status\":\"temp\",\"version\":2,\"prevFormId\":\"1\",\"settings_json\":{\"client_form_id\":\"1\",\"privateLinkKey\":\"pbkF65f0A_1WoPafWseVxf3b9IEFH8kE\"},\"startAt\":null,\"endAt\":null,\"accessMode\":\"private\",\"createdAt\":1771040479489,\"updatedAt\":1771040479489,\"canEdit\":true,\"canViewResponses\":false,\"canContinuePassage\":false},{\"id\":\"3\",\"title\":\"Demo Form\",\"description\":\"Form for testing roles: editor/participant\",\"ownerName\":\"Admin\",\"fields\":[],\"fieldCount\":0,\"status\":\"temp\",\"version\":2,\"prevFormId\":\"1\",\"settings_json\":{\"client_form_id\":\"1\",\"privateLinkKey\":\"0eibsnF0HYZ_G3h6cY8GqBEXLr9NJPb7\"},\"startAt\":null,\"endAt\":null,\"accessMode\":\"private\",\"createdAt\":1771040131221,\"updatedAt\":1771040131221,\"canEdit\":true,\"canViewResponses\":false,\"canContinuePassage\":false},{\"id\":\"2\",\"title\":\"Demo Form\",\"description\":\"Form for testing roles: editor/participant\",\"ownerName\":\"Admin\",\"fields\":[],\"fieldCount\":0,\"status\":\"temp\",\"version\":2,\"prevFormId\":\"1\",\"settings_json\":{\"client_form_id\":\"1\",\"privateLinkKey\":\"7FlR-HMKnFrngnIvOhyFGso1WQhS8Xyt\"},\"startAt\":null,\"endAt\":null,\"accessMode\":\"private\",\"createdAt\":1771038189262,\"updatedAt\":1771038189262,\"canEdit\":true,\"canViewResponses\":false,\"canContinuePassage\":false},{\"id\":\"1\",\"title\":\"Demo Form\",\"description\":\"Form for testing roles: editor/participant\",\"ownerName\":\"Admin\",\"fields\":[],\"fieldCount\":0,\"status\":\"submitted\",\"version\":1,\"prevFormId\":null,\"settings_json\":null,\"startAt\":null,\"endAt\":null,\"accessMode\":\"private\",\"createdAt\":1771038168264,\"updatedAt\":1771038168264,\"canEdit\":true,\"canViewResponses\":true,\"canContinuePassage\":true}]"
+          "value": "[{\"id\":\"1\",\"title\":\"Demo Form\",\"description\":\"Form for testing roles: editor/participant\",\"ownerName\":\"Admin\",\"fields\":[],\"fieldCount\":0,\"status\":\"submitted\",\"version\":1,\"prevFormId\":null,\"settings_json\":null,\"startAt\":null,\"endAt\":null,\"accessMode\":\"private\",\"createdAt\":1771124192107,\"updatedAt\":1771124192107,\"canEdit\":true,\"canViewResponses\":true,\"canContinuePassage\":true}]"
         }
       ]
     }
