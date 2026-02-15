@@ -44,7 +44,7 @@
 | updated_at | TIMESTAMP |  | DEFAULT | Дата последнего обновления |
 
 **Домены и перечисления**
-- FORM_ACCESS_MODE: Public (публичная), Private (по ссылке), Unauthenticated (для неавторизованных).
+- FORM_ACCESS_MODE: Private (по ссылке), Unauthenticated (публичная).
 - FORM_STATUS: temp (черновик), submitted (опубликована), deleted (удалена).
 
 **Правила целостности**

@@ -138,7 +138,7 @@ Query:
 - `settings_json` (object, optional)
 - `start_at` (datetime, optional)
 - `end_at` (datetime, optional)
-- `access_mode` (string: `public|private|unauthenticated`, default `private`)
+- `access_mode` (string: `private|unauthenticated`, default `private`)
 - `user_id` (int, optional; сейчас игнорируется, берется из токена)
 
 Ответ: `FormResponse`
@@ -251,7 +251,7 @@ Query:
 
 Auth:
 
-- Если `access_mode != unauthenticated`, требуется Bearer токен.
+- Если `access_mode = private`, требуется Bearer токен.
 
 Ответ: `PublicFormDetailResponse`
 
@@ -277,7 +277,7 @@ Query:
 
 Auth:
 
-- Если `access_mode != unauthenticated`, требуется Bearer токен.
+- Если `access_mode = private`, требуется Bearer токен.
 - Если пользователь не авторизован и доступ разрешен, ответ привязывается к анонимному пользователю.
 
 Запрос: `FormSubmitAnswersRequest`
@@ -336,7 +336,7 @@ Auth:
 - `description` (string, optional)
 - `settings_json` (object, optional)
 - `start_at` / `end_at` (datetime, optional)
-- `access_mode` (string: `public|private|unauthenticated`)
+- `access_mode` (string: `private|unauthenticated`)
 - `version` (int)
 - `prev_form_id` (int, optional)
 - `status` (string: `temp|submitted|deleted`)
