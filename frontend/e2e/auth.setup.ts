@@ -1,6 +1,6 @@
 import { test as setup, expect } from "@playwright/test";
 
-setup("auth", async ({ page, request }) => {
+setup("auth", async ({ request }) => {
     const email = process.env.E2E_AUTH_EMAIL;
     const password = process.env.E2E_AUTH_PASSWORD;
 
@@ -18,21 +18,23 @@ setup("auth", async ({ page, request }) => {
         )
         .toBe(200);
 
-    await page.goto("/auth");
+    const loginResponse = await request.post("/api/v1/auth/login", {
+        data: {
+            email: email || "",
+            password: password || "",
+        },
+        failOnStatusCode: false,
+    });
 
-    await page.fill("#email", email || "");
-    await page.fill("#password", password || "");
-
-    const loginResponsePromise = page.waitForResponse((res) => res.url().includes("/api/v1/auth/login"));
-    await page.click('button[type="submit"]');
-
-    const loginResponse = await loginResponsePromise;
     if (!loginResponse.ok()) {
         const body = await loginResponse.text().catch(() => "<unreadable>");
-        console.log(`[auth.setup] login failed: status=${loginResponse.status()} body=${body}`);
+        throw new Error(`[auth.setup] login failed: status=${loginResponse.status()} body=${body}`);
     }
 
-    await expect(page).toHaveURL("/", { timeout: 20_000 });
+    const refreshResponse = await request.post("/api/v1/auth/refresh", {
+        failOnStatusCode: false,
+    });
+    expect(refreshResponse.ok()).toBeTruthy();
 
-    await page.context().storageState({ path: "e2e/.auth/state.json" });
+    await request.storageState({ path: "e2e/.auth/state.json" });
 })

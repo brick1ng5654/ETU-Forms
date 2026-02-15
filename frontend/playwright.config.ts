@@ -15,7 +15,15 @@ export default defineConfig({
         video: "retain-on-failure",
     },
     projects: [
-        { name: "setup", testMatch: /auth\.setup\.ts/ },
+        {
+            name: "setup",
+            testMatch: /auth\.setup\.ts/,
+            use: {
+                trace: "off",
+                screenshot: "off",
+                video: "off",
+            },
+        },
         {
             name: 'chromium',
             use: { ...devices['Desktop Chrome'], storageState: "e2e/.auth/state.json" },
