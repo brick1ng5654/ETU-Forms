@@ -44,7 +44,7 @@
 | updated_at | TIMESTAMP |  | DEFAULT | Дата последнего обновления |
 
 **Домены и перечисления**
-- FORM_ACCESS_MODE: Public (публичная), Private (по ссылке), Unauthenticated (для неавторизованных).
+- FORM_ACCESS_MODE: Private, Unauthenticated (публичная).
 - FORM_STATUS: temp (черновик), submitted (опубликована), deleted (удалена).
 
 **Правила целостности**
@@ -120,8 +120,15 @@
 | position | INT |  | NULL | Позиция элемента в форме |
 | correct_answer | JSONB |  | NULL | Правильный ответ для проверяемых полей |
 | required_field | BOOLEAN |  | NULL | Флаг обязательного заполнения |
-| props_settings | JSONB |  | NULL | Частные настройки свойств элемента |
+| other_settings | JSONB |  | NULL | Частные настройки свойств элемента |
 | file_ids | INT[] |  | DEFAULT '{}' | Список file_id прикреплённых файлов (до 10) |
+
+**Примечания по props_settings**
+- Параметр `readOnly` хранится в `props_settings` и определяет режим элемента без возможности ввода ответа, т.е. доступный только для чтения.
+- При значении `readOnly: true` поле не участвует в проверке обязательности, даже если в `required_field` установлено `true`.
+- В редакторе формы параметры `readOnly` и `required_field` обрабатываются как взаимоисключающие:
+  - при включении `readOnly` значение `required_field` принудительно устанавливается в `false`;
+  - при включении `required_field` значение `readOnly` принудительно устанавливается в `false`.
 
 **Домены и перечисления**
 - WIDGET_TYPE: heading, static_text, number_input, text_input, select, checkbox, radio, datetime, email_input, rating, ranking, matrix, file_upload.

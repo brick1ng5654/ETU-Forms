@@ -7,7 +7,6 @@ from app.database import Base
 import enum
 
 class FormAccessMode(str, enum.Enum):
-    PUBLIC = 'public'
     PRIVATE = 'private'
     UNAUTHENTICATED = 'unauthenticated'
 
@@ -21,7 +20,7 @@ class FormStatus(str, enum.Enum):
     DELETED = 'deleted'
 
 form_access_mode_enum = ENUM(
-    'public', 'private', 'unauthenticated',
+    'private', 'unauthenticated',
     name='form_access_mode'
 )
 

@@ -7,7 +7,6 @@ from enum import Enum
 from app.security.constants import PASSWORD_MAX_LEN, PASSWORD_MIN_LEN
 # Enum
 class FormAccessMode(str, Enum):
-    PUBLIC = 'public'
     PRIVATE = 'private'
     UNAUTHENTICATED = 'unauthenticated'
 
