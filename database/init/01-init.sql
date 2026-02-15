@@ -30,9 +30,8 @@ DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'form_access_mode') THEN
         CREATE TYPE form_access_mode AS ENUM (
-            'public',       -- Публичная форма
-            'private',      -- Приватная (по ссылке)
-            'unauthenticated' -- Для неавторизованных
+            'private',        -- Приватная (по ссылке)
+            'unauthenticated' -- Публичная форма
         );
     END IF;
 
