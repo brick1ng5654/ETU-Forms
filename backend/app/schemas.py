@@ -333,6 +333,7 @@ class HealthResponse(BaseModel):
     status: str
     timestamp: datetime
     environment: str
+    services: Dict[str, str] = Field(default_factory=dict)
 
 class ErrorResponse(BaseModel):
     detail: str

@@ -432,6 +432,7 @@
     "emailRequired": "Enter your email",
     "invalidCredentials": "Invalid email or password",
     "tooManyAttempts": "Too many login attempts. Please try again later.",
+    "serviceUnavailable": "Service unavailable. Please try again later.",
     "networkError": "Network error. Please try again.",
     "loading": "Signing in...",
     "loginButton": "Login as Partner",

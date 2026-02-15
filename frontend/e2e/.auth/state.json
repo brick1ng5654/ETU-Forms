@@ -1,0 +1,25 @@
+{
+  "cookies": [
+    {
+      "name": "refresh_token",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI1IiwiaWF0IjoxNzcxMTUxNTcyLCJleHAiOjE3NzE3NTYzNzIsInR5cGUiOiJyZWZyZXNoIiwiZW1haWwiOiJ0ZXN0QGV4YW1wbGUuY29tIn0.sTS7NEKarjnZ8-MjZnm7Taac3tfNzJN-tJYblCRR8Co",
+      "domain": "localhost",
+      "path": "/api/v1/auth",
+      "expires": 1771756372.781997,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "https://localhost",
+      "localStorage": [
+        {
+          "name": "i18nextLng",
+          "value": "en-US"
+        }
+      ]
+    }
+  ]
+}

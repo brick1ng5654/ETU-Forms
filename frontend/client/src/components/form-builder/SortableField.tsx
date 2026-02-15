@@ -766,6 +766,8 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
   return (
     <div
       ref={setNodeRef}
+      data-testid="canvas-field"
+      data-field-id={field.id}
       style={style}
       tabIndex={0}
       onClick={(e) => {

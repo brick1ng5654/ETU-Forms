@@ -594,6 +594,11 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, updat
         <div className="space-y-1">
           <p className="text-sm text-muted-foreground">{t("builder.selectedCount", { count: selectedIds.length })}</p>
         </div>
+        <div className="grid gap-2">
+          <Button variant="destructive" data-testid="prop-delete-selected" onClick={deleteSelected}>
+            {t("builder.deleteSelected")}
+          </Button>
+        </div>
         <div className={spacerClassName} />
       </div>
     );
