@@ -14,6 +14,10 @@ class AccessRole(str, enum.Enum):
     EDITOR = 'editor'
     PARTICIPANT = 'participant'
 
+class UserRole(str, enum.Enum):
+    FORM_CREATOR = 'form_creator'
+    ADMIN = 'admin'
+
 class FormStatus(str, enum.Enum):
     TEMP = 'temp'
     SUBMITTED = 'submitted'
@@ -32,6 +36,11 @@ form_status_enum = ENUM(
 access_role_enum = ENUM(
     'editor', 'participant',
     name='access_role'
+)
+
+user_role_enum = ENUM(
+    'form_creator', 'admin',
+    name='user_role'
 )
 
 response_status_enum = ENUM(
@@ -69,6 +78,7 @@ class AppUser(Base):
     email = Column(String(100), unique=True, nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     password_hash = Column(Text, nullable=True)
+    role = Column(user_role_enum, nullable=True)
     is_admin = Column(Boolean, nullable=False, server_default="false")
 
     forms = relationship("Form", back_populates="user", cascade="all, delete-orphan")
