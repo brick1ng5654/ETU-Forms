@@ -282,6 +282,8 @@
     "allowdec":"Allow Decimals",
     "requered":"Required field",
     "readOnly":"Read-only",
+    "readOnlyEnableTooltip":"Enable read-only: users cannot fill in this field.",
+    "readOnlyDisableTooltip":"Disable read-only: users can fill in this field again.",
     "variabl":"Answer options",
     "addopti":"Add Option",
     "longtxt":"Multiline text",

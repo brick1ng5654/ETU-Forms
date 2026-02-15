@@ -123,9 +123,12 @@
 | props_settings | JSONB |  | NULL | Частные настройки свойств элемента |
 | file_ids | INT[] |  | DEFAULT '{}' | Список file_id прикреплённых файлов (до 10) |
 
-**?????????? ?? props_settings**
-- `readOnly: true` - ??????? ??????? (?????? ??? ??????).
-- ??? `readOnly: true` ?????????????? ????????????; ??? ????????? ???? ? ??????? `required_field` ????????????.
+**Примечания по props_settings**
+- Параметр `readOnly` хранится в `props_settings` и определяет режим элемента без возможности ввода ответа.
+- При значении `readOnly: true` поле не участвует в проверке обязательности, даже если в `required_field` установлено `true`.
+- В редакторе формы параметры `readOnly` и `required_field` обрабатываются как взаимоисключающие:
+  - при включении `readOnly` значение `required_field` принудительно устанавливается в `false`;
+  - при включении `required_field` значение `readOnly` принудительно устанавливается в `false`.
 
 **Домены и перечисления**
 - WIDGET_TYPE: heading, static_text, number_input, text_input, select, checkbox, radio, datetime, email_input, rating, ranking, matrix, file_upload.

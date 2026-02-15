@@ -548,6 +548,9 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, updat
     (selectedField?.props as Record<string, any> | undefined)?.maxChars,
   ]);
 
+  const readOnlyEnableHint = t("propert.readOnlyEnableTooltip");
+  const readOnlyDisableHint = t("propert.readOnlyDisableTooltip");
+
   if (selectedIds.length > 1) {
     const selectedFields = fields.filter((field) => selectedIds.includes(field.id));
     const allReadOnly = selectedFields.length > 0
@@ -573,6 +576,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, updat
                 });
               }}
               aria-label={t("propert.readOnly")}
+              title={allReadOnly ? readOnlyDisableHint : readOnlyEnableHint}
             >
               {allReadOnly ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
             </Button>
@@ -649,7 +653,11 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, updat
       return;
     }
     if (target === "required") {
-      updateField(selectedField.id, { required: Boolean(value) });
+      const nextRequired = Boolean(value);
+      updateField(selectedField.id, {
+        required: nextRequired,
+        ...(nextRequired ? { props: { readOnly: false } } : {}),
+      });
       return;
     }
     if (target.startsWith("props.")) {
@@ -874,7 +882,10 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, updat
   const renderPropertyField = (fieldDef: PropertyFieldDef) => {
     const value = getValueByTarget(selectedField, fieldDef.target);
     const isDisabled = fieldDef.disabled?.(selectedField) ?? false;
-    const showTooltip = Boolean(fieldDef.tooltipKey);
+    const tooltipText = fieldDef.tooltipKey
+      ? t(fieldDef.tooltipKey)
+      : null;
+    const showTooltip = Boolean(tooltipText);
 
     const label = (
       <div className="flex items-center gap-2">
@@ -884,14 +895,14 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, updat
             <TooltipTrigger asChild>
               <button
                 type="button"
-                aria-label={t(fieldDef.tooltipKey!)}
+                aria-label={tooltipText!}
                 className="h-5 w-5 rounded-full border border-muted-foreground/40 text-muted-foreground text-[11px] leading-none flex items-center justify-center hover:bg-muted"
               >
                 ?
               </button>
             </TooltipTrigger>
             <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">
-              {t(fieldDef.tooltipKey!)}
+              {tooltipText}
             </TooltipContent>
           </Tooltip>
         )}
@@ -1140,7 +1151,10 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, updat
 
     if (fieldDef.type === "switch") {
       return (
-        <div key={fieldDef.key} className="flex items-center justify-between rounded-lg border p-3 shadow-sm space-y-2">
+        <div
+          key={fieldDef.key}
+          className="flex items-center justify-between rounded-lg border p-3 shadow-sm space-y-2"
+        >
           <div className="space-y-0.5">{label}</div>
           <Switch
             checked={Boolean(value)}
@@ -1332,6 +1346,7 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, updat
               });
             }}
             aria-label={t("propert.readOnly")}
+            title={isReadOnly ? readOnlyDisableHint : readOnlyEnableHint}
           >
             {isReadOnly ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
           </Button>
