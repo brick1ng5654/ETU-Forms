@@ -1,4 +1,14 @@
 -- Создание таблиц
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role') THEN
+        CREATE TYPE user_role AS ENUM (
+            'form_creator',
+            'admin'
+        );
+    END IF;
+END$$;
+
 CREATE TABLE IF NOT EXISTS App_User(
     user_id SERIAL PRIMARY KEY,
     etu_id VARCHAR(50) UNIQUE,
@@ -7,6 +17,7 @@ CREATE TABLE IF NOT EXISTS App_User(
     email VARCHAR(100) UNIQUE NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     password_hash TEXT NULL, -- NULL на время миграций, даллее ужесточим
+    role user_role NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     is_admin BOOLEAN NOT NULL DEFAULT FALSE
 );
