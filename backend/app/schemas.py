@@ -14,6 +14,10 @@ class AccessRole(str, Enum):
     EDITOR = 'editor'
     PARTICIPANT = 'participant'
 
+class UserRole(str, Enum):
+    FORM_CREATOR = 'form_creator'
+    ADMIN = 'admin'
+
 class FormStatus(str, Enum):
     TEMP = 'temp'
     SUBMITTED = 'submitted'
@@ -87,6 +91,7 @@ class UserCreate(UserBase):
 class UserInDB(UserBase):
     user_id: int
     created_at: datetime
+    role: Optional[UserRole] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -398,6 +403,7 @@ class LoginResponse(BaseModel):
     user_id: int
     email: EmailStr
     name: str
+    role: Optional[UserRole] = None
 
     model_config = ConfigDict(from_attributes=True)
 

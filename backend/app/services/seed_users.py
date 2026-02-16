@@ -30,12 +30,15 @@ async def _ensure_user(
 
     user = await _get_user_by_email(db, email_norm)
     if user:
+        if is_admin and user.role is None:
+            user.role = "admin"
         return user
     
     user = models.AppUser(
         email=email_norm,
         name=name,
         is_admin=is_admin,
+        role="admin" if is_admin else None,
         password_hash=hash_password(password),
     )
     db.add(user)

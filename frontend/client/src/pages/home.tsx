@@ -5,10 +5,7 @@ import {
   Plus,
   FileText,
   Trash2,
-  Folder,
-  FolderPlus,
   MoreVertical,
-  X,
   BarChart3,
   PencilLine,
   Play,
@@ -16,15 +13,13 @@ import {
   Languages,
 } from "lucide-react";
 import { storage } from "@/lib/storage";
-import { FormSchema, FormFolder } from "@/lib/form-types";
+import { FormSchema } from "@/lib/form-types";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -56,18 +51,17 @@ const getPrivateLinkKey = (form: FormSchema): string | null => {
 
 export default function Home() {
   const [forms, setForms] = useState<FormSchema[]>([]);
-  const [folders, setFolders] = useState<FormFolder[]>([]);
-  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<AccessCategory>("all");
-  const [newFolderName, setNewFolderName] = useState("");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<AccessCategory>("continue");
   const [propertiesForm, setPropertiesForm] = useState<FormSchema | null>(null);
-  const { accessToken, isLoading } = useAuth();
+  const { accessToken, isLoading, user } = useAuth();
   const { t, i18n } = useTranslation();
   const [, setLocation] = useLocation();
   const [isLoadingForms, setIsLoadingForms] = useState(true);
   const categoryButtonClass = "w-full h-10 md:h-auto px-0 md:px-3 justify-center md:justify-start md:py-2 md:whitespace-normal md:text-left md:leading-tight";
-  const folderButtonClass = "w-full h-10 px-0 md:px-3 justify-center md:justify-start";
+  const canCreateForms = user?.role === "form_creator" || user?.role === "admin";
+  const continueCategoryLabel = i18n.language.startsWith("ru")
+    ? "Доступные для прохождения формы"
+    : t("navigation.availableForContinue");
 
   const formatDateTime = (value?: number) => {
     if (!value) return t("home.notAvailable");
@@ -86,11 +80,9 @@ export default function Home() {
       const remoteForms = await fetchFormsCatalog();
       const merged = storage.mergeRemoteForms(remoteForms);
       setForms(merged);
-      setFolders(storage.getFolders());
     } catch (error) {
       console.error("Failed to load forms:", error);
       setForms(storage.getForms());
-      setFolders(storage.getFolders());
     } finally {
       setIsLoadingForms(false);
     }
@@ -105,6 +97,9 @@ export default function Home() {
 
   const createNewForm = async () => {
     if (isLoading) {
+      return;
+    }
+    if (!canCreateForms) {
       return;
     }
     if (!accessToken) {
@@ -125,31 +120,6 @@ export default function Home() {
     }
   };
 
-  const createFolder = () => {
-    if (!newFolderName.trim()) {
-      toast({ title: t("actions.error"), description: t("descerr.empty"), variant: "destructive" });
-      return;
-    }
-
-    if (storage.folderExists(newFolderName.trim())) {
-      toast({ title: t("actions.error"), description: t("descerr.query"), variant: "destructive" });
-      return;
-    }
-
-    storage.createFolder(newFolderName.trim());
-    setNewFolderName("");
-    void refreshData();
-    setIsDialogOpen(false);
-  };
-
-  const deleteFolder = (id: string) => {
-    if (confirm(t("actions.confirmDeleteFolder"))) {
-      storage.deleteFolder(id);
-      if (selectedFolderId === id) setSelectedFolderId(null);
-      void refreshData();
-    }
-  };
-
   const deleteForm = async (e: MouseEvent, form: FormSchema) => {
     e.preventDefault();
     e.stopPropagation();
@@ -166,17 +136,6 @@ export default function Home() {
       storage.deleteForm(form.id);
       void refreshData();
     }
-  };
-
-  const moveForm = (e: MouseEvent, form: FormSchema, folderId?: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!canEditForm(form)) {
-      toast({ title: t("actions.error"), description: t("home.noEditAccess"), variant: "destructive" });
-      return;
-    }
-    storage.saveForm({ ...form, folderId });
-    void refreshData();
   };
 
   const openBuilder = (form: FormSchema) => {
@@ -206,9 +165,9 @@ export default function Home() {
       all: t("navigation.allForms"),
       edit: t("navigation.availableForEdit"),
       responses: t("navigation.availableForViewResponses"),
-      continue: t("navigation.availableForContinue"),
+      continue: continueCategoryLabel,
     }),
-    [t]
+    [t, continueCategoryLabel]
   );
 
   const filteredForms = useMemo(() => {
@@ -222,15 +181,10 @@ export default function Home() {
       current = [];
     }
 
-    if (selectedFolderId) {
-      current = current.filter((form) => form.folderId === selectedFolderId);
-    }
-
     return current;
-  }, [forms, selectedCategory, selectedFolderId]);
+  }, [forms, selectedCategory]);
 
-  const selectedFolderName = selectedFolderId ? folders.find((f) => f.id === selectedFolderId)?.name : null;
-  const pageTitle = selectedFolderName ? `${categoryLabel[selectedCategory]} / ${selectedFolderName}` : categoryLabel[selectedCategory];
+  const pageTitle = categoryLabel[selectedCategory];
   const isContinueCategory = selectedCategory === "continue";
 
   return (
@@ -253,10 +207,12 @@ export default function Home() {
             <Languages className="h-4 w-4" />
             <span className="hidden sm:inline text-sm font-medium">{i18n.language.startsWith("ru") ? "RU" : "EN"}</span>
           </Button>
-          <Button onClick={createNewForm} className="h-9 px-2 sm:px-3 gap-0 sm:gap-2" title={t("navigation.createNewForm")}>
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">{t("navigation.createNewForm")}</span>
-          </Button>
+          {canCreateForms ? (
+            <Button onClick={createNewForm} className="h-9 px-2 sm:px-3 gap-0 sm:gap-2" title={t("navigation.createNewForm")}>
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">{t("navigation.createNewForm")}</span>
+            </Button>
+          ) : null}
           <UserMenu />
         </div>
       </header>
@@ -265,6 +221,15 @@ export default function Home() {
         <aside className="w-14 md:w-72 border-r border-border/50 bg-transparent p-2 md:p-6 space-y-3 md:space-y-6">
           <div className="space-y-1">
             <div className="hidden md:block px-2 text-xs uppercase tracking-wide text-muted-foreground">{t("navigation.categories")}</div>
+            <Button
+              variant={selectedCategory === "continue" ? "secondary" : "ghost"}
+              className={categoryButtonClass}
+              onClick={() => setSelectedCategory("continue")}
+              title={continueCategoryLabel}
+            >
+              <Play className="h-4 w-4 md:mr-2" />
+              <span className="hidden md:inline">{continueCategoryLabel}</span>
+            </Button>
             <Button
               variant={selectedCategory === "all" ? "secondary" : "ghost"}
               className={categoryButtonClass}
@@ -292,79 +257,8 @@ export default function Home() {
               <BarChart3 className="h-4 w-4 md:mr-2" />
               <span className="hidden md:inline">{t("navigation.availableForViewResponses")}</span>
             </Button>
-            <Button
-              variant={selectedCategory === "continue" ? "secondary" : "ghost"}
-              className={categoryButtonClass}
-              onClick={() => setSelectedCategory("continue")}
-              title={t("navigation.availableForContinue")}
-            >
-              <Play className="h-4 w-4 md:mr-2" />
-              <span className="hidden md:inline">{t("navigation.availableForContinue")}</span>
-            </Button>
           </div>
 
-          <div className="space-y-1 pt-4 border-t border-border/50">
-            <div className="hidden md:block px-2 text-xs uppercase tracking-wide text-muted-foreground">{t("navigation.folders")}</div>
-            <Button
-              variant={selectedFolderId === null ? "secondary" : "ghost"}
-              className={folderButtonClass}
-              onClick={() => setSelectedFolderId(null)}
-              title={t("navigation.allFolders")}
-            >
-              <Folder className="h-4 w-4 md:mr-2" />
-              <span className="hidden md:inline">{t("navigation.allFolders")}</span>
-            </Button>
-            {folders.map((folder) => (
-              <div key={folder.id} className="group flex items-center">
-                <Button
-                  variant={selectedFolderId === folder.id ? "secondary" : "ghost"}
-                  className={folderButtonClass}
-                  onClick={() => setSelectedFolderId(folder.id)}
-                  title={folder.name}
-                >
-                  <Folder className="h-4 w-4 md:mr-2" />
-                  <span className="hidden md:inline truncate">{folder.name}</span>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="hidden md:inline-flex h-8 w-8 opacity-0 group-hover:opacity-100 -ml-8 z-10 hover:bg-destructive/10 hover:text-destructive"
-                  onClick={() => deleteFolder(folder.id)}
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              </div>
-            ))}
-          </div>
-
-          <div className="pt-4 border-t border-border/50">
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" className={folderButtonClass} title={t("navigation.newFolder")}>
-                  <FolderPlus className="h-4 w-4 md:mr-2" />
-                  <span className="hidden md:inline">{t("navigation.newFolder")}</span>
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>{t("navigation.createNewFolder")}</DialogTitle>
-                </DialogHeader>
-                <div className="flex items-center gap-2 pt-4">
-                  <Input
-                    value={newFolderName}
-                    onChange={(e) => setNewFolderName(e.target.value)}
-                    placeholder={t("placeholders.folderName")}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        createFolder();
-                      }
-                    }}
-                  />
-                  <Button onClick={createFolder}>{t("navigation.create")}</Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
         </aside>
 
         <main className="flex-1 p-8 overflow-y-auto">
@@ -383,7 +277,7 @@ export default function Home() {
               <h3 className="text-lg font-semibold">
                 {isContinueCategory ? t("home.noContinueForms") : t("navigation.noForms")}
               </h3>
-              {!isContinueCategory ? (
+              {!isContinueCategory && canCreateForms ? (
                 <>
                   <p className="text-muted-foreground mb-6">{t("navigation.noFormsDesc")}</p>
                   <Button onClick={createNewForm}>{t("navigation.createNewForm")}</Button>
@@ -453,16 +347,6 @@ export default function Home() {
                           ) : null}
                           {canEditForm(form) ? (
                             <>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuLabel>{t("actions.moveTo")}</DropdownMenuLabel>
-                              <DropdownMenuItem onClick={(e) => moveForm(e, form, undefined)}>
-                                {t("navigation.allFolders")}
-                              </DropdownMenuItem>
-                              {folders.map((folder) => (
-                                <DropdownMenuItem key={folder.id} onClick={(e) => moveForm(e, form, folder.id)}>
-                                  {folder.name}
-                                </DropdownMenuItem>
-                              ))}
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
                                 onClick={(e) => deleteForm(e, form)}
