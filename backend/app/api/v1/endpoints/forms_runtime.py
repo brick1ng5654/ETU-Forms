@@ -301,6 +301,37 @@ async def submit_form_response(
     _check_form_access(form, key, current_user)
 
     responder = await _resolve_responder(db, current_user)
+    
+    # Проверка лимита попыток
+    settings = form.settings_json if isinstance(form.settings_json, dict) else {}
+    attempt_limit_type = settings.get("attemptLimitType", "unlimited")
+    
+    if attempt_limit_type == "limited":
+        attempt_limit = settings.get("attemptLimit")
+        if attempt_limit is not None and isinstance(attempt_limit, (int, float)):
+            attempt_limit = int(attempt_limit)
+            if attempt_limit > 0:
+                # Определяем, какие ответы считаются попытками
+                revoke_counts_as_attempt = settings.get("revokeCountsAsAttempt", False)
+                status_filter = ["submitted"]
+                if revoke_counts_as_attempt:
+                    status_filter.append("cancelled")
+                
+                # Подсчитываем попытки пользователя
+                attempts_result = await db.execute(
+                    select(Response)
+                    .where(Response.form_id == form.form_id)
+                    .where(Response.user_id == responder.user_id)
+                    .where(Response.status.in_(status_filter))
+                )
+                attempts_count = len(attempts_result.scalars().all())
+                
+                if attempts_count >= attempt_limit:
+                    raise HTTPException(
+                        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                        detail=f"Attempt limit reached ({attempt_limit}). You have used all available attempts."
+                    )
+    
     elements_result = await db.execute(select(FormElement).where(FormElement.form_id == form.form_id))
     form_elements = elements_result.scalars().all()
 

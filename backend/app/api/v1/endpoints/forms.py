@@ -154,7 +154,7 @@ async def get_my_forms(
     result = await db.execute(query)
     forms = result.scalars().all()
 
-    form_responses = await build_form_summaries(db, forms)
+    form_responses = await build_form_summaries(db, forms, None, current_user.user_id)
     return FormListResponse(forms=form_responses, total=total)
 
 
@@ -220,7 +220,7 @@ async def get_forms_catalog(
             "can_continue_passage": can_continue_passage,
         }
 
-    summaries = await build_form_summaries(db, accessible_forms, permissions_by_form)
+    summaries = await build_form_summaries(db, accessible_forms, permissions_by_form, current_user.user_id)
     return FormListResponse(forms=summaries, total=len(summaries))
 
 

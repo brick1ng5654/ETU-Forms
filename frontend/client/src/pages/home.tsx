@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Plus,
   FileText,
@@ -11,6 +12,8 @@ import {
   Play,
   Info,
   Languages,
+  CheckCircle,
+  RotateCcw,
 } from "lucide-react";
 import { storage } from "@/lib/storage";
 import { FormSchema } from "@/lib/form-types";
@@ -31,12 +34,12 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import { UserMenu } from "@/components/user-menu";
-import { createForm, deleteForm as deleteFormApi, fetchFormsCatalog } from "@/lib/forms-api";
+import { createForm, deleteForm as deleteFormApi, fetchFormsCatalog, fetchMyResponses, revokeResponse, type StoredFormResponse } from "@/lib/forms-api";
 import { useAuth } from "@/lib/auth";
 import { AppBrand } from "@/components/app-brand";
 import { CustomLoader } from "@/components/ui/custom-loader";
 
-type AccessCategory = "all" | "edit" | "responses" | "continue";
+type AccessCategory = "all" | "edit" | "responses" | "continue" | "completed";
 
 const isSubmitted = (form: FormSchema) => form.status === "submitted";
 
@@ -53,6 +56,8 @@ export default function Home() {
   const [forms, setForms] = useState<FormSchema[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<AccessCategory>("continue");
   const [propertiesForm, setPropertiesForm] = useState<FormSchema | null>(null);
+  const [myResponses, setMyResponses] = useState<StoredFormResponse[]>([]);
+  const [isLoadingResponses, setIsLoadingResponses] = useState(false);
   const { accessToken, isLoading, user } = useAuth();
   const { t, i18n } = useTranslation();
   const [, setLocation] = useLocation();
@@ -88,12 +93,31 @@ export default function Home() {
     }
   };
 
+  const refreshResponses = async () => {
+    if (isLoading || !accessToken) {
+      return;
+    }
+    try {
+      setIsLoadingResponses(true);
+      const responses = await fetchMyResponses();
+      setMyResponses(responses);
+    } catch (error) {
+      console.error("Failed to load responses:", error);
+      setMyResponses([]);
+    } finally {
+      setIsLoadingResponses(false);
+    }
+  };
+
   useEffect(() => {
     if (isLoading || !accessToken) {
       return;
     }
     void refreshData();
-  }, [isLoading, accessToken]);
+    if (selectedCategory === "completed") {
+      void refreshResponses();
+    }
+  }, [isLoading, accessToken, selectedCategory]);
 
   const createNewForm = async () => {
     if (isLoading) {
@@ -155,6 +179,15 @@ export default function Home() {
   };
 
   const openPassage = (form: FormSchema) => {
+    // Проверяем, что форма существует и не удалена
+    if (!form || form.status !== "submitted") {
+      toast({ 
+        title: t("actions.error"), 
+        description: t("home.formNotAvailable"), 
+        variant: "destructive" 
+      });
+      return;
+    }
     const key = getPrivateLinkKey(form);
     const href = key ? `/form/${form.id}?key=${encodeURIComponent(key)}` : `/form/${form.id}`;
     setLocation(href);
@@ -166,6 +199,7 @@ export default function Home() {
       edit: t("navigation.availableForEdit"),
       responses: t("navigation.availableForViewResponses"),
       continue: continueCategoryLabel,
+      completed: t("navigation.completedForms"),
     }),
     [t, continueCategoryLabel]
   );
@@ -179,10 +213,48 @@ export default function Home() {
       current = current.filter(canViewResponses);
     } else if (selectedCategory === "continue") {
       current = [];
+    } else if (selectedCategory === "completed") {
+      current = [];
     }
 
     return current;
   }, [forms, selectedCategory]);
+
+  const handleRevokeResponse = async (response: StoredFormResponse) => {
+    const form = forms.find(f => f.id === String(response.formId));
+    const formTitle = form?.title || `Form ${response.formId}`;
+    if (!confirm(t("home.confirmRevoke", { formTitle }))) {
+      return;
+    }
+    
+    try {
+      const result = await revokeResponse(response.responseId);
+      toast({
+        title: t("home.responseRevoked"),
+        description: t("home.responseRevokedDesc", { formTitle: result.form_title }),
+      });
+      
+      // Обновляем список ответов
+      await refreshResponses();
+      
+      // Предлагаем пройти форму повторно только если форма существует и не удалена
+      const formAfterRevoke = forms.find(f => f.id === String(result.form_id));
+      if (formAfterRevoke && formAfterRevoke.status === "submitted") {
+        if (confirm(t("home.wantToRetakeForm", { formTitle: result.form_title }))) {
+          const key = getPrivateLinkKey(formAfterRevoke);
+          const href = key ? `/form/${result.form_id}?key=${encodeURIComponent(key)}` : `/form/${result.form_id}`;
+          setLocation(href);
+        }
+      }
+    } catch (error: any) {
+      console.error("Failed to revoke response:", error);
+      toast({
+        title: t("home.revokeError"),
+        description: error?.message ?? t("actions.error"),
+        variant: "destructive",
+      });
+    }
+  };
 
   const pageTitle = categoryLabel[selectedCategory];
   const isContinueCategory = selectedCategory === "continue";
@@ -257,6 +329,15 @@ export default function Home() {
               <BarChart3 className="h-4 w-4 md:mr-2" />
               <span className="hidden md:inline">{t("navigation.availableForViewResponses")}</span>
             </Button>
+            <Button
+              variant={selectedCategory === "completed" ? "secondary" : "ghost"}
+              className={categoryButtonClass}
+              onClick={() => setSelectedCategory("completed")}
+              title={t("navigation.completedForms")}
+            >
+              <CheckCircle className="h-4 w-4 md:mr-2" />
+              <span className="hidden md:inline">{t("navigation.completedForms")}</span>
+            </Button>
           </div>
 
         </aside>
@@ -265,7 +346,106 @@ export default function Home() {
           <div className="flex items-center justify-between mb-8">
             <h1 className="text-2xl font-bold">{pageTitle}</h1>
           </div>
-          {isLoadingForms ? (
+          {selectedCategory === "completed" ? (
+            isLoadingResponses ? (
+              <div className="flex flex-col items-center justify-center py-20 bg-white rounded-xl border border-border">
+                <CustomLoader variant="dots" text={t("navigation.loadingForms")} size="lg" />
+              </div>
+            ) : myResponses.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 bg-white rounded-xl border border-dashed border-border text-center">
+                <div className="h-16 w-16 bg-muted rounded-full flex items-center justify-center mb-4">
+                  <CheckCircle className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-semibold">{t("home.noCompletedForms")}</h3>
+                <p className="text-muted-foreground mt-2">{t("home.noCompletedFormsDesc")}</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {myResponses.map((response) => {
+                  const form = forms.find(f => f.id === String(response.formId));
+                  const attemptsExhausted = form && form.attemptLimit != null && form.attemptLimit !== undefined && form.attemptsRemaining === 0;
+                  const canRevoke = form?.settings_json && 
+                    typeof form.settings_json === "object" &&
+                    Boolean((form.settings_json as Record<string, unknown>).allowRevoke) &&
+                    response.status === "submitted" &&
+                    !attemptsExhausted;
+                  
+                  return (
+                    <div key={response.responseId} className="group bg-white rounded-xl border border-border px-5 py-4 hover:border-primary/40 transition-colors">
+                      <div className="flex items-start gap-4">
+                        <div className="h-10 w-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary shrink-0">
+                          <CheckCircle className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-semibold text-lg truncate">
+                            {form?.title || `Form ${response.formId}`}
+                          </h3>
+                          <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                            <span>
+                              {response.status === "submitted" 
+                                ? t("home.submittedAt", { 
+                                    date: formatDateTime(
+                                      response.completedAt 
+                                        ? new Date(response.completedAt).getTime()
+                                        : new Date(response.createdAt).getTime()
+                                    )
+                                  })
+                                : t("home.revokedAt", { 
+                                    date: formatDateTime(
+                                      response.completedAt 
+                                        ? new Date(response.completedAt).getTime()
+                                        : new Date(response.createdAt).getTime()
+                                    )
+                                  })}
+                            </span>
+                            {response.status === "cancelled" && (
+                              <Badge variant="secondary">{t("home.revoked")}</Badge>
+                            )}
+                            {form && form.status === "submitted" && form.attemptLimit !== null && form.attemptLimit !== undefined && (
+                              <span className={form.attemptsRemaining === 0 ? "text-destructive font-medium" : ""}>
+                                {form.attemptsRemaining === 0
+                                  ? t("home.noAttemptsRemaining")
+                                  : t("home.attemptsRemaining", { 
+                                      remaining: form.attemptsRemaining ?? 0,
+                                      total: form.attemptLimit
+                                    })}
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            {canRevoke && (
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                onClick={() => handleRevokeResponse(response)}
+                              >
+                                <RotateCcw className="mr-2 h-4 w-4" />
+                                {t("home.revokeResponse")}
+                              </Button>
+                            )}
+                            {!attemptsExhausted && form && form.status === "submitted" && (
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                onClick={() => {
+                                  const key = getPrivateLinkKey(form);
+                                  const href = key ? `/form/${response.formId}?key=${encodeURIComponent(key)}` : `/form/${response.formId}`;
+                                  setLocation(href);
+                                }}
+                              >
+                                <Play className="mr-2 h-4 w-4" />
+                                {t("home.retakeForm")}
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )
+          ) : isLoadingForms ? (
             <div className="flex flex-col items-center justify-center py-20 bg-white rounded-xl border border-border">
               <CustomLoader variant="dots" text={t("navigation.loadingForms")} size="lg" />
             </div>

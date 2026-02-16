@@ -34,6 +34,7 @@
     "folder": "Folder",
     "forms": "Forms",
     "availableForContinue": "Available for continuing passage",
+    "completedForms": "Completed forms",
     "fields": "Fields",
     "descriphome":"No description",
     "loadingForms": "Uploading forms"
@@ -151,7 +152,16 @@
     "settingsPublished": "Settings saved and published",
     "settingsSaveError": "Failed to save settings",
     "formUnavailable": "Form unavailable",
-    "formUnavailableDesc": "We could not load the form details."
+    "formUnavailableDesc": "We could not load the form details.",
+    "allowRevoke": "Allow response revocation",
+    "allowRevokeHint": "Users will be able to revoke their submitted responses",
+    "revokeCountsAsAttempt": "Revocation counts as attempt",
+    "revokeCountsAsAttemptHint": "If enabled, revoked responses will count towards the attempt limit",
+    "attemptLimitType": "Attempt limit",
+    "unlimitedAttempts": "Unlimited",
+    "limitedAttempts": "Limited number",
+    "attemptLimit": "Number of attempts",
+    "attemptLimitHint": "Maximum number of form completion attempts per user"
   },
   "respond": {
     "title": "Form response",
@@ -405,7 +415,22 @@
     "noEditAccess": "You do not have permission to edit this form",
     "noResultsAccess": "You do not have permission to view responses",
     "noContinueAccess": "You do not have permission to continue passage",
-    "createError": "Failed to create form"
+    "createError": "Failed to create form",
+    "noCompletedForms": "No completed forms",
+    "noCompletedFormsDesc": "Forms you have responded to will appear here",
+    "submittedAt": "Submitted: {{date}}",
+    "revokedAt": "Revoked: {{date}}",
+    "revoked": "Revoked",
+    "revokeResponse": "Revoke response",
+    "retakeForm": "Retake form",
+    "confirmRevoke": "Are you sure you want to revoke your response to this form?",
+    "responseRevoked": "Response revoked",
+    "responseRevokedDesc": "Response to form \"{{formTitle}}\" has been successfully revoked",
+    "wantToRetakeForm": "Do you want to retake form \"{{formTitle}}\"?",
+    "formNotAvailable": "Form is not available or has been deleted",
+    "revokeError": "Failed to revoke response",
+    "attemptsRemaining": "Attempts remaining: {{remaining}} of {{total}}",
+    "noAttemptsRemaining": "No attempts remaining"
   },
   "logic": {
   "conditional": "Conditional Logic",

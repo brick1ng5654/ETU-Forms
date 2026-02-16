@@ -135,6 +135,7 @@ async def build_form_summaries(
     db: AsyncSession,
     forms: List[models.Form],
     permissions_by_form: Mapping[int, Dict[str, bool]] | None = None,
+    current_user_id: int | None = None,
 ) -> List[FormSummaryResponse]:
     if not forms:
         return []
@@ -154,6 +155,39 @@ async def build_form_summaries(
     )
     owner_name_map = {row[0]: row[1] for row in owners_result.all()}
 
+    # Подсчитываем попытки пользователя для каждой формы
+    attempts_by_form_id: Dict[int, int] = {}
+    if current_user_id is not None and form_ids:
+        # Получаем все ответы пользователя на эти формы
+        responses_result = await db.execute(
+            select(models.Response.form_id, models.Response.status)
+            .where(models.Response.form_id.in_(form_ids))
+            .where(models.Response.user_id == current_user_id)
+        )
+        
+        # Группируем ответы по формам
+        responses_by_form: Dict[int, List[str]] = {}
+        for form_id, status in responses_result.all():
+            status_value = status.value if hasattr(status, "value") else str(status)
+            if form_id not in responses_by_form:
+                responses_by_form[form_id] = []
+            responses_by_form[form_id].append(status_value)
+        
+        # Для каждой формы определяем, какие статусы считать попытками
+        for form in forms:
+            settings = form.settings_json if isinstance(form.settings_json, dict) else {}
+            revoke_counts_as_attempt = settings.get("revokeCountsAsAttempt", False)
+            
+            # Определяем статусы, которые считаются попытками
+            status_filter = ["submitted"]
+            if revoke_counts_as_attempt:
+                status_filter.append("cancelled")
+            
+            # Подсчитываем попытки для этой формы
+            form_responses = responses_by_form.get(form.form_id, [])
+            attempts_count = sum(1 for status in form_responses if status in status_filter)
+            attempts_by_form_id[form.form_id] = attempts_count
+
     summaries: List[FormSummaryResponse] = []
     for form in forms:
         status_value = _enum_value(form.status)
@@ -167,6 +201,23 @@ async def build_form_summaries(
             if permissions_by_form
             else default_permissions
         )
+
+        # Вычисляем информацию о попытках
+        settings = form.settings_json if isinstance(form.settings_json, dict) else {}
+        attempt_limit_type = settings.get("attemptLimitType", "unlimited")
+        attempt_limit_value = settings.get("attemptLimit")
+        
+        attempt_limit: int | None = None
+        attempts_used = attempts_by_form_id.get(form.form_id, 0)
+        attempts_remaining: int | None = None
+        
+        if attempt_limit_type == "limited" and attempt_limit_value is not None:
+            try:
+                attempt_limit = int(attempt_limit_value)
+                if attempt_limit > 0:
+                    attempts_remaining = max(0, attempt_limit - attempts_used)
+            except (TypeError, ValueError):
+                pass
 
         summaries.append(
             FormSummaryResponse(
@@ -190,6 +241,9 @@ async def build_form_summaries(
                 can_edit=bool(resolved_permissions.get("can_edit", False)),
                 can_view_responses=bool(resolved_permissions.get("can_view_responses", False)),
                 can_continue_passage=bool(resolved_permissions.get("can_continue_passage", False)),
+                attempt_limit=attempt_limit,
+                attempts_used=attempts_used,
+                attempts_remaining=attempts_remaining,
             )
         )
     return summaries

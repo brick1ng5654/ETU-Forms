@@ -1,4 +1,4 @@
-﻿# Этот файл нужен для валидации входящих данных и сериализации ответов API. То есть что принимаем и что отдаём
+# Этот файл нужен для валидации входящих данных и сериализации ответов API. То есть что принимаем и что отдаём
 
 from pydantic import BaseModel, EmailStr, Field, ConfigDict, model_validator, field_validator
 from datetime import datetime
@@ -135,6 +135,9 @@ class FormListResponse(BaseModel):
 class FormSummaryResponse(FormResponse):
     elements_count: int = 0
     owner_name: Optional[str] = None
+    attempt_limit: Optional[int] = None  # None если unlimited, иначе количество попыток
+    attempts_used: int = 0  # Количество использованных попыток
+    attempts_remaining: Optional[int] = None  # None если unlimited, иначе оставшиеся попытки
     can_edit: bool = False
     can_view_responses: bool = False
     can_continue_passage: bool = False

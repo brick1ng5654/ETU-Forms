@@ -25,6 +25,9 @@ type ServerFormSummary = {
   can_edit?: boolean;
   can_view_responses?: boolean;
   can_continue_passage?: boolean;
+  attempt_limit?: number | null;
+  attempts_used?: number;
+  attempts_remaining?: number | null;
 };
 
 type ServerBuilderElement = {
@@ -257,6 +260,9 @@ export const mapServerSummaryToSchema = (summary: ServerFormSummary): FormSchema
     version: summary.version,
     prevFormId: summary.prev_form_id ? String(summary.prev_form_id) : null,
     settings_json: summary.settings_json ?? null,
+    attemptLimit: summary.attempt_limit ?? undefined,
+    attemptsUsed: summary.attempts_used ?? 0,
+    attemptsRemaining: summary.attempts_remaining ?? undefined,
     startAt: summary.start_at ?? null,
     endAt: summary.end_at ?? null,
     accessMode: summary.access_mode ?? undefined,
@@ -412,4 +418,31 @@ export async function deleteForm(formId: string): Promise<void> {
   if (!res.ok) {
     throw await asHttpError(res);
   }
+}
+
+export async function fetchMyResponses(): Promise<StoredFormResponse[]> {
+  const res = await apiFetch(`/api/v1/responses/me`);
+  if (!res.ok) {
+    throw await asHttpError(res);
+  }
+  const data = (await res.json()) as ServerFormStoredResponsesResponse;
+  return (data.responses ?? []).map(mapStoredResponse);
+}
+
+export type RevokeResponseResult = {
+  response_id: number;
+  status: "cancelled";
+  form_id: number;
+  form_title: string;
+};
+
+export async function revokeResponse(responseId: number): Promise<RevokeResponseResult> {
+  const res = await apiFetch(`/api/v1/responses/${responseId}/revoke`, {
+    method: "POST",
+    headers: {},
+  });
+  if (!res.ok) {
+    throw await asHttpError(res);
+  }
+  return await res.json();
 }

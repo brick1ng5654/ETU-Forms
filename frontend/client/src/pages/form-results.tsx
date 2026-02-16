@@ -36,6 +36,7 @@ import { UserMenu } from "@/components/user-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
@@ -568,6 +569,10 @@ export default function FormResults({ params }: { params: { id: string } }) {
   const [endAt, setEndAt] = useState("");
   const [accessMode, setAccessMode] = useState<FormAccessMode>("private");
   const [privateLinkKey, setPrivateLinkKey] = useState("");
+  const [allowRevoke, setAllowRevoke] = useState(false);
+  const [attemptLimitType, setAttemptLimitType] = useState<"unlimited" | "limited">("unlimited");
+  const [attemptLimit, setAttemptLimit] = useState<number>(1);
+  const [revokeCountsAsAttempt, setRevokeCountsAsAttempt] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const isRussianLocale = i18n.language.startsWith("ru");
   const canEditCurrentForm = form?.canEdit === true;
@@ -723,6 +728,18 @@ export default function FormResults({ params }: { params: { id: string } }) {
       ? form.settings_json.privateLinkKey
       : "";
     setPrivateLinkKey(savedKey || createPrivateLinkKey());
+    
+    // Инициализация настроек попыток
+    const settings = form.settings_json ?? {};
+    setAllowRevoke(Boolean(settings.allowRevoke));
+    setAttemptLimitType(
+      settings.attemptLimitType === "limited" ? "limited" : "unlimited"
+    );
+    const limit = typeof settings.attemptLimit === "number" && settings.attemptLimit > 0
+      ? settings.attemptLimit
+      : 1;
+    setAttemptLimit(limit);
+    setRevokeCountsAsAttempt(Boolean(settings.revokeCountsAsAttempt));
   }, [form]);
 
   const activeVersionForm = useMemo(
@@ -1015,11 +1032,27 @@ export default function FormResults({ params }: { params: { id: string } }) {
           ? form.settings_json.privateLinkKey
           : "";
         const keyChanged = privateLinkKey !== storedKey;
+        
+        const settings = form.settings_json ?? {};
+        const storedAllowRevoke = Boolean(settings.allowRevoke);
+        const storedAttemptLimitType = settings.attemptLimitType === "limited" ? "limited" : "unlimited";
+        const storedAttemptLimit = typeof settings.attemptLimit === "number" && settings.attemptLimit > 0
+          ? settings.attemptLimit
+          : 1;
+        const storedRevokeCountsAsAttempt = Boolean(settings.revokeCountsAsAttempt);
+        
+        const attemptsChanged = 
+          allowRevoke !== storedAllowRevoke ||
+          attemptLimitType !== storedAttemptLimitType ||
+          (attemptLimitType === "limited" && attemptLimit !== storedAttemptLimit) ||
+          (allowRevoke && revokeCountsAsAttempt !== storedRevokeCountsAsAttempt);
+        
         return (
           startAt !== getDateInputValue(form.startAt) ||
           endAt !== getDateInputValue(form.endAt) ||
           accessMode !== (form.accessMode ?? "private") ||
-          keyChanged
+          keyChanged ||
+          attemptsChanged
         );
       })()
     : false;
@@ -1034,15 +1067,39 @@ export default function FormResults({ params }: { params: { id: string } }) {
       settingsJson: {
         ...(form.settings_json ?? {}),
         privateLinkKey,
+        allowRevoke,
+        attemptLimitType,
+        attemptLimit: attemptLimitType === "limited" ? attemptLimit : null,
+        revokeCountsAsAttempt: allowRevoke ? revokeCountsAsAttempt : false,
       },
     });
     try {
       const saved = await saveFormInPlace(form.id, payload);
       storage.saveForm(saved);
-      setForm(saved);
+      // Сохраняем права доступа: ответ PUT не содержит canEdit/canViewResponses/canContinuePassage
+      setForm({
+        ...saved,
+        canEdit: form.canEdit,
+        canViewResponses: form.canViewResponses,
+        canContinuePassage: form.canContinuePassage,
+        ownerName: form.ownerName,
+      });
       setStartAt(getDateInputValue(saved.startAt));
       setEndAt(getDateInputValue(saved.endAt));
       setAccessMode(saved.accessMode ?? "private");
+      
+      // Обновляем настройки попыток из сохраненной формы
+      const settings = saved.settings_json ?? {};
+      setAllowRevoke(Boolean(settings.allowRevoke));
+      setAttemptLimitType(
+        settings.attemptLimitType === "limited" ? "limited" : "unlimited"
+      );
+      const limit = typeof settings.attemptLimit === "number" && settings.attemptLimit > 0
+        ? settings.attemptLimit
+        : 1;
+      setAttemptLimit(limit);
+      setRevokeCountsAsAttempt(Boolean(settings.revokeCountsAsAttempt));
+      
       toast({ title: t("results.settingsSaved") });
     } catch (error: any) {
       toast({
@@ -1489,6 +1546,96 @@ export default function FormResults({ params }: { params: { id: string } }) {
                   {accessMode === "private" ? t("results.privateLinkHint") : t("results.publicLinkHint")}
                 </p>
               </div>
+              
+              <Separator />
+              
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="allowRevoke"
+                      checked={allowRevoke}
+                      onCheckedChange={(checked) => setAllowRevoke(Boolean(checked))}
+                      disabled={!canEditCurrentForm}
+                      simplifiedAnimation
+                    />
+                    <label
+                      htmlFor="allowRevoke"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      {t("results.allowRevoke")}
+                    </label>
+                  </div>
+                  <p className="text-xs text-muted-foreground pl-6">
+                    {t("results.allowRevokeHint")}
+                  </p>
+                </div>
+                
+                {allowRevoke && (
+                  <div className="space-y-2 pl-6">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="revokeCountsAsAttempt"
+                        checked={revokeCountsAsAttempt}
+                        onCheckedChange={(checked) => setRevokeCountsAsAttempt(Boolean(checked))}
+                        disabled={!canEditCurrentForm}
+                        simplifiedAnimation
+                      />
+                      <label
+                        htmlFor="revokeCountsAsAttempt"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        {t("results.revokeCountsAsAttempt")}
+                      </label>
+                    </div>
+                    <p className="text-xs text-muted-foreground pl-6">
+                      {t("results.revokeCountsAsAttemptHint")}
+                    </p>
+                  </div>
+                )}
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">{t("results.attemptLimitType")}</label>
+                  <Select
+                    value={attemptLimitType}
+                    onValueChange={(value) => setAttemptLimitType(value as "unlimited" | "limited")}
+                    disabled={!canEditCurrentForm}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unlimited">{t("results.unlimitedAttempts")}</SelectItem>
+                      <SelectItem value="limited">{t("results.limitedAttempts")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {attemptLimitType === "limited" && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium" htmlFor="attemptLimit">
+                      {t("results.attemptLimit")}
+                    </label>
+                    <Input
+                      id="attemptLimit"
+                      type="number"
+                      min="1"
+                      value={attemptLimit}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value, 10);
+                        if (!isNaN(value) && value > 0) {
+                          setAttemptLimit(value);
+                        }
+                      }}
+                      disabled={!canEditCurrentForm}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {t("results.attemptLimitHint")}
+                    </p>
+                  </div>
+                )}
+              </div>
+              
               <Button
                 onClick={handleSaveSettings}
                 disabled={!canEditCurrentForm || !isDirty || isSaving}
