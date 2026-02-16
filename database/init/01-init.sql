@@ -53,6 +53,13 @@ BEGIN
         );
     END IF;
 
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role') THEN
+        CREATE TYPE user_role AS ENUM (
+            'form_creator',
+            'admin'
+        );
+    END IF;
+
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'widget_type') THEN
         CREATE TYPE widget_type AS ENUM (
             'heading', -- заголовок
@@ -123,6 +130,9 @@ BEGIN
         );
     END IF;
 END$$;
+
+ALTER TABLE app_user
+    ADD COLUMN IF NOT EXISTS role user_role NULL;
 
 COMMENT ON COLUMN App_User.role IS 'Роль пользователя в системе (form_creator, admin или NULL)';
 

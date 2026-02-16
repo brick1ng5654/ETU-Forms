@@ -7,6 +7,7 @@ export type User = {
   user_id: number;
   email: string;
   name: string;
+  role?: "form_creator" | "admin" | null;
 };
 
 type AuthState = {
