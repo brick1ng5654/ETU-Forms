@@ -75,6 +75,28 @@
     "selectedCount": "Выбрано элементов: {{count}}",
     "noActiveForm": "Нет активной формы для сохранения"
   },
+  "pages": {
+    "defaultTitle": "Страница {{index}}",
+    "elementsCount": "{{count}} элементов",
+    "backToggle": "Назад",
+    "backToggleAria": "Разрешить переход назад",
+    "active": "Активна",
+    "addPage": "Добавить страницу",
+    "deleteTitle": "Удалить страницу",
+    "deleteDesc": "Выберите, что делать с элементами страницы.",
+    "deleteWithElements": "Удалить страницу вместе с элементами",
+    "moveElements": "Перенести элементы на другую страницу",
+    "selectTargetPlaceholder": "Выберите страницу",
+    "empty": "Нет элементов на странице",
+    "prevButton": "Назад",
+    "nextButton": "Далее",
+    "movePage": "Переместить",
+    "moveTitle": "Переместить страницу",
+    "moveDesc": "Выберите новую позицию для страницы.",
+    "movePlaceholder": "Выберите позицию",
+    "positionLabel": "Позиция {{index}}",
+    "moveConfirm": "Переместить"
+  },
   "results": {
     "title": "Страница формы",
     "originalForm": "Исходная форма",

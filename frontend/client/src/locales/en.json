@@ -77,6 +77,28 @@
     "selectedCount": "Selected items: {{count}}",
     "noActiveForm": "No active Form to save"
   },
+  "pages": {
+    "defaultTitle": "Page {{index}}",
+    "elementsCount": "{{count}} elements",
+    "backToggle": "Back",
+    "backToggleAria": "Allow back navigation",
+    "active": "Active",
+    "addPage": "Add page",
+    "deleteTitle": "Delete page",
+    "deleteDesc": "Choose what to do with the page elements.",
+    "deleteWithElements": "Delete the page with its elements",
+    "moveElements": "Move elements to another page",
+    "selectTargetPlaceholder": "Select a page",
+    "empty": "No elements on this page",
+    "prevButton": "Back",
+    "nextButton": "Next",
+    "movePage": "Move",
+    "moveTitle": "Move page",
+    "moveDesc": "Choose a new position for the page.",
+    "movePlaceholder": "Select a position",
+    "positionLabel": "Position {{index}}",
+    "moveConfirm": "Move"
+  },
   "results": {
     "title": "Form overview",
     "originalForm": "Original form",

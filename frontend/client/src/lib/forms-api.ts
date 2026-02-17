@@ -1,6 +1,7 @@
 import { apiFetch } from "@/lib/api";
 import { authHeader } from "@/lib/auth";
 import type { AnswersById, FormElementModel, FormPageModel, FormSchema } from "@/form/types";
+import { t as i18nT } from "i18next";
 
 type ServerFormStatus = "temp" | "submitted" | "deleted";
 
@@ -178,7 +179,7 @@ export const mapServerDetailToSchema = (detail: ServerFormDetail): FormSchema =>
   const normalizedPages =
     pages.length > 0
       ? pages.sort((a, b) => a.pageIndex - b.pageIndex)
-      : [{ id: 1, title: "Страница 1", pageIndex: 0, allowBack: true }];
+      : [{ id: 1, title: i18nT("pages.defaultTitle", { index: 1 }), pageIndex: 0, allowBack: true }];
   const pageIdSet = new Set(normalizedPages.map((page) => page.id));
   const fallbackPageId = normalizedPages[0].id;
 

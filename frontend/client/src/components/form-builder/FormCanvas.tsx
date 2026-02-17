@@ -12,14 +12,14 @@ import {
 import { 
   SortableContext, 
   verticalListSortingStrategy,
-  arrayMove 
+  arrayMove
 } from "@dnd-kit/sortable";
 import { useState, useEffect, useRef } from "react";
 import type { MouseEvent } from "react";
 import type { FormElementModel, FormPageModel, FormSchema, SemanticType, WidgetType } from "@/form/types";
 import { SortableField } from "./SortableField";
 import { 
-  Type, AlignLeft, Hash, Calendar, List, CheckSquare, CircleDot, Heading, Star, ListOrdered, Upload, User, Phone, FileText, CreditCard, Undo2, Redo2, ArrowUp, ArrowDown, Grid, IdCardLanyard, StickyNote, Building, BriefcaseBusiness, Globe, Repeat2, Trash2
+  Type, AlignLeft, Hash, Calendar, List, CheckSquare, CircleDot, Heading, Star, ListOrdered, Upload, User, Phone, FileText, CreditCard, Undo2, Redo2, ArrowUp, ArrowDown, ArrowUpDown, Grid, IdCardLanyard, StickyNote, Building, BriefcaseBusiness, Globe, Repeat2, Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -56,6 +56,7 @@ interface FormCanvasProps {
   onAddPage: () => void;
   onDeletePage: (pageId: number, options: { mode: "delete" | "move"; targetPageId?: number }) => void;
   onTogglePageBack: (pageId: number, allowBack: boolean) => void;
+  onMovePage: (pageId: number, targetIndex: number) => void;
   selectedIds: string[];
   onSelectField: (id: string, event: MouseEvent<HTMLDivElement>) => void;
   clearSelection: () => void;
@@ -140,6 +141,7 @@ export function FormCanvas({
   onAddPage,
   onDeletePage,
   onTogglePageBack,
+  onMovePage,
   selectedIds,
   onSelectField,
   clearSelection,
@@ -158,6 +160,8 @@ export function FormCanvas({
   const [deleteDialogPageId, setDeleteDialogPageId] = useState<number | null>(null);
   const [deleteMode, setDeleteMode] = useState<"delete" | "move">("delete");
   const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
+  const [moveDialogPageId, setMoveDialogPageId] = useState<number | null>(null);
+  const [moveTargetIndex, setMoveTargetIndex] = useState<number | null>(null);
   const titleTextareaRef = useRef<HTMLTextAreaElement>(null);
   const descriptionTextareaRef = useRef<HTMLTextAreaElement>(null);
   const pageOrder = pages.slice().sort((a, b) => a.pageIndex - b.pageIndex);
@@ -384,39 +388,60 @@ export function FormCanvas({
   };
 
   const PageSection = ({ page }: { page: FormPageModel }) => {
-    const { setNodeRef, isOver } = useDroppable({
+    const { setNodeRef: setDropRef, isOver } = useDroppable({
       id: `page-${page.id}`,
     });
     const pageFields = fieldsByPage.get(page.id) ?? [];
     const isActive = page.id === activePageId;
-    const pageLabel = page.title?.trim() || `Страница ${page.pageIndex + 1}`;
+    const pageLabel = page.title?.trim() || t("pages.defaultTitle", { index: page.pageIndex + 1 });
     const canDelete = pageOrder.length > 1;
 
     return (
       <div className={cn("border-t border-border/40", isActive && "bg-primary/5")}>
-        <button
-          type="button"
+        <div
+          role="button"
+          tabIndex={0}
           onClick={(event) => {
             event.stopPropagation();
             onSelectPage(page.id);
           }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              onSelectPage(page.id);
+            }
+          }}
           className={cn(
-            "w-full px-6 py-3 flex items-center justify-between text-left transition-colors",
+            "w-full px-6 py-3 flex items-center justify-between text-left transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
             isActive ? "bg-primary/10" : "bg-muted/10 hover:bg-muted/20"
           )}
         >
           <div>
             <p className="text-sm font-semibold text-foreground">{pageLabel}</p>
-            <p className="text-xs text-muted-foreground">{pageFields.length} элементов</p>
+            <p className="text-xs text-muted-foreground">{t("pages.elementsCount", { count: pageFields.length })}</p>
           </div>
           <div className="flex items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={(event) => {
+                event.stopPropagation();
+                setMoveDialogPageId(page.id);
+                setMoveTargetIndex(page.pageIndex + 1);
+              }}
+            >
+              <ArrowUpDown className="h-4 w-4" />
+              {t("pages.movePage")}
+            </Button>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">Назад</span>
+              <span className="text-xs text-muted-foreground">{t("pages.backToggle")}</span>
               <Switch
                 checked={page.allowBack}
                 onCheckedChange={(checked) => onTogglePageBack(page.id, checked)}
                 onClick={(event) => event.stopPropagation()}
-                aria-label="Разрешить переход назад"
+                aria-label={t("pages.backToggleAria")}
               />
             </div>
             <Button
@@ -433,17 +458,17 @@ export function FormCanvas({
                 setDeleteTargetId(targets[0]?.id ?? null);
               }}
               className="text-destructive hover:text-destructive"
-              aria-label="Удалить страницу"
+              aria-label={t("pages.deleteTitle")}
             >
               <Trash2 className="h-4 w-4" />
             </Button>
             <span className={cn("text-xs font-medium", isActive ? "text-primary" : "text-muted-foreground")}>
-              {isActive ? "Активна" : ""}
+              {isActive ? t("pages.active") : ""}
             </span>
           </div>
-        </button>
+        </div>
         <div
-          ref={setNodeRef}
+          ref={setDropRef}
           className={cn(
             "p-6 bg-[#FAFBFC] transition-colors",
             isOver && "bg-primary/5"
@@ -605,7 +630,7 @@ export function FormCanvas({
              </div>
           </div>
 
-                    {pageOrder.map((page) => (
+          {pageOrder.map((page) => (
             <PageSection key={page.id} page={page} />
           ))}
           <div className="p-6 border-t border-border/40 bg-white/95">
@@ -615,7 +640,7 @@ export function FormCanvas({
               onClick={onAddPage}
               className="w-full justify-center"
             >
-              + Добавить страницу
+              + {t("pages.addPage")}
             </Button>
           </div>
 
@@ -632,8 +657,8 @@ export function FormCanvas({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Удалить страницу</DialogTitle>
-            <DialogDescription>Выберите, что делать с элементами страницы.</DialogDescription>
+            <DialogTitle>{t("pages.deleteTitle")}</DialogTitle>
+            <DialogDescription>{t("pages.deleteDesc")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <RadioGroup
@@ -644,13 +669,13 @@ export function FormCanvas({
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="delete" id="delete-page-elements" />
                 <label htmlFor="delete-page-elements" className="text-sm">
-                  Удалить страницу вместе с элементами
+                  {t("pages.deleteWithElements")}
                 </label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="move" id="move-page-elements" />
                 <label htmlFor="move-page-elements" className="text-sm">
-                  Перенести элементы на другую страницу
+                  {t("pages.moveElements")}
                 </label>
               </div>
             </RadioGroup>
@@ -660,12 +685,12 @@ export function FormCanvas({
                 onValueChange={(value) => setDeleteTargetId(Number(value))}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Выберите страницу" />
+                  <SelectValue placeholder={t("pages.selectTargetPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
                   {availableDeleteTargets.map((page) => (
                     <SelectItem key={page.id} value={String(page.id)}>
-                      {page.title?.trim() || `Страница ${page.pageIndex + 1}`}
+                      {page.title?.trim() || t("pages.defaultTitle", { index: page.pageIndex + 1 })}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -678,7 +703,7 @@ export function FormCanvas({
               variant="ghost"
               onClick={() => setDeleteDialogPageId(null)}
             >
-              Отмена
+              {t("actions.cancel")}
             </Button>
             <Button
               type="button"
@@ -696,7 +721,60 @@ export function FormCanvas({
                 setDeleteDialogPageId(null);
               }}
             >
-              Удалить
+              {t("actions.delete")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={moveDialogPageId !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setMoveDialogPageId(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("pages.moveTitle")}</DialogTitle>
+            <DialogDescription>{t("pages.moveDesc")}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Select
+              value={moveTargetIndex != null ? String(moveTargetIndex) : ""}
+              onValueChange={(value) => setMoveTargetIndex(Number(value))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={t("pages.movePlaceholder")} />
+              </SelectTrigger>
+              <SelectContent>
+                {pageOrder.map((page) => (
+                  <SelectItem key={page.id} value={String(page.pageIndex + 1)}>
+                    {t("pages.positionLabel", { index: page.pageIndex + 1 })}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter className="gap-2 sm:justify-between">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setMoveDialogPageId(null)}
+            >
+              {t("actions.cancel")}
+            </Button>
+            <Button
+              type="button"
+              disabled={moveDialogPageId == null || moveTargetIndex == null}
+              onClick={() => {
+                if (moveDialogPageId == null || moveTargetIndex == null) return;
+                onMovePage(moveDialogPageId, moveTargetIndex);
+                setMoveDialogPageId(null);
+              }}
+            >
+              {t("pages.moveConfirm")}
             </Button>
           </DialogFooter>
         </DialogContent>

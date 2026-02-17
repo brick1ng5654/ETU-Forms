@@ -791,17 +791,17 @@ export function FormPreview({
   const normalizedPages = useMemo<FormPageModel[]>(() => {
     const pages = Array.isArray(form.pages) ? form.pages : [];
     if (pages.length === 0) {
-      return [{ id: 1, title: "Страница 1", pageIndex: 0, allowBack: true }];
+      return [{ id: 1, title: t("pages.defaultTitle", { index: 1 }), pageIndex: 0, allowBack: true }];
     }
     return pages
       .map((page, index) => ({
         id: typeof page.id === "number" ? page.id : index + 1,
-        title: typeof page.title === "string" ? page.title : `Страница ${index + 1}`,
+        title: typeof page.title === "string" ? page.title : t("pages.defaultTitle", { index: index + 1 }),
         pageIndex: typeof page.pageIndex === "number" ? page.pageIndex : index,
         allowBack: typeof page.allowBack === "boolean" ? page.allowBack : true,
       }))
       .sort((a, b) => a.pageIndex - b.pageIndex);
-  }, [form.pages]);
+  }, [form.pages, t]);
   const pageIdSet = useMemo(() => new Set(normalizedPages.map((page) => page.id)), [normalizedPages]);
   const fallbackPageId = normalizedPages[0]?.id ?? 1;
   const [activePageId, setActivePageId] = useState<number | null>(null);
@@ -2294,19 +2294,20 @@ export function FormPreview({
   };
 
   const renderPageSection = (page: FormPageModel, pageFields: FormElementModel[]) => {
-    const pageIndexLabel = `Страница ${page.pageIndex + 1}`;
+    const pageIndexLabel = t("pages.defaultTitle", { index: page.pageIndex + 1 });
     const pageTitle = page.title?.trim();
+    const shouldShowTitle = Boolean(pageTitle && pageTitle !== pageIndexLabel);
     return (
       <section key={page.id} className="rounded-xl border border-border/40 bg-white shadow-sm">
         <div className="px-6 py-4 border-b border-border/40 bg-muted/10">
           <p className="text-sm font-semibold text-foreground">{pageIndexLabel}</p>
-          {pageTitle ? (
+          {shouldShowTitle ? (
             <p className="text-xs text-muted-foreground mt-1">{pageTitle}</p>
           ) : null}
         </div>
         <div className="px-6 py-6 space-y-6">
           {pageFields.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Нет элементов на странице</p>
+            <p className="text-sm text-muted-foreground">{t("pages.empty")}</p>
           ) : (
             pageFields.map(renderField)
           )}
@@ -2372,8 +2373,9 @@ export function FormPreview({
             variant="outline"
             onClick={handlePrevPage}
             disabled={!canGoBack || submitting}
+            className="transition-all duration-200 ease-out enabled:hover:-translate-x-0.5 enabled:active:translate-x-0 disabled:opacity-50"
           >
-            Назад
+            {t("pages.prevButton")}
           </Button>
           {isLastPage ? (
             <Button
@@ -2389,7 +2391,7 @@ export function FormPreview({
               onClick={handleNextPage}
               disabled={submitting || (requireRequiredOnPage && hasRequiredErrorsOnPage)}
             >
-              Далее
+              {t("pages.nextButton")}
             </Button>
           )}
         </div>

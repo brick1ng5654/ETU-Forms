@@ -54,6 +54,7 @@ import { useAuth } from "@/lib/auth";
 
 import { useTranslation } from 'react-i18next';
 import { AppBrand } from "@/components/app-brand";
+import { t as i18nT } from "i18next";
 
 const TOOLBOX_ITEMS: ToolboxItemDefinition[] = [
   // Basic
@@ -152,19 +153,19 @@ const toIsoFromParts = (dateValue: string | null, timeValue: string) => {
 
 const normalizePages = (pages: FormPageModel[] | undefined | null): FormPageModel[] => {
   if (!Array.isArray(pages) || pages.length === 0) {
-    return [{ id: 1, title: "Страница 1", pageIndex: 0, allowBack: true }];
+    return [{ id: 1, title: i18nT("pages.defaultTitle", { index: 1 }), pageIndex: 0, allowBack: true }];
   }
   return pages
     .map((page, index) => ({
       id: typeof page.id === "number" ? page.id : index + 1,
-      title: typeof page.title === "string" ? page.title : `Страница ${index + 1}`,
+      title: typeof page.title === "string" ? page.title : i18nT("pages.defaultTitle", { index: index + 1 }),
       pageIndex: typeof page.pageIndex === "number" ? page.pageIndex : index,
       allowBack: typeof page.allowBack === "boolean" ? page.allowBack : true,
     }))
     .sort((a, b) => a.pageIndex - b.pageIndex);
 };
 
-const AUTO_PAGE_TITLE = /^Страница \d+$/;
+const AUTO_PAGE_TITLE = /^(Страница|Page) \d+$/;
 
 const reindexPages = (pages: FormPageModel[]): FormPageModel[] => {
   return pages
@@ -177,10 +178,24 @@ const reindexPages = (pages: FormPageModel[]): FormPageModel[] => {
       return {
         ...page,
         pageIndex: index,
-        title: shouldAutoTitle ? `Страница ${index + 1}` : rawTitle,
+        title: shouldAutoTitle ? i18nT("pages.defaultTitle", { index: index + 1 }) : rawTitle,
         allowBack: typeof page.allowBack === "boolean" ? page.allowBack : true,
       };
     });
+};
+
+const reindexPagesInOrder = (pages: FormPageModel[]): FormPageModel[] => {
+  return pages.map((page, index) => {
+    const rawTitle = typeof page.title === "string" ? page.title : "";
+    const trimmedTitle = rawTitle.trim();
+    const shouldAutoTitle = !trimmedTitle || AUTO_PAGE_TITLE.test(trimmedTitle);
+    return {
+      ...page,
+      pageIndex: index,
+      title: shouldAutoTitle ? i18nT("pages.defaultTitle", { index: index + 1 }) : rawTitle,
+      allowBack: typeof page.allowBack === "boolean" ? page.allowBack : true,
+    };
+  });
 };
 
 const normalizeFieldsByPage = (elements: FormElementModel[], pages: FormPageModel[]) => {
@@ -598,7 +613,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
     const nextIndex = pages.length;
     const newPage: FormPageModel = {
       id: nextId,
-      title: `Страница ${nextIndex + 1}`,
+      title: i18nT("pages.defaultTitle", { index: nextIndex + 1 }),
       pageIndex: nextIndex,
       allowBack: true,
     };
@@ -666,6 +681,25 @@ export default function Builder({ params }: { params: { id?: string } }) {
 
     setForm({ ...activeForm, pages: remainingPages, fields: nextFields });
     setActivePageId(nextActive);
+  };
+
+  const movePageToIndex = (pageId: number, targetIndex: number) => {
+    if (!activeForm) return;
+    const orderedPages = pages.slice().sort((a, b) => a.pageIndex - b.pageIndex);
+    const currentIndex = orderedPages.findIndex((page) => page.id === pageId);
+    if (currentIndex === -1) return;
+
+    const normalizedTarget = Math.min(
+      Math.max(1, Math.floor(targetIndex)),
+      orderedPages.length
+    );
+    const nextPages = orderedPages.slice();
+    const [moved] = nextPages.splice(currentIndex, 1);
+    nextPages.splice(normalizedTarget - 1, 0, moved);
+
+    const reindexed = reindexPagesInOrder(nextPages);
+    const nextFields = normalizeFieldsByPage(fields, reindexed);
+    setForm({ ...activeForm, pages: reindexed, fields: nextFields });
   };
 
   const togglePageBack = (pageId: number, allowBack: boolean) => {
@@ -1518,6 +1552,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
           onAddPage={addPage}
           onDeletePage={deletePage}
           onTogglePageBack={togglePageBack}
+          onMovePage={movePageToIndex}
           selectedIds={selectedIds}
           moveSelected={moveSelected}
           onSelectField={handleSelectField}

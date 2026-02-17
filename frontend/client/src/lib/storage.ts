@@ -224,13 +224,13 @@ const normalizeFieldsWithMeta = (fields: unknown): {
 
 const normalizePages = (pages: FormPageModel[] | unknown): FormPageModel[] => {
   if (!Array.isArray(pages) || pages.length === 0) {
-    return [{ id: 1, title: "Страница 1", pageIndex: 0, allowBack: true }];
+    return [{ id: 1, title: t("pages.defaultTitle", { index: 1 }), pageIndex: 0, allowBack: true }];
   }
 
   return pages
     .map((page, index) => ({
       id: typeof page.id === "number" ? page.id : index + 1,
-      title: typeof page.title === "string" ? page.title : `Страница ${index + 1}`,
+      title: typeof page.title === "string" ? page.title : t("pages.defaultTitle", { index: index + 1 }),
       pageIndex: typeof page.pageIndex === "number" ? page.pageIndex : index,
       allowBack: typeof page.allowBack === "boolean" ? page.allowBack : true,
     }))
