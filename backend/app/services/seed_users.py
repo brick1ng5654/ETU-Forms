@@ -8,11 +8,11 @@ from app import models
 from app.security.passwords import hash_password
 
 DEFAULT_USERS = [
-    ("admin@example.com", "Admin", settings.ADMIN_PASSWORD, True),
-    ("editor@example.com", "Editor", settings.ADMIN_PASSWORD, False),
-    ("participant@example.com", "Participant", settings.ADMIN_PASSWORD, False),
-    ("noperms@example.com", "NoPerms", settings.ADMIN_PASSWORD, False),
-    ("test@example.com", "Test_User", settings.ADMIN_PASSWORD, False),
+    ("admin@example.com", "Admin", settings.ADMIN_PASSWORD, True, "admin"),
+    ("editor@example.com", "Editor", settings.ADMIN_PASSWORD, False, "form_creator"),
+    ("participant@example.com", "Participant", settings.ADMIN_PASSWORD, False, None),
+    ("noperms@example.com", "NoPerms", settings.ADMIN_PASSWORD, False, None),
+    ("test@example.com", "Test_User", settings.ADMIN_PASSWORD, False, None),
 ]
 
 async def _get_user_by_email(db: AsyncSession, email: str) -> models.AppUser | None:
@@ -25,20 +25,19 @@ async def _ensure_user(
         name: str,
         password: str,
         is_admin: bool = False,
+        role: str | None = None,
 ) -> models.AppUser:
     email_norm = email.strip().lower()
 
     user = await _get_user_by_email(db, email_norm)
     if user:
-        if is_admin and user.role is None:
-            user.role = "admin"
         return user
     
     user = models.AppUser(
         email=email_norm,
         name=name,
         is_admin=is_admin,
-        role="admin" if is_admin else None,
+        role="admin" if is_admin else role,
         password_hash=hash_password(password),
     )
     db.add(user)
@@ -94,8 +93,8 @@ async def _ensure_access(
 
 async def seed_users(db: AsyncSession) -> None:
     created = {}
-    for email, name, password, is_admin in DEFAULT_USERS:
-        user = await _ensure_user(db, email, name, password, is_admin=is_admin)
+    for email, name, password, is_admin, role in DEFAULT_USERS:
+        user = await _ensure_user(db, email, name, password, is_admin=is_admin, role=role)
         created[email.strip().lower()] = user
 
     admin = created["admin@example.com"]

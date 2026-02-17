@@ -8,7 +8,11 @@ from sqlalchemy import select, func, update, or_, and_
 
 from app.database import get_db
 from app.models import Form, AppUser, AccessControl
-from app.security.auth_dependencies import get_current_user as get_current_user_dep
+from app.security.auth_dependencies import (
+    get_current_user as get_current_user_dep,
+    can_edit_forms,
+    ensure_can_edit_forms,
+)
 from app.schemas import (
     FormCreate,
     FormResponse,
@@ -22,6 +26,10 @@ from app.services.forms_mapping import build_form_detail_response, build_form_su
 router = APIRouter(prefix="/forms", tags=["forms"])
 
 MAX_TEMP_FORMS_PER_USER = 25
+
+
+def _enum_value(x):
+    return x.value if hasattr(x, "value") else x
 
 
 async def _cleanup_expired_temp_forms(db: AsyncSession) -> None:
@@ -82,6 +90,8 @@ async def create_form(
     db: AsyncSession = Depends(get_db),
     current_user: AppUser = Depends(get_current_user_dep)
 ):
+    ensure_can_edit_forms(current_user)
+
     try:
         temp_count = await _count_active_temp_forms(db, current_user.user_id)
         if temp_count >= MAX_TEMP_FORMS_PER_USER:
@@ -121,6 +131,7 @@ async def get_my_forms(
     current_user: AppUser = Depends(get_current_user_dep)
 ):
     await _cleanup_expired_temp_forms(db)
+    can_manage_forms = can_edit_forms(current_user)
 
     access_filter = or_(
         Form.user_id == current_user.user_id,
@@ -154,7 +165,16 @@ async def get_my_forms(
     result = await db.execute(query)
     forms = result.scalars().all()
 
-    form_responses = await build_form_summaries(db, forms)
+    permissions_by_form: dict[int, dict[str, bool]] = {}
+    for form in forms:
+        status_value = _enum_value(form.status)
+        permissions_by_form[form.form_id] = {
+            "can_edit": can_manage_forms,
+            "can_view_responses": status_value == "submitted",
+            "can_continue_passage": status_value == "submitted",
+        }
+
+    form_responses = await build_form_summaries(db, forms, permissions_by_form)
     return FormListResponse(forms=form_responses, total=total)
 
 
@@ -164,6 +184,7 @@ async def get_forms_catalog(
     current_user: AppUser = Depends(get_current_user_dep),
 ):
     await _cleanup_expired_temp_forms(db)
+    can_manage_forms = can_edit_forms(current_user)
 
     query = (
         select(Form, AccessControl.role)
@@ -197,10 +218,10 @@ async def get_forms_catalog(
     permissions_by_form: dict[int, dict[str, bool]] = {}
 
     for form in forms_by_id.values():
-        status_value = form.status.value if hasattr(form.status, "value") else str(form.status)
+        status_value = _enum_value(form.status)
         role_set = roles_by_form_id.get(form.form_id, set())
         is_owner = form.user_id == current_user.user_id
-        can_edit = is_owner or "editor" in role_set
+        can_edit = can_manage_forms and (is_owner or "editor" in role_set)
         can_view_responses = (
             status_value == "submitted"
             and (is_owner or "editor" in role_set or "participant" in role_set)
@@ -279,6 +300,7 @@ async def save_form(
     db: AsyncSession = Depends(get_db),
     current_user: AppUser = Depends(get_current_user_dep),
 ):
+    ensure_can_edit_forms(current_user)
     form = await _ensure_editor_or_owner(db, form_id, current_user)
 
     if form.status == "submitted" and not in_place:
@@ -330,6 +352,7 @@ async def delete_form(
     db: AsyncSession = Depends(get_db),
     current_user: AppUser = Depends(get_current_user_dep),
 ):
+    ensure_can_edit_forms(current_user)
     form = await _ensure_editor_or_owner(db, form_id, current_user)
     now = datetime.utcnow()
     form.status = "deleted"

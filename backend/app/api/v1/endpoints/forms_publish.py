@@ -7,7 +7,7 @@ from app.database import get_db
 from app.schemas import FormBuilderPayload, FormDetailResponse
 from app.services.forms_publish import apply_builder_payload
 from app.services.forms_mapping import build_form_detail_response
-from app.security.auth_dependencies import get_current_user
+from app.security.auth_dependencies import get_current_user, ensure_can_edit_forms
 from app.models import AppUser, Form, AccessControl
 
 router = APIRouter()
@@ -48,6 +48,7 @@ async def publish(
     db: AsyncSession = Depends(get_db),
     _current_user: AppUser = Depends(get_current_user),
 ):
+    ensure_can_edit_forms(_current_user)
     try:
         form = await _ensure_editor_or_owner(db, form_id, _current_user)
         if form.status != "temp":
