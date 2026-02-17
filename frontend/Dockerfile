@@ -1,5 +1,5 @@
 # Этап сборки
-FROM node:20 AS build
+FROM node:20.18.3-alpine AS build
 
 WORKDIR /app
 
@@ -16,7 +16,7 @@ COPY client/ ./client/
 RUN npm run build
 
 # Этап запуска
-FROM nginx:alpine
+FROM nginx:1.27.3-alpine
 
 RUN rm -rf /usr/share/nginx/html/*
 
