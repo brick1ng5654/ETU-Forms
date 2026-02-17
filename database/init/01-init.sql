@@ -277,11 +277,39 @@ CREATE TABLE IF NOT EXISTS Template(
 
 COMMENT ON TABLE Template IS 'Шаблоны';
 
+
+CREATE TABLE IF NOT EXISTS Form_Pages(
+    page_id BIGSERIAL PRIMARY KEY,
+    form_id INT NOT NULL,
+    page_index INT NOT NULL,
+    title TEXT NULL,
+    allow_back BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_page_form
+        FOREIGN KEY (form_id)
+        REFERENCES Form(form_id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT unique_form_page_index
+        UNIQUE (form_id, page_index),
+
+    CONSTRAINT chk_page_index
+        CHECK (page_index >= 0)
+);
+
+COMMENT ON TABLE Form_Pages IS 'Страницы формы для многостраничных форм';
+
+CREATE INDEX IF NOT EXISTS idx_page_form
+ON Form_Pages (form_id, page_index);
+
 CREATE TABLE IF NOT EXISTS Form_Element (
     element_id SERIAL PRIMARY KEY,
     form_id INT NULL,
     template_id INT NULL,
-    
+    page_id INT NULL,
+
     widget widget_type NOT NULL,
     semantic semantic_type NULL,
     label VARCHAR(255) NOT NULL,
@@ -304,6 +332,11 @@ CREATE TABLE IF NOT EXISTS Form_Element (
         REFERENCES Template(template_id)
         ON DELETE CASCADE,
 
+    CONSTRAINT fk_element_page
+        FOREIGN KEY (page_id)
+        REFERENCES Form_Pages(page_id)
+
+        ON DELETE CASCADE,
     CONSTRAINT chk_non_input_semantic
         CHECK(
             widget NOT IN ('heading', 'static_text')
@@ -445,3 +478,4 @@ CREATE INDEX IF NOT EXISTS idx_file_answer
 ON Uploaded_file (answer_id);
 
 COMMENT ON TABLE Uploaded_file IS 'Метаданные загруженных файлов';
+

@@ -1,6 +1,6 @@
 import { apiFetch } from "@/lib/api";
 import { authHeader } from "@/lib/auth";
-import type { AnswersById, FormElementModel, FormSchema } from "@/form/types";
+import type { AnswersById, FormElementModel, FormPageModel, FormSchema } from "@/form/types";
 
 type ServerFormStatus = "temp" | "submitted" | "deleted";
 
@@ -29,6 +29,7 @@ type ServerFormSummary = {
 
 type ServerBuilderElement = {
   client_id: string;
+  page_id: number;
   widget: string;
   semantic?: string | null;
   label: string;
@@ -42,6 +43,13 @@ type ServerBuilderElement = {
   sort_index: number;
 };
 
+type ServerFormPage = {
+  page_id: number;
+  title?: string | null;
+  page_index: number;
+  allow_back: boolean;
+};
+
 type ServerBuilderCondition = {
   source_client_id: string;
   target_client_id: string;
@@ -50,6 +58,7 @@ type ServerBuilderCondition = {
 };
 
 type ServerFormDetail = ServerFormSummary & {
+  pages: ServerFormPage[];
   elements: ServerBuilderElement[];
   conditions: ServerBuilderCondition[];
 };
@@ -78,6 +87,7 @@ type FormBuilderPayload = {
   start_at?: string | null;
   end_at?: string | null;
   access_mode?: "private" | "unauthenticated" | null;
+  pages: ServerFormPage[];
   elements: ServerBuilderElement[];
   conditions: ServerBuilderCondition[];
 };
@@ -159,6 +169,19 @@ const mapCorrectAnswers = (raw?: Record<string, unknown> | null): unknown => {
 };
 
 export const mapServerDetailToSchema = (detail: ServerFormDetail): FormSchema => {
+  const pages: FormPageModel[] = (detail.pages ?? []).map((page) => ({
+    id: Number(page.page_id),
+    title: page.title ?? "",
+    pageIndex: Number(page.page_index ?? 0),
+    allowBack: Boolean(page.allow_back),
+  }));
+  const normalizedPages =
+    pages.length > 0
+      ? pages.sort((a, b) => a.pageIndex - b.pageIndex)
+      : [{ id: 1, title: "Страница 1", pageIndex: 0, allowBack: true }];
+  const pageIdSet = new Set(normalizedPages.map((page) => page.id));
+  const fallbackPageId = normalizedPages[0].id;
+
   const fields: FormElementModel[] = detail.elements.map((el) => {
     const otherSettings = { ...(el.other_settings ?? {}) } as Record<string, unknown>;
     delete otherSettings.client_id;
@@ -170,6 +193,7 @@ export const mapServerDetailToSchema = (detail: ServerFormDetail): FormSchema =>
 
     return {
       id: String(el.client_id || ""),
+      pageId: pageIdSet.has(el.page_id) ? el.page_id : fallbackPageId,
       widgetType: mapWidgetFromServer(el.widget),
       semanticType: mapSemanticFromServer(el.widget, el.semantic ?? undefined),
       label: el.label,
@@ -231,6 +255,7 @@ export const mapServerDetailToSchema = (detail: ServerFormDetail): FormSchema =>
     id: String(detail.form_id),
     title: detail.title,
     description: detail.description ?? "",
+    pages: normalizedPages,
     fields,
     fieldCount: detail.elements_count ?? fields.length,
     status: detail.status,
@@ -250,6 +275,7 @@ export const mapServerSummaryToSchema = (summary: ServerFormSummary): FormSchema
     id: String(summary.form_id),
     title: summary.title,
     description: summary.description ?? "",
+    pages: [],
     ownerName: summary.owner_name ?? undefined,
     fields: [],
     fieldCount: summary.elements_count ?? 0,

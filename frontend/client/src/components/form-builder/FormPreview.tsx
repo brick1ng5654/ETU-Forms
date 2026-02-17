@@ -5,6 +5,7 @@ import type {
   DateTimeAnswer,
   ElementAttachment,
   FormElementModel,
+  FormPageModel,
   FormSchema,
   FullNameAnswer,
   PassportAnswer,
@@ -743,6 +744,7 @@ interface FormPreviewProps {
   form: FormSchema;
   mode?: "preview" | "respond";
   readOnly?: boolean;
+  requireRequiredOnPage?: boolean;
   submitLabel?: string;
   submitting?: boolean;
   onSubmitAnswers?: (payload: ReturnType<typeof buildAnswersPayload>) => void | Promise<void>;
@@ -754,6 +756,7 @@ export function FormPreview({
   form,
   mode = "preview",
   readOnly = false,
+  requireRequiredOnPage = true,
   submitLabel,
   submitting = false,
   onSubmitAnswers,
@@ -785,6 +788,30 @@ export function FormPreview({
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+  const normalizedPages = useMemo<FormPageModel[]>(() => {
+    const pages = Array.isArray(form.pages) ? form.pages : [];
+    if (pages.length === 0) {
+      return [{ id: 1, title: "Страница 1", pageIndex: 0, allowBack: true }];
+    }
+    return pages
+      .map((page, index) => ({
+        id: typeof page.id === "number" ? page.id : index + 1,
+        title: typeof page.title === "string" ? page.title : `Страница ${index + 1}`,
+        pageIndex: typeof page.pageIndex === "number" ? page.pageIndex : index,
+        allowBack: typeof page.allowBack === "boolean" ? page.allowBack : true,
+      }))
+      .sort((a, b) => a.pageIndex - b.pageIndex);
+  }, [form.pages]);
+  const pageIdSet = useMemo(() => new Set(normalizedPages.map((page) => page.id)), [normalizedPages]);
+  const fallbackPageId = normalizedPages[0]?.id ?? 1;
+  const [activePageId, setActivePageId] = useState<number | null>(null);
+  useEffect(() => {
+    if (normalizedPages.length === 0) return;
+    setActivePageId((current) => {
+      if (current && pageIdSet.has(current)) return current;
+      return normalizedPages[0]?.id ?? null;
+    });
+  }, [normalizedPages, pageIdSet]);
 
   const hasQuizFields = useMemo(() => {
     if (isRespondMode) return false;
@@ -2190,9 +2217,103 @@ export function FormPreview({
   };
 
   const visibleFields = form.fields.filter(isFieldVisible);
-  const lastVisibleField = visibleFields[visibleFields.length - 1];
+  const fieldsByPage = useMemo(() => {
+    const grouped = new Map<number, FormElementModel[]>();
+    normalizedPages.forEach((page) => grouped.set(page.id, []));
+    visibleFields.forEach((field) => {
+      const pageId = pageIdSet.has(field.pageId) ? field.pageId : fallbackPageId;
+      const list = grouped.get(pageId) ?? [];
+      list.push(field);
+      grouped.set(pageId, list);
+    });
+    for (const [pageId, list] of grouped.entries()) {
+      grouped.set(
+        pageId,
+        list.slice().sort((a, b) => a.sortIndex - b.sortIndex)
+      );
+    }
+    return grouped;
+  }, [visibleFields, normalizedPages, pageIdSet, fallbackPageId]);
+  const currentPageId = activePageId ?? normalizedPages[0]?.id ?? fallbackPageId;
+  const currentPageIndex = normalizedPages.findIndex((page) => page.id === currentPageId);
+  const isFirstPage = currentPageIndex <= 0;
+  const isLastPage = currentPageIndex >= normalizedPages.length - 1;
+  const currentPage = normalizedPages[currentPageIndex];
+  const canGoBack = !isFirstPage && Boolean(currentPage?.allowBack);
+  const activePageFields = fieldsByPage.get(currentPageId) ?? [];
+  const activePageErrors = useMemo(
+    () => validateForm(activePageFields, answers),
+    [activePageFields, answers]
+  );
+  const hasRequiredErrorsOnPage = useMemo(
+    () => Object.values(activePageErrors).some((errors) => errors.some(isRequiredError)),
+    [activePageErrors]
+  );
+  const renderedFields = isRespondMode ? activePageFields : visibleFields;
+  const lastVisibleField = renderedFields[renderedFields.length - 1];
   const needsCountryPadding = Boolean(lastVisibleField && isCountryField(lastVisibleField));
   const isInputsDisabled = readOnly || submitting;
+
+  const handlePrevPage = () => {
+    if (!canGoBack) return;
+    const prevPage = normalizedPages[currentPageIndex - 1];
+    if (prevPage) {
+      setActivePageId(prevPage.id);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (isLastPage) return;
+    const pageFields = activePageFields;
+    const pageFieldIds = new Set(pageFields.map((field) => field.id));
+    setTouched((prev) => {
+      const next = { ...prev };
+      pageFieldIds.forEach((fieldId) => {
+        next[fieldId] = true;
+      });
+      return next;
+    });
+    if (requireRequiredOnPage && hasRequiredErrorsOnPage) {
+      const firstRequiredField = pageFields.find((field) => {
+        if (field.widgetType === "header") return false;
+        const fieldErrors = activePageErrors[field.id] || [];
+        return fieldErrors.some(isRequiredError);
+      });
+      const targetField = firstRequiredField ?? pageFields.find((field) => Boolean(activePageErrors[field.id]));
+      if (targetField) {
+        focusField(targetField.id);
+      }
+      showRequiredFieldsWarning();
+      return;
+    }
+
+    const nextPage = normalizedPages[currentPageIndex + 1];
+    if (nextPage) {
+      setActivePageId(nextPage.id);
+    }
+  };
+
+  const renderPageSection = (page: FormPageModel, pageFields: FormElementModel[]) => {
+    const pageIndexLabel = `Страница ${page.pageIndex + 1}`;
+    const pageTitle = page.title?.trim();
+    return (
+      <section key={page.id} className="rounded-xl border border-border/40 bg-white shadow-sm">
+        <div className="px-6 py-4 border-b border-border/40 bg-muted/10">
+          <p className="text-sm font-semibold text-foreground">{pageIndexLabel}</p>
+          {pageTitle ? (
+            <p className="text-xs text-muted-foreground mt-1">{pageTitle}</p>
+          ) : null}
+        </div>
+        <div className="px-6 py-6 space-y-6">
+          {pageFields.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Нет элементов на странице</p>
+          ) : (
+            pageFields.map(renderField)
+          )}
+        </div>
+      </section>
+    );
+  };
 
   const handleSubmitAnswers = async () => {
     if (!onSubmitAnswers || submitting) return;
@@ -2240,18 +2361,37 @@ export function FormPreview({
       style={{ overflowX: 'hidden' }}
     >
 
-      {visibleFields.map(renderField)}
+      {(isRespondMode ? normalizedPages.filter((page) => page.id === currentPageId) : normalizedPages).map(
+        (page) => renderPageSection(page, fieldsByPage.get(page.id) ?? [])
+      )}
 
       {isRespondMode ? (
-        <div className="pt-4 border-t">
+        <div className="flex items-center justify-between gap-3 pt-4 border-t">
           <Button
             type="button"
-            onClick={() => void handleSubmitAnswers()}
-            className="w-full"
-            disabled={submitting}
+            variant="outline"
+            onClick={handlePrevPage}
+            disabled={!canGoBack || submitting}
           >
-            {submitting ? t("respond.submitting") : submitLabel ?? t("respond.submit")}
+            Назад
           </Button>
+          {isLastPage ? (
+            <Button
+              type="button"
+              onClick={() => void handleSubmitAnswers()}
+              disabled={submitting}
+            >
+              {submitting ? t("respond.submitting") : submitLabel ?? t("respond.submit")}
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              onClick={handleNextPage}
+              disabled={submitting || (requireRequiredOnPage && hasRequiredErrorsOnPage)}
+            >
+              Далее
+            </Button>
+          )}
         </div>
       ) : null}
 

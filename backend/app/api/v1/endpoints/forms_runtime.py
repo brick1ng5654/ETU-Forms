@@ -279,6 +279,7 @@ async def get_public_form(
         prev_form_id=detail.prev_form_id,
         created_at=detail.created_at,
         updated_at=detail.updated_at,
+        pages=detail.pages,
         elements=elements,
         conditions=detail.conditions,
     )

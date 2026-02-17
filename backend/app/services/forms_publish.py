@@ -52,7 +52,34 @@ async def _replace_elements_and_conditions(
         delete(models.FormElementCondition).where(models.FormElementCondition.form_id == form_id)
     )
     await db.execute(delete(models.FormElement).where(models.FormElement.form_id == form_id))
+    await db.execute(delete(models.FormPage).where(models.FormPage.form_id == form_id))
     await db.flush()
+
+    page_id_map: dict[int, int] = {}
+    sorted_pages = sorted(payload.pages or [], key=lambda page: page.page_index)
+    if not sorted_pages:
+        sorted_pages = [
+            type("DefaultPage", (), {"page_id": None, "title": None, "allow_back": True, "page_index": 0})()
+        ]
+
+    default_page_id: int | None = None
+    for index, page in enumerate(sorted_pages):
+        page_index = int(page.page_index) if page.page_index is not None else index
+        row = models.FormPage(
+            form_id=form_id,
+            page_index=page_index,
+            title=page.title,
+            allow_back=bool(page.allow_back),
+        )
+        db.add(row)
+        await db.flush()
+        if default_page_id is None:
+            default_page_id = row.page_id
+        if page.page_id is not None:
+            try:
+                page_id_map[int(page.page_id)] = row.page_id
+            except (TypeError, ValueError):
+                pass
 
     client_to_db_id: dict[str, int] = {}
 
@@ -75,9 +102,14 @@ async def _replace_elements_and_conditions(
 
         supportive_text = el.supportive_text if el.supportive_text is not None else el.description
 
+        resolved_page_id = page_id_map.get(el.page_id)
+        if resolved_page_id is None:
+            resolved_page_id = default_page_id
+
         row = models.FormElement(
             form_id=form_id,
             template_id=None,
+            page_id=resolved_page_id,
             widget=_enum_value(el.widget),
             semantic=_enum_value(el.semantic) if el.semantic is not None else None,
             label=el.label,

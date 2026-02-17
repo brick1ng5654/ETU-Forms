@@ -6,6 +6,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -561,6 +562,7 @@ export function MatrixCorrectAnswersModal({
       <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{t("propert.matrixCorrectAnswers")}</DialogTitle>
+          <DialogDescription className="sr-only">{t("propert.matrixCorrectAnswers")}</DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4">

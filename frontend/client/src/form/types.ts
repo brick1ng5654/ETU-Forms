@@ -41,6 +41,7 @@ export type FormElementProps = {
 
 export interface FormElementModel {
   id: string;
+  pageId: number;
   widgetType: WidgetType;
   semanticType?: SemanticType;
   label: string;
@@ -49,6 +50,13 @@ export interface FormElementModel {
   props: FormElementProps;
   sortIndex: number;
   children?: FormElementModel[];
+}
+
+export interface FormPageModel {
+  id: number;
+  title: string;
+  pageIndex: number;
+  allowBack: boolean;
 }
 
 export interface FormFolder {
@@ -63,6 +71,7 @@ export interface FormSchema {
   folderId?: string;
   title: string;
   description: string;
+  pages: FormPageModel[];
   ownerName?: string;
   fields: FormElementModel[];
   fieldCount?: number;

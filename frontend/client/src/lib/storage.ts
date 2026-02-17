@@ -1,4 +1,4 @@
-import type { FormElementModel, FormFolder, FormSchema } from "@/form/types";
+import type { FormElementModel, FormFolder, FormSchema, FormPageModel } from "@/form/types";
 import { nanoid } from "nanoid";
 import { t } from "i18next";
 
@@ -18,12 +18,15 @@ export const storage = {
       let didMutate = false;
       const normalizedForms = parsed.map((form: any) => {
         const rawFields = Array.isArray(form.fields) ? form.fields : [];
+        const rawPages = Array.isArray(form.pages) ? form.pages : [];
+        const normalizedPages = normalizePages(rawPages);
         const normalized = normalizeFieldsWithMeta(rawFields);
         if (normalized.didMutate) {
           didMutate = true;
         }
         return {
           ...form,
+          pages: normalizedPages,
           fields: normalized.fields,
         } as FormSchema;
       });
@@ -54,11 +57,13 @@ export const storage = {
     const forms = storage.getForms();
     const existingIndex = forms.findIndex(f => f.id === form.id);
 
+    const normalizedPages = normalizePages(form.pages);
     const normalized = normalizeFieldsWithMeta(form.fields);
     const existing = existingIndex >= 0 ? forms[existingIndex] : undefined;
     const updatedForm = {
       ...form,
       folderId: form.folderId ?? existing?.folderId,
+      pages: normalizedPages,
       fields: normalized.fields,
       fieldCount: form.fieldCount ?? normalized.fields.length,
       updatedAt: form.updatedAt ?? Date.now(),
@@ -85,8 +90,10 @@ export const storage = {
     const merged = remoteForms.map(form => {
       const localForm = localById.get(form.id);
       const fields = form.fields.length > 0 ? form.fields : (localForm?.fields ?? form.fields);
+      const pages = form.pages.length > 0 ? form.pages : (localForm?.pages ?? form.pages);
       return {
         ...form,
+        pages,
         fields,
         fieldCount: form.fieldCount ?? localForm?.fieldCount,
         folderId: folderById.get(form.id),
@@ -123,11 +130,13 @@ export const storage = {
   },
 
   createForm: (folderId?: string): FormSchema => {
+    const pages = normalizePages([]);
     const newForm: FormSchema = {
       id: nanoid(),
       folderId,
       title: t("common.untitled"),
       description: "",
+      pages,
       fields: [],
       fieldCount: 0,
       status: "temp",
@@ -143,11 +152,13 @@ export const storage = {
   createFormWithId: (id: string, folderId?: string): FormSchema => {
     const existing = storage.getForms().find(form => form.id === id);
     if (existing) return existing;
+    const pages = normalizePages([]);
     const newForm: FormSchema = {
       id,
       folderId,
       title: t("common.untitled"),
       description: "",
+      pages,
       fields: [],
       fieldCount: 0,
       status: "temp",
@@ -181,6 +192,8 @@ const normalizeFieldsWithMeta = (fields: unknown): {
       typeof (element as FormElementModel).sortIndex === "number"
         ? (element as FormElementModel).sortIndex
         : index;
+    const rawPageId = (element as FormElementModel).pageId;
+    const nextPageId = typeof rawPageId === "number" && Number.isFinite(rawPageId) ? rawPageId : 1;
     const rawId = (element as FormElementModel).id;
     const nextId = rawId != null && String(rawId).trim() !== "" ? String(rawId).trim() : nanoid();
 
@@ -190,6 +203,9 @@ const normalizeFieldsWithMeta = (fields: unknown): {
     if ((element as FormElementModel).sortIndex !== nextSortIndex) {
       didMutate = true;
     }
+    if ((element as FormElementModel).pageId !== nextPageId) {
+      didMutate = true;
+    }
     if ((element as FormElementModel).id !== nextId) {
       didMutate = true;
     }
@@ -197,10 +213,26 @@ const normalizeFieldsWithMeta = (fields: unknown): {
     return {
       ...element,
       id: nextId,
+      pageId: nextPageId,
       props: nextProps,
       sortIndex: nextSortIndex,
     };
   });
 
   return { fields: normalizedFields, didMutate };
+};
+
+const normalizePages = (pages: FormPageModel[] | unknown): FormPageModel[] => {
+  if (!Array.isArray(pages) || pages.length === 0) {
+    return [{ id: 1, title: "Страница 1", pageIndex: 0, allowBack: true }];
+  }
+
+  return pages
+    .map((page, index) => ({
+      id: typeof page.id === "number" ? page.id : index + 1,
+      title: typeof page.title === "string" ? page.title : `Страница ${index + 1}`,
+      pageIndex: typeof page.pageIndex === "number" ? page.pageIndex : index,
+      allowBack: typeof page.allowBack === "boolean" ? page.allowBack : true,
+    }))
+    .sort((a, b) => a.pageIndex - b.pageIndex);
 };

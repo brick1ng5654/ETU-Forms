@@ -6,9 +6,6 @@ import {
   PointerSensor,
   DragStartEvent,
   DragEndEvent,
-  DragOverEvent,
-  defaultDropAnimationSideEffects,
-  DropAnimation,
   closestCenter,
   useDroppable
 } from "@dnd-kit/core";
@@ -19,21 +16,22 @@ import {
 } from "@dnd-kit/sortable";
 import { useState, useEffect, useRef } from "react";
 import type { MouseEvent } from "react";
-import type { FormElementModel, FormSchema, SemanticType, WidgetType } from "@/form/types";
+import type { FormElementModel, FormPageModel, FormSchema, SemanticType, WidgetType } from "@/form/types";
 import { SortableField } from "./SortableField";
-import { nanoid } from "nanoid";
 import { 
-  Type, AlignLeft, Hash, Calendar, List, CheckSquare, CircleDot, Heading, Star, ListOrdered, Upload, User, Phone, FileText, CreditCard, Undo2, Redo2, ArrowUp, ArrowDown, Grid, Languages, IdCardLanyard, StickyNote, Building, BriefcaseBusiness, Globe, Repeat2
+  Type, AlignLeft, Hash, Calendar, List, CheckSquare, CircleDot, Heading, Star, ListOrdered, Upload, User, Phone, FileText, CreditCard, Undo2, Redo2, ArrowUp, ArrowDown, Grid, IdCardLanyard, StickyNote, Building, BriefcaseBusiness, Globe, Repeat2, Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import React from "react";
 import { useTranslation } from 'react-i18next';
-import { Languages } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { isCountryField } from "@/lib/countries";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 const widgetTypeLabelKey: Record<WidgetType, string> = {
   header: "header",
   text_input: "text",
@@ -52,6 +50,12 @@ const widgetTypeLabelKey: Record<WidgetType, string> = {
 interface FormCanvasProps {
   form: FormSchema;
   setForm: (form: FormSchema) => void;
+  pages: FormPageModel[];
+  activePageId: number;
+  onSelectPage: (pageId: number) => void;
+  onAddPage: () => void;
+  onDeletePage: (pageId: number, options: { mode: "delete" | "move"; targetPageId?: number }) => void;
+  onTogglePageBack: (pageId: number, allowBack: boolean) => void;
   selectedIds: string[];
   onSelectField: (id: string, event: MouseEvent<HTMLDivElement>) => void;
   clearSelection: () => void;
@@ -130,6 +134,12 @@ export const getIconForElement = (
 export function FormCanvas({
   form,
   setForm,
+  pages,
+  activePageId,
+  onSelectPage,
+  onAddPage,
+  onDeletePage,
+  onTogglePageBack,
   selectedIds,
   onSelectField,
   clearSelection,
@@ -143,13 +153,44 @@ export function FormCanvas({
   scrollContainerRef,
 }: FormCanvasProps) {
 
-  const { t, i18n } = useTranslation()  // Хук для локализации
+  const { t } = useTranslation()  // Хук для локализации
   const [activeDragItem, setActiveDragItem] = useState<any>(null);
+  const [deleteDialogPageId, setDeleteDialogPageId] = useState<number | null>(null);
+  const [deleteMode, setDeleteMode] = useState<"delete" | "move">("delete");
+  const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
   const titleTextareaRef = useRef<HTMLTextAreaElement>(null);
   const descriptionTextareaRef = useRef<HTMLTextAreaElement>(null);
-  const { setNodeRef, isOver } = useDroppable({
-    id: 'form-canvas-droppable',
-  });
+  const pageOrder = pages.slice().sort((a, b) => a.pageIndex - b.pageIndex);
+  const fieldsByPage = pageOrder.reduce((acc, page) => {
+    acc.set(
+      page.id,
+      fields
+        .filter((field) => field.pageId === page.id)
+        .slice()
+        .sort((a, b) => a.sortIndex - b.sortIndex)
+    );
+    return acc;
+  }, new Map<number, FormElementModel[]>());
+
+  const getPageIdForField = (fieldId: string) => {
+    for (const [pageId, pageFields] of fieldsByPage.entries()) {
+      if (pageFields.some((field) => field.id === fieldId)) {
+        return pageId;
+      }
+    }
+    return pageOrder[0]?.id ?? 1;
+  };
+
+  const getPageIdForOver = (overId: string) => {
+    if (overId.startsWith("page-")) {
+      const raw = Number(overId.replace("page-", ""));
+      if (Number.isFinite(raw)) return raw;
+    }
+    return getPageIdForField(overId);
+  };
+  const availableDeleteTargets = deleteDialogPageId
+    ? pageOrder.filter((page) => page.id !== deleteDialogPageId)
+    : [];
 
   /**
    Настройка сенсоров для перетаскивания
@@ -169,7 +210,7 @@ export function FormCanvas({
   */
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
-    const field = form.fields.find(f => f.id === active.id);
+    const field = fields.find(f => f.id === active.id);
     setActiveDragItem(field);
   };
 
@@ -179,20 +220,70 @@ export function FormCanvas({
   */
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    
-    // Если элемент перетащен в новую позицию
-    if (active.id !== over?.id) {
-      const oldIndex = form.fields.findIndex(f => f.id === active.id);
-      const newIndex = form.fields.findIndex(f => f.id === over?.id);
-      
-      // Перемещаем элемент в массиве
-      const newFields = arrayMove(form.fields, oldIndex, newIndex).map((field, index) => ({
+
+    if (!over) {
+      setActiveDragItem(null);
+      return;
+    }
+
+    const activeId = String(active.id);
+    const overId = String(over.id);
+    if (activeId === overId) {
+      setActiveDragItem(null);
+      return;
+    }
+
+    const sourcePageId = getPageIdForField(activeId);
+    const targetPageId = getPageIdForOver(overId);
+    if (!targetPageId) {
+      setActiveDragItem(null);
+      return;
+    }
+
+    const nextByPage = new Map<number, FormElementModel[]>();
+    for (const page of pageOrder) {
+      nextByPage.set(page.id, (fieldsByPage.get(page.id) ?? []).slice());
+    }
+
+    const sourceFields = nextByPage.get(sourcePageId) ?? [];
+    const targetFields = nextByPage.get(targetPageId) ?? [];
+    const activeIndex = sourceFields.findIndex((field) => field.id === activeId);
+    if (activeIndex === -1) {
+      setActiveDragItem(null);
+      return;
+    }
+
+    if (sourcePageId === targetPageId) {
+      const overIndex = targetFields.findIndex((field) => field.id === overId);
+      if (overIndex !== -1) {
+        nextByPage.set(targetPageId, arrayMove(targetFields, activeIndex, overIndex));
+      }
+    } else {
+      const moved = sourceFields.splice(activeIndex, 1)[0];
+      const nextMoved = { ...moved, pageId: targetPageId };
+      let insertIndex = targetFields.length;
+      if (!overId.startsWith("page-")) {
+        const overIndex = targetFields.findIndex((field) => field.id === overId);
+        if (overIndex !== -1) {
+          insertIndex = overIndex;
+        }
+      }
+      const nextTarget = targetFields.slice();
+      nextTarget.splice(insertIndex, 0, nextMoved);
+      nextByPage.set(sourcePageId, sourceFields);
+      nextByPage.set(targetPageId, nextTarget);
+    }
+
+    const nextFields: FormElementModel[] = [];
+    for (const page of pageOrder) {
+      const pageFields = (nextByPage.get(page.id) ?? []).map((field, index) => ({
         ...field,
         sortIndex: index,
       }));
-      setForm({ ...form, fields: newFields });
+      nextFields.push(...pageFields);
     }
-    
+
+    setForm({ ...form, fields: nextFields });
     setActiveDragItem(null);
   };
 
@@ -229,9 +320,12 @@ export function FormCanvas({
   const selectedSet = new Set(selectedIds);
   const canMoveUp = (() => {
     if (selectedIds.length === 0) return false;
-    for (let i = 1; i < form.fields.length; i += 1) {
-      if (selectedSet.has(form.fields[i].id) && !selectedSet.has(form.fields[i - 1].id)) {
-        return true;
+    for (const page of pageOrder) {
+      const pageFields = fieldsByPage.get(page.id) ?? [];
+      for (let i = 1; i < pageFields.length; i += 1) {
+        if (selectedSet.has(pageFields[i].id) && !selectedSet.has(pageFields[i - 1].id)) {
+          return true;
+        }
       }
     }
     return false;
@@ -239,9 +333,12 @@ export function FormCanvas({
 
   const canMoveDown = (() => {
     if (selectedIds.length === 0) return false;
-    for (let i = form.fields.length - 2; i >= 0; i -= 1) {
-      if (selectedSet.has(form.fields[i].id) && !selectedSet.has(form.fields[i + 1].id)) {
-        return true;
+    for (const page of pageOrder) {
+      const pageFields = fieldsByPage.get(page.id) ?? [];
+      for (let i = pageFields.length - 2; i >= 0; i -= 1) {
+        if (selectedSet.has(pageFields[i].id) && !selectedSet.has(pageFields[i + 1].id)) {
+          return true;
+        }
       }
     }
     return false;
@@ -284,6 +381,99 @@ export function FormCanvas({
       }
       updateField(field.id, { widgetType: nextType, props: nextProps });
     });
+  };
+
+  const PageSection = ({ page }: { page: FormPageModel }) => {
+    const { setNodeRef, isOver } = useDroppable({
+      id: `page-${page.id}`,
+    });
+    const pageFields = fieldsByPage.get(page.id) ?? [];
+    const isActive = page.id === activePageId;
+    const pageLabel = page.title?.trim() || `Страница ${page.pageIndex + 1}`;
+    const canDelete = pageOrder.length > 1;
+
+    return (
+      <div className={cn("border-t border-border/40", isActive && "bg-primary/5")}>
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onSelectPage(page.id);
+          }}
+          className={cn(
+            "w-full px-6 py-3 flex items-center justify-between text-left transition-colors",
+            isActive ? "bg-primary/10" : "bg-muted/10 hover:bg-muted/20"
+          )}
+        >
+          <div>
+            <p className="text-sm font-semibold text-foreground">{pageLabel}</p>
+            <p className="text-xs text-muted-foreground">{pageFields.length} элементов</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Назад</span>
+              <Switch
+                checked={page.allowBack}
+                onCheckedChange={(checked) => onTogglePageBack(page.id, checked)}
+                onClick={(event) => event.stopPropagation()}
+                aria-label="Разрешить переход назад"
+              />
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              disabled={!canDelete}
+              onClick={(event) => {
+                event.stopPropagation();
+                if (!canDelete) return;
+                const targets = pageOrder.filter((item) => item.id !== page.id);
+                setDeleteDialogPageId(page.id);
+                setDeleteMode("delete");
+                setDeleteTargetId(targets[0]?.id ?? null);
+              }}
+              className="text-destructive hover:text-destructive"
+              aria-label="Удалить страницу"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+            <span className={cn("text-xs font-medium", isActive ? "text-primary" : "text-muted-foreground")}>
+              {isActive ? "Активна" : ""}
+            </span>
+          </div>
+        </button>
+        <div
+          ref={setNodeRef}
+          className={cn(
+            "p-6 bg-[#FAFBFC] transition-colors",
+            isOver && "bg-primary/5"
+          )}
+        >
+          <SortableContext
+            items={pageFields.map((field) => field.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            {pageFields.length === 0 ? (
+              <div className="h-40 flex flex-col items-center justify-center border-2 border-dashed border-muted-foreground/20 rounded-lg bg-muted/5">
+                <p className="text-muted-foreground font-medium">{t("back.bgFormCreate")}</p>
+                <p className="text-sm text-muted-foreground/60 mt-1">{t("back.drag")}</p>
+              </div>
+            ) : (
+              pageFields.map((field) => (
+                <SortableField
+                  key={field.id}
+                  field={field}
+                  isSelected={selectedIds.includes(field.id)}
+                  onSelect={onSelectField}
+                  updateField={updateField}
+                  fields={fields}
+                />
+              ))
+            )}
+          </SortableContext>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -415,42 +605,103 @@ export function FormCanvas({
              </div>
           </div>
 
-          {/* Область для полей формы с поддержкой DnD */}
-          <div 
-            ref={setNodeRef}
-            className={`flex-1 p-8 bg-[#FAFBFC] transition-colors 
-              ${isOver ? 'bg-primary/5' : ''}`} // Подсветка при перетаскивании
-          >
-
-            {/* SortableContext управляет сортируемыми элементами внутри */}
-            <SortableContext 
-            items={form.fields.map((field) => field.id)}   // Массив ID элементов для сортировки
-            strategy={verticalListSortingStrategy}  // Стратегия вертикальной сортировки
-            > 
-              {form.fields.length === 0 ? (
-                 <div className="h-64 flex flex-col items-center justify-center border-2 border-dashed border-muted-foreground/20 rounded-lg bg-muted/5">
-                    <p className="text-muted-foreground font-medium">{t("back.bgFormCreate")}</p>
-                    <p className="text-sm text-muted-foreground/60 mt-1">{t("back.drag")}</p>
-                 </div>
-              ) : (
-
-                // Отображение всех полей формы как сортируемых элементов
-                form.fields.map((field) => (
-                  <SortableField
-                    key={field.id}
-                    field={field}
-                    isSelected={selectedIds.includes(field.id)}
-                    onSelect={onSelectField}
-                    updateField={updateField}
-                    fields={fields}
-                  />
-                ))
-              )}
-            </SortableContext>
+                    {pageOrder.map((page) => (
+            <PageSection key={page.id} page={page} />
+          ))}
+          <div className="p-6 border-t border-border/40 bg-white/95">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onAddPage}
+              className="w-full justify-center"
+            >
+              + Добавить страницу
+            </Button>
           </div>
+
         </div>
       </div>
       
+      <Dialog
+        open={deleteDialogPageId !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteDialogPageId(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Удалить страницу</DialogTitle>
+            <DialogDescription>Выберите, что делать с элементами страницы.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <RadioGroup
+              value={deleteMode}
+              onValueChange={(value) => setDeleteMode(value as "delete" | "move")}
+              className="space-y-2"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="delete" id="delete-page-elements" />
+                <label htmlFor="delete-page-elements" className="text-sm">
+                  Удалить страницу вместе с элементами
+                </label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="move" id="move-page-elements" />
+                <label htmlFor="move-page-elements" className="text-sm">
+                  Перенести элементы на другую страницу
+                </label>
+              </div>
+            </RadioGroup>
+            {deleteMode === "move" && (
+              <Select
+                value={deleteTargetId != null ? String(deleteTargetId) : ""}
+                onValueChange={(value) => setDeleteTargetId(Number(value))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Выберите страницу" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableDeleteTargets.map((page) => (
+                    <SelectItem key={page.id} value={String(page.id)}>
+                      {page.title?.trim() || `Страница ${page.pageIndex + 1}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+          <DialogFooter className="gap-2 sm:justify-between">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setDeleteDialogPageId(null)}
+            >
+              Отмена
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={
+                deleteDialogPageId == null ||
+                (deleteMode === "move" && deleteTargetId == null)
+              }
+              onClick={() => {
+                if (deleteDialogPageId == null) return;
+                onDeletePage(deleteDialogPageId, {
+                  mode: deleteMode,
+                  targetPageId: deleteMode === "move" ? deleteTargetId ?? undefined : undefined,
+                });
+                setDeleteDialogPageId(null);
+              }}
+            >
+              Удалить
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* DragOverlay - элемент, который следует за курсором при перетаскивании */}
       <DragOverlay>
         {activeDragItem && (

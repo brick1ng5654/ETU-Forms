@@ -140,6 +140,7 @@ class FormSummaryResponse(FormResponse):
     can_continue_passage: bool = False
 
 class FormDetailResponse(FormResponse):
+    pages: List["FormPageResponse"] = Field(default_factory=list)   
     elements: List["BuilderElementOut"] = Field(default_factory=list)
     conditions: List["BuilderConditionOut"] = Field(default_factory=list)
 
@@ -156,6 +157,8 @@ class PublicFormDetailResponse(BaseModel):
     prev_form_id: Optional[int] = None
     created_at: datetime
     updated_at: datetime
+
+    pages: List["FormPageResponse"] = Field(default_factory=list)
     elements: List["BuilderElementOut"] = Field(default_factory=list)
     conditions: List["BuilderConditionOut"] = Field(default_factory=list)
 
@@ -233,6 +236,8 @@ class TemplateResponse(TemplateBase):
 class FormElementBase(BaseModel):
     form_id: Optional[int] = None
     template_id: Optional[int] = None
+    page_id: Optional[int] = None
+
     widget: WidgetType
     semantic: Optional[SemanticType] = None
     label: str = Field(..., min_length=1, max_length=255)
@@ -346,6 +351,8 @@ class ErrorResponse(BaseModel):
 
 class BuilderElementIn(BaseModel):
     client_id: str
+    page_id: int
+
     widget: WidgetType
     semantic: Optional[SemanticType] = None
     label: str = Field(..., min_length=1, max_length=255)
@@ -365,7 +372,7 @@ class BuilderElementIn(BaseModel):
         return self
 
 class BuilderElementOut(BuilderElementIn):
-    pass
+    page_id: int
 
 class BuilderConditionIn(BaseModel):
     source_client_id: str
@@ -376,6 +383,29 @@ class BuilderConditionIn(BaseModel):
 class BuilderConditionOut(BuilderConditionIn):
     pass
 
+class FormPageBase(BaseModel):
+    page_id: Optional[int] = None
+    form_id: Optional[int] = None
+    title: Optional[str] = None
+    allow_back: bool = True
+    page_index: int
+
+class FormPageCreate(FormPageBase):
+    form_id: int
+
+class FormPageUpdate(BaseModel):
+    title: Optional[str] = None
+    allow_back: Optional[bool] = None
+    page_index: int
+
+class FormPageResponse(FormPageBase):
+    page_id: int
+    form_id: int
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
 class FormBuilderPayload(BaseModel):
     title: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
@@ -384,6 +414,7 @@ class FormBuilderPayload(BaseModel):
     end_at: Optional[datetime] = None
     access_mode: Optional[FormAccessMode] = None
 
+    pages: List[FormPageBase] = Field(default_factory=list)
     elements: List[BuilderElementIn] = Field(default_factory=list)
     conditions: List[BuilderConditionIn] = Field(default_factory=list)
 
@@ -407,8 +438,8 @@ class LoginResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-
 FormListResponse.model_rebuild()
 FormDetailResponse.model_rebuild()
 PublicFormDetailResponse.model_rebuild()
+FormPageResponse.model_rebuild()
 
