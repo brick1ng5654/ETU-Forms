@@ -12,7 +12,7 @@ DEFAULT_USERS = [
     ("editor@example.com", "Editor", settings.ADMIN_PASSWORD, False, "form_creator"),
     ("participant@example.com", "Participant", settings.ADMIN_PASSWORD, False, None),
     ("noperms@example.com", "NoPerms", settings.ADMIN_PASSWORD, False, None),
-    ("test@example.com", "Test_User", settings.ADMIN_PASSWORD, False, None),
+    ("test@example.com", "Test_User", settings.ADMIN_PASSWORD, False, "form_creator"),
 ]
 
 async def _get_user_by_email(db: AsyncSession, email: str) -> models.AppUser | None:
