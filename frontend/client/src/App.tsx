@@ -89,6 +89,27 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function RequireFormEditor({ children }: { children: React.ReactNode }) {
+  const [, setLocation] = useLocation();
+  const { user, accessToken, isLoading } = useAuth();
+
+  useEffect(() => {
+    if (isLoading || !accessToken) return;
+    const canEditForms = user?.role === "form_creator" || user?.role === "admin";
+    if (!canEditForms) {
+      setLocation("/");
+    }
+  }, [user, accessToken, isLoading, setLocation]);
+
+  if (isLoading) return null;
+  if (!accessToken) return null;
+
+  const canEditForms = user?.role === "form_creator" || user?.role === "admin";
+  if (!canEditForms) return null;
+
+  return <>{children}</>;
+}
+
 function Router() {
   return (
     <Switch>
@@ -106,7 +127,9 @@ function Router() {
       <Route path="/builder/:id">
         {(params) => (
           <RequireAuth>
-            <Builder params={params} />
+            <RequireFormEditor>
+              <Builder params={params} />
+            </RequireFormEditor>
           </RequireAuth>
         )}
       </Route>
