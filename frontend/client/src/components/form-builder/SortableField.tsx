@@ -5,7 +5,7 @@ import { useState, useRef, useEffect } from "react";
 import type { FormElementModel } from "@/form/types";
 import { presets } from "@/form/presets";
 import { cn } from "@/lib/utils";
-import { GripVertical, Star, Upload, GripHorizontal, CalendarDays, Clock, ChevronDown, ChevronUp, X, Plus, Check } from "lucide-react";
+import { GripVertical, Upload, GripHorizontal, CalendarDays, Clock, ChevronDown, ChevronUp, X, Plus, Check } from "lucide-react";
 import { ElementAttachments } from "@/components/form-builder/ElementAttachments";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -616,11 +616,16 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
       case "rating": {
         const maxR = Number(props.maxRating);
         const maxRating = Number.isFinite(maxR) ? Math.min(10, Math.max(1, maxR)) : 10;
-        const count = Math.max(0, maxRating);
+        const values = Array.from({ length: Math.max(0, maxRating) }, (_, i) => i + 1);
         return (
-          <div className="flex gap-2">
-            {Array.from({ length: count }).map((_, i) => (
-              <Star key={i} className="h-6 w-6 text-muted-foreground/30" fill="currentColor" />
+          <div className="flex flex-wrap gap-2">
+            {values.map((value) => (
+              <div
+                key={value}
+                className="h-8 min-w-8 px-2 rounded-md border border-muted-foreground/30 bg-muted/20 text-sm text-muted-foreground flex items-center justify-center"
+              >
+                {value}
+              </div>
             ))}
           </div>
         );

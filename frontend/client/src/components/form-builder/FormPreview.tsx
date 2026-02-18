@@ -19,7 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarDays, Clock, CheckCircle2, Star, GripVertical, Upload, ChevronsUpDown, Check } from "lucide-react";
+import { CalendarDays, Clock, CheckCircle2, GripVertical, Upload, ChevronsUpDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -1962,7 +1962,7 @@ export function FormPreview({
         )}
 
         {field.widgetType === "rating" && (
-          <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center gap-2">
             {(() => {
               const maxR = Number(props.maxRating);
               const maxRating = Number.isFinite(maxR) ? Math.min(10, Math.max(1, maxR)) : 10;
@@ -1970,6 +1970,7 @@ export function FormPreview({
                 { length: Math.max(0, maxRating) },
                 (_, i) => i + 1
               );
+              const selectedValue = Number(answers[field.id] ?? 0);
               return values.map((value) => (
                 <button
                   type="button"
@@ -1979,16 +1980,15 @@ export function FormPreview({
                     updateAnswer(field.id, value);
                     markTouched(field.id);
                   }}
-                  className="p-1 hover:scale-110 transition-transform disabled:cursor-not-allowed"
+                  aria-pressed={selectedValue === value}
+                  className={cn(
+                    "h-9 min-w-9 px-2 rounded-md border text-sm font-medium transition-colors disabled:cursor-not-allowed",
+                    selectedValue === value
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-input bg-background hover:bg-muted"
+                  )}
                 >
-                  <Star
-                    className={cn(
-                      "h-6 w-6 transition-colors",
-                      (answers[field.id] as number) >= value
-                        ? "fill-yellow-400 text-yellow-400"
-                        : "text-gray-300"
-                    )}
-                  />
+                  {value}
                 </button>
               ));
             })()}
