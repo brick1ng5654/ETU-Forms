@@ -237,9 +237,36 @@ const propertiesSchemaByWidgetType: Record<WidgetType, PropertyFieldDef[]> = {
       target: "props.multiple",
       visible: (fieldParam) => !isCountryField(fieldParam),
     },
+    {
+      key: "allowOther",
+      labelKey: "propert.allowOtherOption",
+      type: "switch",
+      target: "props.allowOther",
+      visible: (fieldParam) => !isCountryField(fieldParam),
+    },
   ],
-  checkbox: [baseLabelField, helperTextField, requiredField],
-  radio: [baseLabelField, helperTextField, requiredField],
+  checkbox: [
+    baseLabelField,
+    helperTextField,
+    requiredField,
+    {
+      key: "allowOther",
+      labelKey: "propert.allowOtherOption",
+      type: "switch",
+      target: "props.allowOther",
+    },
+  ],
+  radio: [
+    baseLabelField,
+    helperTextField,
+    requiredField,
+    {
+      key: "allowOther",
+      labelKey: "propert.allowOtherOption",
+      type: "switch",
+      target: "props.allowOther",
+    },
+  ],
   datetime: [
     baseLabelField,
     helperTextField,

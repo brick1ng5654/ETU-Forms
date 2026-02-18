@@ -12,6 +12,7 @@
     "close": "Close",
     "descriptionf":"Description",
     "selectopt":"select the option",
+    "otherOption":"Other",
     "showMore":"Show full answer",
     "showLess":"Collapse",
     "noResults":"No results found"
@@ -324,6 +325,8 @@
     "fixOrder":"Fix Order",
     "corranopt":"Select the correct answers from the options",
     "allowmult":"Allow Multiple",
+    "allowOtherOption":"Enable \"Other\" option",
+    "otherValuePlaceholder":"Enter your own answer",
     "countryOptionsLocked":"Country list is fixed and localized automatically.",
     "fieldType": "Field Type",
     "hideDate": "Hide Date",

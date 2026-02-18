@@ -204,6 +204,11 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
   const props = field.props as Record<string, any>;
   const isCountrySelect = isCountryField(field);
   const countryOptions = isCountrySelect ? getCountryOptions(i18n.language).map((option) => option.label) : [];
+  const allowOtherOption =
+    Boolean(props.allowOther) &&
+    !isCountrySelect &&
+    (field.widgetType === "select" || field.widgetType === "checkbox" || field.widgetType === "radio");
+  const otherOptionLabel = t("common.otherOption");
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -478,6 +483,11 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
                   {opt}
                 </SelectItem>
               ))}
+              {allowOtherOption && (
+                <SelectItem value="__other_preview__" disabled>
+                  {otherOptionLabel}
+                </SelectItem>
+              )}
             </SelectContent>
           </Select>
         );
@@ -545,6 +555,21 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
                 </label>
               </div>
             ))}
+            {allowOtherOption && (
+              <div className="flex items-center space-x-2">
+                <Checkbox id={`${field.id}-other`} disabled />
+                <label className="text-sm font-medium leading-none text-muted-foreground">
+                  {otherOptionLabel}
+                </label>
+                <Input
+                  defaultValue=""
+                  disabled
+                  maxLength={255}
+                  placeholder={t("propert.otherValuePlaceholder")}
+                  className="max-w-xs bg-white/50 pointer-events-none"
+                />
+              </div>
+            )}
           </div>
         );
       case "radio":
@@ -610,6 +635,21 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
                   <Label htmlFor={`${field.id}-${i}`} className="py-1" >{opt}</Label>
                 </div>
               ))}
+              {allowOtherOption && (
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="__other_preview__" id={`${field.id}-other`} />
+                    <Label htmlFor={`${field.id}-other`} className="py-1">{otherOptionLabel}</Label>
+                  </div>
+                  <Input
+                    defaultValue=""
+                    disabled
+                    maxLength={255}
+                    placeholder={t("propert.otherValuePlaceholder")}
+                    className="max-w-xs bg-white/50 pointer-events-none"
+                  />
+                </div>
+              )}
             </div>
           </RadioGroup>
         );
