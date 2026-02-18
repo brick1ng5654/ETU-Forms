@@ -1757,8 +1757,6 @@ export function FormPreview({
           </p>
         ) : null}
 
-        {field.widgetType === "header" && <h2 className="text-xl font-bold pb-2 border-b">{field.label}</h2>}
-
         {field.widgetType === "text_input" && renderTextInput(field, isFieldDisabled)}
 
         {field.widgetType === "textarea" && (() => {
