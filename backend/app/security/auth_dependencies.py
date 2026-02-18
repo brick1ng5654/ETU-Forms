@@ -12,6 +12,27 @@ from app.security.tokens import decode_token
 _bearer = HTTPBearer(auto_error=False)
 
 
+def resolve_user_role(user: AppUser) -> str | None:
+    if user.role:
+        return user.role.value if hasattr(user.role, "value") else str(user.role)
+    if getattr(user, "is_admin", False):
+        return "admin"
+    return None
+
+
+def can_edit_forms(user: AppUser) -> bool:
+    return resolve_user_role(user) in {"form_creator", "admin"}
+
+
+def ensure_can_edit_forms(user: AppUser) -> None:
+    if can_edit_forms(user):
+        return
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Form editing requires 'form_creator' or 'admin' role",
+    )
+
+
 async def _resolve_user_from_credentials(
     creds: HTTPAuthorizationCredentials | None,
     db: AsyncSession,
