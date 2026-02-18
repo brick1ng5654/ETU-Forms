@@ -62,18 +62,25 @@ test.describe("Builder smoke test", () => {
         await expect(page.getByTestId("preview-dialog")).toBeHidden();
     });
 
-    test("click save", async ({ page }) => {
+    test("save is disabled until form changes", async ({ page }) => {
         await page.goto(`/builder/${formId}`);
 
-        await page.getByTestId("builder-save").click();
+        const saveButton = page.getByTestId("builder-save");
+        await expect(saveButton).toBeDisabled();
+
+        await page.getByTestId("toolbox-item-text_input").click();
+        await expect(saveButton).toBeEnabled();
+
+        await saveButton.click();
         await expect(page.getByTestId("builder-canvas")).toBeVisible();
     });
 
     test("open publish popover", async ({ page }) => {
         await page.goto(`/builder/${formId}`);
 
-        await page.getByTestId("builder-publish-open").click();
-
+        const publishButton = page.getByTestId("builder-publish-open");
+        await expect(publishButton).toBeEnabled();
+        await publishButton.click();
         await expect(page.getByTestId("builder-publish-popover")).toBeVisible();
 
         await page.keyboard.press("Escape");
