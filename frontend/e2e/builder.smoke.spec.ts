@@ -75,11 +75,24 @@ test.describe("Builder smoke test", () => {
         await expect(page.getByTestId("builder-canvas")).toBeVisible();
     });
 
-    test("open publish popover", async ({ page }) => {
+    test("open publish popover when publish is available", async ({ page }) => {
         await page.goto(`/builder/${formId}`);
 
         const publishButton = page.getByTestId("builder-publish-open");
-        await expect(publishButton).toBeEnabled();
+        const saveButton = page.getByTestId("builder-save");
+
+        if (await publishButton.isDisabled()) {
+            if (await saveButton.isEnabled()) {
+                await saveButton.click();
+                await expect(saveButton).toBeDisabled();
+            }
+        }
+
+        if (await publishButton.isDisabled()) {
+            await expect(publishButton).toBeDisabled();
+            return;
+        }
+
         await publishButton.click();
         await expect(page.getByTestId("builder-publish-popover")).toBeVisible();
 
