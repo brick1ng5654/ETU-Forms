@@ -25,6 +25,8 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { useTranslation } from "react-i18next";
+import { useLocation } from "wouter";
+
 import {
   DndContext,
   closestCenter,
@@ -82,6 +84,22 @@ const getTextareaMetrics = (textarea: HTMLTextAreaElement) => {
   };
 };
 
+function getPFromLocation(loc: string) {
+  const qIndex = loc.indexOf("?");
+  if (qIndex === -1) return null;
+  const params = new URLSearchParams(loc.slice(qIndex));
+  const raw = params.get("p");
+  const n = raw ? Number(raw) : NaN;
+  return Number.isFinite(n) ? n : null;
+}
+
+function setPInLocation(loc: string, pageId: number) {
+  const [path, query = ""] = loc.split("?");
+  const params = new URLSearchParams(query);
+  params.set("p", String(pageId));
+  const qs = params.toString();
+  return qs ? `${path}?${qs}` : path;
+}
 function CollapsibleTextarea({
   value,
   onChange,
@@ -409,7 +427,7 @@ function MatrixAnswerInput({
   const handleInputChange = (rowIdx: number, colIdx: number, inputValue: string) => {
     const cellKey = `${rowIdx + 1}:${colIdx + 1}`;
     const newValue = { ...objectValue };
-    
+
     if (matrixInputType === "number") {
       const min = matrixNumberMin ?? MATRIX_NUMBER_MIN_LIMIT;
       const max = matrixNumberMax ?? MATRIX_NUMBER_MAX_LIMIT;
@@ -424,7 +442,7 @@ function MatrixAnswerInput({
         newValue[cellKey] = inputValue;
       } else return;
     }
-    
+
     onChange(newValue);
     onTouched();
   };
@@ -501,7 +519,7 @@ function MatrixAnswerInput({
               {columns.map((_, colIdx) => {
                 const selected = isCellSelected(rowIdx, colIdx);
                 const cellValue = getCellValue(rowIdx, colIdx);
-                
+
                 if (matrixInputType === "number") {
                   const min = matrixNumberMin ?? MATRIX_NUMBER_MIN_LIMIT;
                   const max = matrixNumberMax ?? MATRIX_NUMBER_MAX_LIMIT;
@@ -524,10 +542,10 @@ function MatrixAnswerInput({
                     </td>
                   );
                 }
-                
+
                 if (matrixInputType === "text") {
                   const maxLength = matrixTextMaxLength ?? MATRIX_TEXT_MAX_LENGTH_LIMIT;
-                  
+
                   return (
                     <td
                       key={colIdx}
@@ -545,7 +563,7 @@ function MatrixAnswerInput({
                     </td>
                   );
                 }
-                
+
                 return (
                   <td
                     key={colIdx}
@@ -748,7 +766,16 @@ interface FormPreviewProps {
   submitLabel?: string;
   submitting?: boolean;
   onSubmitAnswers?: (payload: ReturnType<typeof buildAnswersPayload>) => void | Promise<void>;
+  initialPageId?: number;
+  onActivePageChange?: (info: {
+    pageId: number;
+    pageIndex: number;
+    allowBack: boolean;
+    isFirst: boolean;
+    isLast: boolean;
+  }) => void;
 }
+
 
 type Results = Record<string, boolean>;
 
@@ -760,6 +787,8 @@ export function FormPreview({
   submitLabel,
   submitting = false,
   onSubmitAnswers,
+  onActivePageChange,
+  initialPageId,
 }: FormPreviewProps) {
   const { t } = useTranslation();
   const isRespondMode = mode === "respond";
@@ -774,6 +803,7 @@ export function FormPreview({
   const [uploadingById, setUploadingById] = useState<Record<string, boolean>>({});
   const [showRequiredWarning, setShowRequiredWarning] = useState(false);
   const [isRequiredWarningFading, setIsRequiredWarningFading] = useState(false);
+  const [location, setLocation] = useLocation();
   const payloadRef = useRef<ReturnType<typeof buildAnswersPayload> | null>(null);
   const matrixContainerRef = useRef<HTMLDivElement>(null);
   const fieldRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -804,15 +834,26 @@ export function FormPreview({
   }, [form.pages, t]);
   const pageIdSet = useMemo(() => new Set(normalizedPages.map((page) => page.id)), [normalizedPages]);
   const fallbackPageId = normalizedPages[0]?.id ?? 1;
+  const urlPageId = useMemo(() => getPFromLocation(location), [location]);
   const [activePageId, setActivePageId] = useState<number | null>(null);
+
   useEffect(() => {
-    if (normalizedPages.length === 0) return;
+    if (!isRespondMode) return;
+
     setActivePageId((current) => {
+      // 1) если в URL есть валидный pageId — он главный
+      if (urlPageId && pageIdSet.has(urlPageId)) return urlPageId;
+
+      // 2) иначе если текущий стейт валидный — оставляем
       if (current && pageIdSet.has(current)) return current;
+
+      // 3) иначе initialPageId (если есть)
+      if (initialPageId && pageIdSet.has(initialPageId)) return initialPageId;
+
+      // 4) иначе первая
       return normalizedPages[0]?.id ?? null;
     });
-  }, [normalizedPages, pageIdSet]);
-
+  }, [isRespondMode, urlPageId, pageIdSet, initialPageId, normalizedPages]);
   const hasQuizFields = useMemo(() => {
     if (isRespondMode) return false;
     return form.fields.some((field) => {
@@ -1044,7 +1085,7 @@ export function FormPreview({
       if (!correctAnswers || correctAnswers.length === 0) return;
 
       const userAnswer = answers[field.id];
-      
+
       // Рассчитываем максимальное количество баллов для поля
       if (field.widgetType === "matrix") {
         const pointsPerCell = (props.pointsPerCell as Record<string, number> | undefined) || {};
@@ -1056,12 +1097,12 @@ export function FormPreview({
           (Object.keys(pointsPerCell).length > 0
             ? "cell"
             : Object.keys(pointsPerRow).length > 0
-            ? "row"
-            : Object.keys(pointsPerColumn).length > 0
-            ? "column"
-            : matrixTotalPoints > 0
-            ? "total"
-            : "cell");
+              ? "row"
+              : Object.keys(pointsPerColumn).length > 0
+                ? "column"
+                : matrixTotalPoints > 0
+                  ? "total"
+                  : "cell");
 
         const correctRowIds = new Set<number>();
         const correctColumnIds = new Set<number>();
@@ -1143,12 +1184,12 @@ export function FormPreview({
           (Object.keys(pointsPerCell).length > 0
             ? "cell"
             : Object.keys(pointsPerRow).length > 0
-            ? "row"
-            : Object.keys(pointsPerColumn).length > 0
-            ? "column"
-            : matrixTotalPoints > 0
-            ? "total"
-            : "cell");
+              ? "row"
+              : Object.keys(pointsPerColumn).length > 0
+                ? "column"
+                : matrixTotalPoints > 0
+                  ? "total"
+                  : "cell");
 
         const correctAnswersByRow: Record<number, string[]> = {};
         const correctAnswersByColumn: Record<number, string[]> = {};
@@ -1277,7 +1318,7 @@ export function FormPreview({
 
       newResults[field.id] = isCorrect;
     }
-  )
+    )
     setResults(newResults);
     setTotalScore(score);
     setMaxScore(max);
@@ -1861,7 +1902,7 @@ export function FormPreview({
                     >
                       <Clock className="mr-2 h-4 w-4" />
                       {timeValue ? <span>{timeValue}</span> : <span>{t("propert.selectTime")}</span>
-        }</Button>
+                      }</Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-4" align="start" portalled={false}>
                     <Input
@@ -2122,31 +2163,31 @@ export function FormPreview({
               <div className="space-y-3">
                 {canAddMore && (
                   <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 flex flex-col items-center justify-center text-center bg-muted/5">
-                  <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-                  <p className="text-sm text-muted-foreground font-medium">{t("back.loaddrag")}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {t("propert.sizefile")} {maxFileSize}MB • {t("propert.maxFiles")} {maxFiles}
-                    {acceptedTypes.length > 0 ? ` (${acceptedTypes.join(", ")})` : ""}
-                  </p>
-                  <input
-                    type="file"
-                    className="hidden"
-                    id={`file-upload-${field.id}`}
-                    multiple={maxFiles > 1}
-                    accept={acceptAttr}
-                    onChange={handleFileChange}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="mt-3"
-                    disabled={isUploading || isFieldDisabled}
-                    onClick={() => document.getElementById(`file-upload-${field.id}`)?.click()}
-                  >
-                    {isUploading ? t("propert.attachmentsUploading") : t("propert.attachmentsAdd")}
-                  </Button>
-                </div>
+                    <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+                    <p className="text-sm text-muted-foreground font-medium">{t("back.loaddrag")}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {t("propert.sizefile")} {maxFileSize}MB • {t("propert.maxFiles")} {maxFiles}
+                      {acceptedTypes.length > 0 ? ` (${acceptedTypes.join(", ")})` : ""}
+                    </p>
+                    <input
+                      type="file"
+                      className="hidden"
+                      id={`file-upload-${field.id}`}
+                      multiple={maxFiles > 1}
+                      accept={acceptAttr}
+                      onChange={handleFileChange}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-3"
+                      disabled={isUploading || isFieldDisabled}
+                      onClick={() => document.getElementById(`file-upload-${field.id}`)?.click()}
+                    >
+                      {isUploading ? t("propert.attachmentsUploading") : t("propert.attachmentsAdd")}
+                    </Button>
+                  </div>
                 )}
                 <ElementAttachments
                   attachments={attachments}
@@ -2183,34 +2224,34 @@ export function FormPreview({
         )}
 
         {hasCorrectAnswers && (!isRespondMode || (hasResult && results?.[field.id] === false)) && (
-  <div className="text-sm text-green-700 mt-2">
-    {field.widgetType === "ranking" ? (
-      <div>
-        <p className="font-medium">Правильный порядок:</p>
-        <ol className="list-decimal list-inside mt-1">
-          {correctAnswers.map((answer, idx) => (
-            <li key={idx}>{answer}</li>
-          ))}
-        </ol>
-      </div>
-    ) : field.widgetType === "matrix" ? (
-      <div>
-        <p className="font-medium">Правильные ячейки:</p>
-        <div className="mt-1">
-          {correctAnswers.map((cellKey, idx) => {
-            const [rowIdx, colIdx] = cellKey.split(':').map(Number);
-            const row = ((props.rows as string[]) || [])[rowIdx - 1] || `Row ${rowIdx}`;
-            const col = ((props.columns as string[]) || [])[colIdx - 1] || `Column ${colIdx}`;
-            return (
-              <p key={idx}>• Строка "{row}", Столбец "{col}"</p>
-            );
-          })}
-        </div>
-      </div>
-    ) : (
-      <p>Правильный ответ: {correctAnswers.join(", ")}</p>
-    )}
-  </div>
+          <div className="text-sm text-green-700 mt-2">
+            {field.widgetType === "ranking" ? (
+              <div>
+                <p className="font-medium">Правильный порядок:</p>
+                <ol className="list-decimal list-inside mt-1">
+                  {correctAnswers.map((answer, idx) => (
+                    <li key={idx}>{answer}</li>
+                  ))}
+                </ol>
+              </div>
+            ) : field.widgetType === "matrix" ? (
+              <div>
+                <p className="font-medium">Правильные ячейки:</p>
+                <div className="mt-1">
+                  {correctAnswers.map((cellKey, idx) => {
+                    const [rowIdx, colIdx] = cellKey.split(':').map(Number);
+                    const row = ((props.rows as string[]) || [])[rowIdx - 1] || `Row ${rowIdx}`;
+                    const col = ((props.columns as string[]) || [])[colIdx - 1] || `Column ${colIdx}`;
+                    return (
+                      <p key={idx}>• Строка "{row}", Столбец "{col}"</p>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <p>Правильный ответ: {correctAnswers.join(", ")}</p>
+            )}
+          </div>
         )}
       </div>
     );
@@ -2240,6 +2281,29 @@ export function FormPreview({
   const isLastPage = currentPageIndex >= normalizedPages.length - 1;
   const currentPage = normalizedPages[currentPageIndex];
   const canGoBack = !isFirstPage && Boolean(currentPage?.allowBack);
+
+  useEffect(() => {
+    if (!isRespondMode) return; // только в режиме прохождения
+    if (!onActivePageChange) return;
+    if (!currentPage) return;
+
+    onActivePageChange({
+      pageId: currentPage.id,
+      pageIndex: currentPageIndex,
+      allowBack: Boolean(currentPage.allowBack),
+      isFirst: isFirstPage,
+      isLast: isLastPage,
+    });
+  }, [
+    isRespondMode,
+    onActivePageChange,
+    currentPage?.id,
+    currentPage?.allowBack,
+    currentPageIndex,
+    isFirstPage,
+    isLastPage,
+  ]);
+
   const activePageFields = fieldsByPage.get(currentPageId) ?? [];
   const activePageErrors = useMemo(
     () => validateForm(activePageFields, answers),
@@ -2254,12 +2318,19 @@ export function FormPreview({
   const needsCountryPadding = Boolean(lastVisibleField && isCountryField(lastVisibleField));
   const isInputsDisabled = readOnly || submitting;
 
+  const goToPage = (pageId: number, replace = false) => {
+    setActivePageId(pageId);
+    const nextLoc = setPInLocation(location, pageId);
+    if (nextLoc !== location) {
+      setLocation(nextLoc, { replace }); // replace=false => push => back/forward работают
+    }
+  };
+
+
   const handlePrevPage = () => {
     if (!canGoBack) return;
     const prevPage = normalizedPages[currentPageIndex - 1];
-    if (prevPage) {
-      setActivePageId(prevPage.id);
-    }
+    if (prevPage) goToPage(prevPage.id); // push
   };
 
   const handleNextPage = () => {
@@ -2289,7 +2360,7 @@ export function FormPreview({
 
     const nextPage = normalizedPages[currentPageIndex + 1];
     if (nextPage) {
-      setActivePageId(nextPage.id);
+      goToPage(nextPage.id);
     }
   };
 
@@ -2357,12 +2428,12 @@ export function FormPreview({
   };
 
   return (
-    <div 
+    <div
       className={cn("space-y-6 py-4", needsCountryPadding && "pb-24")}
       style={{ overflowX: 'hidden' }}
     >
 
-      {(isRespondMode ? normalizedPages.filter((page) => page.id === currentPageId) : normalizedPages).map(
+      {(normalizedPages.filter((page) => page.id === currentPageId)).map(
         (page) => renderPageSection(page, fieldsByPage.get(page.id) ?? [])
       )}
 
@@ -2395,7 +2466,26 @@ export function FormPreview({
             </Button>
           )}
         </div>
-      ) : null}
+      ) : (
+        <div className="flex items-center justify-between gap-3 pt-4 border-t">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handlePrevPage}
+            disabled={!canGoBack}
+            className="transition-all duration-200 ease-out enabled:hover:-translate-x-0.5 enabled:active:translate-x-0 disabled:opacity-50"
+          >
+            {t("pages.prevButton")}
+          </Button>
+          <Button
+            type="button"
+            onClick={handleNextPage}
+            disabled={isLastPage}
+          >
+            {t("pages.nextButton")}
+          </Button>
+        </div>
+      )}
 
       {showRequiredWarning && (
         <div className="fixed right-4 bottom-4 z-[110] pointer-events-none">

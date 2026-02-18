@@ -1,16 +1,16 @@
-import { 
-  DndContext, 
-  DragOverlay, 
-  useSensor, 
-  useSensors, 
+import {
+  DndContext,
+  DragOverlay,
+  useSensor,
+  useSensors,
   PointerSensor,
   DragStartEvent,
   DragEndEvent,
   closestCenter,
   useDroppable
 } from "@dnd-kit/core";
-import { 
-  SortableContext, 
+import {
+  SortableContext,
   verticalListSortingStrategy,
   arrayMove
 } from "@dnd-kit/sortable";
@@ -18,7 +18,7 @@ import { useState, useEffect, useRef } from "react";
 import type { MouseEvent } from "react";
 import type { FormElementModel, FormPageModel, FormSchema, SemanticType, WidgetType } from "@/form/types";
 import { SortableField } from "./SortableField";
-import { 
+import {
   Type, AlignLeft, Hash, Calendar, List, CheckSquare, CircleDot, Heading, Star, ListOrdered, Upload, User, Phone, FileText, CreditCard, Undo2, Redo2, ArrowUp, ArrowDown, ArrowUpDown, Grid, IdCardLanyard, StickyNote, Building, BriefcaseBusiness, Globe, Repeat2, Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -108,21 +108,152 @@ export const getIconForElement = (
     case "textarea": return AlignLeft;
     case "number_input": return Hash;
     case "header": return Heading;
-    
+
     // ???????? ?? ???????????????????????? ????????????
     case "select": return props?.optionsSource === "countries" ? Globe : List;
     case "checkbox": return CheckSquare;
     case "radio": return CircleDot;
-    
+
     case "datetime": return Calendar;
     case "rating": return Star;
     case "ranking": return ListOrdered;
     case "matrix": return Grid;
     case "file_upload": return Upload;
-    
+
     default: return Type;
   }
 };
+
+type PageSectionProps = {
+  page: FormPageModel;
+  isActive: boolean;
+  pageLabel: string;
+  pageFields: FormElementModel[];
+  canDelete: boolean;
+  localAllowBack: Record<number, boolean>;
+  setLocalAllowBack: React.Dispatch<React.SetStateAction<Record<number, boolean>>>;
+  onTogglePageBack: (pageId: number, allowBack: boolean) => void;
+  onSelectPage: (pageId: number) => void;
+  onOpenMove: () => void;
+  onOpenDelete: () => void;
+  t: (key: string, opts?: any) => string;
+  selectedIds: string[];
+  onSelectField: (id: string, event: MouseEvent<HTMLDivElement>) => void;
+  updateField: (id: string, updates: Partial<FormElementModel>) => void;
+  fields: FormElementModel[];
+};
+
+const PageSection = React.memo(function PageSection({
+  page,
+  isActive,
+  pageLabel,
+  pageFields,
+  canDelete,
+  localAllowBack,
+  setLocalAllowBack,
+  onTogglePageBack,
+  onSelectPage,
+  onOpenMove,
+  onOpenDelete,
+  t,
+  selectedIds,
+  onSelectField,
+  updateField,
+  fields,
+}: PageSectionProps) {
+  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: `page-${page.id}` });
+
+  return (
+    <div className={cn("border-t border-border/40", isActive && "bg-primary/5")}>
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={(event) => {
+          event.stopPropagation();
+          onSelectPage(page.id);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onSelectPage(page.id);
+          }
+        }}
+        className={cn(
+          "w-full px-6 py-3 flex items-center justify-between text-left transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+          isActive ? "bg-primary/10" : "bg-muted/10 hover:bg-muted/20"
+        )}
+      >
+        <div>
+          <p className="text-sm font-semibold text-foreground">{pageLabel}</p>
+          <p className="text-xs text-muted-foreground">
+            {t("pages.elementsCount", { count: pageFields.length })}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Button type="button" variant="outline" size="sm" className="gap-2" onClick={(e) => { e.stopPropagation(); onOpenMove(); }}>
+            <ArrowUpDown className="h-4 w-4" />
+            {t("pages.movePage")}
+          </Button>
+
+          <div className="flex items-center gap-2" title={t("pages.backToggleTooltip")}>
+            <span className="text-xs text-muted-foreground">{t("pages.backToggle")}</span>
+            <Switch
+              checked={localAllowBack[page.id] ?? page.allowBack}
+              onCheckedChange={(checked) => {
+                setLocalAllowBack((prev) => ({ ...prev, [page.id]: checked }));
+                onTogglePageBack(page.id, checked);
+              }}
+              onClick={(event) => event.stopPropagation()}
+              aria-label={t("pages.backToggleAria")}
+            />
+          </div>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            disabled={!canDelete}
+            onClick={(e) => { e.stopPropagation(); if (canDelete) onOpenDelete(); }}
+            className="text-destructive hover:text-destructive"
+            aria-label={t("pages.deleteTitle")}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+
+          <span className={cn("text-xs font-medium", isActive ? "text-primary" : "text-muted-foreground")}>
+            {isActive ? t("pages.active") : ""}
+          </span>
+        </div>
+      </div>
+
+      <div
+        ref={setDropRef}
+        className={cn("p-6 bg-[#FAFBFC] transition-colors", isOver && "bg-primary/5")}
+      >
+        <SortableContext items={pageFields.map((field) => field.id)} strategy={verticalListSortingStrategy}>
+          {pageFields.length === 0 ? (
+            <div className="h-40 flex flex-col items-center justify-center border-2 border-dashed border-muted-foreground/20 rounded-lg bg-muted/5">
+              <p className="text-muted-foreground font-medium">{t("back.bgFormCreate")}</p>
+              <p className="text-sm text-muted-foreground/60 mt-1">{t("back.drag")}</p>
+            </div>
+          ) : (
+            pageFields.map((field) => (
+              <SortableField
+                key={field.id}
+                field={field}
+                isSelected={selectedIds.includes(field.id)}
+                onSelect={onSelectField}
+                updateField={updateField}
+                fields={fields}
+              />
+            ))
+          )}
+        </SortableContext>
+      </div>
+    </div>
+  );
+});
 
 /**
  Компонент холста формы - область для редактирования и перетаскивания полей формы
@@ -165,6 +296,19 @@ export function FormCanvas({
   const titleTextareaRef = useRef<HTMLTextAreaElement>(null);
   const descriptionTextareaRef = useRef<HTMLTextAreaElement>(null);
   const pageOrder = pages.slice().sort((a, b) => a.pageIndex - b.pageIndex);
+  const [localAllowBack, setLocalAllowBack] = useState<Record<number, boolean>>({});
+
+  useEffect(() => {
+    // держим локальное состояние в синхроне с pages
+    setLocalAllowBack((prev) => {
+      const next = { ...prev };
+      for (const p of pages) next[p.id] = p.allowBack;
+      return next;
+    });
+  }, [pages]);
+
+
+
   const fieldsByPage = pageOrder.reduce((acc, page) => {
     acc.set(
       page.id,
@@ -387,120 +531,6 @@ export function FormCanvas({
     });
   };
 
-  const PageSection = ({ page }: { page: FormPageModel }) => {
-    const { setNodeRef: setDropRef, isOver } = useDroppable({
-      id: `page-${page.id}`,
-    });
-    const pageFields = fieldsByPage.get(page.id) ?? [];
-    const isActive = page.id === activePageId;
-    const pageLabel = page.title?.trim() || t("pages.defaultTitle", { index: page.pageIndex + 1 });
-    const canDelete = pageOrder.length > 1;
-
-    return (
-      <div className={cn("border-t border-border/40", isActive && "bg-primary/5")}>
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={(event) => {
-            event.stopPropagation();
-            onSelectPage(page.id);
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
-              onSelectPage(page.id);
-            }
-          }}
-          className={cn(
-            "w-full px-6 py-3 flex items-center justify-between text-left transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
-            isActive ? "bg-primary/10" : "bg-muted/10 hover:bg-muted/20"
-          )}
-        >
-          <div>
-            <p className="text-sm font-semibold text-foreground">{pageLabel}</p>
-            <p className="text-xs text-muted-foreground">{t("pages.elementsCount", { count: pageFields.length })}</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              onClick={(event) => {
-                event.stopPropagation();
-                setMoveDialogPageId(page.id);
-                setMoveTargetIndex(page.pageIndex + 1);
-              }}
-            >
-              <ArrowUpDown className="h-4 w-4" />
-              {t("pages.movePage")}
-            </Button>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">{t("pages.backToggle")}</span>
-              <Switch
-                checked={page.allowBack}
-                onCheckedChange={(checked) => onTogglePageBack(page.id, checked)}
-                onClick={(event) => event.stopPropagation()}
-                aria-label={t("pages.backToggleAria")}
-              />
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              disabled={!canDelete}
-              onClick={(event) => {
-                event.stopPropagation();
-                if (!canDelete) return;
-                const targets = pageOrder.filter((item) => item.id !== page.id);
-                setDeleteDialogPageId(page.id);
-                setDeleteMode("delete");
-                setDeleteTargetId(targets[0]?.id ?? null);
-              }}
-              className="text-destructive hover:text-destructive"
-              aria-label={t("pages.deleteTitle")}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-            <span className={cn("text-xs font-medium", isActive ? "text-primary" : "text-muted-foreground")}>
-              {isActive ? t("pages.active") : ""}
-            </span>
-          </div>
-        </div>
-        <div
-          ref={setDropRef}
-          className={cn(
-            "p-6 bg-[#FAFBFC] transition-colors",
-            isOver && "bg-primary/5"
-          )}
-        >
-          <SortableContext
-            items={pageFields.map((field) => field.id)}
-            strategy={verticalListSortingStrategy}
-          >
-            {pageFields.length === 0 ? (
-              <div className="h-40 flex flex-col items-center justify-center border-2 border-dashed border-muted-foreground/20 rounded-lg bg-muted/5">
-                <p className="text-muted-foreground font-medium">{t("back.bgFormCreate")}</p>
-                <p className="text-sm text-muted-foreground/60 mt-1">{t("back.drag")}</p>
-              </div>
-            ) : (
-              pageFields.map((field) => (
-                <SortableField
-                  key={field.id}
-                  field={field}
-                  isSelected={selectedIds.includes(field.id)}
-                  onSelect={onSelectField}
-                  updateField={updateField}
-                  fields={fields}
-                />
-              ))
-            )}
-          </SortableContext>
-        </div>
-      </div>
-    );
-  };
-
   return (
     // DndContext - компонент для Drag & Drop функциональности
     <DndContext
@@ -509,7 +539,7 @@ export function FormCanvas({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-    {/* Основная область холста формы */}
+      {/* Основная область холста формы */}
       <div
         ref={scrollContainerRef}
         data-testid="builder-canvas"
@@ -585,54 +615,88 @@ export function FormCanvas({
             </DropdownMenu>
           </div>
         </div>
-        
+
         {/* Контейнер формы (белая карточка) */}
         <div className="max-w-3xl mx-auto min-h-[800px] bg-white rounded-xl shadow-sm border border-border/50 flex flex-col">
-          
+
           {/* Шапка формы с редактируемыми полями */}
           <div className="p-8 border-b border-border/50 bg-white rounded-t-xl group hover:bg-muted/10 transition-colors relative">
-             <div className="space-y-2">
-              
+            <div className="space-y-2">
+
               {/* Редактируемое поле заголовка */}
-               <Textarea 
-                 ref={titleTextareaRef}
-                 value={form.title} 
-                 onChange={(e) => {
+              <Textarea
+                ref={titleTextareaRef}
+                value={form.title}
+                onChange={(e) => {
                   const value = e.target.value.slice(0, 120);
                   updateTitle(value);
                   setTimeout(() => adjustTextareaHeight(titleTextareaRef.current), 0);
                 }}
-                 maxLength={120}
-                 className="text-3xl font-bold text-foreground tracking-tight border-transparent hover:border-border px-0 py-1 focus-visible:ring-0 shadow-none bg-transparent resize-none whitespace-pre-wrap break-words overflow-hidden min-h-[1.5em]"
-                 placeholder={t("common.untitled")}
-                 rows={1}
-               />
-               
-               {/* Редактируемое поле описания */}
-               <Textarea 
-                 ref={descriptionTextareaRef}
-                 value={form.description} 
-                 onChange={(e) => {
+                maxLength={120}
+                className="text-3xl font-bold text-foreground tracking-tight border-transparent hover:border-border px-0 py-1 focus-visible:ring-0 shadow-none bg-transparent resize-none whitespace-pre-wrap break-words overflow-hidden min-h-[1.5em]"
+                placeholder={t("common.untitled")}
+                rows={1}
+              />
+
+              {/* Редактируемое поле описания */}
+              <Textarea
+                ref={descriptionTextareaRef}
+                value={form.description}
+                onChange={(e) => {
                   const value = e.target.value.slice(0, 720);
                   updateDescription(value);
                   setTimeout(() => adjustTextareaHeight(descriptionTextareaRef.current), 0);
                 }}
-                 maxLength={720}
-                 className="text-muted-foreground text-lg border-transparent hover:border-border px-0 py-1 focus-visible:ring-0 shadow-none bg-transparent resize-none whitespace-pre-wrap break-words overflow-hidden min-h-[1.5em]"
-                 placeholder={t("common.descriptionf")}
-                 rows={1}
-               />
-             </div>
+                maxLength={720}
+                className="text-muted-foreground text-lg border-transparent hover:border-border px-0 py-1 focus-visible:ring-0 shadow-none bg-transparent resize-none whitespace-pre-wrap break-words overflow-hidden min-h-[1.5em]"
+                placeholder={t("common.descriptionf")}
+                rows={1}
+              />
+            </div>
 
-             {/* Индикатор редактируемости (показывается при наведении) */}
-             <div className="absolute right-4 top-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                {/* Добавить иконку редактирования */}
-             </div>
+            {/* Индикатор редактируемости (показывается при наведении) */}
+            <div className="absolute right-4 top-4 opacity-0 group-hover:opacity-100 transition-opacity">
+              {/* Добавить иконку редактирования */}
+            </div>
           </div>
 
-          {pageOrder.map((page) => (
-            <PageSection key={page.id} page={page} />
-          ))}
+          {pageOrder.map((page) => {
+            const pageFields = fieldsByPage.get(page.id) ?? [];
+            const pageLabel = page.title?.trim() || t("pages.defaultTitle", { index: page.pageIndex + 1 });
+            const isActive = page.id === activePageId;
+            const canDelete = pageOrder.length > 1;
+
+            return (
+              <PageSection
+                key={page.id}
+                page={page}
+                isActive={isActive}
+                pageLabel={pageLabel}
+                pageFields={pageFields}
+                canDelete={canDelete}
+                localAllowBack={localAllowBack}
+                setLocalAllowBack={setLocalAllowBack}
+                onTogglePageBack={onTogglePageBack}
+                onSelectPage={onSelectPage}
+                onOpenMove={() => {
+                  setMoveDialogPageId(page.id);
+                  setMoveTargetIndex(page.pageIndex + 1);
+                }}
+                onOpenDelete={() => {
+                  const targets = pageOrder.filter((item) => item.id !== page.id);
+                  setDeleteDialogPageId(page.id);
+                  setDeleteMode("delete");
+                  setDeleteTargetId(targets[0]?.id ?? null);
+                }}
+                t={t}
+                selectedIds={selectedIds}
+                onSelectField={onSelectField}
+                updateField={updateField}
+                fields={fields}
+              />
+            );
+          })}
+
           <div className="p-6 border-t border-border/40 bg-white/95">
             <Button
               variant="outline"
@@ -646,7 +710,7 @@ export function FormCanvas({
 
         </div>
       </div>
-      
+
       <Dialog
         open={deleteDialogPageId !== null}
         onOpenChange={(open) => {
@@ -783,7 +847,7 @@ export function FormCanvas({
       {/* DragOverlay - элемент, который следует за курсором при перетаскивании */}
       <DragOverlay>
         {activeDragItem && (
-          
+
           // Стилизованная миниатюра перетаскиваемого поля
           <div className="bg-white border-2 border-primary shadow-xl rounded-lg p-6 opacity-90">
             <div className="flex items-center gap-3">

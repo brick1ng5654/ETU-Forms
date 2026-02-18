@@ -82,6 +82,7 @@
     "elementsCount": "{{count}} elements",
     "backToggle": "Back",
     "backToggleAria": "Allow back navigation",
+    "backToggleTooltip": "Enable to let users return to the previous page.",
     "active": "Active",
     "addPage": "Add page",
     "deleteTitle": "Delete page",
