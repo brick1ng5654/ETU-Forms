@@ -1611,7 +1611,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
                 </div>
                 
                 {allowRevoke && (
-                  <div className="space-y-2 pl-6">
+                  <div className="space-y-2">
                     <div className="flex items-center space-x-2">
                       <Checkbox
                         id="revokeCountsAsAttempt"

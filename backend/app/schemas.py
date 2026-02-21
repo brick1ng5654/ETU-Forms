@@ -161,6 +161,7 @@ class PublicFormDetailResponse(BaseModel):
     updated_at: datetime
     elements: List["BuilderElementOut"] = Field(default_factory=list)
     conditions: List["BuilderConditionOut"] = Field(default_factory=list)
+    attempts_remaining: Optional[int] = None 
 
 # Response SCHEMAS
 class ResponseBase(BaseModel):

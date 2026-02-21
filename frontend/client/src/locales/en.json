@@ -179,7 +179,9 @@
     "loadError": "Failed to load form",
     "formUnavailable": "Form unavailable",
     "submittedTitle": "Response submitted",
-    "submittedDesc": "Thank you. Your answers have been saved."
+    "submittedDesc": "Thank you. Your answers have been saved.",
+    "attemptsExhaustedHint": "You have used all available attempts to complete this form.",
+    "goToHome": "Go to home"
   },
 
   "categories": {

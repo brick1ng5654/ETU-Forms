@@ -313,9 +313,31 @@ async def get_public_form(
     form = await _get_published_form(db, form_id)
     form = await _resolve_latest_submitted_form(db, form)
     _check_form_access(form, key, current_user)
+    responder = await _resolve_responder(db, current_user)
+
+    attempts_remaining: int | None = None
+    settings = form.settings_json if isinstance(form.settings_json, dict) else {}
+    attempt_limit_type = settings.get("attemptLimitType", "unlimited")
+    if attempt_limit_type == "limited":
+        attempt_limit = settings.get("attemptLimit")
+        if attempt_limit is not None and isinstance(attempt_limit, (int, float)):
+            attempt_limit = int(attempt_limit)
+            if attempt_limit > 0:
+                revoke_counts_as_attempt = settings.get("revokeCountsAsAttempt", False)
+                status_filter = ["submitted"]
+                if revoke_counts_as_attempt:
+                    status_filter.append("cancelled")
+                attempts_result = await db.execute(
+                    select(Response)
+                    .where(Response.form_id == form.form_id)
+                    .where(Response.user_id == responder.user_id)
+                    .where(Response.status.in_(status_filter))
+                )
+                attempts_used = len(attempts_result.scalars().all())
+                attempts_remaining = max(0, attempt_limit - attempts_used)
+
     _increment_link_views(form)
     await db.flush()
-    # `updated_at` may become expired after flush (onupdate=now()); refresh to avoid async lazy-load.
     await db.refresh(form)
 
     detail = await build_form_detail_response(db, form)
@@ -339,6 +361,7 @@ async def get_public_form(
         updated_at=detail.updated_at,
         elements=elements,
         conditions=detail.conditions,
+        attempts_remaining=attempts_remaining,
     )
 
 
@@ -516,7 +539,7 @@ async def save_form_draft(
         select(ResponseAnswer).where(ResponseAnswer.response_id == draft.response_id)
     )
     for answer_row in existing_result.scalars().all():
-        await db.delete(answer_row)
+        db.delete(answer_row)
 
     for client_id, value in payload.answers.items():
         element = by_client_id.get(client_id)
@@ -677,7 +700,7 @@ async def submit_form_response(
             select(ResponseAnswer).where(ResponseAnswer.response_id == response_row.response_id)
         )
         for old_answer in existing_answers_result.scalars().all():
-            await db.delete(old_answer)
+            db.delete(old_answer)
 
     answers_count = 0
     for client_id, value in payload.answers.items():

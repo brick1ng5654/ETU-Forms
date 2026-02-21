@@ -119,8 +119,10 @@ export default function FormPass({ params }: { params: { id: string } }) {
     };
   }, [linkKey, params.id, t]);
 
+  const attemptsExhausted = form && form.attemptsRemaining === 0;
+
   useEffect(() => {
-    if (!form || isSubmitted) return;
+    if (!form || isSubmitted || attemptsExhausted) return;
     let active = true;
     setDraftLoading(true);
     (async () => {
@@ -138,7 +140,7 @@ export default function FormPass({ params }: { params: { id: string } }) {
     return () => {
       active = false;
     };
-  }, [form?.id, isSubmitted, isUnauthenticatedMode, linkKey, sessionToken]);
+  }, [form?.id, isSubmitted, isUnauthenticatedMode, linkKey, sessionToken, attemptsExhausted]);
 
   const saveDraft = useCallback(
     async (answers: AnswersById) => {
@@ -265,6 +267,23 @@ export default function FormPass({ params }: { params: { id: string } }) {
                   <EmptyTitle>{t("respond.formUnavailable")}</EmptyTitle>
                   <EmptyDescription>{error}</EmptyDescription>
                 </EmptyHeader>
+              </Empty>
+            </CardContent>
+          </Card>
+        ) : attemptsExhausted ? (
+          <Card>
+            <CardContent className="pt-8 pb-8">
+              <Empty className="border-none p-0">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <FileText className="h-5 w-5" />
+                  </EmptyMedia>
+                  <EmptyTitle>{t("home.noAttemptsRemaining")}</EmptyTitle>
+                  <EmptyDescription>{t("respond.attemptsExhaustedHint")}</EmptyDescription>
+                </EmptyHeader>
+                <Button className="mt-6" onClick={() => setLocation("/")}>
+                  {t("respond.goToHome")}
+                </Button>
               </Empty>
             </CardContent>
           </Card>

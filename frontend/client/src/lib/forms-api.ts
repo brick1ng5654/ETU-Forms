@@ -237,6 +237,11 @@ export const mapServerDetailToSchema = (detail: ServerFormDetail): FormSchema =>
     };
   });
 
+  const settings = (detail.settings_json ?? {}) as Record<string, unknown>;
+  const rawLimit = settings.attemptLimit;
+  const attemptLimit =
+    typeof rawLimit === "number" && rawLimit > 0 ? rawLimit : undefined;
+
   return {
     id: String(detail.form_id),
     title: detail.title,
@@ -252,6 +257,8 @@ export const mapServerDetailToSchema = (detail: ServerFormDetail): FormSchema =>
     accessMode: detail.access_mode ?? undefined,
     createdAt: toTimestamp(detail.created_at),
     updatedAt: toTimestamp(detail.updated_at),
+    attemptLimit: attemptLimit ?? null,
+    attemptsRemaining: (detail as { attempts_remaining?: number | null }).attempts_remaining ?? undefined,
   };
 };
 

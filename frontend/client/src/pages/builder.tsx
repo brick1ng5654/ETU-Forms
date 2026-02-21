@@ -1,4 +1,4 @@
-﻿import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
 import type { MouseEvent } from "react";
 import { nanoid } from "nanoid";
 import type { FormAccessMode, FormElementModel, FormSchema } from "@/form/types";
@@ -39,6 +39,7 @@ import { storage } from "@/lib/storage";
 import { useLocation } from "wouter";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { UserMenu } from "@/components/user-menu";
@@ -186,6 +187,10 @@ export default function Builder({ params }: { params: { id?: string } }) {
   const [publishAccessMode, setPublishAccessMode] = useState<FormAccessMode>("private");
   const [publishNoStart, setPublishNoStart] = useState(false);
   const [publishNoEnd, setPublishNoEnd] = useState(false);
+  const [publishAllowRevoke, setPublishAllowRevoke] = useState(false);
+  const [publishRevokeCountsAsAttempt, setPublishRevokeCountsAsAttempt] = useState(false);
+  const [publishAttemptLimitType, setPublishAttemptLimitType] = useState<"unlimited" | "limited">("unlimited");
+  const [publishAttemptLimit, setPublishAttemptLimit] = useState<number>(1);
   const [syncedPayloadSignatures, setSyncedPayloadSignatures] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
@@ -341,6 +346,14 @@ export default function Builder({ params }: { params: { id?: string } }) {
     setPublishEndTime(endTime);
     setPublishNoStart(noStart);
     setPublishNoEnd(noEnd);
+    const settings = activeForm.settings_json ?? {};
+    setPublishAllowRevoke(Boolean(settings.allowRevoke));
+    setPublishRevokeCountsAsAttempt(Boolean(settings.revokeCountsAsAttempt));
+    setPublishAttemptLimitType(settings.attemptLimitType === "limited" ? "limited" : "unlimited");
+    const limit = typeof settings.attemptLimit === "number" && settings.attemptLimit > 0
+      ? settings.attemptLimit
+      : 1;
+    setPublishAttemptLimit(limit);
   }, [activeForm, isPublishOpen]);
 
   // Auto-save effect
@@ -724,6 +737,10 @@ export default function Builder({ params }: { params: { id?: string } }) {
       accessMode?: FormAccessMode;
       startAt?: string | null;
       endAt?: string | null;
+      allowRevoke?: boolean;
+      revokeCountsAsAttempt?: boolean;
+      attemptLimitType?: "unlimited" | "limited";
+      attemptLimit?: number | null;
     },
     sourceForm?: FormSchema | null
   ) => {
@@ -732,6 +749,16 @@ export default function Builder({ params }: { params: { id?: string } }) {
     const accessMode = overrides?.accessMode ?? form.accessMode ?? "private";
     const startAt = overrides?.startAt ?? form.startAt ?? null;
     const endAt = overrides?.endAt ?? form.endAt ?? null;
+    const baseSettings = form.settings_json ?? { client_form_id: form.id };
+    const baseObj = typeof baseSettings === "object" && baseSettings !== null ? baseSettings : {};
+    const settings_json = {
+      ...baseObj,
+      ...(overrides?.allowRevoke !== undefined && { allowRevoke: overrides.allowRevoke }),
+      ...(overrides?.revokeCountsAsAttempt !== undefined && { revokeCountsAsAttempt: overrides.revokeCountsAsAttempt }),
+      ...(overrides?.attemptLimitType !== undefined && { attemptLimitType: overrides.attemptLimitType }),
+      ...(overrides?.attemptLimitType === "limited" && overrides?.attemptLimit !== undefined && { attemptLimit: overrides.attemptLimit }),
+      ...(overrides?.attemptLimitType === "unlimited" && { attemptLimit: null }),
+    };
 
     return {
       title: form.title,
@@ -739,7 +766,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
       access_mode: accessMode,
       start_at: startAt,
       end_at: endAt,
-      settings_json: form.settings_json ?? { client_form_id: form.id },
+      settings_json,
       elements: publishFields.map((f, index) => {
         const props = (f.props ?? {}) as Record<string, unknown>;
         const { placeholder, correctAnswer, correctAnswers, points, conditionalLogic, attachments, ...otherSettings } = props;
@@ -980,6 +1007,10 @@ export default function Builder({ params }: { params: { id?: string } }) {
       accessMode: publishAccessMode,
       startAt: publishNoStart ? null : toIsoFromParts(publishStartDate, publishStartTime),
       endAt: publishNoStart || publishNoEnd ? null : toIsoFromParts(publishEndDate, publishEndTime),
+      allowRevoke: publishAllowRevoke,
+      revokeCountsAsAttempt: publishAllowRevoke ? publishRevokeCountsAsAttempt : false,
+      attemptLimitType: publishAttemptLimitType,
+      attemptLimit: publishAttemptLimitType === "limited" ? publishAttemptLimit : null,
     });
     if (!payload) return;
     const result = await publishForm(activeForm.id, payload);
@@ -1397,6 +1428,89 @@ export default function Builder({ params }: { params: { id?: string } }) {
                         </PopoverContent>
                       </Popover>
                     </div>
+                  </div>
+
+                  <div className="space-y-4 pt-2 border-t border-border">
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="publish-allow-revoke"
+                          checked={publishAllowRevoke}
+                          onCheckedChange={(checked) => setPublishAllowRevoke(Boolean(checked))}
+                          simplifiedAnimation
+                        />
+                        <label
+                          htmlFor="publish-allow-revoke"
+                          className="text-sm font-medium leading-none cursor-pointer"
+                        >
+                          {t("results.allowRevoke")}
+                        </label>
+                      </div>
+                      <p className="text-xs text-muted-foreground pl-6">
+                        {t("results.allowRevokeHint")}
+                      </p>
+                    </div>
+
+                    {publishAllowRevoke && (
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="publish-revoke-counts"
+                            checked={publishRevokeCountsAsAttempt}
+                            onCheckedChange={(checked) => setPublishRevokeCountsAsAttempt(Boolean(checked))}
+                            simplifiedAnimation
+                          />
+                          <label
+                            htmlFor="publish-revoke-counts"
+                            className="text-sm font-medium leading-none cursor-pointer"
+                          >
+                            {t("results.revokeCountsAsAttempt")}
+                          </label>
+                        </div>
+                        <p className="text-xs text-muted-foreground pl-6">
+                          {t("results.revokeCountsAsAttemptHint")}
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">{t("results.attemptLimitType")}</Label>
+                      <Select
+                        value={publishAttemptLimitType}
+                        onValueChange={(value) => setPublishAttemptLimitType(value as "unlimited" | "limited")}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="unlimited">{t("results.unlimitedAttempts")}</SelectItem>
+                          <SelectItem value="limited">{t("results.limitedAttempts")}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {publishAttemptLimitType === "limited" && (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium" htmlFor="publish-attempt-limit">
+                          {t("results.attemptLimit")}
+                        </Label>
+                        <Input
+                          id="publish-attempt-limit"
+                          type="number"
+                          min={1}
+                          value={publishAttemptLimit}
+                          onChange={(e) => {
+                            const value = parseInt(e.target.value, 10);
+                            if (!isNaN(value) && value > 0) {
+                              setPublishAttemptLimit(value);
+                            }
+                          }}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          {t("results.attemptLimitHint")}
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex justify-end gap-2 pt-2">
