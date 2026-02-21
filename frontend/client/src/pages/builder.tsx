@@ -660,6 +660,8 @@ export default function Builder({ params }: { params: { id?: string } }) {
     setFields(nextFields);
     setSelectedIds([newField.id]);
     setLastSelectedId(newField.id);
+    setSelectedPageIds([]);
+    setLastSelectedPageId(null);
   };
 
   const addPage = () => {
