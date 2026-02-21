@@ -154,8 +154,8 @@ const PageSection = React.memo(function PageSection({
   return (
     <div
       className={cn(
-        "border border-transparent border-t border-border/40 rounded-lg transition-shadow",
-        isActive && "ring-2 ring-primary border-transparent shadow-md"
+        "border border-transparent border-t border-border/40 rounded-lg transition-shadow my-3 first:mt-4 last:mb-4 relative",
+        isActive && "ring-2 ring-primary border-transparent shadow-md z-10"
       )}
     >
       <div
@@ -185,7 +185,7 @@ const PageSection = React.memo(function PageSection({
 
       <div
         ref={setDropRef}
-        className={cn("p-6 bg-[#FAFBFC] transition-colors", isOver && "bg-primary/5")}
+        className={cn("p-6 bg-[#FAFBFC] transition-colors rounded-b-lg", isOver && "bg-primary/5")}
       >
         <SortableContext items={pageFields.map((field) => field.id)} strategy={verticalListSortingStrategy}>
           {pageFields.length === 0 ? (
