@@ -19,10 +19,9 @@ import type { MouseEvent } from "react";
 import type { FormElementModel, FormPageModel, FormSchema, SemanticType, WidgetType } from "@/form/types";
 import { SortableField } from "./SortableField";
 import {
-  Type, AlignLeft, Hash, Calendar, List, CheckSquare, CircleDot, Heading, Star, ListOrdered, Upload, User, Phone, FileText, CreditCard, Undo2, Redo2, ArrowUp, ArrowDown, ArrowUpDown, Grid, IdCardLanyard, StickyNote, Building, BriefcaseBusiness, Globe, Repeat2, Trash2
+  Type, AlignLeft, Hash, Calendar, List, CheckSquare, CircleDot, Heading, Star, ListOrdered, Upload, User, Phone, FileText, CreditCard, Undo2, Redo2, ArrowUp, ArrowDown, Grid, IdCardLanyard, StickyNote, Building, BriefcaseBusiness, Globe, Repeat2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import React from "react";
@@ -30,7 +29,6 @@ import { useTranslation } from 'react-i18next';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { isCountryField } from "@/lib/countries";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 const widgetTypeLabelKey: Record<WidgetType, string> = {
   header: "header",
@@ -47,6 +45,8 @@ const widgetTypeLabelKey: Record<WidgetType, string> = {
   matrix: "matrix",
 };
 
+const AUTO_PAGE_TITLE = /^(Страница|Page)\s+\d+$/;
+
 interface FormCanvasProps {
   form: FormSchema;
   setForm: (form: FormSchema) => void;
@@ -54,8 +54,6 @@ interface FormCanvasProps {
   activePageId: number;
   onSelectPage: (pageId: number) => void;
   onAddPage: () => void;
-  onDeletePage: (pageId: number, options: { mode: "delete" | "move"; targetPageId?: number }) => void;
-  onTogglePageBack: (pageId: number, allowBack: boolean) => void;
   onMovePage: (pageId: number, targetIndex: number) => void;
   selectedIds: string[];
   onSelectField: (id: string, event: MouseEvent<HTMLDivElement>) => void;
@@ -129,13 +127,7 @@ type PageSectionProps = {
   isActive: boolean;
   pageLabel: string;
   pageFields: FormElementModel[];
-  canDelete: boolean;
-  localAllowBack: Record<number, boolean>;
-  setLocalAllowBack: React.Dispatch<React.SetStateAction<Record<number, boolean>>>;
-  onTogglePageBack: (pageId: number, allowBack: boolean) => void;
   onSelectPage: (pageId: number) => void;
-  onOpenMove: () => void;
-  onOpenDelete: () => void;
   t: (key: string, opts?: any) => string;
   selectedIds: string[];
   onSelectField: (id: string, event: MouseEvent<HTMLDivElement>) => void;
@@ -148,13 +140,7 @@ const PageSection = React.memo(function PageSection({
   isActive,
   pageLabel,
   pageFields,
-  canDelete,
-  localAllowBack,
-  setLocalAllowBack,
-  onTogglePageBack,
   onSelectPage,
-  onOpenMove,
-  onOpenDelete,
   t,
   selectedIds,
   onSelectField,
@@ -164,7 +150,12 @@ const PageSection = React.memo(function PageSection({
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: `page-${page.id}` });
 
   return (
-    <div className={cn("border-t border-border/40", isActive && "bg-primary/5")}>
+    <div
+      className={cn(
+        "border-t border-border/40",
+        isActive && "bg-primary/10 outline outline-1 outline-primary/50 outline-offset-[-1px] rounded-lg"
+      )}
+    >
       <div
         role="button"
         tabIndex={0}
@@ -179,52 +170,15 @@ const PageSection = React.memo(function PageSection({
           }
         }}
         className={cn(
-          "w-full px-6 py-3 flex items-center justify-between text-left transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+          "w-full px-6 py-3 flex items-center justify-between text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
           isActive ? "bg-primary/10" : "bg-muted/10 hover:bg-muted/20"
         )}
       >
         <div>
           <p className="text-sm font-semibold text-foreground">{pageLabel}</p>
-          <p className="text-xs text-muted-foreground">
-            {t("pages.elementsCount", { count: pageFields.length })}
-          </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Button type="button" variant="outline" size="sm" className="gap-2" onClick={(e) => { e.stopPropagation(); onOpenMove(); }}>
-            <ArrowUpDown className="h-4 w-4" />
-            {t("pages.movePage")}
-          </Button>
-
-          <div className="flex items-center gap-2" title={t("pages.backToggleTooltip")}>
-            <span className="text-xs text-muted-foreground">{t("pages.backToggle")}</span>
-            <Switch
-              checked={localAllowBack[page.id] ?? page.allowBack}
-              onCheckedChange={(checked) => {
-                setLocalAllowBack((prev) => ({ ...prev, [page.id]: checked }));
-                onTogglePageBack(page.id, checked);
-              }}
-              onClick={(event) => event.stopPropagation()}
-              aria-label={t("pages.backToggleAria")}
-            />
-          </div>
-
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            disabled={!canDelete}
-            onClick={(e) => { e.stopPropagation(); if (canDelete) onOpenDelete(); }}
-            className="text-destructive hover:text-destructive"
-            aria-label={t("pages.deleteTitle")}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-
-          <span className={cn("text-xs font-medium", isActive ? "text-primary" : "text-muted-foreground")}>
-            {isActive ? t("pages.active") : ""}
-          </span>
-        </div>
+        <div className="flex items-center gap-3" />
       </div>
 
       <div
@@ -270,8 +224,6 @@ export function FormCanvas({
   activePageId,
   onSelectPage,
   onAddPage,
-  onDeletePage,
-  onTogglePageBack,
   onMovePage,
   selectedIds,
   onSelectField,
@@ -288,24 +240,11 @@ export function FormCanvas({
 
   const { t } = useTranslation()  // Хук для локализации
   const [activeDragItem, setActiveDragItem] = useState<any>(null);
-  const [deleteDialogPageId, setDeleteDialogPageId] = useState<number | null>(null);
-  const [deleteMode, setDeleteMode] = useState<"delete" | "move">("delete");
-  const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
   const [moveDialogPageId, setMoveDialogPageId] = useState<number | null>(null);
   const [moveTargetIndex, setMoveTargetIndex] = useState<number | null>(null);
   const titleTextareaRef = useRef<HTMLTextAreaElement>(null);
   const descriptionTextareaRef = useRef<HTMLTextAreaElement>(null);
   const pageOrder = pages.slice().sort((a, b) => a.pageIndex - b.pageIndex);
-  const [localAllowBack, setLocalAllowBack] = useState<Record<number, boolean>>({});
-
-  useEffect(() => {
-    // держим локальное состояние в синхроне с pages
-    setLocalAllowBack((prev) => {
-      const next = { ...prev };
-      for (const p of pages) next[p.id] = p.allowBack;
-      return next;
-    });
-  }, [pages]);
 
 
 
@@ -336,10 +275,6 @@ export function FormCanvas({
     }
     return getPageIdForField(overId);
   };
-  const availableDeleteTargets = deleteDialogPageId
-    ? pageOrder.filter((page) => page.id !== deleteDialogPageId)
-    : [];
-
   /**
    Настройка сенсоров для перетаскивания
    PointerSensor активируется при перемещении мыши/таче
@@ -465,9 +400,12 @@ export function FormCanvas({
     adjustTextareaHeight(descriptionTextareaRef.current);
   }, [form.title, form.description]);
 
+  const activePage = pageOrder.find((page) => page.id === activePageId);
   const selectedSet = new Set(selectedIds);
   const canMoveUp = (() => {
-    if (selectedIds.length === 0) return false;
+    if (selectedIds.length === 0) {
+      return activePage != null && activePage.pageIndex > 0;
+    }
     for (const page of pageOrder) {
       const pageFields = fieldsByPage.get(page.id) ?? [];
       for (let i = 1; i < pageFields.length; i += 1) {
@@ -480,7 +418,9 @@ export function FormCanvas({
   })();
 
   const canMoveDown = (() => {
-    if (selectedIds.length === 0) return false;
+    if (selectedIds.length === 0) {
+      return activePage != null && activePage.pageIndex < pageOrder.length - 1;
+    }
     for (const page of pageOrder) {
       const pageFields = fieldsByPage.get(page.id) ?? [];
       for (let i = pageFields.length - 2; i >= 0; i -= 1) {
@@ -576,7 +516,14 @@ export function FormCanvas({
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => moveSelected("up")}
+              onClick={() => {
+                if (selectedIds.length > 0) {
+                  moveSelected("up");
+                  return;
+                }
+                if (!activePage || activePage.pageIndex === 0) return;
+                onMovePage(activePage.id, activePage.pageIndex);
+              }}
               disabled={!canMoveUp}
               className={cn("gap-2", !canMoveUp && "text-muted-foreground")}
             >
@@ -586,7 +533,14 @@ export function FormCanvas({
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => moveSelected("down")}
+              onClick={() => {
+                if (selectedIds.length > 0) {
+                  moveSelected("down");
+                  return;
+                }
+                if (!activePage || activePage.pageIndex >= pageOrder.length - 1) return;
+                onMovePage(activePage.id, activePage.pageIndex + 2);
+              }}
               disabled={!canMoveDown}
               className={cn("gap-2", !canMoveDown && "text-muted-foreground")}
             >
@@ -662,9 +616,11 @@ export function FormCanvas({
 
           {pageOrder.map((page) => {
             const pageFields = fieldsByPage.get(page.id) ?? [];
-            const pageLabel = page.title?.trim() || t("pages.defaultTitle", { index: page.pageIndex + 1 });
-            const isActive = page.id === activePageId;
-            const canDelete = pageOrder.length > 1;
+            const rawTitle = typeof page.title === "string" ? page.title.trim() : "";
+            const pageLabel = !rawTitle || AUTO_PAGE_TITLE.test(rawTitle)
+              ? t("pages.defaultTitle", { index: page.pageIndex + 1 })
+              : rawTitle;
+            const isActive = selectedIds.length === 0 && page.id === activePageId;
 
             return (
               <PageSection
@@ -673,21 +629,7 @@ export function FormCanvas({
                 isActive={isActive}
                 pageLabel={pageLabel}
                 pageFields={pageFields}
-                canDelete={canDelete}
-                localAllowBack={localAllowBack}
-                setLocalAllowBack={setLocalAllowBack}
-                onTogglePageBack={onTogglePageBack}
                 onSelectPage={onSelectPage}
-                onOpenMove={() => {
-                  setMoveDialogPageId(page.id);
-                  setMoveTargetIndex(page.pageIndex + 1);
-                }}
-                onOpenDelete={() => {
-                  const targets = pageOrder.filter((item) => item.id !== page.id);
-                  setDeleteDialogPageId(page.id);
-                  setDeleteMode("delete");
-                  setDeleteTargetId(targets[0]?.id ?? null);
-                }}
                 t={t}
                 selectedIds={selectedIds}
                 onSelectField={onSelectField}
@@ -710,86 +652,6 @@ export function FormCanvas({
 
         </div>
       </div>
-
-      <Dialog
-        open={deleteDialogPageId !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setDeleteDialogPageId(null);
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("pages.deleteTitle")}</DialogTitle>
-            <DialogDescription>{t("pages.deleteDesc")}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <RadioGroup
-              value={deleteMode}
-              onValueChange={(value) => setDeleteMode(value as "delete" | "move")}
-              className="space-y-2"
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="delete" id="delete-page-elements" />
-                <label htmlFor="delete-page-elements" className="text-sm">
-                  {t("pages.deleteWithElements")}
-                </label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="move" id="move-page-elements" />
-                <label htmlFor="move-page-elements" className="text-sm">
-                  {t("pages.moveElements")}
-                </label>
-              </div>
-            </RadioGroup>
-            {deleteMode === "move" && (
-              <Select
-                value={deleteTargetId != null ? String(deleteTargetId) : ""}
-                onValueChange={(value) => setDeleteTargetId(Number(value))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={t("pages.selectTargetPlaceholder")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableDeleteTargets.map((page) => (
-                    <SelectItem key={page.id} value={String(page.id)}>
-                      {page.title?.trim() || t("pages.defaultTitle", { index: page.pageIndex + 1 })}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
-          <DialogFooter className="gap-2 sm:justify-between">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setDeleteDialogPageId(null)}
-            >
-              {t("actions.cancel")}
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={
-                deleteDialogPageId == null ||
-                (deleteMode === "move" && deleteTargetId == null)
-              }
-              onClick={() => {
-                if (deleteDialogPageId == null) return;
-                onDeletePage(deleteDialogPageId, {
-                  mode: deleteMode,
-                  targetPageId: deleteMode === "move" ? deleteTargetId ?? undefined : undefined,
-                });
-                setDeleteDialogPageId(null);
-              }}
-            >
-              {t("actions.delete")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Dialog
         open={moveDialogPageId !== null}

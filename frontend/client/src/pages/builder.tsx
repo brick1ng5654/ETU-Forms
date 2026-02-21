@@ -255,6 +255,10 @@ export default function Builder({ params }: { params: { id?: string } }) {
 
   const handleSelectField = (id: string, event: MouseEvent<HTMLDivElement>) => {
     console.log('Selecting field:', id);
+    const selectedField = fields.find((field) => field.id === id);
+    if (selectedField) {
+      setActivePageId(selectedField.pageId);
+    }
     if (event.shiftKey && lastSelectedId) {
       const currentIndex = fields.findIndex(f => f.id === id);
       const lastIndex = fields.findIndex(f => f.id === lastSelectedId);
@@ -285,6 +289,10 @@ export default function Builder({ params }: { params: { id?: string } }) {
   const clearSelection = () => {
     setSelectedIds([]);
     setLastSelectedId(null);
+  };
+  const handleSelectPage = (pageId: number) => {
+    setActivePageId(pageId);
+    clearSelection();
   };
   const [isToolboxOpen, setIsToolboxOpen] = useState(true);
   const { t, i18n } = useTranslation();
@@ -869,7 +877,12 @@ export default function Builder({ params }: { params: { id?: string } }) {
           }
         }
       }
-      nextFields.push(...pageFields);
+      nextFields.push(
+        ...pageFields.map((field, index) => ({
+          ...field,
+          sortIndex: index,
+        }))
+      );
     }
 
     setFields(nextFields);
@@ -1548,10 +1561,8 @@ export default function Builder({ params }: { params: { id?: string } }) {
           setForm={setForm}
           pages={pages}
           activePageId={activePageId ?? pages[0]?.id ?? 1}
-          onSelectPage={setActivePageId}
+          onSelectPage={handleSelectPage}
           onAddPage={addPage}
-          onDeletePage={deletePage}
-          onTogglePageBack={togglePageBack}
           onMovePage={movePageToIndex}
           selectedIds={selectedIds}
           moveSelected={moveSelected}
@@ -1568,6 +1579,10 @@ export default function Builder({ params }: { params: { id?: string } }) {
         <div className="w-80 border-l border-border bg-white flex flex-col shrink-0 z-10">
           <PropertiesPanel
             key={selectedField?.id || selectedIds.join("-") || 'none'}
+            pages={pages}
+            activePageId={activePageId ?? pages[0]?.id ?? 1}
+            onDeletePage={deletePage}
+            onTogglePageBack={togglePageBack}
             selectedField={selectedField}
             selectedIds={selectedIds}
             updateField={updateField}
