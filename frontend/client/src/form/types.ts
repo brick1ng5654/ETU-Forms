@@ -100,6 +100,12 @@ export type DateTimeAnswer = {
   time?: string | null;
 };
 
+export type ChoiceAnswer = {
+  selected?: string | string[] | null;
+  otherSelected?: boolean;
+  otherText?: string | null;
+};
+
 // full_name canonical keys:
 // - lastName, firstName required
 // - patronymic optional
@@ -137,6 +143,7 @@ export type AnswerValue =
   | string[]
   | number
   | Date
+  | ChoiceAnswer
   | FullNameAnswer
   | PassportAnswer
   | DateTimeAnswer

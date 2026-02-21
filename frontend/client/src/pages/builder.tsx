@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
+﻿import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
 import type { MouseEvent } from "react";
 import { nanoid } from "nanoid";
 import type { FormAccessMode, FormElementModel, FormPageModel, FormSchema } from "@/form/types";
@@ -223,6 +223,17 @@ const normalizeFieldsByPage = (elements: FormElementModel[], pages: FormPageMode
   return normalized;
 };
 
+const sortForSignature = (value: unknown): unknown => {
+  if (Array.isArray(value)) return value.map(sortForSignature);
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, nested]) => [key, sortForSignature(nested)] as const);
+    return Object.fromEntries(entries);
+  }
+  return value;
+};
+
 export default function Builder({ params }: { params: { id?: string } }) {
   const [location, setLocation] = useLocation();
   const [forms, setForms] = useState<FormSchema[]>([]);
@@ -250,6 +261,9 @@ export default function Builder({ params }: { params: { id?: string } }) {
   const [publishNoEnd, setPublishNoEnd] = useState(false);
   const [activePageId, setActivePageId] = useState<number | null>(null);
   const nextPageIdRef = useRef(-1);
+  const [syncedPayloadSignatures, setSyncedPayloadSignatures] = useState<Record<string, string>>({});
+  const [isSaving, setIsSaving] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
   const canvasScrollRef = useRef<HTMLDivElement | null>(null);
   const pendingCanvasScrollTopRef = useRef<number | null>(null);
 
@@ -381,7 +395,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
       }
     };
     void loadDetail();
-  }, [activeFormId, t]);
+  }, [activeFormId, isLoading, accessToken, t]);
 
   const activeForm = forms.find(f => f.id === activeFormId) || forms[0] || null;
   const tabForms = useMemo(() => {
@@ -544,6 +558,12 @@ export default function Builder({ params }: { params: { id?: string } }) {
     const newForms = forms.filter(f => f.id !== id);
     setForms(newForms);
     storage.deleteForm(id);
+    setSyncedPayloadSignatures((prev) => {
+      if (!(id in prev)) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
 
     // If closed form was active, switch to another
     if (activeFormId === id) {
@@ -943,9 +963,10 @@ export default function Builder({ params }: { params: { id?: string } }) {
     return out;
   };
 
-  const resolvePublishFields = (): FormElementModel[] => {
-    if (!activeForm) return [];
-    return Array.isArray(fields) ? fields : [];
+  const resolvePublishFields = (sourceForm?: FormSchema | null): FormElementModel[] => {
+    const form = sourceForm ?? activeForm;
+    if (!form) return [];
+    return Array.isArray(form.fields) ? form.fields : [];
   };
 
   const buildBuilderPayload = (
@@ -954,17 +975,18 @@ export default function Builder({ params }: { params: { id?: string } }) {
       accessMode?: FormAccessMode;
       startAt?: string | null;
       endAt?: string | null;
-    }
+    },
+    sourceForm?: FormSchema | null
   ) => {
-    if (!activeForm) return null;
-    const normalizedPublishFields = normalizeFields(publishFields);
-    const accessMode = overrides?.accessMode ?? activeForm.accessMode ?? "private";
-    const startAt = overrides?.startAt ?? activeForm.startAt ?? null;
-    const endAt = overrides?.endAt ?? activeForm.endAt ?? null;
+    const form = sourceForm ?? activeForm;
+    if (!form) return null;
+    const accessMode = overrides?.accessMode ?? form.accessMode ?? "private";
+    const startAt = overrides?.startAt ?? form.startAt ?? null;
+    const endAt = overrides?.endAt ?? form.endAt ?? null;
 
     return {
-      title: activeForm.title,
-      description: activeForm.description,
+      title: form.title,
+      description: form.description,
       access_mode: accessMode,
       start_at: startAt,
       end_at: endAt,
@@ -975,7 +997,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
         page_index: typeof page.pageIndex === "number" ? page.pageIndex : index,
         allow_back: page.allowBack,
       })),
-      elements: normalizedPublishFields.map((f, index) => {
+      elements: publishFields.map((f, index) => {
         const props = (f.props ?? {}) as Record<string, unknown>;
         const { placeholder, correctAnswer, correctAnswers, points, conditionalLogic, attachments, ...otherSettings } = props;
         const fileIds = Array.isArray(attachments)
@@ -1010,10 +1032,10 @@ export default function Builder({ params }: { params: { id?: string } }) {
           }
         }
         const rawCorrectAnswer = correctAnswer ?? correctAnswers;
-        const normalizedCorrectAnswer = (() => {
+        const normalizedCorrectAnswer: Record<string, unknown> | null = (() => {
           if (rawCorrectAnswer == null) return null;
           if (Array.isArray(rawCorrectAnswer)) return { values: rawCorrectAnswer };
-          if (typeof rawCorrectAnswer === "object") return rawCorrectAnswer;
+          if (typeof rawCorrectAnswer === "object") return rawCorrectAnswer as Record<string, unknown>;
           return { value: rawCorrectAnswer };
         })();
         return {
@@ -1036,6 +1058,118 @@ export default function Builder({ params }: { params: { id?: string } }) {
     };
   };
 
+  const buildPayloadSignature = useCallback(
+    (
+      overrides?: { accessMode?: FormAccessMode; startAt?: string | null; endAt?: string | null },
+      sourceForm?: FormSchema | null
+    ) => {
+      const form = sourceForm ?? activeForm;
+      if (!form) return null;
+      const publishFields = resolvePublishFields(form);
+      const payload = buildBuilderPayload(publishFields, overrides, form);
+      if (!payload) return null;
+      return JSON.stringify(sortForSignature(payload));
+    },
+    [activeForm]
+  );
+
+  useEffect(() => {
+    if (!activeForm) return;
+    if (syncedPayloadSignatures[activeForm.id]) return;
+    const signature = buildPayloadSignature({
+      accessMode: activeForm.accessMode ?? "private",
+      startAt: activeForm.startAt ?? null,
+      endAt: activeForm.endAt ?? null,
+    });
+    if (!signature) return;
+    setSyncedPayloadSignatures((prev) => {
+      if (prev[activeForm.id]) return prev;
+      return { ...prev, [activeForm.id]: signature };
+    });
+  }, [activeForm, syncedPayloadSignatures, buildPayloadSignature]);
+
+  const syncedPayloadSignature = activeForm ? syncedPayloadSignatures[activeForm.id] ?? null : null;
+  const savePayloadSignature = useMemo(() => {
+    if (!activeForm) return null;
+    return buildPayloadSignature({
+      accessMode: activeForm.accessMode ?? "private",
+      startAt: activeForm.startAt ?? null,
+      endAt: activeForm.endAt ?? null,
+    });
+  }, [activeForm, buildPayloadSignature]);
+  const hasSaveChanges = Boolean(syncedPayloadSignature && savePayloadSignature && savePayloadSignature !== syncedPayloadSignature);
+
+  const activeFormStatus = activeForm?.status ?? "temp";
+  const isPublishDisabledByStatus = activeFormStatus !== "temp";
+  const isPublishDisabledByUnsavedChanges = hasSaveChanges;
+  const isPublishDisabledByEmptyForm = fields.length === 0;
+  const isPublishDisabled =
+    isPublishDisabledByStatus || isPublishDisabledByUnsavedChanges || isPublishDisabledByEmptyForm || isPublishing;
+  const publishDisabledHint = isPublishDisabledByUnsavedChanges
+    ? t("builder.publishDisabledNeedSave")
+    : isPublishDisabledByEmptyForm
+      ? t("builder.publishDisabledNeedContent")
+      : t("builder.publishDisabledNeedDraft");
+  const publishedVersionsForActiveForm = useMemo(() => {
+    if (!activeForm) return [] as FormSchema[];
+
+    const byId = new Map(forms.map((item) => [item.id, item]));
+    const childrenByPrevId = new Map<string, string[]>();
+    for (const item of forms) {
+      if (!item.prevFormId) continue;
+      const prevId = String(item.prevFormId);
+      const bucket = childrenByPrevId.get(prevId);
+      if (bucket) {
+        bucket.push(item.id);
+      } else {
+        childrenByPrevId.set(prevId, [item.id]);
+      }
+    }
+
+    const queue: string[] = [activeForm.id];
+    const relatedIds = new Set<string>();
+    while (queue.length > 0) {
+      const currentId = queue.shift();
+      if (!currentId || relatedIds.has(currentId)) continue;
+      relatedIds.add(currentId);
+
+      const node = byId.get(currentId);
+      const prevId = node?.prevFormId ? String(node.prevFormId) : null;
+      if (prevId && !relatedIds.has(prevId)) {
+        queue.push(prevId);
+      }
+
+      const children = childrenByPrevId.get(currentId) ?? [];
+      for (const childId of children) {
+        if (!relatedIds.has(childId)) {
+          queue.push(childId);
+        }
+      }
+    }
+
+    return forms
+      .filter((item) => relatedIds.has(item.id) && item.status === "submitted")
+      .sort((a, b) => {
+        const versionA = typeof a.version === "number" ? a.version : -1;
+        const versionB = typeof b.version === "number" ? b.version : -1;
+        if (versionA !== versionB) return versionB - versionA;
+        const updatedA = typeof a.updatedAt === "number" ? a.updatedAt : 0;
+        const updatedB = typeof b.updatedAt === "number" ? b.updatedAt : 0;
+        return updatedB - updatedA;
+      });
+  }, [forms, activeForm]);
+  const hasPublishedVersion = publishedVersionsForActiveForm.length > 0;
+  const resultsTargetFormId = publishedVersionsForActiveForm[0]?.id ?? activeForm?.id ?? "";
+  const isResultsDisabled = !hasPublishedVersion;
+  const resultsDisabledHint = isResultsDisabled ? t("results.onlyPublishedShort") : undefined;
+  const saveDisabledHint = !hasSaveChanges ? t("builder.saveDisabledNoChanges") : undefined;
+
+  useEffect(() => {
+    if (isPublishDisabled && isPublishOpen) {
+      setIsPublishOpen(false);
+    }
+  }, [isPublishDisabled, isPublishOpen]);
+
   const saveToServer = async () => {
     if (!activeForm) return;
     const publishFields = resolvePublishFields();
@@ -1046,6 +1180,22 @@ export default function Builder({ params }: { params: { id?: string } }) {
     });
     if (!payload) return;
     const saved = await saveForm(activeForm.id, payload);
+    const savedSignature =
+      buildPayloadSignature(
+        {
+          accessMode: saved.accessMode ?? "private",
+          startAt: saved.startAt ?? null,
+          endAt: saved.endAt ?? null,
+        },
+        saved
+      ) ?? JSON.stringify(sortForSignature(payload));
+    setSyncedPayloadSignatures((prev) => {
+      const next = { ...prev, [saved.id]: savedSignature };
+      if (saved.id !== activeForm.id && activeForm.id in next) {
+        delete next[activeForm.id];
+      }
+      return next;
+    });
     storage.saveForm(saved);
     setForms((prev) => {
       const existing = prev.find((form) => form.id === saved.id);
@@ -1090,20 +1240,37 @@ export default function Builder({ params }: { params: { id?: string } }) {
       endAt: publishNoStart || publishNoEnd ? null : toIsoFromParts(publishEndDate, publishEndTime),
     });
     if (!payload) return;
-    return publishForm(activeForm.id, payload);
+    const result = await publishForm(activeForm.id, payload);
+    const resultSignature =
+      buildPayloadSignature(
+        {
+          accessMode: result.accessMode ?? "private",
+          startAt: result.startAt ?? null,
+          endAt: result.endAt ?? null,
+        },
+        result
+      ) ?? JSON.stringify(sortForSignature(payload));
+    setSyncedPayloadSignatures((prev) => ({ ...prev, [result.id]: resultSignature }));
+    return result;
   };
 
   const handleSave = async () => {
+    if (!hasSaveChanges || isSaving) return;
     rememberCanvasScrollPosition();
+    setIsSaving(true);
     try {
       await saveToServer();
     } catch (e: any) {
       pendingCanvasScrollTopRef.current = null;
       toast({ title: t("builder.error"), description: e.message ?? "Save error", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handlePublish = async () => {
+    if (isPublishDisabled) return;
+    setIsPublishing(true);
     try {
       const result = await publishToServer();
       if (!result) return;
@@ -1120,6 +1287,8 @@ export default function Builder({ params }: { params: { id?: string } }) {
       setIsPublishOpen(false);
     } catch (e: any) {
       toast({ title: t("builder.error"), description: e.message ?? "Publish error", variant: "destructive" });
+    } finally {
+      setIsPublishing(false);
     }
   };
 
@@ -1196,7 +1365,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
                 localStorage.setItem("etu_pending_lang", newLang);
                 window.location.reload();
               }}
-              title={i18n.language.startsWith('ru') ? 'Переключить на Английский' : 'Switch to Russian'}>
+              title={i18n.language.startsWith('ru') ? 'РџРµСЂРµРєР»СЋС‡РёС‚СЊ РЅР° РђРЅРіР»РёР№СЃРєРёР№' : 'Switch to Russian'}>
               <Languages className="h-4 w-4" />
               <span className="hidden sm:inline text-sm font-medium">
                 {i18n.language.startsWith('ru') ? 'RU' : 'EN'}
@@ -1226,36 +1395,48 @@ export default function Builder({ params }: { params: { id?: string } }) {
               </DialogContent>
             </Dialog>
 
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              disabled={activeForm.status !== "submitted"}
-              onClick={() => {
-                if (activeForm.status !== "submitted") {
-                  toast({
-                    title: t("results.openResults"),
-                    description: t("results.onlyPublishedShort"),
-                    variant: "destructive",
-                  });
-                  return;
-                }
-                setLocation(`/forms/${activeForm.id}/results`);
-              }}
-            >
-              <BarChart3 className="h-4 w-4" />
-              <span className="hidden sm:inline">{t("results.openResults")}</span>
-            </Button>
+            <span className="inline-flex" title={resultsDisabledHint}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                disabled={isResultsDisabled}
+                onClick={() => {
+                  if (isResultsDisabled) return;
+                  setLocation(`/forms/${resultsTargetFormId}/results`);
+                }}
+              >
+                <BarChart3 className="h-4 w-4" />
+                <span className="hidden sm:inline">{t("results.openResults")}</span>
+              </Button>
+            </span>
 
-            <Button data-testid="builder-save" variant="outline" size="sm" className="gap-2" onClick={handleSave}>
-              <Save className="h-4 w-4" /> <span className="hidden sm:inline">{t('builder.save')}</span>
-            </Button>
+            <span className="inline-flex" title={saveDisabledHint}>
+              <Button
+                data-testid="builder-save"
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={handleSave}
+                disabled={!hasSaveChanges || isSaving}
+              >
+                <Save className="h-4 w-4" /> <span className="hidden sm:inline">{t('builder.save')}</span>
+              </Button>
+            </span>
             <Popover open={isPublishOpen} onOpenChange={setIsPublishOpen}>
-              <PopoverTrigger asChild>
-                <Button data-testid="builder-publish-open" size="sm" className="gap-2">
-                  <Share2 className="h-4 w-4" /> <span className="hidden sm:inline">{t("builder.publish")}</span>
-                </Button>
-              </PopoverTrigger>
+              {isPublishDisabled ? (
+                <span className="inline-flex" title={publishDisabledHint}>
+                  <Button data-testid="builder-publish-open" size="sm" className="gap-2" disabled>
+                    <Share2 className="h-4 w-4" /> <span className="hidden sm:inline">{t("builder.publish")}</span>
+                  </Button>
+                </span>
+              ) : (
+                <PopoverTrigger asChild>
+                  <Button data-testid="builder-publish-open" size="sm" className="gap-2">
+                    <Share2 className="h-4 w-4" /> <span className="hidden sm:inline">{t("builder.publish")}</span>
+                  </Button>
+                </PopoverTrigger>
+              )}
               <PopoverContent data-testid="builder-publish-popover" align="end" className="w-[360px] p-4">
                 <div className="space-y-4">
                   <div className="space-y-1">
@@ -1482,7 +1663,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
                     <Button variant="outline" size="sm" onClick={() => setIsPublishOpen(false)}>
                       {t("actions.cancel")}
                     </Button>
-                    <Button size="sm" onClick={handlePublish}>
+                    <Button size="sm" onClick={handlePublish} disabled={isPublishDisabled}>
                       {t("builder.publish")}
                     </Button>
                   </div>
@@ -1596,3 +1777,4 @@ export default function Builder({ params }: { params: { id?: string } }) {
     </div>
   );
 }
+

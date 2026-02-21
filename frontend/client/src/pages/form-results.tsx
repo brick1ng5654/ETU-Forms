@@ -13,6 +13,7 @@ import {
   Clock,
   Copy,
   FileText,
+  Languages,
   Link as LinkIcon,
   PencilLine,
   Search,
@@ -27,6 +28,11 @@ import type {
   FormElementModel,
   FormSchema,
 } from "@/form/types";
+import {
+  getChoiceMultiState,
+  getChoiceSingleState,
+  isChoiceAnswer,
+} from "@/form/choice-answer";
 import { fetchFormDetail, fetchFormResponses, fetchForms, fetchFormsCatalog, saveFormInPlace } from "@/lib/forms-api";
 import { storage } from "@/lib/storage";
 import { cn } from "@/lib/utils";
@@ -336,6 +342,23 @@ const getCorrectAnswerValues = (field: FormElementModel): string[] => {
 
 const normalizeAnswerValues = (field: FormElementModel, value: AnswersById[string]): string[] => {
   if (value == null) return [];
+  if (field.widgetType === "checkbox") {
+    const state = getChoiceMultiState(value);
+    const values = [...state.selected];
+    if (state.otherSelected) {
+      const otherText = state.otherText.trim();
+      values.push(otherText ? `Other: ${otherText}` : "Other");
+    }
+    return values;
+  }
+  if (field.widgetType === "select" || field.widgetType === "radio") {
+    const state = getChoiceSingleState(value);
+    if (state.otherSelected) {
+      const otherText = state.otherText.trim();
+      return otherText ? [`Other: ${otherText}`] : ["Other"];
+    }
+    return state.selected ? [state.selected] : [];
+  }
   if (Array.isArray(value)) return value.map(String);
   if (field.widgetType === "datetime" && typeof value === "object") {
     const dateTime = value as DateTimeAnswer;
@@ -488,10 +511,19 @@ const formatAnswerValue = (
     return <span className="text-muted-foreground">{t("results.noAnswer")}</span>;
   }
 
-  if (field.widgetType === "checkbox" && Array.isArray(value)) {
+  if (field.widgetType === "checkbox" && (Array.isArray(value) || isChoiceAnswer(value))) {
+    const state = getChoiceMultiState(value);
+    const items = [...state.selected];
+    const otherText = state.otherText.trim();
+    if (state.otherSelected && otherText.length > 0) {
+      items.push(`${t("common.otherOption")}: ${otherText}`);
+    }
+    if (items.length === 0) {
+      return <span className="text-muted-foreground">{t("results.noAnswer")}</span>;
+    }
     return (
       <div className="flex flex-wrap gap-2">
-        {value.map((item) => (
+        {items.map((item) => (
           <Badge key={String(item)} variant="secondary">
             {String(item)}
           </Badge>
@@ -517,7 +549,7 @@ const formatAnswerValue = (
     return (
       <div className="space-y-2">
         {value.map((cell) => (
-          <div key={cell} className="text-sm text-muted-foreground">
+          <div key={String(cell)} className="text-sm text-muted-foreground">
             {formatMatrixCell(field, String(cell))}
           </div>
         ))}
@@ -542,6 +574,19 @@ const formatAnswerValue = (
     const date = dateTime?.date ?? "";
     const time = dateTime?.time ?? "";
     return <span>{[date, time].filter(Boolean).join(" ")}</span>;
+  }
+
+  if ((field.widgetType === "select" || field.widgetType === "radio") && isChoiceAnswer(value)) {
+    const state = getChoiceSingleState(value);
+    if (state.otherSelected) {
+      const otherText = state.otherText.trim();
+      return otherText
+        ? <span>{`${t("common.otherOption")}: ${otherText}`}</span>
+        : <span className="text-muted-foreground">{t("results.noAnswer")}</span>;
+    }
+    return state.selected
+      ? <span>{state.selected}</span>
+      : <span className="text-muted-foreground">{t("results.noAnswer")}</span>;
   }
 
   if (typeof value === "object") {
@@ -854,14 +899,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
         };
       }
 
-      const flatValues = values.flatMap((value) => {
-        if (Array.isArray(value)) return value.map((item) => String(item));
-        if (field.widgetType === "datetime" && typeof value === "object") {
-          const dateTime = value as DateTimeAnswer;
-          return [`${dateTime?.date ?? ""} ${dateTime?.time ?? ""}`.trim()].filter(Boolean);
-        }
-        return [String(value)];
-      });
+      const flatValues = values.flatMap((value) => normalizeAnswerValues(field, value));
 
       if (field.widgetType === "matrix") {
         const normalized = flatValues.map((value) => formatMatrixCell(field, value));
@@ -1088,9 +1126,10 @@ export default function FormResults({ params }: { params: { id: string } }) {
               const newLang = i18n.language.startsWith("ru") ? "en" : "ru";
               i18n.changeLanguage(newLang);
             }}
-            title={i18n.language.startsWith("ru") ? "Switch to English" : "Switch to Russian"}
+            title={i18n.language.startsWith("ru") ? "Переключить на Английский" : "Switch to Russian"}
           >
-            <span className="text-xs font-medium">{i18n.language.startsWith("ru") ? "RU" : "EN"}</span>
+            <Languages className="h-4 w-4" />
+            <span className="hidden sm:inline text-sm font-medium">{i18n.language.startsWith("ru") ? "RU" : "EN"}</span>
           </Button>
           <UserMenu />
         </div>
@@ -1554,5 +1593,3 @@ export default function FormResults({ params }: { params: { id: string } }) {
     </div>
   );
 }
-
-

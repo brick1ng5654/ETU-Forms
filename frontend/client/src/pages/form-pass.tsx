@@ -102,6 +102,19 @@ export default function FormPass({ params }: { params: { id: string } }) {
     // 2) иначе из localStorage
     return savedStep;
   }, [initialPageNumber, savedStep]);
+  const localizeSubmitError = (raw?: string) => {
+    if (!raw) return t("respond.submitError");
+    if (raw.includes("Invalid SNILS repeated digits")) {
+      return t("errors.invalidSnilsRepeatedDigits");
+    }
+    if (raw.includes("Invalid SNILS checksum")) {
+      return t("errors.invalidSnilsChecksum");
+    }
+    if (raw.includes("Invalid SNILS")) {
+      return t("errors.invalidSnils");
+    }
+    return raw;
+  };
 
   const redirectToAuth = () => {
     const next =
@@ -186,7 +199,7 @@ export default function FormPass({ params }: { params: { id: string } }) {
       }
       toast({
         title: t("builder.error"),
-        description: err?.message ?? t("respond.submitError"),
+        description: localizeSubmitError(err?.message),
         variant: "destructive",
       });
     } finally {

@@ -20,7 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarDays, Clock, CheckCircle2, Star, GripVertical, Upload, ChevronsUpDown, Check } from "lucide-react";
+import { CalendarDays, Clock, CheckCircle2, GripVertical, Upload, ChevronsUpDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -47,6 +47,14 @@ import { CSS } from "@dnd-kit/utilities";
 import { presets } from "@/form/presets";
 import { validateForm } from "@/form/validation";
 import { buildAnswersPayload } from "@/form/answers";
+import {
+  CHOICE_OTHER_MAX_CHARS,
+  CHOICE_OTHER_SENTINEL,
+  getChoiceComparableValues,
+  getChoiceMultiState,
+  getChoiceSingleState,
+  isChoiceAnswer,
+} from "@/form/choice-answer";
 import { ElementAttachments } from "@/components/form-builder/ElementAttachments";
 import { toast } from "@/hooks/use-toast";
 import { getCountryLabel, getCountryOptions, isCountryField, normalizeCountrySearch, resolveCountryCode } from "@/lib/countries";
@@ -1163,7 +1171,13 @@ export function FormPreview({
           score += points;
         }
       } else if (field.widgetType === "checkbox") {
-        const userAnswersArr = ((userAnswer as string[]) || []).sort();
+        const choiceState = getChoiceMultiState(userAnswer);
+        const userAnswersArr = [
+          ...choiceState.selected,
+          ...(choiceState.otherSelected
+            ? [`${CHOICE_OTHER_SENTINEL}:${choiceState.otherText.trim()}`]
+            : []),
+        ].sort();
         const correctAnswersArr = correctAnswers.slice().sort();
         isCorrect =
           userAnswersArr.length === correctAnswersArr.length &&
@@ -1305,9 +1319,17 @@ export function FormPreview({
           }
         }
       } else {
-        const userAnswerStr = typeof userAnswer === "string" || typeof userAnswer === "number"
-          ? String(userAnswer || "").toLowerCase().trim()
-          : "";
+        const choiceAnswerText = (() => {
+          if (field.widgetType !== "select" && field.widgetType !== "radio") return "";
+          const state = getChoiceSingleState(userAnswer);
+          if (state.otherSelected) return state.otherText.trim();
+          return state.selected;
+        })();
+        const userAnswerStr = choiceAnswerText
+          ? choiceAnswerText.toLowerCase().trim()
+          : (typeof userAnswer === "string" || typeof userAnswer === "number"
+            ? String(userAnswer || "").toLowerCase().trim()
+            : "");
         isCorrect = correctAnswers.some(
           (correct) => correct.toLowerCase().trim() === userAnswerStr
         );
@@ -1335,6 +1357,15 @@ export function FormPreview({
       if (value == null) return false;
       if (typeof value === "string") return value.trim().length > 0;
       if (Array.isArray(value)) return value.length > 0;
+      if (isChoiceAnswer(value)) {
+        const selected = value.selected;
+        if (Array.isArray(selected) && selected.length > 0) return true;
+        if (typeof selected === "string" && selected.trim().length > 0) return true;
+        if (value.otherSelected) {
+          return String(value.otherText ?? "").trim().length > 0;
+        }
+        return false;
+      }
       if (typeof value === "object") {
         const values = Object.values(value as Record<string, unknown>);
         if (values.length === 0) return false;
@@ -1358,9 +1389,21 @@ export function FormPreview({
       if (!parentField) return true;
       if (condition === "answered" && parentField.widgetType === "header") return true;
       const parentAnswer = answers[dependencyId];
+      const parentChoiceValues =
+        parentField.widgetType === "checkbox"
+          ? getChoiceComparableValues(parentAnswer, true)
+          : (parentField.widgetType === "select" || parentField.widgetType === "radio")
+            ? getChoiceComparableValues(parentAnswer, false)
+            : null;
 
       switch (condition) {
         case "equals":
+          if (parentChoiceValues) {
+            if (Array.isArray(expectedValue)) {
+              return expectedValue.some((val) => parentChoiceValues.includes(String(val)));
+            }
+            return parentChoiceValues.includes(String(expectedValue ?? ""));
+          }
           if (Array.isArray(expectedValue)) {
             return Array.isArray(parentAnswer)
               ? expectedValue.some((val) => (parentAnswer as string[]).includes(val))
@@ -1370,6 +1413,12 @@ export function FormPreview({
             ? (parentAnswer as string[]).includes(String(expectedValue ?? ""))
             : parentAnswer === expectedValue;
         case "not_equals":
+          if (parentChoiceValues) {
+            if (Array.isArray(expectedValue)) {
+              return !expectedValue.some((val) => parentChoiceValues.includes(String(val)));
+            }
+            return !parentChoiceValues.includes(String(expectedValue ?? ""));
+          }
           if (Array.isArray(expectedValue)) {
             return Array.isArray(parentAnswer)
               ? !expectedValue.some((val) => (parentAnswer as string[]).includes(val))
@@ -1417,6 +1466,12 @@ export function FormPreview({
       localized = t("errors.invalidSelection");
     } else if (normalized === "Invalid number") {
       localized = t("errors.invalidNumber");
+    } else if (normalized === "Invalid SNILS") {
+      localized = t("errors.invalidSnils");
+    } else if (normalized === "Invalid SNILS repeated digits") {
+      localized = t("errors.invalidSnilsRepeatedDigits");
+    } else if (normalized === "Invalid SNILS checksum") {
+      localized = t("errors.invalidSnilsChecksum");
     } else if (normalized === "Invalid email") {
       localized = t("errors.invalidEmail");
     } else if (normalized.startsWith("Invalid email domain")) {
@@ -1693,6 +1748,11 @@ export function FormPreview({
   const renderField = (field: FormElementModel) => {
     const props = field.props as Record<string, unknown>;
     const options = props.options as string[] | undefined;
+    const allowOtherOption =
+      Boolean(props.allowOther) &&
+      !isCountryField(field) &&
+      (field.widgetType === "select" || field.widgetType === "radio" || field.widgetType === "checkbox");
+    const otherOptionLabel = t("common.otherOption");
     const correctAnswers = Array.isArray(props.correctAnswers)
       ? props.correctAnswers.map((answer) => String(answer))
       : [];
@@ -1770,8 +1830,6 @@ export function FormPreview({
             {field.description}
           </p>
         ) : null}
-
-        {field.widgetType === "header" && <h2 className="text-xl font-bold pb-2 border-b">{field.label}</h2>}
 
         {field.widgetType === "text_input" && renderTextInput(field, isFieldDisabled)}
 
@@ -1933,75 +1991,245 @@ export function FormPreview({
               onTouched={() => markTouched(field.id)}
             />
           ) : (
-            <Select
-              value={(answers[field.id] as string) || ""}
-              onValueChange={(value) => {
-                updateAnswer(field.id, value);
-                markTouched(field.id);
-              }}
-              disabled={isFieldDisabled}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={(props.placeholder as string) || t("common.selectopt")} />
-              </SelectTrigger>
-              <SelectContent>
-                {options?.filter(Boolean).map((option) => (
-                  <SelectItem key={option} value={option}>
-                    {option}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            (() => {
+              const choiceState = getChoiceSingleState(answers[field.id]);
+              const selectedValue =
+                allowOtherOption && choiceState.otherSelected ? CHOICE_OTHER_SENTINEL : choiceState.selected;
+              return (
+                <div className="space-y-2">
+                  <Select
+                    value={selectedValue || ""}
+                    onValueChange={(value) => {
+                      if (value === CHOICE_OTHER_SENTINEL) {
+                        updateAnswer(field.id, {
+                          selected: "",
+                          otherSelected: true,
+                          otherText: choiceState.otherText.slice(0, CHOICE_OTHER_MAX_CHARS),
+                        });
+                      } else {
+                        updateAnswer(field.id, value);
+                      }
+                      markTouched(field.id);
+                    }}
+                    disabled={isFieldDisabled}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={(props.placeholder as string) || t("common.selectopt")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {options?.filter(Boolean).map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                      {allowOtherOption && (
+                        <SelectItem value={CHOICE_OTHER_SENTINEL}>
+                          {otherOptionLabel}
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  {allowOtherOption && choiceState.otherSelected && (
+                    <div className="relative">
+                      <Input
+                        value={choiceState.otherText}
+                        maxLength={CHOICE_OTHER_MAX_CHARS}
+                        placeholder={t("propert.otherValuePlaceholder")}
+                        disabled={isFieldDisabled}
+                        onChange={(event) => {
+                          updateAnswer(field.id, {
+                            selected: "",
+                            otherSelected: true,
+                            otherText: event.target.value.slice(0, CHOICE_OTHER_MAX_CHARS),
+                          });
+                        }}
+                        onBlur={() => markTouched(field.id)}
+                        className="pr-20"
+                      />
+                      <LengthIndicator
+                        len={choiceState.otherText.length}
+                        limit={CHOICE_OTHER_MAX_CHARS}
+                        isError={fieldErrors.length > 0}
+                        isComplete={choiceState.otherText.length === CHOICE_OTHER_MAX_CHARS}
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })()
           )
         )}
 
         {field.widgetType === "radio" && (
-          <RadioGroup
-            value={(answers[field.id] as string) || ""}
-            onValueChange={(value) => {
-              updateAnswer(field.id, value);
-              markTouched(field.id);
-            }}
-            disabled={isFieldDisabled}
-          >
-            {options?.map((option) => (
-              <div key={option} className="flex items-center space-x-2">
-                <RadioGroupItem value={option} id={`${field.id}-${option}`} />
-                <Label htmlFor={`${field.id}-${option}`} className="cursor-pointer">
-                  {option}
-                </Label>
+          (() => {
+            const choiceState = getChoiceSingleState(answers[field.id]);
+            const selectedValue =
+              allowOtherOption && choiceState.otherSelected ? CHOICE_OTHER_SENTINEL : choiceState.selected;
+            return (
+              <div className="space-y-2">
+                <RadioGroup
+                  value={selectedValue || ""}
+                  onValueChange={(value) => {
+                    if (value === CHOICE_OTHER_SENTINEL) {
+                      updateAnswer(field.id, {
+                        selected: "",
+                        otherSelected: true,
+                        otherText: choiceState.otherText.slice(0, CHOICE_OTHER_MAX_CHARS),
+                      });
+                    } else {
+                      updateAnswer(field.id, value);
+                    }
+                    markTouched(field.id);
+                  }}
+                  disabled={isFieldDisabled}
+                >
+                  {options?.map((option) => (
+                    <div key={option} className="flex items-center space-x-2">
+                      <RadioGroupItem value={option} id={`${field.id}-${option}`} />
+                      <Label htmlFor={`${field.id}-${option}`} className="cursor-pointer">
+                        {option}
+                      </Label>
+                    </div>
+                  ))}
+                  {allowOtherOption && (
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value={CHOICE_OTHER_SENTINEL} id={`${field.id}-${CHOICE_OTHER_SENTINEL}`} />
+                      <Label htmlFor={`${field.id}-${CHOICE_OTHER_SENTINEL}`} className="cursor-pointer">
+                        {otherOptionLabel}
+                      </Label>
+                    </div>
+                  )}
+                </RadioGroup>
+                {allowOtherOption && choiceState.otherSelected && (
+                  <div className="relative">
+                    <Input
+                      value={choiceState.otherText}
+                      maxLength={CHOICE_OTHER_MAX_CHARS}
+                      placeholder={t("propert.otherValuePlaceholder")}
+                      disabled={isFieldDisabled}
+                      onChange={(event) => {
+                        updateAnswer(field.id, {
+                          selected: "",
+                          otherSelected: true,
+                          otherText: event.target.value.slice(0, CHOICE_OTHER_MAX_CHARS),
+                        });
+                      }}
+                      onBlur={() => markTouched(field.id)}
+                      className="pr-20"
+                    />
+                    <LengthIndicator
+                      len={choiceState.otherText.length}
+                      limit={CHOICE_OTHER_MAX_CHARS}
+                      isError={fieldErrors.length > 0}
+                      isComplete={choiceState.otherText.length === CHOICE_OTHER_MAX_CHARS}
+                    />
+                  </div>
+                )}
               </div>
-            ))}
-          </RadioGroup>
+            );
+          })()
         )}
 
         {field.widgetType === "checkbox" && (
           <div className="space-y-2">
-            {options?.map((option) => {
-              const currentValues = (answers[field.id] as string[]) || [];
-              const isChecked = currentValues.includes(option);
+            {(() => {
+              const choiceState = getChoiceMultiState(answers[field.id]);
+              const currentValues = choiceState.selected;
+              const persistChoiceState = (nextSelected: string[]) => {
+                if (choiceState.otherSelected || choiceState.otherText.trim().length > 0) {
+                  updateAnswer(field.id, {
+                    selected: nextSelected,
+                    otherSelected: choiceState.otherSelected,
+                    otherText: choiceState.otherText.slice(0, CHOICE_OTHER_MAX_CHARS),
+                  });
+                  return;
+                }
+                updateAnswer(field.id, nextSelected);
+              };
+
               return (
-                <div key={option} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`${field.id}-${option}`}
-                    checked={isChecked}
-                    disabled={isFieldDisabled}
-                    simplifiedAnimation
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        updateAnswer(field.id, [...currentValues, option]);
-                      } else {
-                        updateAnswer(field.id, currentValues.filter((v) => v !== option));
-                      }
-                      markTouched(field.id);
-                    }}
-                  />
-                  <Label htmlFor={`${field.id}-${option}`} className="cursor-pointer">
-                    {option}
-                  </Label>
-                </div>
+                <>
+                  {options?.map((option) => {
+                    const isChecked = currentValues.includes(option);
+                    return (
+                      <div key={option} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`${field.id}-${option}`}
+                          checked={isChecked}
+                          disabled={isFieldDisabled}
+                          simplifiedAnimation
+                          onCheckedChange={(checked) => {
+                            const isNowChecked = checked === true;
+                            const nextSelected = isNowChecked
+                              ? [...currentValues, option]
+                              : currentValues.filter((item) => item !== option);
+                            persistChoiceState(nextSelected);
+                            markTouched(field.id);
+                          }}
+                        />
+                        <Label htmlFor={`${field.id}-${option}`} className="cursor-pointer">
+                          {option}
+                        </Label>
+                      </div>
+                    );
+                  })}
+
+                  {allowOtherOption && (
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`${field.id}-${CHOICE_OTHER_SENTINEL}`}
+                          checked={choiceState.otherSelected}
+                          disabled={isFieldDisabled}
+                          simplifiedAnimation
+                          onCheckedChange={(checked) => {
+                            const isNowChecked = checked === true;
+                            if (!isNowChecked) {
+                              updateAnswer(field.id, currentValues);
+                            } else {
+                              updateAnswer(field.id, {
+                                selected: currentValues,
+                                otherSelected: true,
+                                otherText: choiceState.otherText.slice(0, CHOICE_OTHER_MAX_CHARS),
+                              });
+                            }
+                            markTouched(field.id);
+                          }}
+                        />
+                        <Label htmlFor={`${field.id}-${CHOICE_OTHER_SENTINEL}`} className="cursor-pointer">
+                          {otherOptionLabel}
+                        </Label>
+                      </div>
+                      {choiceState.otherSelected && (
+                        <div className="relative">
+                          <Input
+                            value={choiceState.otherText}
+                            maxLength={CHOICE_OTHER_MAX_CHARS}
+                            placeholder={t("propert.otherValuePlaceholder")}
+                            disabled={isFieldDisabled}
+                            onChange={(event) => {
+                              updateAnswer(field.id, {
+                                selected: currentValues,
+                                otherSelected: true,
+                                otherText: event.target.value.slice(0, CHOICE_OTHER_MAX_CHARS),
+                              });
+                            }}
+                            onBlur={() => markTouched(field.id)}
+                            className="pr-20"
+                          />
+                          <LengthIndicator
+                            len={choiceState.otherText.length}
+                            limit={CHOICE_OTHER_MAX_CHARS}
+                            isError={fieldErrors.length > 0}
+                            isComplete={choiceState.otherText.length === CHOICE_OTHER_MAX_CHARS}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
               );
-            })}
+            })()}
           </div>
         )}
 
@@ -2030,7 +2258,7 @@ export function FormPreview({
         )}
 
         {field.widgetType === "rating" && (
-          <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center gap-2">
             {(() => {
               const maxR = Number(props.maxRating);
               const maxRating = Number.isFinite(maxR) ? Math.min(10, Math.max(1, maxR)) : 10;
@@ -2038,6 +2266,7 @@ export function FormPreview({
                 { length: Math.max(0, maxRating) },
                 (_, i) => i + 1
               );
+              const selectedValue = Number(answers[field.id] ?? 0);
               return values.map((value) => (
                 <button
                   type="button"
@@ -2047,16 +2276,15 @@ export function FormPreview({
                     updateAnswer(field.id, value);
                     markTouched(field.id);
                   }}
-                  className="p-1 hover:scale-110 transition-transform disabled:cursor-not-allowed"
+                  aria-pressed={selectedValue === value}
+                  className={cn(
+                    "h-9 min-w-9 px-2 rounded-md border text-sm font-medium transition-colors disabled:cursor-not-allowed",
+                    selectedValue === value
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-input bg-background hover:bg-muted"
+                  )}
                 >
-                  <Star
-                    className={cn(
-                      "h-6 w-6 transition-colors",
-                      (answers[field.id] as number) >= value
-                        ? "fill-yellow-400 text-yellow-400"
-                        : "text-gray-300"
-                    )}
-                  />
+                  {value}
                 </button>
               ));
             })()}
