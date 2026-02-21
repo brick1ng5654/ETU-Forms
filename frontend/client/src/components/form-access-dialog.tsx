@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import type { Locale } from "date-fns";
+import { ru } from "date-fns/locale";
 import { useTranslation } from "react-i18next";
-import { Copy, Link as LinkIcon, Trash2, UserPlus } from "lucide-react";
+import { CalendarDays, Check, Copy, Link as LinkIcon, Trash2, UserPlus } from "lucide-react";
 
 import type { FormSchema } from "@/form/types";
 import {
@@ -17,10 +19,13 @@ import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 type RoleFilter = "all" | FormAccessRole;
 
@@ -39,6 +44,44 @@ const toIsoEndOfDay = (value: string) => {
   return parsed.toISOString();
 };
 
+const toIsoStartOfDay = (value: string) => {
+  if (!value) return null;
+  const parsed = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toISOString();
+};
+
+const isValidEmail = (value: string) => /.+@.+\..+/.test(value);
+
+const isValidDateString = (value: string) => {
+  if (value.length !== 10) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return false;
+  if (month < 1 || month > 12) return false;
+  const parsed = new Date(year, month - 1, day);
+  return parsed.getFullYear() === year && parsed.getMonth() === month - 1 && parsed.getDate() === day;
+};
+
+const parseDateFromString = (value: string) => {
+  if (!isValidDateString(value)) return undefined;
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
+};
+
+const formatDateForInput = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const dateInputFromIso = (value: string | null | undefined) => {
+  if (!value) return "";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return formatDateForInput(parsed);
+};
+
 const toAbsoluteUrl = (value: string | null | undefined) => {
   if (!value) return "";
   if (/^https?:\/\//i.test(value)) return value;
@@ -46,10 +89,10 @@ const toAbsoluteUrl = (value: string | null | undefined) => {
   return `${window.location.origin}${value.startsWith("/") ? value : `/${value}`}`;
 };
 
-const formatDateTime = (value: string | null | undefined, locale: string) => {
-  if (!value) return "N/A";
+const formatDateTime = (value: string | null | undefined, locale: string, fallback: string) => {
+  if (!value) return fallback;
   const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "N/A";
+  if (Number.isNaN(parsed.getTime())) return fallback;
   return new Intl.DateTimeFormat(locale.startsWith("ru") ? "ru-RU" : "en-US", {
     dateStyle: "medium",
     timeStyle: "short",
@@ -75,17 +118,113 @@ const roleLabelKey = (role: FormAccessRole) => {
   return "access.roleParticipant";
 };
 
+type DateFieldProps = {
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+  locale?: Locale;
+  className?: string;
+};
+
+function ExpiryDateField({ value, onChange, disabled, locale, className }: DateFieldProps) {
+  const [month, setMonth] = useState<Date>(() => parseDateFromString(value) ?? new Date());
+
+  useEffect(() => {
+    const parsed = parseDateFromString(value);
+    if (parsed) setMonth(parsed);
+  }, [value]);
+
+  return (
+    <div className={cn("relative", className)}>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="absolute left-1 top-1/2 h-8 w-8 -translate-y-1/2"
+            disabled={disabled}
+          >
+            <CalendarDays className="h-4 w-4 text-muted-foreground" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar
+            mode="single"
+            selected={parseDateFromString(value)}
+            month={month}
+            onMonthChange={setMonth}
+            locale={locale}
+            onSelect={(date) => {
+              if (!date) {
+                onChange("");
+                return;
+              }
+              setMonth(date);
+              onChange(formatDateForInput(date));
+            }}
+          />
+        </PopoverContent>
+      </Popover>
+      <Input
+        type="date"
+        value={value}
+        disabled={disabled}
+        className="pl-10"
+        onChange={(event) => {
+          const next = event.target.value;
+          if (next === "") {
+            onChange("");
+            return;
+          }
+          if (!isValidDateString(next)) return;
+          onChange(next);
+        }}
+      />
+    </div>
+  );
+}
+
+function HintIcon({ text }: { text: string }) {
+  return (
+    <Tooltip delayDuration={0}>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          aria-label={text}
+          className="h-5 w-5 rounded-full border border-muted-foreground/40 text-muted-foreground text-[11px] leading-none flex items-center justify-center hover:bg-muted"
+        >
+          ?
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="right" className="max-w-sm text-xs leading-relaxed">
+        {text}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdated }: Props) {
   const { t, i18n } = useTranslation();
   const [entries, setEntries] = useState<FormAccessEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<FormAccessRole>("participant");
-  const [expiresOn, setExpiresOn] = useState("");
-  const [requireAccept, setRequireAccept] = useState(true);
+  const [emailRole, setEmailRole] = useState<FormAccessRole>("participant");
+  const [emailStartsOn, setEmailStartsOn] = useState("");
+  const [emailExpiresOn, setEmailExpiresOn] = useState("");
+  const [emailNoExpiry, setEmailNoExpiry] = useState(true);
+  const [linkRole, setLinkRole] = useState<FormAccessRole>("participant");
+  const [linkStartsOn, setLinkStartsOn] = useState("");
+  const [linkExpiresOn, setLinkExpiresOn] = useState("");
+  const [linkNoExpiry, setLinkNoExpiry] = useState(true);
+  const [linkUnlimitedAccepts, setLinkUnlimitedAccepts] = useState(true);
+  const [linkMaxAccepts, setLinkMaxAccepts] = useState("");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
-  const [generatedLink, setGeneratedLink] = useState<string | null>(null);
+  const [entryStartDrafts, setEntryStartDrafts] = useState<Record<number, string>>({});
+  const [entryDateDrafts, setEntryDateDrafts] = useState<Record<number, string>>({});
+  const [entryRoleDrafts, setEntryRoleDrafts] = useState<Record<number, FormAccessRole>>({});
+  const calendarLocale = i18n.language.startsWith("ru") ? ru : undefined;
 
   const currentFormId = form?.id ?? null;
 
@@ -108,14 +247,29 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
 
   useEffect(() => {
     if (!open || !currentFormId || !canManage) return;
-    setGeneratedLink(null);
+    setEntryStartDrafts({});
+    setEntryDateDrafts({});
+    setEntryRoleDrafts({});
     void refreshEntries();
   }, [open, currentFormId, canManage]);
 
   const filteredEntries = useMemo(() => {
-    if (roleFilter === "all") return entries;
-    return entries.filter((entry) => entry.role === roleFilter);
+    const withoutUniversalLinks = entries.filter(
+      (entry) => !(entry.entryType === "invite" && !entry.userEmail)
+    );
+    if (roleFilter === "all") return withoutUniversalLinks;
+    return withoutUniversalLinks.filter((entry) => entry.role === roleFilter);
   }, [entries, roleFilter]);
+
+  const activeUniversalLinks = useMemo(() => {
+    return entries.filter(
+      (entry) =>
+        entry.entryType === "invite" &&
+        !entry.userEmail &&
+        entry.status === "pending" &&
+        Boolean(entry.inviteUrl)
+    );
+  }, [entries]);
 
   const copyText = async (text: string) => {
     try {
@@ -130,28 +284,63 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
     }
   };
 
+  const normalizeErrorMessage = (raw: string | undefined) => {
+    const text = (raw ?? "").toLowerCase();
+    if (text.includes("email") && (text.includes("valid") || text.includes("value_error"))) {
+      return t("access.invalidEmail");
+    }
+    if (text.includes("user not found")) {
+      return t("access.userNotFoundForAutoGrant");
+    }
+    return raw ?? t("access.saveFailed");
+  };
+
+  const hasInvalidRange = (start: string, end: string, noEnd: boolean) => {
+    if (!start || noEnd || !end) return false;
+    const startValue = new Date(`${start}T00:00:00`).getTime();
+    const endValue = new Date(`${end}T23:59:59`).getTime();
+    if (Number.isNaN(startValue) || Number.isNaN(endValue)) return false;
+    return startValue > endValue;
+  };
+
   const handleInviteByEmail = async () => {
     if (!currentFormId || !canManage) return;
     const emailValue = email.trim().toLowerCase();
     if (!emailValue) return;
+    if (!isValidEmail(emailValue)) {
+      toast({
+        title: t("actions.error"),
+        description: t("access.invalidEmail"),
+        variant: "destructive",
+      });
+      return;
+    }
+    if (hasInvalidRange(emailStartsOn, emailExpiresOn, emailNoExpiry)) {
+      toast({
+        title: t("actions.error"),
+        description: t("access.invalidDateRange"),
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsSubmitting(true);
     try {
-      const created = await inviteFormAccessByEmail(currentFormId, {
+      await inviteFormAccessByEmail(currentFormId, {
         email: emailValue,
-        role,
-        expires_at: toIsoEndOfDay(expiresOn),
-        require_accept: requireAccept,
+        role: emailRole,
+        starts_at: toIsoStartOfDay(emailStartsOn),
+        expires_at: emailNoExpiry ? null : toIsoEndOfDay(emailExpiresOn),
+        require_accept: false,
       });
       setEmail("");
-      setGeneratedLink(toAbsoluteUrl(created.inviteUrl));
       await refreshEntries();
       onUpdated?.();
       toast({ title: t("access.saved") });
     } catch (error: any) {
       toast({
         title: t("actions.error"),
-        description: error?.message ?? t("access.saveFailed"),
+        description: normalizeErrorMessage(error?.message),
         variant: "destructive",
       });
     } finally {
@@ -161,13 +350,33 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
 
   const handleCreateLink = async () => {
     if (!currentFormId || !canManage) return;
+    if (hasInvalidRange(linkStartsOn, linkExpiresOn, linkNoExpiry)) {
+      toast({
+        title: t("actions.error"),
+        description: t("access.invalidDateRange"),
+        variant: "destructive",
+      });
+      return;
+    }
+    const parsedMaxAccepts = Number.parseInt(linkMaxAccepts, 10);
+    if (!linkUnlimitedAccepts && (!Number.isInteger(parsedMaxAccepts) || parsedMaxAccepts < 1)) {
+      toast({
+        title: t("actions.error"),
+        description: t("access.invalidAcceptLimit"),
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const created = await createFormAccessLink(currentFormId, {
-        role,
-        expires_at: toIsoEndOfDay(expiresOn),
+      await createFormAccessLink(currentFormId, {
+        role: linkRole,
+        starts_at: toIsoStartOfDay(linkStartsOn),
+        expires_at: linkNoExpiry ? null : toIsoEndOfDay(linkExpiresOn),
+        max_accepts: linkUnlimitedAccepts ? null : parsedMaxAccepts,
       });
-      setGeneratedLink(toAbsoluteUrl(created.inviteUrl));
+      if (!linkUnlimitedAccepts) setLinkMaxAccepts("");
       await refreshEntries();
       onUpdated?.();
       toast({ title: t("access.linkGenerated") });
@@ -204,15 +413,65 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
     }
   };
 
-  const handleRoleChange = async (entry: FormAccessEntry, nextRole: FormAccessRole) => {
+  const handleEntryRoleChange = (entry: FormAccessEntry, nextRole: FormAccessRole) => {
+    if (entry.entryType !== "access" || entry.accessId == null) return;
+    setEntryRoleDrafts((prev) => ({ ...prev, [entry.accessId as number]: nextRole }));
+  };
+
+  const handleEntryDateChange = (entry: FormAccessEntry, value: string) => {
+    if (entry.entryType !== "access" || entry.accessId == null) return;
+    setEntryDateDrafts((prev) => ({ ...prev, [entry.accessId as number]: value }));
+  };
+
+  const handleEntryStartChange = (entry: FormAccessEntry, value: string) => {
+    if (entry.entryType !== "access" || entry.accessId == null) return;
+    setEntryStartDrafts((prev) => ({ ...prev, [entry.accessId as number]: value }));
+  };
+
+  const handleSaveEntry = async (entry: FormAccessEntry) => {
     if (!currentFormId || !canManage || entry.entryType !== "access" || entry.accessId == null) return;
+    const currentRole = entry.role;
+    const draftRole = entryRoleDrafts[entry.accessId] ?? currentRole;
+    const currentStart = dateInputFromIso(entry.startsAt);
+    const draftStart = entryStartDrafts[entry.accessId] ?? currentStart;
+    const currentDate = dateInputFromIso(entry.expiresAt);
+    const draftDate = entryDateDrafts[entry.accessId] ?? currentDate;
+    if (hasInvalidRange(draftStart, draftDate, draftDate === "")) {
+      toast({
+        title: t("actions.error"),
+        description: t("access.invalidDateRange"),
+        variant: "destructive",
+      });
+      return;
+    }
+    const roleChanged = draftRole !== currentRole;
+    const startChanged = draftStart !== currentStart;
+    const dateChanged = draftDate !== currentDate;
+    if (!roleChanged && !startChanged && !dateChanged) return;
+
     setIsSubmitting(true);
     try {
       await updateFormAccessUser(currentFormId, entry.accessId, {
-        role: nextRole,
-        expires_at: entry.expiresAt,
+        role: draftRole,
+        starts_at: toIsoStartOfDay(draftStart),
+        expires_at: toIsoEndOfDay(draftDate),
       });
       await refreshEntries();
+      setEntryStartDrafts((prev) => {
+        const next = { ...prev };
+        delete next[entry.accessId as number];
+        return next;
+      });
+      setEntryDateDrafts((prev) => {
+        const next = { ...prev };
+        delete next[entry.accessId as number];
+        return next;
+      });
+      setEntryRoleDrafts((prev) => {
+        const next = { ...prev };
+        delete next[entry.accessId as number];
+        return next;
+      });
       onUpdated?.();
     } catch (error: any) {
       toast({
@@ -227,7 +486,7 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{t("access.title")}</DialogTitle>
           <DialogDescription>
@@ -241,76 +500,231 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
           <div className="text-sm text-muted-foreground">{t("access.noManagePermission")}</div>
         ) : (
           <div className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-[1fr_160px_170px]">
-              <Input
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    if (!isSubmitting) {
-                      void handleInviteByEmail();
-                    }
-                  }
-                }}
-                placeholder={t("access.emailPlaceholder")}
-                type="email"
-                autoComplete="off"
-                disabled={isSubmitting}
-              />
-              <Select value={role} onValueChange={(next) => setRole(next as FormAccessRole)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="participant">{t("access.roleParticipant")}</SelectItem>
-                  <SelectItem value="editor">{t("access.roleEditor")}</SelectItem>
-                </SelectContent>
-              </Select>
-              <Input
-                type="date"
-                value={expiresOn}
-                onChange={(event) => setExpiresOn(event.target.value)}
-                disabled={isSubmitting}
-              />
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              <label className="inline-flex items-center gap-2 text-sm">
-                <Switch checked={requireAccept} onCheckedChange={setRequireAccept} />
-                <span>{t("access.requireAccept")}</span>
-              </label>
+            <div className="space-y-3 rounded-md border border-border p-3">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <span>{t("access.inviteByEmail")}</span>
+                <HintIcon text={t("access.emailInviteGrantHint")} />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">{t("auth.email")}</label>
+                  <Input
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        if (!isSubmitting) {
+                          void handleInviteByEmail();
+                        }
+                      }
+                    }}
+                    placeholder={t("access.emailPlaceholder")}
+                    type="email"
+                    autoComplete="off"
+                    disabled={isSubmitting}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">{t("access.role")}</label>
+                  <Select value={emailRole} onValueChange={(next) => setEmailRole(next as FormAccessRole)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="participant">{t("access.roleParticipant")}</SelectItem>
+                      <SelectItem value="editor">{t("access.roleEditor")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-[1fr_auto_1fr]">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">{t("access.startDateLabel")}</label>
+                  <ExpiryDateField
+                    value={emailStartsOn}
+                    onChange={setEmailStartsOn}
+                    disabled={isSubmitting}
+                    locale={calendarLocale}
+                  />
+                </div>
+                <label className="inline-flex items-end gap-2 pb-2 text-xs text-muted-foreground">
+                  <Checkbox
+                    simplifiedAnimation
+                    checked={emailNoExpiry}
+                    onCheckedChange={(checked) => {
+                      const next = Boolean(checked);
+                      setEmailNoExpiry(next);
+                      if (next) setEmailExpiresOn("");
+                    }}
+                    disabled={isSubmitting}
+                  />
+                  <span>{t("access.permanentAccess")}</span>
+                </label>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">{t("access.expireDateLabel")}</label>
+                  <ExpiryDateField
+                    value={emailExpiresOn}
+                    onChange={(value) => {
+                      setEmailExpiresOn(value);
+                      if (value) setEmailNoExpiry(false);
+                    }}
+                    disabled={isSubmitting || emailNoExpiry}
+                    locale={calendarLocale}
+                  />
+                </div>
+              </div>
               <Button
                 variant="outline"
                 onClick={() => void handleInviteByEmail()}
                 disabled={isSubmitting || !email.trim()}
-                className="gap-2"
+                className="w-full gap-2"
               >
                 <UserPlus className="h-4 w-4" />
                 {t("access.inviteByEmail")}
               </Button>
+            </div>
+
+            <div className="space-y-3 rounded-md border border-border p-3">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <span>{t("access.generateLink")}</span>
+                <HintIcon text={t("access.linkUniversalHint")} />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">{t("access.role")}</label>
+                  <Select value={linkRole} onValueChange={(next) => setLinkRole(next as FormAccessRole)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="participant">{t("access.roleParticipant")}</SelectItem>
+                      <SelectItem value="editor">{t("access.roleEditor")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">{t("access.acceptLimitLabel")}</label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={1}
+                      value={linkMaxAccepts}
+                      onChange={(event) => setLinkMaxAccepts(event.target.value)}
+                      disabled={isSubmitting || linkUnlimitedAccepts}
+                      placeholder="10"
+                      className="w-full"
+                    />
+                    <label className="inline-flex min-w-fit items-center gap-2 text-xs text-muted-foreground">
+                      <Checkbox
+                        simplifiedAnimation
+                        checked={linkUnlimitedAccepts}
+                        onCheckedChange={(checked) => {
+                          const next = Boolean(checked);
+                          setLinkUnlimitedAccepts(next);
+                          if (next) setLinkMaxAccepts("");
+                        }}
+                        disabled={isSubmitting}
+                      />
+                      <span>{t("access.unlimited")}</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-[1fr_auto_1fr]">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">{t("access.startDateLabel")}</label>
+                  <ExpiryDateField
+                    value={linkStartsOn}
+                    onChange={setLinkStartsOn}
+                    disabled={isSubmitting}
+                    locale={calendarLocale}
+                  />
+                </div>
+                <label className="inline-flex items-end gap-2 pb-2 text-xs text-muted-foreground">
+                  <Checkbox
+                    simplifiedAnimation
+                    checked={linkNoExpiry}
+                    onCheckedChange={(checked) => {
+                      const next = Boolean(checked);
+                      setLinkNoExpiry(next);
+                      if (next) setLinkExpiresOn("");
+                    }}
+                    disabled={isSubmitting}
+                  />
+                  <span>{t("access.permanentAccess")}</span>
+                </label>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground">{t("access.linkExpireDateLabel")}</label>
+                  <ExpiryDateField
+                    value={linkExpiresOn}
+                    onChange={(value) => {
+                      setLinkExpiresOn(value);
+                      if (value) setLinkNoExpiry(false);
+                    }}
+                    disabled={isSubmitting || linkNoExpiry}
+                    locale={calendarLocale}
+                  />
+                </div>
+              </div>
               <Button
                 variant="outline"
                 onClick={() => void handleCreateLink()}
                 disabled={isSubmitting}
-                className="gap-2"
+                className="w-full gap-2"
               >
                 <LinkIcon className="h-4 w-4" />
                 {t("access.generateLink")}
               </Button>
-            </div>
-
-            {generatedLink ? (
-              <div className="space-y-2 rounded-md border border-border p-3">
-                <div className="text-sm font-medium">{t("access.generatedLink")}</div>
-                <div className="flex gap-2">
-                  <Input value={generatedLink} readOnly />
-                  <Button variant="outline" size="icon" onClick={() => void copyText(generatedLink)}>
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
+              <div className="space-y-2">
+                <div className="text-xs font-medium text-muted-foreground">{t("access.activeLinks")}</div>
+                {activeUniversalLinks.length === 0 ? (
+                  <div className="text-xs text-muted-foreground">{t("access.emptyLinks")}</div>
+                ) : (
+                  <div className="max-h-52 space-y-2 overflow-y-auto pr-1">
+                    {activeUniversalLinks.map((entry) => {
+                      const link = toAbsoluteUrl(entry.inviteUrl);
+                      const startsLabel = formatDateTime(entry.startsAt, i18n.language, t("access.noStartLimit"));
+                      const expiresLabel = formatDateTime(entry.expiresAt, i18n.language, t("access.noExpiry"));
+                      return (
+                        <div key={`active-link-${entry.inviteId ?? link}`} className="space-y-2 rounded-md border border-border p-2">
+                          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                            <span>{t(roleLabelKey(entry.role))}</span>
+                            <span>{t("access.acceptedUsage")}: {entry.acceptedCount} / {entry.maxAccepts ?? t("access.unlimited")}</span>
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {t("access.startsAt")}: {startsLabel}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {t("access.expiresAt")}: {expiresLabel}
+                          </div>
+                          <div className="flex gap-2">
+                            <Input value={link} readOnly className="h-8 text-xs" />
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => void copyText(link)}
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              onClick={() => void handleDeleteEntry(entry)}
+                              disabled={isSubmitting}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            ) : null}
+            </div>
 
             <div className="flex items-center justify-between gap-3">
               <div className="text-sm font-medium">{t("access.listTitle")}</div>
@@ -333,8 +747,35 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
                 <div className="text-sm text-muted-foreground">{t("access.emptyList")}</div>
               ) : (
                 filteredEntries.map((entry) => {
-                  const label = entry.userName || entry.userEmail || t("access.unknownUser");
-                  const expiresLabel = formatDateTime(entry.expiresAt, i18n.language);
+                  const isUniversalInvite = entry.entryType === "invite" && !entry.userEmail;
+                  const label = isUniversalInvite
+                    ? t("access.universalInvite")
+                    : (entry.userName || entry.userEmail || t("access.unknownUser"));
+                  const subtitle = isUniversalInvite
+                    ? t("access.anyAuthorizedUser")
+                    : (entry.userEmail ?? "-");
+                  const startsLabel = formatDateTime(entry.startsAt, i18n.language, t("access.noStartLimit"));
+                  const expiresLabel = formatDateTime(entry.expiresAt, i18n.language, t("access.noExpiry"));
+                  const currentRoleValue = entry.role;
+                  const draftRoleValue =
+                    entry.entryType === "access" && entry.accessId != null && entryRoleDrafts[entry.accessId] !== undefined
+                      ? entryRoleDrafts[entry.accessId]
+                      : currentRoleValue;
+                  const currentStartValue = dateInputFromIso(entry.startsAt);
+                  const draftStartValue =
+                    entry.entryType === "access" && entry.accessId != null && entryStartDrafts[entry.accessId] !== undefined
+                      ? entryStartDrafts[entry.accessId]
+                      : currentStartValue;
+                  const currentDateValue = dateInputFromIso(entry.expiresAt);
+                  const draftDateValue =
+                    entry.entryType === "access" && entry.accessId != null && entryDateDrafts[entry.accessId] !== undefined
+                      ? entryDateDrafts[entry.accessId]
+                      : currentDateValue;
+                  const isRoleChanged = draftRoleValue !== currentRoleValue;
+                  const isStartChanged = draftStartValue !== currentStartValue;
+                  const isDateChanged = draftDateValue !== currentDateValue;
+                  const hasPendingChanges = isRoleChanged || isStartChanged || isDateChanged;
+                  const isDraftNoExpiry = draftDateValue === "";
                   return (
                     <div
                       key={`${entry.entryType}-${entry.accessId ?? entry.inviteId ?? label}`}
@@ -343,7 +784,7 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="min-w-0">
                           <div className="truncate text-sm font-medium">{label}</div>
-                          <div className="truncate text-xs text-muted-foreground">{entry.userEmail ?? "-"}</div>
+                          <div className="truncate text-xs text-muted-foreground">{subtitle}</div>
                         </div>
                         <div className="flex items-center gap-2">
                           <Badge variant={statusVariant(entry.status)}>
@@ -353,46 +794,107 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
                         </div>
                       </div>
 
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <span className="text-xs text-muted-foreground">
-                          {t("access.expiresAt")}: {expiresLabel}
-                        </span>
-                        {entry.inviteUrl ? (
+                      <div className="mt-2 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+                        <span>{t("access.startsAt")}: {startsLabel}</span>
+                        <span>{t("access.expiresAt")}: {expiresLabel}</span>
+                      </div>
+
+                      {entry.entryType === "access" && entry.accessId != null ? (
+                        <>
+                          <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_auto_1fr]">
+                            <ExpiryDateField
+                              value={draftStartValue}
+                              onChange={(value) => handleEntryStartChange(entry, value)}
+                              disabled={isSubmitting}
+                              locale={calendarLocale}
+                            />
+                            <label className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+                              <Checkbox
+                                simplifiedAnimation
+                                checked={isDraftNoExpiry}
+                                onCheckedChange={(checked) => {
+                                  const next = Boolean(checked);
+                                  handleEntryDateChange(
+                                    entry,
+                                    next ? "" : (draftDateValue || formatDateForInput(new Date()))
+                                  );
+                                }}
+                                disabled={isSubmitting}
+                              />
+                              <span>{t("access.permanentAccess")}</span>
+                            </label>
+                            <ExpiryDateField
+                              value={draftDateValue}
+                              onChange={(value) => handleEntryDateChange(entry, value)}
+                              disabled={isSubmitting || isDraftNoExpiry}
+                              locale={calendarLocale}
+                            />
+                          </div>
+
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <Select
+                              value={draftRoleValue}
+                              onValueChange={(next) => handleEntryRoleChange(entry, next as FormAccessRole)}
+                            >
+                              <SelectTrigger className={cn("h-8 w-44", isSubmitting && "pointer-events-none opacity-60")}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="participant">{t("access.roleParticipant")}</SelectItem>
+                                <SelectItem value="editor">{t("access.roleEditor")}</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 px-2"
+                              disabled={isSubmitting || !hasPendingChanges}
+                              onClick={() => void handleSaveEntry(entry)}
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 px-2 text-destructive hover:text-destructive"
+                              onClick={() => void handleDeleteEntry(entry)}
+                              disabled={isSubmitting}
+                            >
+                              <Trash2 className="mr-1 h-3.5 w-3.5" />
+                              {t("actions.delete")}
+                            </Button>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          {entry.entryType === "invite" ? (
+                            <span className="text-xs text-muted-foreground">
+                              {t("access.acceptedUsage")}: {entry.acceptedCount} / {entry.maxAccepts ?? t("access.unlimited")}
+                            </span>
+                          ) : null}
+                          {entry.inviteUrl ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 px-2"
+                              onClick={() => void copyText(toAbsoluteUrl(entry.inviteUrl))}
+                            >
+                              <Copy className="mr-1 h-3.5 w-3.5" />
+                              {t("results.copyLink")}
+                            </Button>
+                          ) : null}
                           <Button
                             size="sm"
-                            variant="outline"
-                            className="h-8 px-2"
-                            onClick={() => void copyText(toAbsoluteUrl(entry.inviteUrl))}
+                            variant="ghost"
+                            className="h-8 px-2 text-destructive hover:text-destructive"
+                            onClick={() => void handleDeleteEntry(entry)}
+                            disabled={isSubmitting}
                           >
-                            <Copy className="mr-1 h-3.5 w-3.5" />
-                            {t("results.copyLink")}
+                            <Trash2 className="mr-1 h-3.5 w-3.5" />
+                            {t("actions.delete")}
                           </Button>
-                        ) : null}
-                        {entry.entryType === "access" && entry.accessId != null ? (
-                          <Select
-                            value={entry.role}
-                            onValueChange={(next) => void handleRoleChange(entry, next as FormAccessRole)}
-                          >
-                            <SelectTrigger className={cn("h-8 w-40", isSubmitting && "pointer-events-none opacity-60")}>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="participant">{t("access.roleParticipant")}</SelectItem>
-                              <SelectItem value="editor">{t("access.roleEditor")}</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        ) : null}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 px-2 text-destructive hover:text-destructive"
-                          onClick={() => void handleDeleteEntry(entry)}
-                          disabled={isSubmitting}
-                        >
-                          <Trash2 className="mr-1 h-3.5 w-3.5" />
-                          {t("actions.delete")}
-                        </Button>
-                      </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })

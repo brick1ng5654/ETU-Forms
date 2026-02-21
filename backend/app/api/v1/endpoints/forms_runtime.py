@@ -5,7 +5,7 @@ import re
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import or_, select, update
+from sqlalchemy import and_, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -48,7 +48,10 @@ def _enum_value(x: Any) -> Any:
 
 def _access_not_expired():
     now = datetime.utcnow()
-    return or_(AccessControl.expires_at.is_(None), AccessControl.expires_at > now)
+    return and_(
+        or_(AccessControl.starts_at.is_(None), AccessControl.starts_at <= now),
+        or_(AccessControl.expires_at.is_(None), AccessControl.expires_at > now),
+    )
 
 
 def _protected_link_key(form: Form) -> str | None:

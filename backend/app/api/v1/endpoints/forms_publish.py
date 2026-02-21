@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_
+from sqlalchemy import and_, select, or_
 
 from app.database import get_db
 from app.schemas import FormBuilderPayload, FormDetailResponse
@@ -14,7 +14,10 @@ router = APIRouter()
 
 def _access_not_expired():
     now = datetime.utcnow()
-    return or_(AccessControl.expires_at.is_(None), AccessControl.expires_at > now)
+    return and_(
+        or_(AccessControl.starts_at.is_(None), AccessControl.starts_at <= now),
+        or_(AccessControl.expires_at.is_(None), AccessControl.expires_at > now),
+    )
 
 async def _ensure_editor_or_owner(
     db: AsyncSession, form_id: int, current_user: AppUser

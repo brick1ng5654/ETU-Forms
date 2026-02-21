@@ -38,9 +38,18 @@ def _to_utc_naive(value: datetime | None) -> datetime | None:
     return value.astimezone(timezone.utc).replace(tzinfo=None)
 
 
+def _utc_now_naive() -> datetime:
+    return datetime.utcnow()
+
+
 def _is_not_expired(column):
-    now = datetime.utcnow()
+    now = _utc_now_naive()
     return or_(column.is_(None), column > now)
+
+
+def _is_started(column):
+    now = _utc_now_naive()
+    return or_(column.is_(None), column <= now)
 
 
 def _token() -> str:
@@ -51,10 +60,29 @@ def _invite_url(token: str) -> str:
     return f"/forms/access-invite/{token}"
 
 
-def _access_status(expires_at: datetime | None) -> str:
-    if expires_at is not None and expires_at <= datetime.utcnow():
+def _access_status(starts_at: datetime | None, expires_at: datetime | None) -> str:
+    now = _utc_now_naive()
+    starts_at_normalized = _to_utc_naive(starts_at)
+    expires_at_normalized = _to_utc_naive(expires_at)
+    if starts_at_normalized is not None and starts_at_normalized > now:
+        return "pending"
+    if expires_at_normalized is not None and expires_at_normalized <= now:
         return "expired"
     return "active"
+
+
+def _invite_status(invite: AccessInvite, now: datetime) -> str:
+    status_value = _enum_value(invite.status)
+    if status_value != "pending":
+        return status_value
+    expires_at_normalized = _to_utc_naive(invite.expires_at)
+    if expires_at_normalized is not None and expires_at_normalized <= now:
+        return "expired"
+    max_accepts = invite.max_accepts
+    accepted_count = int(invite.accepted_count or 0)
+    if max_accepts is not None and accepted_count >= max_accepts:
+        return "accepted"
+    return "pending"
 
 
 async def _ensure_manage_access(
@@ -79,6 +107,7 @@ async def _ensure_manage_access(
             .where(AccessControl.form_id == form_id)
             .where(AccessControl.user_id == current_user.user_id)
             .where(AccessControl.role == "editor")
+            .where(_is_started(AccessControl.starts_at))
             .where(_is_not_expired(AccessControl.expires_at))
         )
     ).scalar_one_or_none()
@@ -94,6 +123,7 @@ async def _upsert_access(
     form_id: int,
     user_id: int,
     role: str,
+    starts_at: datetime | None,
     expires_at: datetime | None,
 ) -> AccessControl:
     existing = (
@@ -108,6 +138,7 @@ async def _upsert_access(
             form_id=form_id,
             user_id=user_id,
             role=role,
+            starts_at=starts_at,
             expires_at=expires_at,
         )
         db.add(row)
@@ -115,6 +146,7 @@ async def _upsert_access(
         return row
 
     existing.role = role
+    existing.starts_at = starts_at
     existing.expires_at = expires_at
     await db.flush()
     return existing
@@ -131,10 +163,30 @@ async def _access_entry_for_row(db: AsyncSession, row: AccessControl) -> AccessE
         user_name=user.name if user else None,
         user_email=user.email if user else None,
         role=_enum_value(row.role),
-        status=_access_status(row.expires_at),
+        status=_access_status(row.starts_at, row.expires_at),
+        starts_at=row.starts_at,
         expires_at=row.expires_at,
         requires_accept=False,
+        accepted_count=0,
         created_at=None,
+    )
+
+
+def _invite_entry_for_row(invite: AccessInvite, *, now: datetime) -> AccessEntryResponse:
+    status_value = _invite_status(invite, now)
+    return AccessEntryResponse(
+        entry_type="invite",
+        invite_id=invite.invite_id,
+        user_email=invite.invitee_email,
+        role=_enum_value(invite.role),
+        status=status_value,
+        starts_at=invite.starts_at,
+        expires_at=invite.expires_at,
+        requires_accept=bool(invite.requires_accept),
+        invite_url=_invite_url(invite.token) if status_value == "pending" else None,
+        max_accepts=invite.max_accepts,
+        accepted_count=int(invite.accepted_count or 0),
+        created_at=invite.created_at,
     )
 
 
@@ -146,7 +198,7 @@ async def list_form_access(
 ):
     await _ensure_manage_access(db, form_id, current_user)
 
-    now = datetime.utcnow()
+    now = _utc_now_naive()
 
     access_rows = (
         await db.execute(
@@ -164,27 +216,12 @@ async def list_form_access(
         await db.execute(
             select(AccessInvite)
             .where(AccessInvite.form_id == form_id)
-            .where(AccessInvite.status != "accepted")
+            .where(AccessInvite.status == "pending")
             .order_by(AccessInvite.created_at.desc(), AccessInvite.invite_id.desc())
         )
     ).scalars().all()
     for invite in invite_rows:
-        status_value = _enum_value(invite.status)
-        if status_value == "pending" and invite.expires_at is not None and invite.expires_at <= now:
-            status_value = "expired"
-        entries.append(
-            AccessEntryResponse(
-                entry_type="invite",
-                invite_id=invite.invite_id,
-                user_email=invite.invitee_email,
-                role=_enum_value(invite.role),
-                status=status_value,
-                expires_at=invite.expires_at,
-                requires_accept=bool(invite.requires_accept),
-                invite_url=_invite_url(invite.token) if status_value == "pending" else None,
-                created_at=invite.created_at,
-            )
-        )
+        entries.append(_invite_entry_for_row(invite, now=now))
 
     return AccessEntriesResponse(entries=entries)
 
@@ -203,8 +240,11 @@ async def grant_form_access_by_email(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You already have access")
 
     role = _enum_value(payload.role)
+    starts_at = _to_utc_naive(payload.starts_at)
     expires_at = _to_utc_naive(payload.expires_at)
     require_accept = bool(payload.require_accept)
+    if starts_at is not None and expires_at is not None and starts_at > expires_at:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Start date must be before end date")
 
     target_user = (
         await db.execute(select(AppUser).where(AppUser.email == email))
@@ -222,6 +262,7 @@ async def grant_form_access_by_email(
             form_id=form_id,
             user_id=target_user.user_id,
             role=role,
+            starts_at=starts_at,
             expires_at=expires_at,
         )
         await db.execute(
@@ -229,7 +270,7 @@ async def grant_form_access_by_email(
             .where(AccessInvite.form_id == form_id)
             .where(AccessInvite.invitee_email == email)
             .where(AccessInvite.status == "pending")
-            .values(status="revoked", revoked_at=datetime.utcnow())
+            .values(status="revoked", revoked_at=_utc_now_naive())
         )
         return await _access_entry_for_row(db, access_row)
 
@@ -241,22 +282,14 @@ async def grant_form_access_by_email(
         token=_token(),
         requires_accept=True,
         status="pending",
+        starts_at=starts_at,
         expires_at=expires_at,
+        max_accepts=1,
     )
     db.add(invite)
     await db.flush()
 
-    return AccessEntryResponse(
-        entry_type="invite",
-        invite_id=invite.invite_id,
-        user_email=invite.invitee_email,
-        role=role,
-        status="pending",
-        expires_at=invite.expires_at,
-        requires_accept=True,
-        invite_url=_invite_url(invite.token),
-        created_at=invite.created_at,
-    )
+    return _invite_entry_for_row(invite, now=_utc_now_naive())
 
 
 @router.post("/{form_id}/access/link", response_model=AccessEntryResponse, status_code=status.HTTP_201_CREATED)
@@ -268,6 +301,11 @@ async def create_form_access_link(
 ):
     await _ensure_manage_access(db, form_id, current_user)
 
+    starts_at = _to_utc_naive(payload.starts_at)
+    expires_at = _to_utc_naive(payload.expires_at)
+    if starts_at is not None and expires_at is not None and starts_at > expires_at:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Start date must be before end date")
+
     invite = AccessInvite(
         form_id=form_id,
         inviter_user_id=current_user.user_id,
@@ -276,21 +314,14 @@ async def create_form_access_link(
         token=_token(),
         requires_accept=True,
         status="pending",
-        expires_at=_to_utc_naive(payload.expires_at),
+        starts_at=starts_at,
+        expires_at=expires_at,
+        max_accepts=payload.max_accepts,
     )
     db.add(invite)
     await db.flush()
 
-    return AccessEntryResponse(
-        entry_type="invite",
-        invite_id=invite.invite_id,
-        role=_enum_value(invite.role),
-        status="pending",
-        expires_at=invite.expires_at,
-        requires_accept=True,
-        invite_url=_invite_url(invite.token),
-        created_at=invite.created_at,
-    )
+    return _invite_entry_for_row(invite, now=_utc_now_naive())
 
 
 @router.patch("/{form_id}/access/users/{access_id}", response_model=AccessEntryResponse)
@@ -313,8 +344,14 @@ async def update_form_user_access(
     if access is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Access entry not found")
 
+    starts_at = _to_utc_naive(payload.starts_at)
+    expires_at = _to_utc_naive(payload.expires_at)
+    if starts_at is not None and expires_at is not None and starts_at > expires_at:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Start date must be before end date")
+
     access.role = _enum_value(payload.role)
-    access.expires_at = _to_utc_naive(payload.expires_at)
+    access.starts_at = starts_at
+    access.expires_at = expires_at
     await db.flush()
     return await _access_entry_for_row(db, access)
 
@@ -338,6 +375,7 @@ async def delete_form_user_access(
     if access is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Access entry not found")
     await db.delete(access)
+    await db.flush()
     return None
 
 
@@ -361,7 +399,7 @@ async def revoke_form_access_invite(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite not found")
 
     invite.status = "revoked"
-    invite.revoked_at = datetime.utcnow()
+    invite.revoked_at = _utc_now_naive()
     await db.flush()
     return None
 
@@ -387,15 +425,19 @@ async def resolve_access_invite(
     if invite.invitee_email and _normalize_email(invite.invitee_email) != _normalize_email(current_user.email):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invite belongs to another email")
 
-    status_value = _enum_value(invite.status)
-    if status_value == "pending" and invite.expires_at and invite.expires_at <= datetime.utcnow():
+    now = _utc_now_naive()
+    status_value = _invite_status(invite, now)
+    if status_value == "expired":
         status_value = "revoked"
 
     return AccessInviteResolveResponse(
         form_id=form.form_id,
         form_title=form.title,
         role=_enum_value(invite.role),
+        starts_at=invite.starts_at,
         expires_at=invite.expires_at,
+        max_accepts=invite.max_accepts,
+        accepted_count=int(invite.accepted_count or 0),
         invitee_email=invite.invitee_email,
         status=status_value,
     )
@@ -424,25 +466,53 @@ async def accept_access_invite(
     if invite.invitee_email and _normalize_email(invite.invitee_email) != _normalize_email(current_user.email):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invite belongs to another email")
 
+    now = _utc_now_naive()
     status_value = _enum_value(invite.status)
     if status_value == "revoked":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invite was revoked")
-    if invite.expires_at is not None and invite.expires_at <= datetime.utcnow():
+    invite_starts_at = _to_utc_naive(invite.starts_at)
+    invite_expires_at = _to_utc_naive(invite.expires_at)
+    if invite_starts_at is not None and invite_starts_at > now:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invite is not active yet")
+    if invite_expires_at is not None and invite_expires_at <= now:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invite expired")
+    accepted_count = int(invite.accepted_count or 0)
+    if invite.max_accepts is not None and accepted_count >= invite.max_accepts:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invite usage limit reached")
+    if invite.invitee_email is not None and status_value == "accepted":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invite already accepted")
+
+    existing_access = (
+        await db.execute(
+            select(AccessControl)
+            .where(AccessControl.form_id == invite.form_id)
+            .where(AccessControl.user_id == current_user.user_id)
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+    if invite.invitee_email is None and existing_access is not None:
+        same_role = _enum_value(existing_access.role) == _enum_value(invite.role)
+        same_starts_at = _to_utc_naive(existing_access.starts_at) == invite_starts_at
+        same_expires_at = _to_utc_naive(existing_access.expires_at) == invite_expires_at
+        if same_role and same_starts_at and same_expires_at:
+            return await _access_entry_for_row(db, existing_access)
 
     access = await _upsert_access(
         db,
         form_id=invite.form_id,
         user_id=current_user.user_id,
         role=_enum_value(invite.role),
+        starts_at=invite.starts_at,
         expires_at=invite.expires_at,
     )
 
-    invite.status = "accepted"
+    invite.accepted_count = accepted_count + 1
     invite.accepted_by_user_id = current_user.user_id
-    invite.accepted_at = datetime.utcnow()
-    if invite.invitee_email is None:
-        invite.invitee_email = _normalize_email(current_user.email)
+    invite.accepted_at = now
+    if invite.invitee_email is not None:
+        invite.status = "accepted"
+    elif invite.max_accepts is not None and invite.accepted_count >= invite.max_accepts:
+        invite.status = "accepted"
     await db.flush()
 
     return await _access_entry_for_row(db, access)

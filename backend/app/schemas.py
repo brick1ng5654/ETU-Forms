@@ -216,6 +216,7 @@ class AccessControlResponse(AccessControlBase):
     access_id: int
     form_id: int
     user_email: Optional[str] = None
+    starts_at: Optional[datetime] = None
     expires_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
@@ -223,6 +224,7 @@ class AccessControlResponse(AccessControlBase):
 class AccessInviteCreateByEmail(BaseModel):
     email: EmailStr
     role: AccessRole
+    starts_at: Optional[datetime] = None
     expires_at: Optional[datetime] = None
     require_accept: bool = True
 
@@ -235,7 +237,9 @@ class AccessInviteCreateByEmail(BaseModel):
 
 class AccessInviteCreateByLink(BaseModel):
     role: AccessRole
+    starts_at: Optional[datetime] = None
     expires_at: Optional[datetime] = None
+    max_accepts: Optional[int] = Field(default=None, ge=1)
 
 class AccessEntryResponse(BaseModel):
     entry_type: Literal["access", "invite"]
@@ -246,9 +250,12 @@ class AccessEntryResponse(BaseModel):
     user_email: Optional[str] = None
     role: AccessRole
     status: Literal["active", "expired", "pending", "accepted", "revoked"]
+    starts_at: Optional[datetime] = None
     expires_at: Optional[datetime] = None
     requires_accept: bool = False
     invite_url: Optional[str] = None
+    max_accepts: Optional[int] = None
+    accepted_count: int = 0
     created_at: Optional[datetime] = None
 
 class AccessEntriesResponse(BaseModel):
@@ -256,13 +263,17 @@ class AccessEntriesResponse(BaseModel):
 
 class AccessUpdateRequest(BaseModel):
     role: AccessRole
+    starts_at: Optional[datetime] = None
     expires_at: Optional[datetime] = None
 
 class AccessInviteResolveResponse(BaseModel):
     form_id: int
     form_title: str
     role: AccessRole
+    starts_at: Optional[datetime] = None
     expires_at: Optional[datetime] = None
+    max_accepts: Optional[int] = None
+    accepted_count: int = 0
     invitee_email: Optional[EmailStr] = None
     status: AccessInviteStatus
 

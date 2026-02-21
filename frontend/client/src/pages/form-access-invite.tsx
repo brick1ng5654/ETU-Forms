@@ -43,6 +43,16 @@ export default function FormAccessInvitePage({ params }: { params: { token: stri
     }).format(date);
   }, [invite?.expiresAt, i18n.language, t]);
 
+  const startsAtLabel = useMemo(() => {
+    if (!invite?.startsAt) return t("access.noStartLimit");
+    const date = new Date(invite.startsAt);
+    if (Number.isNaN(date.getTime())) return t("access.noStartLimit");
+    return new Intl.DateTimeFormat(i18n.language.startsWith("ru") ? "ru-RU" : "en-US", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(date);
+  }, [invite?.startsAt, i18n.language, t]);
+
   useEffect(() => {
     if (isLoading) return;
     if (accessToken) return;
@@ -142,7 +152,13 @@ export default function FormAccessInvitePage({ params }: { params: { token: stri
                   {t("access.status")}: {statusLabel(invite.status, t)}
                 </div>
                 <div className="text-sm text-muted-foreground">
+                  {t("access.startsAt")}: {startsAtLabel}
+                </div>
+                <div className="text-sm text-muted-foreground">
                   {t("access.expiresAt")}: {expiresAtLabel}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {t("access.acceptedUsage")}: {invite.acceptedCount} / {invite.maxAccepts ?? t("access.unlimited")}
                 </div>
                 <div className="flex gap-2">
                   <Button

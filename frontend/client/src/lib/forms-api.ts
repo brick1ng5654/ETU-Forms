@@ -82,9 +82,12 @@ type ServerFormAccessEntry = {
   user_email?: string | null;
   role: ServerFormAccessRole;
   status: ServerFormAccessStatus;
+  starts_at?: string | null;
   expires_at?: string | null;
   requires_accept?: boolean;
   invite_url?: string | null;
+  max_accepts?: number | null;
+  accepted_count?: number | null;
   created_at?: string | null;
 };
 
@@ -96,7 +99,10 @@ type ServerAccessInviteResolveResponse = {
   form_id: number;
   form_title: string;
   role: ServerFormAccessRole;
+  starts_at?: string | null;
   expires_at?: string | null;
+  max_accepts?: number | null;
+  accepted_count?: number | null;
   invitee_email?: string | null;
   status: "pending" | "accepted" | "revoked";
 };
@@ -150,9 +156,12 @@ export type FormAccessEntry = {
   userEmail: string | null;
   role: FormAccessRole;
   status: FormAccessStatus;
+  startsAt: string | null;
   expiresAt: string | null;
   requiresAccept: boolean;
   inviteUrl: string | null;
+  maxAccepts: number | null;
+  acceptedCount: number;
   createdAt: string | null;
 };
 
@@ -160,7 +169,10 @@ export type AccessInviteResolveResult = {
   formId: string;
   formTitle: string;
   role: FormAccessRole;
+  startsAt: string | null;
   expiresAt: string | null;
+  maxAccepts: number | null;
+  acceptedCount: number;
   inviteeEmail: string | null;
   status: "pending" | "accepted" | "revoked";
 };
@@ -460,9 +472,12 @@ const mapAccessEntry = (row: ServerFormAccessEntry): FormAccessEntry => ({
   userEmail: row.user_email ?? null,
   role: row.role,
   status: row.status,
+  startsAt: row.starts_at ?? null,
   expiresAt: row.expires_at ?? null,
   requiresAccept: !!row.requires_accept,
   inviteUrl: row.invite_url ?? null,
+  maxAccepts: row.max_accepts ?? null,
+  acceptedCount: row.accepted_count ?? 0,
   createdAt: row.created_at ?? null,
 });
 
@@ -500,6 +515,7 @@ export async function inviteFormAccessByEmail(
   payload: {
     email: string;
     role: FormAccessRole;
+    starts_at?: string | null;
     expires_at?: string | null;
     require_accept: boolean;
   }
@@ -517,7 +533,12 @@ export async function inviteFormAccessByEmail(
 
 export async function createFormAccessLink(
   formId: string,
-  payload: { role: FormAccessRole; expires_at?: string | null }
+  payload: {
+    role: FormAccessRole;
+    starts_at?: string | null;
+    expires_at?: string | null;
+    max_accepts?: number | null;
+  }
 ): Promise<FormAccessEntry> {
   const res = await apiFetch(`/api/v1/forms/${formId}/access/link`, {
     method: "POST",
@@ -533,7 +554,7 @@ export async function createFormAccessLink(
 export async function updateFormAccessUser(
   formId: string,
   accessId: number,
-  payload: { role: FormAccessRole; expires_at?: string | null }
+  payload: { role: FormAccessRole; starts_at?: string | null; expires_at?: string | null }
 ): Promise<FormAccessEntry> {
   const res = await apiFetch(`/api/v1/forms/${formId}/access/users/${accessId}`, {
     method: "PATCH",
@@ -574,7 +595,10 @@ export async function fetchAccessInvite(token: string): Promise<AccessInviteReso
     formId: String(data.form_id),
     formTitle: data.form_title,
     role: data.role,
+    startsAt: data.starts_at ?? null,
     expiresAt: data.expires_at ?? null,
+    maxAccepts: data.max_accepts ?? null,
+    acceptedCount: data.accepted_count ?? 0,
     inviteeEmail: data.invitee_email ?? null,
     status: data.status,
   };

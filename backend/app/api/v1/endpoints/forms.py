@@ -33,7 +33,10 @@ def _enum_value(x):
 
 def _access_not_expired():
     now = datetime.utcnow()
-    return or_(AccessControl.expires_at.is_(None), AccessControl.expires_at > now)
+    return and_(
+        or_(AccessControl.starts_at.is_(None), AccessControl.starts_at <= now),
+        or_(AccessControl.expires_at.is_(None), AccessControl.expires_at > now),
+    )
 
 
 async def _cleanup_expired_temp_forms(db: AsyncSession) -> None:
