@@ -76,7 +76,11 @@
     "transform": "Transform",
     "deleteSelected": "Delete selected",
     "selectedCount": "Selected items: {{count}}",
-    "noActiveForm": "No active Form to save"
+    "noActiveForm": "No active Form to save",
+    "saveDisabledNoChanges": "No changes to save.",
+    "publishDisabledNeedSave": "Save the form first.",
+    "publishDisabledNeedContent": "Add at least one field before publishing.",
+    "publishDisabledNeedDraft": "Publishing is available only for draft forms."
   },
   "results": {
     "title": "Form overview",

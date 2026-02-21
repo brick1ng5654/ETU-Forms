@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
+﻿import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
 import type { MouseEvent } from "react";
 import { nanoid } from "nanoid";
 import type { FormAccessMode, FormElementModel, FormSchema } from "@/form/types";
@@ -39,7 +39,6 @@ import { storage } from "@/lib/storage";
 import { useLocation } from "wouter";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { UserMenu } from "@/components/user-menu";
@@ -845,10 +844,14 @@ export default function Builder({ params }: { params: { id?: string } }) {
   const activeFormStatus = activeForm?.status ?? "temp";
   const isPublishDisabledByStatus = activeFormStatus !== "temp";
   const isPublishDisabledByUnsavedChanges = hasSaveChanges;
-  const isPublishDisabled = isPublishDisabledByStatus || isPublishDisabledByUnsavedChanges || isPublishing;
+  const isPublishDisabledByEmptyForm = fields.length === 0;
+  const isPublishDisabled =
+    isPublishDisabledByStatus || isPublishDisabledByUnsavedChanges || isPublishDisabledByEmptyForm || isPublishing;
   const publishDisabledHint = isPublishDisabledByUnsavedChanges
-    ? "Сначала нужно сохранить форму"
-    : "Публикация доступна только для черновика";
+    ? t("builder.publishDisabledNeedSave")
+    : isPublishDisabledByEmptyForm
+      ? t("builder.publishDisabledNeedContent")
+      : t("builder.publishDisabledNeedDraft");
   const publishedVersionsForActiveForm = useMemo(() => {
     if (!activeForm) return [] as FormSchema[];
 
@@ -900,6 +903,8 @@ export default function Builder({ params }: { params: { id?: string } }) {
   const hasPublishedVersion = publishedVersionsForActiveForm.length > 0;
   const resultsTargetFormId = publishedVersionsForActiveForm[0]?.id ?? activeForm?.id ?? "";
   const isResultsDisabled = !hasPublishedVersion;
+  const resultsDisabledHint = isResultsDisabled ? t("results.onlyPublishedShort") : undefined;
+  const saveDisabledHint = !hasSaveChanges ? t("builder.saveDisabledNoChanges") : undefined;
 
   useEffect(() => {
     if (isPublishDisabled && isPublishOpen) {
@@ -1102,7 +1107,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
                 localStorage.setItem("etu_pending_lang", newLang);
                 window.location.reload();
               }}
-              title={i18n.language.startsWith('ru') ? 'Переключить на Английский' : 'Switch to Russian'}>
+              title={i18n.language.startsWith('ru') ? 'РџРµСЂРµРєР»СЋС‡РёС‚СЊ РЅР° РђРЅРіР»РёР№СЃРєРёР№' : 'Switch to Russian'}>
               <Languages className="h-4 w-4" />
               <span className="hidden sm:inline text-sm font-medium">
                 {i18n.language.startsWith('ru') ? 'RU' : 'EN'}
@@ -1130,61 +1135,41 @@ export default function Builder({ params }: { params: { id?: string } }) {
               </DialogContent>
             </Dialog>
 
-            {isResultsDisabled ? (
-              <Tooltip delayDuration={0}>
-                <TooltipTrigger asChild>
-                  <span tabIndex={0} className="inline-flex">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-2"
-                      disabled
-                    >
-                      <BarChart3 className="h-4 w-4" />
-                      <span className="hidden sm:inline">{t("results.openResults")}</span>
-                    </Button>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  {t("results.onlyPublishedShort")}
-                </TooltipContent>
-              </Tooltip>
-            ) : (
+            <span className="inline-flex" title={resultsDisabledHint}>
               <Button
                 variant="outline"
                 size="sm"
                 className="gap-2"
-                onClick={() => setLocation(`/forms/${resultsTargetFormId}/results`)}
+                disabled={isResultsDisabled}
+                onClick={() => {
+                  if (isResultsDisabled) return;
+                  setLocation(`/forms/${resultsTargetFormId}/results`);
+                }}
               >
                 <BarChart3 className="h-4 w-4" />
                 <span className="hidden sm:inline">{t("results.openResults")}</span>
               </Button>
-            )}
+            </span>
 
-            <Button
-              data-testid="builder-save"
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              onClick={handleSave}
-              disabled={!hasSaveChanges || isSaving}
-            >
-              <Save className="h-4 w-4" /> <span className="hidden sm:inline">{t('builder.save')}</span>
-            </Button>
+            <span className="inline-flex" title={saveDisabledHint}>
+              <Button
+                data-testid="builder-save"
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={handleSave}
+                disabled={!hasSaveChanges || isSaving}
+              >
+                <Save className="h-4 w-4" /> <span className="hidden sm:inline">{t('builder.save')}</span>
+              </Button>
+            </span>
             <Popover open={isPublishOpen} onOpenChange={setIsPublishOpen}>
               {isPublishDisabled ? (
-                <Tooltip delayDuration={0}>
-                  <TooltipTrigger asChild>
-                    <span tabIndex={0} className="inline-flex">
-                      <Button data-testid="builder-publish-open" size="sm" className="gap-2" disabled>
-                        <Share2 className="h-4 w-4" /> <span className="hidden sm:inline">{t("builder.publish")}</span>
-                      </Button>
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    {publishDisabledHint}
-                  </TooltipContent>
-                </Tooltip>
+                <span className="inline-flex" title={publishDisabledHint}>
+                  <Button data-testid="builder-publish-open" size="sm" className="gap-2" disabled>
+                    <Share2 className="h-4 w-4" /> <span className="hidden sm:inline">{t("builder.publish")}</span>
+                  </Button>
+                </span>
               ) : (
                 <PopoverTrigger asChild>
                   <Button data-testid="builder-publish-open" size="sm" className="gap-2">
@@ -1523,3 +1508,4 @@ export default function Builder({ params }: { params: { id?: string } }) {
     </div>
   );
 }
+

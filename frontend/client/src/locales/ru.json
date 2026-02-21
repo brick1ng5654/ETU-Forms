@@ -74,7 +74,11 @@
     "transform": "Трансформировать",
     "deleteSelected": "Удалить элементы",
     "selectedCount": "Выбрано элементов: {{count}}",
-    "noActiveForm": "Нет активной формы для сохранения"
+    "noActiveForm": "Нет активной формы для сохранения",
+    "saveDisabledNoChanges": "Нет изменений для сохранения.",
+    "publishDisabledNeedSave": "Сначала нужно сохранить форму.",
+    "publishDisabledNeedContent": "Добавьте хотя бы один элемент формы перед публикацией.",
+    "publishDisabledNeedDraft": "Публикация доступна только для черновика."
   },
   "results": {
     "title": "Страница формы",
