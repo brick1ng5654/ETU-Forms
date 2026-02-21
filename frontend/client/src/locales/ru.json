@@ -411,7 +411,10 @@
     "digitsExact": "Должно быть {{count}} цифр",
     "invalidEmail": "Введите корректный email",
     "invalidEmailDomain": "Недопустимый домен email",
-    "invalidEmailDomainList": "Разрешенные домены: {{domains}}"
+    "invalidEmailDomainList": "Разрешенные домены: {{domains}}",
+    "invalidSnils": "Некорректный СНИЛС",
+    "invalidSnilsRepeatedDigits": "Некорректный СНИЛС",
+    "invalidSnilsChecksum": "Некорректная контрольная сумма СНИЛС"
   },
   "auth": {
     "login": "Вход в систему",

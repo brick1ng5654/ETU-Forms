@@ -388,7 +388,10 @@
     "digitsExact": "Must be {{count}} digits",
     "invalidEmail": "Enter a valid email",
     "invalidEmailDomain": "Email domain is not allowed",
-    "invalidEmailDomainList": "Allowed domains: {{domains}}"
+    "invalidEmailDomainList": "Allowed domains: {{domains}}",
+    "invalidSnils": "Invalid SNILS",
+    "invalidSnilsRepeatedDigits": "Invalid SNILS",
+    "invalidSnilsChecksum": "Invalid SNILS checksum"
   },
   
   "descerr":{

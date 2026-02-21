@@ -40,6 +40,24 @@ const digitsOnly = (value: string, max?: number) => {
   const normalized = value.replace(/\D/g, "");
   return typeof max === "number" ? normalized.slice(0, max) : normalized;
 };
+const snilsTripleDigitRe = /(\d)\1\1/;
+const snilsChecksumThreshold = 1001998;
+const snilsRepeatedDigitsMessage = "Invalid SNILS repeated digits";
+const snilsChecksumMessage = "Invalid SNILS checksum";
+
+const calcSnilsChecksum = (number: string) => {
+  const total = number
+    .split("")
+    .reverse()
+    .reduce((sum, digit, index) => sum + Number(digit) * (index + 1), 0);
+
+  if (total < 100) return total;
+  if (total === 100 || total === 101) return 0;
+
+  const remainder = total % 101;
+  if (remainder === 100 || remainder === 101) return 0;
+  return remainder;
+};
 
 const formatRuPhoneDigits = (digits: string) => {
   if (!digits) return "";
@@ -189,9 +207,23 @@ export const presets: Record<SemanticType, Preset> = {
     normalize: (value) => digitsOnly(value, 11),
     format: formatSnils,
     validate: (value, { required }) => {
-      const len = digitsOnly(value).length;
+      const digits = digitsOnly(value);
+      const len = digits.length;
       if (!value && !required) return [];
       if (len !== 11) return ["SNILS must be 11 digits"];
+
+      const number = digits.slice(0, 9);
+      const checksum = digits.slice(9, 11);
+      if (snilsTripleDigitRe.test(number)) {
+        return [snilsRepeatedDigitsMessage];
+      }
+
+      if (Number(number) > snilsChecksumThreshold) {
+        const expected = calcSnilsChecksum(number);
+        if (Number(checksum) !== expected) {
+          return [snilsChecksumMessage];
+        }
+      }
       return [];
     },
     labelKey: "inputLabels.snils",

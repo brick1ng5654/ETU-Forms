@@ -1398,6 +1398,12 @@ export function FormPreview({
       localized = t("errors.invalidSelection");
     } else if (normalized === "Invalid number") {
       localized = t("errors.invalidNumber");
+    } else if (normalized === "Invalid SNILS") {
+      localized = t("errors.invalidSnils");
+    } else if (normalized === "Invalid SNILS repeated digits") {
+      localized = t("errors.invalidSnilsRepeatedDigits");
+    } else if (normalized === "Invalid SNILS checksum") {
+      localized = t("errors.invalidSnilsChecksum");
     } else if (normalized === "Invalid email") {
       localized = t("errors.invalidEmail");
     } else if (normalized.startsWith("Invalid email domain")) {
