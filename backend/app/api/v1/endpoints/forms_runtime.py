@@ -5,7 +5,7 @@ import re
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -45,6 +45,10 @@ SNILS_CHECKSUM_MSG = "Invalid SNILS checksum"
 
 def _enum_value(x: Any) -> Any:
     return x.value if hasattr(x, "value") else x
+
+def _access_not_expired():
+    now = datetime.utcnow()
+    return or_(AccessControl.expires_at.is_(None), AccessControl.expires_at > now)
 
 
 def _protected_link_key(form: Form) -> str | None:
@@ -295,6 +299,7 @@ async def _ensure_editor_or_owner(
         .where(AccessControl.form_id == form_id)
         .where(AccessControl.user_id == current_user.user_id)
         .where(AccessControl.role.in_(allowed_roles))
+        .where(_access_not_expired())
     )
     if not access.scalar_one_or_none():
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")

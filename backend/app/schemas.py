@@ -14,6 +14,11 @@ class AccessRole(str, Enum):
     EDITOR = 'editor'
     PARTICIPANT = 'participant'
 
+class AccessInviteStatus(str, Enum):
+    PENDING = 'pending'
+    ACCEPTED = 'accepted'
+    REVOKED = 'revoked'
+
 class UserRole(str, Enum):
     FORM_CREATOR = 'form_creator'
     ADMIN = 'admin'
@@ -211,8 +216,55 @@ class AccessControlResponse(AccessControlBase):
     access_id: int
     form_id: int
     user_email: Optional[str] = None
+    expires_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+class AccessInviteCreateByEmail(BaseModel):
+    email: EmailStr
+    role: AccessRole
+    expires_at: Optional[datetime] = None
+    require_accept: bool = True
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email(cls, v: str):
+        if isinstance(v, str):
+            return v.strip().lower()
+        return v
+
+class AccessInviteCreateByLink(BaseModel):
+    role: AccessRole
+    expires_at: Optional[datetime] = None
+
+class AccessEntryResponse(BaseModel):
+    entry_type: Literal["access", "invite"]
+    access_id: Optional[int] = None
+    invite_id: Optional[int] = None
+    user_id: Optional[int] = None
+    user_name: Optional[str] = None
+    user_email: Optional[str] = None
+    role: AccessRole
+    status: Literal["active", "expired", "pending", "accepted", "revoked"]
+    expires_at: Optional[datetime] = None
+    requires_accept: bool = False
+    invite_url: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+class AccessEntriesResponse(BaseModel):
+    entries: List[AccessEntryResponse] = Field(default_factory=list)
+
+class AccessUpdateRequest(BaseModel):
+    role: AccessRole
+    expires_at: Optional[datetime] = None
+
+class AccessInviteResolveResponse(BaseModel):
+    form_id: int
+    form_title: str
+    role: AccessRole
+    expires_at: Optional[datetime] = None
+    invitee_email: Optional[EmailStr] = None
+    status: AccessInviteStatus
 
 # Template SCHEMAS
 class TemplateBase(BaseModel):

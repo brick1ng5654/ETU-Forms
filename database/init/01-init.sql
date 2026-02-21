@@ -53,6 +53,14 @@ BEGIN
         );
     END IF;
 
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'access_invite_status') THEN
+        CREATE TYPE access_invite_status AS ENUM (
+            'pending',
+            'accepted',
+            'revoked'
+        );
+    END IF;
+
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role') THEN
         CREATE TYPE user_role AS ENUM (
             'form_creator',
@@ -236,6 +244,7 @@ CREATE TABLE IF NOT EXISTS access_control (
     form_id INT NOT NULL,
     user_id INT NOT NULL,
     role access_role NOT NULL,
+    expires_at TIMESTAMP NULL,
     
     CONSTRAINT fk_access_form
         FOREIGN KEY (form_id) 
@@ -255,11 +264,60 @@ CREATE TABLE IF NOT EXISTS access_control (
 CREATE INDEX IF NOT EXISTS idx_access_user
 ON access_control (user_id);
 
+CREATE INDEX IF NOT EXISTS idx_access_form_user
+ON access_control (form_id, user_id);
+
+CREATE INDEX IF NOT EXISTS idx_access_expires
+ON access_control (expires_at);
+
+ALTER TABLE access_control
+    ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP NULL;
+
 COMMENT ON TABLE access_control IS 'Таблица контроля доступа к формам';
 COMMENT ON COLUMN access_control.access_id IS 'Уникальный идентификатор доступа';
 COMMENT ON COLUMN access_control.form_id IS 'ID формы';
 COMMENT ON COLUMN access_control.user_id IS 'ID пользователя';
 COMMENT ON COLUMN access_control.role IS 'Роль пользователя (editor или participant)';
+
+CREATE TABLE IF NOT EXISTS access_invite (
+    invite_id SERIAL PRIMARY KEY,
+    form_id INT NOT NULL,
+    inviter_user_id INT NOT NULL,
+    invitee_email VARCHAR(100) NULL,
+    role access_role NOT NULL,
+    token VARCHAR(128) NOT NULL UNIQUE,
+    requires_accept BOOLEAN NOT NULL DEFAULT TRUE,
+    status access_invite_status NOT NULL DEFAULT 'pending',
+    expires_at TIMESTAMP NULL,
+    accepted_by_user_id INT NULL,
+    accepted_at TIMESTAMP NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    revoked_at TIMESTAMP NULL,
+
+    CONSTRAINT fk_invite_form
+        FOREIGN KEY (form_id)
+        REFERENCES Form(form_id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_invite_inviter
+        FOREIGN KEY (inviter_user_id)
+        REFERENCES App_User(user_id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_invite_accepted_user
+        FOREIGN KEY (accepted_by_user_id)
+        REFERENCES App_User(user_id)
+        ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_access_invite_form_status
+ON access_invite (form_id, status);
+
+CREATE INDEX IF NOT EXISTS idx_access_invite_email
+ON access_invite (invitee_email);
+
+CREATE INDEX IF NOT EXISTS idx_access_invite_expires
+ON access_invite (expires_at);
 
 CREATE TABLE IF NOT EXISTS Template(
     template_id SERIAL PRIMARY KEY,

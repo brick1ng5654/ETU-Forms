@@ -11,6 +11,7 @@ import {
   Play,
   Info,
   Languages,
+  Users,
 } from "lucide-react";
 import { storage } from "@/lib/storage";
 import { FormSchema } from "@/lib/form-types";
@@ -31,6 +32,7 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import { UserMenu } from "@/components/user-menu";
+import { FormAccessDialog } from "@/components/form-access-dialog";
 import { createForm, deleteForm as deleteFormApi, fetchFormsCatalog } from "@/lib/forms-api";
 import { useAuth } from "@/lib/auth";
 import { AppBrand } from "@/components/app-brand";
@@ -53,6 +55,7 @@ export default function Home() {
   const [forms, setForms] = useState<FormSchema[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<AccessCategory>("continue");
   const [propertiesForm, setPropertiesForm] = useState<FormSchema | null>(null);
+  const [accessForm, setAccessForm] = useState<FormSchema | null>(null);
   const { accessToken, isLoading, user } = useAuth();
   const { t, i18n } = useTranslation();
   const [, setLocation] = useLocation();
@@ -333,6 +336,9 @@ export default function Home() {
                           <DropdownMenuItem onClick={() => setPropertiesForm(form)}>
                             <Info className="mr-2 h-4 w-4" /> {t("actions.properties")}
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setAccessForm(form)} disabled={!canEditForm(form)}>
+                            <Users className="mr-2 h-4 w-4" /> {t("access.manageAccess")}
+                          </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => openBuilder(form)} disabled={!canEditForm(form)}>
                             <PencilLine className="mr-2 h-4 w-4" /> {t("results.openBuilder")}
@@ -398,6 +404,20 @@ export default function Home() {
           ) : null}
         </DialogContent>
       </Dialog>
+
+      <FormAccessDialog
+        form={accessForm}
+        open={Boolean(accessForm)}
+        onOpenChange={(next) => {
+          if (!next) {
+            setAccessForm(null);
+          }
+        }}
+        canManage={Boolean(accessForm && canEditForm(accessForm))}
+        onUpdated={() => {
+          void refreshData();
+        }}
+      />
     </div>
   );
 }

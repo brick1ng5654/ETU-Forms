@@ -71,6 +71,36 @@ type ServerFormStoredResponsesResponse = {
   responses: ServerFormStoredResponse[];
 };
 
+type ServerFormAccessRole = "editor" | "participant";
+type ServerFormAccessStatus = "active" | "expired" | "pending" | "accepted" | "revoked";
+type ServerFormAccessEntry = {
+  entry_type: "access" | "invite";
+  access_id?: number | null;
+  invite_id?: number | null;
+  user_id?: number | null;
+  user_name?: string | null;
+  user_email?: string | null;
+  role: ServerFormAccessRole;
+  status: ServerFormAccessStatus;
+  expires_at?: string | null;
+  requires_accept?: boolean;
+  invite_url?: string | null;
+  created_at?: string | null;
+};
+
+type ServerFormAccessEntriesResponse = {
+  entries: ServerFormAccessEntry[];
+};
+
+type ServerAccessInviteResolveResponse = {
+  form_id: number;
+  form_title: string;
+  role: ServerFormAccessRole;
+  expires_at?: string | null;
+  invitee_email?: string | null;
+  status: "pending" | "accepted" | "revoked";
+};
+
 type FormBuilderPayload = {
   title: string;
   description?: string | null;
@@ -106,6 +136,33 @@ export type StoredFormResponse = {
   completedAt: string | null;
   version: number;
   answers: AnswersById;
+};
+
+export type FormAccessRole = ServerFormAccessRole;
+export type FormAccessStatus = ServerFormAccessStatus;
+
+export type FormAccessEntry = {
+  entryType: "access" | "invite";
+  accessId: number | null;
+  inviteId: number | null;
+  userId: number | null;
+  userName: string | null;
+  userEmail: string | null;
+  role: FormAccessRole;
+  status: FormAccessStatus;
+  expiresAt: string | null;
+  requiresAccept: boolean;
+  inviteUrl: string | null;
+  createdAt: string | null;
+};
+
+export type AccessInviteResolveResult = {
+  formId: string;
+  formTitle: string;
+  role: FormAccessRole;
+  expiresAt: string | null;
+  inviteeEmail: string | null;
+  status: "pending" | "accepted" | "revoked";
 };
 
 const readErrorMessage = async (res: Response): Promise<string> => {
@@ -394,6 +451,21 @@ const mapStoredResponse = (row: ServerFormStoredResponse): StoredFormResponse =>
   answers: (row.answers ?? {}) as AnswersById,
 });
 
+const mapAccessEntry = (row: ServerFormAccessEntry): FormAccessEntry => ({
+  entryType: row.entry_type,
+  accessId: row.access_id ?? null,
+  inviteId: row.invite_id ?? null,
+  userId: row.user_id ?? null,
+  userName: row.user_name ?? null,
+  userEmail: row.user_email ?? null,
+  role: row.role,
+  status: row.status,
+  expiresAt: row.expires_at ?? null,
+  requiresAccept: !!row.requires_accept,
+  inviteUrl: row.invite_url ?? null,
+  createdAt: row.created_at ?? null,
+});
+
 export async function fetchFormResponses(formId: string): Promise<StoredFormResponse[]> {
   
   const res = await apiFetch(`/api/v1/forms/${formId}/responses`);
@@ -412,4 +484,108 @@ export async function deleteForm(formId: string): Promise<void> {
   if (!res.ok) {
     throw await asHttpError(res);
   }
+}
+
+export async function fetchFormAccessEntries(formId: string): Promise<FormAccessEntry[]> {
+  const res = await apiFetch(`/api/v1/forms/${formId}/access`);
+  if (!res.ok) {
+    throw await asHttpError(res);
+  }
+  const data = (await res.json()) as ServerFormAccessEntriesResponse;
+  return (data.entries ?? []).map(mapAccessEntry);
+}
+
+export async function inviteFormAccessByEmail(
+  formId: string,
+  payload: {
+    email: string;
+    role: FormAccessRole;
+    expires_at?: string | null;
+    require_accept: boolean;
+  }
+): Promise<FormAccessEntry> {
+  const res = await apiFetch(`/api/v1/forms/${formId}/access/email`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    throw await asHttpError(res);
+  }
+  return mapAccessEntry((await res.json()) as ServerFormAccessEntry);
+}
+
+export async function createFormAccessLink(
+  formId: string,
+  payload: { role: FormAccessRole; expires_at?: string | null }
+): Promise<FormAccessEntry> {
+  const res = await apiFetch(`/api/v1/forms/${formId}/access/link`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    throw await asHttpError(res);
+  }
+  return mapAccessEntry((await res.json()) as ServerFormAccessEntry);
+}
+
+export async function updateFormAccessUser(
+  formId: string,
+  accessId: number,
+  payload: { role: FormAccessRole; expires_at?: string | null }
+): Promise<FormAccessEntry> {
+  const res = await apiFetch(`/api/v1/forms/${formId}/access/users/${accessId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    throw await asHttpError(res);
+  }
+  return mapAccessEntry((await res.json()) as ServerFormAccessEntry);
+}
+
+export async function deleteFormAccessUser(formId: string, accessId: number): Promise<void> {
+  const res = await apiFetch(`/api/v1/forms/${formId}/access/users/${accessId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    throw await asHttpError(res);
+  }
+}
+
+export async function revokeFormAccessInvite(formId: string, inviteId: number): Promise<void> {
+  const res = await apiFetch(`/api/v1/forms/${formId}/access/invites/${inviteId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    throw await asHttpError(res);
+  }
+}
+
+export async function fetchAccessInvite(token: string): Promise<AccessInviteResolveResult> {
+  const res = await apiFetch(`/api/v1/forms/access-invites/${encodeURIComponent(token)}`);
+  if (!res.ok) {
+    throw await asHttpError(res);
+  }
+  const data = (await res.json()) as ServerAccessInviteResolveResponse;
+  return {
+    formId: String(data.form_id),
+    formTitle: data.form_title,
+    role: data.role,
+    expiresAt: data.expires_at ?? null,
+    inviteeEmail: data.invitee_email ?? null,
+    status: data.status,
+  };
+}
+
+export async function acceptAccessInvite(token: string): Promise<FormAccessEntry> {
+  const res = await apiFetch(`/api/v1/forms/access-invites/${encodeURIComponent(token)}/accept`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    throw await asHttpError(res);
+  }
+  return mapAccessEntry((await res.json()) as ServerFormAccessEntry);
 }

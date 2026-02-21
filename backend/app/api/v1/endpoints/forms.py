@@ -31,6 +31,10 @@ MAX_TEMP_FORMS_PER_USER = 25
 def _enum_value(x):
     return x.value if hasattr(x, "value") else x
 
+def _access_not_expired():
+    now = datetime.utcnow()
+    return or_(AccessControl.expires_at.is_(None), AccessControl.expires_at > now)
+
 
 async def _cleanup_expired_temp_forms(db: AsyncSession) -> None:
     now = datetime.utcnow()
@@ -138,6 +142,7 @@ async def get_my_forms(
         and_(
             AccessControl.user_id == current_user.user_id,
             AccessControl.role == "editor",
+            _access_not_expired(),
         ),
     )
 
@@ -193,6 +198,7 @@ async def get_forms_catalog(
             and_(
                 AccessControl.form_id == Form.form_id,
                 AccessControl.user_id == current_user.user_id,
+                _access_not_expired(),
             ),
         )
         .where(Form.status != "deleted")
@@ -276,6 +282,7 @@ async def _ensure_editor_or_owner(
         .where(AccessControl.form_id == form_id)
         .where(AccessControl.user_id == current_user.user_id)
         .where(AccessControl.role.in_(allowed_roles))
+        .where(_access_not_expired())
     )
     if not access.scalar_one_or_none():
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
@@ -335,6 +342,7 @@ async def save_form(
                     form_id=draft.form_id,
                     user_id=row.user_id,
                     role=row.role,
+                    expires_at=row.expires_at,
                 )
             )
         form = draft
