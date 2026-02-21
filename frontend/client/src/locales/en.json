@@ -12,6 +12,7 @@
     "close": "Close",
     "descriptionf":"Description",
     "selectopt":"select the option",
+    "otherOption":"Other",
     "showMore":"Show full answer",
     "showLess":"Collapse",
     "noResults":"No results found"
@@ -76,7 +77,11 @@
     "transform": "Transform",
     "deleteSelected": "Delete selected",
     "selectedCount": "Selected items: {{count}}",
-    "noActiveForm": "No active Form to save"
+    "noActiveForm": "No active Form to save",
+    "saveDisabledNoChanges": "No changes to save.",
+    "publishDisabledNeedSave": "Save the form first.",
+    "publishDisabledNeedContent": "Add at least one field before publishing.",
+    "publishDisabledNeedDraft": "Publishing is available only for draft forms."
   },
   "results": {
     "title": "Form overview",
@@ -334,6 +339,8 @@
     "fixOrder":"Fix Order",
     "corranopt":"Select the correct answers from the options",
     "allowmult":"Allow Multiple",
+    "allowOtherOption":"Enable \"Other\" option",
+    "otherValuePlaceholder":"Enter your own answer",
     "countryOptionsLocked":"Country list is fixed and localized automatically.",
     "fieldType": "Field Type",
     "hideDate": "Hide Date",
@@ -395,7 +402,10 @@
     "digitsExact": "Must be {{count}} digits",
     "invalidEmail": "Enter a valid email",
     "invalidEmailDomain": "Email domain is not allowed",
-    "invalidEmailDomainList": "Allowed domains: {{domains}}"
+    "invalidEmailDomainList": "Allowed domains: {{domains}}",
+    "invalidSnils": "Invalid SNILS",
+    "invalidSnilsRepeatedDigits": "Invalid SNILS",
+    "invalidSnilsChecksum": "Invalid SNILS checksum"
   },
   
   "descerr":{

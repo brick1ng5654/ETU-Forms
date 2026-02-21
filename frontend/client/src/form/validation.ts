@@ -1,6 +1,12 @@
 import type { AnswersById, FormElementModel, FullNameAnswer, PassportAnswer } from "@/form/types";
 import { presets } from "@/form/presets";
 import { getCountryCodes, isCountryField, resolveCountryCode } from "@/lib/countries";
+import {
+  CHOICE_OTHER_MAX_CHARS,
+  getChoiceMultiState,
+  getChoiceSingleState,
+  hasChoiceValue,
+} from "@/form/choice-answer";
 
 export type ValidationErrorsById = Record<string, string[]>;
 
@@ -51,29 +57,63 @@ export const validateForm = (elements: FormElementModel[], answers: AnswersById)
         }
       });
     } else {
-      if (element.required && isEmptyValue(value)) {
+      const isChoiceWidget =
+        element.widgetType === "select" ||
+        element.widgetType === "radio" ||
+        element.widgetType === "checkbox";
+      const isMissingRequiredValue = isChoiceWidget
+        ? !hasChoiceValue(value, element.widgetType === "checkbox")
+        : isEmptyValue(value);
+
+      if (element.required && isMissingRequiredValue) {
         elementErrors.push("Required");
       }
 
       if (element.widgetType === "select" || element.widgetType === "radio") {
         const isCountrySelect = isCountryField(element);
+        const allowOther = Boolean(props.allowOther) && !isCountrySelect;
         const options = isCountrySelect ? getCountryCodes() : (props.options as string[]) || [];
-        const normalized = typeof value === "string" && isCountrySelect
-          ? resolveCountryCode(value) || value
-          : value;
-        if (!isEmptyValue(value) && typeof normalized === "string" && !isOptionValue(normalized, options)) {
-          elementErrors.push("Invalid selection");
+        const state = getChoiceSingleState(value);
+
+        if (state.otherSelected) {
+          if (!allowOther) {
+            elementErrors.push("Invalid selection");
+          } else {
+            const otherText = state.otherText.trim();
+            if (otherText.length === 0 || otherText.length > CHOICE_OTHER_MAX_CHARS) {
+              elementErrors.push("Invalid selection");
+            }
+          }
+        } else {
+          const answerValue = state.selected;
+          const normalized = isCountrySelect
+            ? resolveCountryCode(answerValue) || answerValue
+            : answerValue;
+          if (!isEmptyValue(answerValue) && !isOptionValue(normalized, options)) {
+            elementErrors.push("Invalid selection");
+          }
         }
       }
 
       if (element.widgetType === "checkbox") {
+        const allowOther = Boolean(props.allowOther);
         const options = (props.options as string[]) || [];
-        const selected = Array.isArray(value) ? value : [];
-        selected.forEach((item) => {
+        const state = getChoiceMultiState(value);
+        state.selected.forEach((item) => {
           if (!isOptionValue(item, options)) {
             elementErrors.push("Invalid selection");
           }
         });
+        if (state.otherSelected) {
+          if (!allowOther) {
+            elementErrors.push("Invalid selection");
+          } else {
+            const otherText = state.otherText.trim();
+            if (otherText.length === 0 || otherText.length > CHOICE_OTHER_MAX_CHARS) {
+              elementErrors.push("Invalid selection");
+            }
+          }
+        }
       }
 
       if (element.widgetType === "number_input" && !isEmptyValue(value)) {

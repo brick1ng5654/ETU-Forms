@@ -12,6 +12,7 @@
     "close": "Закрыть",
     "descriptionf":"Описание",
     "selectopt":"Выбрать вариант",
+    "otherOption":"Другое",
     "showMore":"Показать полностью",
     "showLess":"Свернуть",
     "noResults":"Ничего не найдено"
@@ -74,7 +75,11 @@
     "transform": "Трансформировать",
     "deleteSelected": "Удалить элементы",
     "selectedCount": "Выбрано элементов: {{count}}",
-    "noActiveForm": "Нет активной формы для сохранения"
+    "noActiveForm": "Нет активной формы для сохранения",
+    "saveDisabledNoChanges": "Нет изменений для сохранения.",
+    "publishDisabledNeedSave": "Сначала нужно сохранить форму.",
+    "publishDisabledNeedContent": "Добавьте хотя бы один элемент формы перед публикацией.",
+    "publishDisabledNeedDraft": "Публикация доступна только для черновика."
   },
   "results": {
     "title": "Страница формы",
@@ -325,6 +330,8 @@
     "fixOrder": "Зафиксировать порядок",
     "corranopt": "Выберите правильные ответы из предложенных вариантов",
     "allowmult": "Разрешить несколько ответов",
+    "allowOtherOption": "Включить опцию «Другое»",
+    "otherValuePlaceholder": "Введите свой вариант",
     "countryOptionsLocked":"Список стран фиксирован и локализуется автоматически.",
     "fieldType": "Тип поля",
     "hideDate": "Убрать дату",
@@ -433,7 +440,10 @@
     "digitsExact": "Должно быть {{count}} цифр",
     "invalidEmail": "Введите корректный email",
     "invalidEmailDomain": "Недопустимый домен email",
-    "invalidEmailDomainList": "Разрешенные домены: {{domains}}"
+    "invalidEmailDomainList": "Разрешенные домены: {{domains}}",
+    "invalidSnils": "Некорректный СНИЛС",
+    "invalidSnilsRepeatedDigits": "Некорректный СНИЛС",
+    "invalidSnilsChecksum": "Некорректная контрольная сумма СНИЛС"
   },
   "auth": {
     "login": "Вход в систему",
@@ -457,4 +467,3 @@
     "footerText": "Введите учетные данные для доступа к системе"
   }
 }
-

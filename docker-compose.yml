@@ -33,7 +33,7 @@ services:
     build:
       context: ./database
       dockerfile: Dockerfile
-    image: db:latest
+    image: db:15.10-alpine
     container_name: etu-forms-postgres_db
     env_file:
       - .env

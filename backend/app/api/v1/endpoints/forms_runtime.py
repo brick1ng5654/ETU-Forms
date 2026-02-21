@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import re
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -32,6 +33,14 @@ router = APIRouter(prefix="/forms", tags=["forms"])
 
 ANON_EMAIL = "anonymous@etu-forms.local"
 ANON_NAME = "Anonymous Respondent"
+SNILS_DIGITS_ONLY_RE = re.compile(r"\D")
+SNILS_TRIPLE_DIGIT_RE = re.compile(r"(\d)\1\1")
+SNILS_FORMATTED_RE = re.compile(r"^\d{3}-\d{3}-\d{3}\s\d{2}$")
+SNILS_PLAIN_RE = re.compile(r"^\d{11}$")
+SNILS_CHECKSUM_THRESHOLD = 1_001_998
+SNILS_INVALID_MSG = "Invalid SNILS"
+SNILS_REPEATED_DIGITS_MSG = "Invalid SNILS repeated digits"
+SNILS_CHECKSUM_MSG = "Invalid SNILS checksum"
 
 
 def _enum_value(x: Any) -> Any:
@@ -190,6 +199,53 @@ def _apply_answer_value(answer_row: ResponseAnswer, value: Any) -> None:
         answer_row.value_number = value
     elif isinstance(value, str):
         answer_row.value_text = value
+
+
+def _snils_checksum(number: str) -> int:
+    total = sum(int(digit) * weight for weight, digit in enumerate(reversed(number), start=1))
+    if total < 100:
+        return total
+    if total in (100, 101):
+        return 0
+
+    remainder = total % 101
+    if remainder in (100, 101):
+        return 0
+    return remainder
+
+
+def _validate_snils_value(value: Any) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        return SNILS_INVALID_MSG
+
+    candidate = value.strip()
+    if candidate == "":
+        return None
+
+    if not (SNILS_PLAIN_RE.fullmatch(candidate) or SNILS_FORMATTED_RE.fullmatch(candidate)):
+        return "SNILS must match XXX-XXX-XXX YY or contain 11 digits"
+
+    digits = SNILS_DIGITS_ONLY_RE.sub("", candidate)
+    number = digits[:9]
+    checksum = digits[9:]
+
+    if SNILS_TRIPLE_DIGIT_RE.search(number):
+        return SNILS_REPEATED_DIGITS_MSG
+
+    if int(number) > SNILS_CHECKSUM_THRESHOLD:
+        expected = _snils_checksum(number)
+        if int(checksum) != expected:
+            return SNILS_CHECKSUM_MSG
+    return None
+
+
+def _validate_semantic_answer(element: FormElement, value: Any) -> str | None:
+    semantic = _enum_value(element.semantic)
+    if semantic == "snils":
+        return _validate_snils_value(value)
+    return None
 
 
 def _file_url(file_id: int, token: str) -> str:
@@ -379,6 +435,12 @@ async def submit_form_response(
         element = by_client_id.get(client_id)
         if element is None:
             continue
+        semantic_error = _validate_semantic_answer(element, value)
+        if semantic_error is not None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid value for '{client_id}': {semantic_error}",
+            )
 
         answer_row = ResponseAnswer(
             response_id=response_row.response_id,
