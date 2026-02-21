@@ -13,6 +13,7 @@ import {
   Clock,
   Copy,
   FileText,
+  Languages,
   Link as LinkIcon,
   PencilLine,
   Search,
@@ -1125,9 +1126,10 @@ export default function FormResults({ params }: { params: { id: string } }) {
               const newLang = i18n.language.startsWith("ru") ? "en" : "ru";
               i18n.changeLanguage(newLang);
             }}
-            title={i18n.language.startsWith("ru") ? "Switch to English" : "Switch to Russian"}
+            title={i18n.language.startsWith("ru") ? "Переключить на Английский" : "Switch to Russian"}
           >
-            <span className="text-xs font-medium">{i18n.language.startsWith("ru") ? "RU" : "EN"}</span>
+            <Languages className="h-4 w-4" />
+            <span className="hidden sm:inline text-sm font-medium">{i18n.language.startsWith("ru") ? "RU" : "EN"}</span>
           </Button>
           <UserMenu />
         </div>
