@@ -170,6 +170,16 @@ class ResponseBase(BaseModel):
 class FormSubmitAnswersRequest(BaseModel):
     answers: Dict[str, Any] = Field(default_factory=dict)
     started_at: Optional[datetime] = None
+    draft_response_id: Optional[int] = None  # если указан и валиден — обновляем черновик до submitted
+
+class FormDraftSaveRequest(BaseModel):
+    answers: Dict[str, Any] = Field(default_factory=dict)
+    respondent_session_token: Optional[str] = None  # для анонимных — UUID от клиента
+
+class FormDraftResponse(BaseModel):
+    response_id: int
+    answers: Dict[str, Any] = Field(default_factory=dict)
+    respondent_session_token: Optional[str] = None
 
 class FormSubmitAnswersResponse(BaseModel):
     response_id: int

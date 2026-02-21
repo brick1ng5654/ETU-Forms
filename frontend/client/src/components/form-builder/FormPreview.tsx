@@ -754,6 +754,8 @@ interface FormPreviewProps {
   submitLabel?: string;
   submitting?: boolean;
   onSubmitAnswers?: (payload: ReturnType<typeof buildAnswersPayload>) => void | Promise<void>;
+  onAnswersChange?: (answers: AnswersById) => void;
+  initialAnswers?: AnswersById;
 }
 
 type Results = Record<string, boolean>;
@@ -765,10 +767,12 @@ export function FormPreview({
   submitLabel,
   submitting = false,
   onSubmitAnswers,
+  onAnswersChange,
+  initialAnswers,
 }: FormPreviewProps) {
   const { t } = useTranslation();
   const isRespondMode = mode === "respond";
-  const [answers, setAnswers] = useState<AnswersById>({});
+  const [answers, setAnswers] = useState<AnswersById>(initialAnswers ?? {});
   const [results, setResults] = useState<Results | null>(null);
   const [, setTotalScore] = useState<number>(0);
   const [, setMaxScore] = useState<number>(0);
@@ -822,8 +826,21 @@ export function FormPreview({
     };
   }, []);
 
+  useEffect(() => {
+    if (initialAnswers && Object.keys(initialAnswers).length > 0) {
+      setAnswers((prev) => {
+        if (Object.keys(prev).length > 0) return prev;
+        return { ...initialAnswers };
+      });
+    }
+  }, [initialAnswers]);
+
   const updateAnswer = (fieldId: string, value: AnswerValue) => {
-    setAnswers((prev) => ({ ...prev, [fieldId]: value }));
+    setAnswers((prev) => {
+      const next = { ...prev, [fieldId]: value };
+      onAnswersChange?.(next);
+      return next;
+    });
     if (results) {
       setResults(null);
     }

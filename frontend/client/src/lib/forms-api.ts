@@ -88,6 +88,13 @@ type FormBuilderPayload = {
 export type FormSubmitAnswersPayload = {
   answers: Record<string, unknown>;
   started_at?: string;
+  draft_response_id?: number;
+};
+
+export type FormDraftResponse = {
+  response_id: number;
+  answers: Record<string, unknown>;
+  respondent_session_token?: string | null;
 };
 
 export type FormSubmitAnswersResult = {
@@ -385,6 +392,49 @@ export async function submitPublicFormResponse(
     throw await asHttpError(res);
   }
   return (await res.json()) as FormSubmitAnswersResult;
+}
+
+export async function fetchFormDraft(
+  formId: string,
+  key?: string | null,
+  sessionToken?: string | null
+): Promise<FormDraftResponse | null> {
+  const params = new URLSearchParams();
+  if (key) params.set("key", key);
+  if (sessionToken) params.set("session_token", sessionToken);
+  const query = params.toString();
+  const res = await apiFetch(
+    `/api/v1/forms/${formId}/responses/draft${query ? `?${query}` : ""}`,
+    { method: "GET" }
+  );
+  if (!res.ok) {
+    if (res.status === 404) return null;
+    throw await asHttpError(res);
+  }
+  const data = (await res.json()) as FormDraftResponse | null;
+  return data;
+}
+
+export async function saveFormDraft(
+  formId: string,
+  payload: { answers: Record<string, unknown>; respondent_session_token?: string | null },
+  key?: string | null
+): Promise<FormDraftResponse> {
+  const params = new URLSearchParams();
+  if (key) params.set("key", key);
+  const query = params.toString();
+  const res = await apiFetch(
+    `/api/v1/forms/${formId}/responses/draft${query ? `?${query}` : ""}`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }
+  );
+  if (!res.ok) {
+    throw await asHttpError(res);
+  }
+  return (await res.json()) as FormDraftResponse;
 }
 
 const mapStoredResponse = (row: ServerFormStoredResponse): StoredFormResponse => ({
