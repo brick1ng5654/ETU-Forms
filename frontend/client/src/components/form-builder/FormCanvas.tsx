@@ -52,9 +52,10 @@ interface FormCanvasProps {
   setForm: (form: FormSchema) => void;
   pages: FormPageModel[];
   activePageId: number;
-  onSelectPage: (pageId: number) => void;
+  onSelectPage: (pageId: number, event?: MouseEvent<HTMLDivElement>) => void;
   onAddPage: () => void;
   onMovePage: (pageId: number, targetIndex: number) => void;
+  selectedPageIds: number[];
   selectedIds: string[];
   onSelectField: (id: string, event: MouseEvent<HTMLDivElement>) => void;
   clearSelection: () => void;
@@ -65,6 +66,7 @@ interface FormCanvasProps {
   canRedo: boolean;
   fields: FormElementModel[];
   moveSelected: (direction: "up" | "down") => void;
+  moveSelectedPages: (direction: "up" | "down") => void;
   scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
@@ -127,7 +129,7 @@ type PageSectionProps = {
   isActive: boolean;
   pageLabel: string;
   pageFields: FormElementModel[];
-  onSelectPage: (pageId: number) => void;
+  onSelectPage: (pageId: number, event?: MouseEvent<HTMLDivElement>) => void;
   t: (key: string, opts?: any) => string;
   selectedIds: string[];
   onSelectField: (id: string, event: MouseEvent<HTMLDivElement>) => void;
@@ -152,8 +154,8 @@ const PageSection = React.memo(function PageSection({
   return (
     <div
       className={cn(
-        "border-t border-border/40",
-        isActive && "bg-primary/10 outline outline-1 outline-primary/50 outline-offset-[-1px] rounded-lg"
+        "border border-transparent border-t border-border/40 rounded-lg transition-shadow",
+        isActive && "ring-2 ring-primary border-transparent shadow-md"
       )}
     >
       <div
@@ -161,7 +163,7 @@ const PageSection = React.memo(function PageSection({
         tabIndex={0}
         onClick={(event) => {
           event.stopPropagation();
-          onSelectPage(page.id);
+          onSelectPage(page.id, event);
         }}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {
@@ -225,6 +227,7 @@ export function FormCanvas({
   onSelectPage,
   onAddPage,
   onMovePage,
+  selectedPageIds,
   selectedIds,
   onSelectField,
   clearSelection,
@@ -235,6 +238,7 @@ export function FormCanvas({
   canRedo,
   fields,
   moveSelected,
+  moveSelectedPages,
   scrollContainerRef,
 }: FormCanvasProps) {
 
@@ -403,8 +407,17 @@ export function FormCanvas({
   const activePage = pageOrder.find((page) => page.id === activePageId);
   const selectedSet = new Set(selectedIds);
   const canMoveUp = (() => {
-    if (selectedIds.length === 0) {
+    if (selectedIds.length === 0 && selectedPageIds.length === 0) {
       return activePage != null && activePage.pageIndex > 0;
+    }
+    if (selectedIds.length === 0 && selectedPageIds.length > 0) {
+      const selectedPageSet = new Set(selectedPageIds);
+      for (let i = 1; i < pageOrder.length; i += 1) {
+        if (selectedPageSet.has(pageOrder[i].id) && !selectedPageSet.has(pageOrder[i - 1].id)) {
+          return true;
+        }
+      }
+      return false;
     }
     for (const page of pageOrder) {
       const pageFields = fieldsByPage.get(page.id) ?? [];
@@ -418,8 +431,17 @@ export function FormCanvas({
   })();
 
   const canMoveDown = (() => {
-    if (selectedIds.length === 0) {
+    if (selectedIds.length === 0 && selectedPageIds.length === 0) {
       return activePage != null && activePage.pageIndex < pageOrder.length - 1;
+    }
+    if (selectedIds.length === 0 && selectedPageIds.length > 0) {
+      const selectedPageSet = new Set(selectedPageIds);
+      for (let i = pageOrder.length - 2; i >= 0; i -= 1) {
+        if (selectedPageSet.has(pageOrder[i].id) && !selectedPageSet.has(pageOrder[i + 1].id)) {
+          return true;
+        }
+      }
+      return false;
     }
     for (const page of pageOrder) {
       const pageFields = fieldsByPage.get(page.id) ?? [];
@@ -521,6 +543,10 @@ export function FormCanvas({
                   moveSelected("up");
                   return;
                 }
+                if (selectedPageIds.length > 0) {
+                  moveSelectedPages("up");
+                  return;
+                }
                 if (!activePage || activePage.pageIndex === 0) return;
                 onMovePage(activePage.id, activePage.pageIndex);
               }}
@@ -536,6 +562,10 @@ export function FormCanvas({
               onClick={() => {
                 if (selectedIds.length > 0) {
                   moveSelected("down");
+                  return;
+                }
+                if (selectedPageIds.length > 0) {
+                  moveSelectedPages("down");
                   return;
                 }
                 if (!activePage || activePage.pageIndex >= pageOrder.length - 1) return;
@@ -620,7 +650,7 @@ export function FormCanvas({
             const pageLabel = !rawTitle || AUTO_PAGE_TITLE.test(rawTitle)
               ? t("pages.defaultTitle", { index: page.pageIndex + 1 })
               : rawTitle;
-            const isActive = selectedIds.length === 0 && page.id === activePageId;
+            const isActive = selectedPageIds.includes(page.id);
 
             return (
               <PageSection

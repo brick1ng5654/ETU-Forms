@@ -242,7 +242,9 @@ export default function Builder({ params }: { params: { id?: string } }) {
   const activeFormIdRef = useRef<string | null>(null);
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectedPageIds, setSelectedPageIds] = useState<number[]>([]);
   const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
+  const [lastSelectedPageId, setLastSelectedPageId] = useState<number | null>(null);
   const [history, setHistory] = useState<FormSchema[]>([]);
   const [redoHistory, setRedoHistory] = useState<FormSchema[]>([]);
   const isUndoingRef = useRef(false);
@@ -269,6 +271,10 @@ export default function Builder({ params }: { params: { id?: string } }) {
 
   const handleSelectField = (id: string, event: MouseEvent<HTMLDivElement>) => {
     console.log('Selecting field:', id);
+    if (selectedPageIds.length > 0) {
+      setSelectedPageIds([]);
+      setLastSelectedPageId(null);
+    }
     const selectedField = fields.find((field) => field.id === id);
     if (selectedField) {
       setActivePageId(selectedField.pageId);
@@ -303,10 +309,37 @@ export default function Builder({ params }: { params: { id?: string } }) {
   const clearSelection = () => {
     setSelectedIds([]);
     setLastSelectedId(null);
+    setSelectedPageIds([]);
+    setLastSelectedPageId(null);
   };
-  const handleSelectPage = (pageId: number) => {
+  const handleSelectPage = (pageId: number, event?: MouseEvent<HTMLDivElement>) => {
     setActivePageId(pageId);
-    clearSelection();
+    setSelectedIds([]);
+    setLastSelectedId(null);
+    if (event?.shiftKey && lastSelectedPageId != null) {
+      const orderedPages = pages.slice().sort((a, b) => a.pageIndex - b.pageIndex);
+      const currentIndex = orderedPages.findIndex((page) => page.id === pageId);
+      const lastIndex = orderedPages.findIndex((page) => page.id === lastSelectedPageId);
+      if (currentIndex !== -1 && lastIndex !== -1) {
+        const [start, end] = currentIndex < lastIndex ? [currentIndex, lastIndex] : [lastIndex, currentIndex];
+        const rangeIds = orderedPages.slice(start, end + 1).map((page) => page.id);
+        setSelectedPageIds(rangeIds);
+        setLastSelectedPageId(pageId);
+        return;
+      }
+    }
+    if (event?.metaKey || event?.ctrlKey) {
+      setSelectedPageIds((prev) => {
+        if (prev.includes(pageId)) {
+          return prev.filter((existingId) => existingId !== pageId);
+        }
+        return [...prev, pageId];
+      });
+      setLastSelectedPageId(pageId);
+      return;
+    }
+    setSelectedPageIds([pageId]);
+    setLastSelectedPageId(pageId);
   };
   const [isToolboxOpen, setIsToolboxOpen] = useState(true);
   const { t, i18n } = useTranslation();
@@ -710,6 +743,69 @@ export default function Builder({ params }: { params: { id?: string } }) {
     setForm({ ...activeForm, pages: remainingPages, fields: nextFields });
     setActivePageId(nextActive);
   };
+  const deletePages = (
+    pageIds: number[],
+    options: { mode: "delete" | "move"; targetPageId?: number }
+  ) => {
+    if (!activeForm) return;
+    if (pageIds.length === 0) return;
+    const deleteSet = new Set(pageIds);
+    if (pages.length <= deleteSet.size) return;
+
+    const orderedPages = reindexPages(pages);
+    const remainingPages = reindexPages(orderedPages.filter((page) => !deleteSet.has(page.id)));
+    if (remainingPages.length === 0) return;
+
+    const remainingIds = new Set(remainingPages.map((page) => page.id));
+    let targetPageId = options.targetPageId;
+    if (options.mode === "move") {
+      if (targetPageId == null || !remainingIds.has(targetPageId)) {
+        targetPageId = remainingPages[0].id;
+      }
+    }
+
+    let nextFields: FormElementModel[];
+    if (options.mode === "move" && targetPageId != null) {
+      const targetCount = fields.filter((field) => field.pageId === targetPageId).length;
+      const movedFields = orderedPages
+        .filter((page) => deleteSet.has(page.id))
+        .flatMap((page) =>
+          fields
+            .filter((field) => field.pageId === page.id)
+            .slice()
+            .sort((a, b) => a.sortIndex - b.sortIndex)
+        );
+      const movedIndexById = new Map(
+        movedFields.map((field, index) => [field.id, targetCount + index])
+      );
+      nextFields = fields.map((field) => {
+        if (!deleteSet.has(field.pageId)) return field;
+        return {
+          ...field,
+          pageId: targetPageId,
+          sortIndex: movedIndexById.get(field.id) ?? field.sortIndex,
+        };
+      });
+    } else {
+      nextFields = fields.filter((field) => !deleteSet.has(field.pageId));
+    }
+
+    nextFields = normalizeFieldsByPage(nextFields, remainingPages);
+
+    let nextActive = activePageId;
+    if (!nextActive || deleteSet.has(nextActive) || !remainingIds.has(nextActive)) {
+      if (options.mode === "move" && targetPageId != null) {
+        nextActive = targetPageId;
+      } else {
+        nextActive = remainingPages[0]?.id ?? null;
+      }
+    }
+
+    setForm({ ...activeForm, pages: remainingPages, fields: nextFields });
+    setActivePageId(nextActive);
+    setSelectedPageIds([]);
+    setLastSelectedPageId(null);
+  };
 
   const movePageToIndex = (pageId: number, targetIndex: number) => {
     if (!activeForm) return;
@@ -907,6 +1003,33 @@ export default function Builder({ params }: { params: { id?: string } }) {
 
     setFields(nextFields);
   };
+  const moveSelectedPages = (direction: "up" | "down") => {
+    if (!activeForm) return;
+    if (selectedPageIds.length === 0) return;
+    const selectedSet = new Set(selectedPageIds);
+    const orderedPages = pages.slice().sort((a, b) => a.pageIndex - b.pageIndex);
+    const nextPages = orderedPages.slice();
+    if (direction === "up") {
+      for (let i = 1; i < nextPages.length; i += 1) {
+        if (selectedSet.has(nextPages[i].id) && !selectedSet.has(nextPages[i - 1].id)) {
+          const current = nextPages[i];
+          nextPages[i] = nextPages[i - 1];
+          nextPages[i - 1] = current;
+        }
+      }
+    } else {
+      for (let i = nextPages.length - 2; i >= 0; i -= 1) {
+        if (selectedSet.has(nextPages[i].id) && !selectedSet.has(nextPages[i + 1].id)) {
+          const current = nextPages[i];
+          nextPages[i] = nextPages[i + 1];
+          nextPages[i + 1] = current;
+        }
+      }
+    }
+    const reindexed = reindexPagesInOrder(nextPages);
+    const nextFields = normalizeFieldsByPage(fields, reindexed);
+    setForm({ ...activeForm, pages: reindexed, fields: nextFields });
+  };
 
   const mapWidgetTypeForPublish = (widgetType: FormElementModel["widgetType"]) => {
     if (widgetType === "header") return "heading";
@@ -990,7 +1113,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
       access_mode: accessMode,
       start_at: startAt,
       end_at: endAt,
-      settings_json: activeForm.settings_json ?? { client_form_id: activeForm.id },
+      settings_json: form.settings_json ?? { client_form_id: form.id },
       pages: pages.map((page, index) => ({
         page_id: page.id,
         title: page.title,
@@ -1745,8 +1868,10 @@ export default function Builder({ params }: { params: { id?: string } }) {
           onSelectPage={handleSelectPage}
           onAddPage={addPage}
           onMovePage={movePageToIndex}
+          selectedPageIds={selectedPageIds}
           selectedIds={selectedIds}
           moveSelected={moveSelected}
+          moveSelectedPages={moveSelectedPages}
           onSelectField={handleSelectField}
           clearSelection={clearSelection}
           updateField={updateField}
@@ -1761,8 +1886,8 @@ export default function Builder({ params }: { params: { id?: string } }) {
           <PropertiesPanel
             key={selectedField?.id || selectedIds.join("-") || 'none'}
             pages={pages}
-            activePageId={activePageId ?? pages[0]?.id ?? 1}
-            onDeletePage={deletePage}
+            selectedPageIds={selectedPageIds}
+            onDeletePages={deletePages}
             onTogglePageBack={togglePageBack}
             selectedField={selectedField}
             selectedIds={selectedIds}

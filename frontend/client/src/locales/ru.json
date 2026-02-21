@@ -83,6 +83,7 @@
   "pages": {
     "defaultTitle": "Страница {{index}}",
     "elementsCount": "{{count}} элементов",
+    "selectedCount": "Выбрано страниц: {{count}}",
     "backToggle": "Назад",
     "backToggleAria": "Разрешить переход назад",
     "backToggleTooltip": "Включите, чтобы пользователь мог вернуться с этой страницы на предыдущую.",

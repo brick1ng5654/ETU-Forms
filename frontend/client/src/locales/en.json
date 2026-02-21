@@ -85,6 +85,7 @@
   "pages": {
     "defaultTitle": "Page {{index}}",
     "elementsCount": "{{count}} elements",
+    "selectedCount": "Selected pages: {{count}}",
     "backToggle": "Back",
     "backToggleAria": "Allow back navigation",
     "backToggleTooltip": "Enable to let users return from this page to the previous page.",
