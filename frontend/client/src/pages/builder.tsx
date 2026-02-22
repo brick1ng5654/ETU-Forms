@@ -1183,6 +1183,31 @@ export default function Builder({ params }: { params: { id?: string } }) {
     };
   };
 
+  const normalizePayloadForSignature = (payload: NonNullable<ReturnType<typeof buildBuilderPayload>>) => {
+    const pages = payload.pages.slice().sort((a, b) => {
+      const indexDiff = (a.page_index ?? 0) - (b.page_index ?? 0);
+      if (indexDiff !== 0) return indexDiff;
+      return (a.page_id ?? 0) - (b.page_id ?? 0);
+    });
+    const elements = payload.elements.slice().sort((a, b) => {
+      const pageDiff = (a.page_id ?? 0) - (b.page_id ?? 0);
+      if (pageDiff !== 0) return pageDiff;
+      const sortDiff = (a.sort_index ?? 0) - (b.sort_index ?? 0);
+      if (sortDiff !== 0) return sortDiff;
+      return String(a.client_id).localeCompare(String(b.client_id));
+    });
+    const conditions = payload.conditions.slice().sort((a, b) => {
+      const sourceDiff = String(a.source_client_id).localeCompare(String(b.source_client_id));
+      if (sourceDiff !== 0) return sourceDiff;
+      const targetDiff = String(a.target_client_id).localeCompare(String(b.target_client_id));
+      if (targetDiff !== 0) return targetDiff;
+      const operatorDiff = String(a.operator).localeCompare(String(b.operator));
+      if (operatorDiff !== 0) return operatorDiff;
+      return JSON.stringify(a.value ?? {}).localeCompare(JSON.stringify(b.value ?? {}));
+    });
+    return { ...payload, pages, elements, conditions };
+  };
+
   const buildPayloadSignature = useCallback(
     (
       overrides?: { accessMode?: FormAccessMode; startAt?: string | null; endAt?: string | null },
@@ -1193,7 +1218,8 @@ export default function Builder({ params }: { params: { id?: string } }) {
       const publishFields = resolvePublishFields(form);
       const payload = buildBuilderPayload(publishFields, overrides, form);
       if (!payload) return null;
-      return JSON.stringify(sortForSignature(payload));
+      const normalizedPayload = normalizePayloadForSignature(payload);
+      return JSON.stringify(sortForSignature(normalizedPayload));
     },
     [activeForm]
   );
