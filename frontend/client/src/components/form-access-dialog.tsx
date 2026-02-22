@@ -107,6 +107,12 @@ const statusVariant = (status: FormAccessEntry["status"]) => {
   return "outline";
 };
 
+const statusBadgeClassName = (status: FormAccessEntry["status"]) => {
+  if (status === "active") return "cursor-text select-text transition-none hover:bg-primary";
+  if (status === "pending") return "cursor-text select-text transition-none hover:bg-secondary";
+  return "cursor-text select-text transition-none";
+};
+
 const statusLabelKey = (status: FormAccessEntry["status"]) => {
   if (status === "active") return "access.statusActive";
   if (status === "pending") return "access.statusPending";
@@ -860,7 +866,7 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
                           <div className="truncate text-xs text-muted-foreground">{subtitle}</div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge variant={statusVariant(entry.status)}>
+                          <Badge variant={statusVariant(entry.status)} className={statusBadgeClassName(entry.status)}>
                             {t(statusLabelKey(entry.status))}
                           </Badge>
                           <Badge variant="outline">{t(roleLabelKey(entry.role))}</Badge>
