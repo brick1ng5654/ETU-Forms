@@ -63,6 +63,7 @@ export interface FormSchema {
   folderId?: string;
   title: string;
   description: string;
+  ownerId?: number;
   ownerName?: string;
   fields: FormElementModel[];
   fieldCount?: number;

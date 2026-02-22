@@ -268,6 +268,9 @@ ON access_control (user_id);
 CREATE INDEX IF NOT EXISTS idx_access_form_user
 ON access_control (form_id, user_id);
 
+CREATE INDEX IF NOT EXISTS ix_access_starts
+ON access_control (starts_at);
+
 CREATE INDEX IF NOT EXISTS idx_access_expires
 ON access_control (expires_at);
 
@@ -288,6 +291,8 @@ CREATE TABLE IF NOT EXISTS access_invite (
     status access_invite_status NOT NULL DEFAULT 'pending',
     starts_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP NULL,
+    max_accepts INT NULL,
+    accepted_count INT NOT NULL DEFAULT 0,
     accepted_by_user_id INT NULL,
     accepted_at TIMESTAMP NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -306,7 +311,16 @@ CREATE TABLE IF NOT EXISTS access_invite (
     CONSTRAINT fk_invite_accepted_user
         FOREIGN KEY (accepted_by_user_id)
         REFERENCES App_User(user_id)
-        ON DELETE SET NULL
+        ON DELETE SET NULL,
+
+    CONSTRAINT chk_access_invite_max_accepts_positive
+        CHECK (max_accepts IS NULL OR max_accepts > 0),
+
+    CONSTRAINT chk_access_invite_accepted_count_non_negative
+        CHECK (accepted_count >= 0),
+
+    CONSTRAINT chk_access_invite_count_within_limit
+        CHECK (max_accepts IS NULL OR accepted_count <= max_accepts)
 );
 
 CREATE INDEX IF NOT EXISTS idx_access_invite_form_status
@@ -317,6 +331,9 @@ ON access_invite (invitee_email);
 
 CREATE INDEX IF NOT EXISTS idx_access_invite_expires
 ON access_invite (expires_at);
+
+CREATE INDEX IF NOT EXISTS ix_access_invite_starts
+ON access_invite (starts_at);
 
 CREATE TABLE IF NOT EXISTS Template(
     template_id SERIAL PRIMARY KEY,

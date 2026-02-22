@@ -12,6 +12,7 @@ import {
   Info,
   Languages,
   Users,
+  UserMinus,
 } from "lucide-react";
 import { storage } from "@/lib/storage";
 import { FormSchema } from "@/lib/form-types";
@@ -33,7 +34,7 @@ import { toast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import { UserMenu } from "@/components/user-menu";
 import { FormAccessDialog } from "@/components/form-access-dialog";
-import { createForm, deleteForm as deleteFormApi, fetchFormsCatalog } from "@/lib/forms-api";
+import { createForm, deleteForm as deleteFormApi, fetchFormsCatalog, leaveFormAccess } from "@/lib/forms-api";
 import { useAuth } from "@/lib/auth";
 import { AppBrand } from "@/components/app-brand";
 import { CustomLoader } from "@/components/ui/custom-loader";
@@ -161,6 +162,30 @@ export default function Home() {
     const key = getPrivateLinkKey(form);
     const href = key ? `/form/${form.id}?key=${encodeURIComponent(key)}` : `/form/${form.id}`;
     setLocation(href);
+  };
+
+  const isFormOwner = (form: FormSchema) => {
+    if (!user) return false;
+    return (form.ownerId ?? null) === user.user_id;
+  };
+
+  const declineAccess = async (form: FormSchema) => {
+    if (isFormOwner(form)) return;
+    if (!confirm(t("access.leaveAccessConfirm"))) return;
+    try {
+      await leaveFormAccess(form.id);
+      toast({ title: t("access.leaveAccessSuccess") });
+      if (accessForm?.id === form.id) {
+        setAccessForm(null);
+      }
+      void refreshData();
+    } catch (error: any) {
+      toast({
+        title: t("actions.error"),
+        description: error?.message ?? t("access.leaveAccessFailed"),
+        variant: "destructive",
+      });
+    }
   };
 
   const categoryLabel = useMemo<Record<AccessCategory, string>>(
@@ -321,6 +346,15 @@ export default function Home() {
                             {t("home.continuePassage")}
                           </Button>
                         ) : null}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setAccessForm(form)}
+                          disabled={!canEditForm(form)}
+                        >
+                          <Users className="mr-2 h-4 w-4" />
+                          {t("access.manageAccess")}
+                        </Button>
                       </div>
                     </div>
 
@@ -336,9 +370,6 @@ export default function Home() {
                           <DropdownMenuItem onClick={() => setPropertiesForm(form)}>
                             <Info className="mr-2 h-4 w-4" /> {t("actions.properties")}
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setAccessForm(form)} disabled={!canEditForm(form)}>
-                            <Users className="mr-2 h-4 w-4" /> {t("access.manageAccess")}
-                          </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => openBuilder(form)} disabled={!canEditForm(form)}>
                             <PencilLine className="mr-2 h-4 w-4" /> {t("results.openBuilder")}
@@ -350,6 +381,17 @@ export default function Home() {
                             <DropdownMenuItem onClick={() => openPassage(form)}>
                               <Play className="mr-2 h-4 w-4" /> {t("home.continuePassage")}
                             </DropdownMenuItem>
+                          ) : null}
+                          {!isFormOwner(form) ? (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => void declineAccess(form)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <UserMinus className="mr-2 h-4 w-4" /> {t("access.leaveAccess")}
+                              </DropdownMenuItem>
+                            </>
                           ) : null}
                           {canEditForm(form) ? (
                             <>

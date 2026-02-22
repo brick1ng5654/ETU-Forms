@@ -406,6 +406,39 @@ async def delete_form_user_access(
     return None
 
 
+@router.delete("/{form_id}/access/me", status_code=status.HTTP_204_NO_CONTENT)
+async def leave_own_form_access(
+    form_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: AppUser = Depends(get_current_user),
+):
+    form = (
+        await db.execute(
+            select(Form)
+            .where(Form.form_id == form_id)
+            .where(Form.status != "deleted")
+        )
+    ).scalar_one_or_none()
+    if form is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Form not found")
+    if form.user_id == current_user.user_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Form owner cannot leave access")
+
+    access = (
+        await db.execute(
+            select(AccessControl)
+            .where(AccessControl.form_id == form_id)
+            .where(AccessControl.user_id == current_user.user_id)
+        )
+    ).scalar_one_or_none()
+    if access is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Access entry not found")
+
+    await db.delete(access)
+    await db.flush()
+    return None
+
+
 @router.delete("/{form_id}/access/invites/{invite_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def revoke_form_access_invite(
     form_id: int,

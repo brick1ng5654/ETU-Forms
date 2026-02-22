@@ -300,6 +300,7 @@ export const mapServerDetailToSchema = (detail: ServerFormDetail): FormSchema =>
     id: String(detail.form_id),
     title: detail.title,
     description: detail.description ?? "",
+    ownerId: detail.user_id,
     fields,
     fieldCount: detail.elements_count ?? fields.length,
     status: detail.status,
@@ -319,6 +320,7 @@ export const mapServerSummaryToSchema = (summary: ServerFormSummary): FormSchema
     id: String(summary.form_id),
     title: summary.title,
     description: summary.description ?? "",
+    ownerId: summary.user_id,
     ownerName: summary.owner_name ?? undefined,
     fields: [],
     fieldCount: summary.elements_count ?? 0,
@@ -569,6 +571,15 @@ export async function updateFormAccessUser(
 
 export async function deleteFormAccessUser(formId: string, accessId: number): Promise<void> {
   const res = await apiFetch(`/api/v1/forms/${formId}/access/users/${accessId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    throw await asHttpError(res);
+  }
+}
+
+export async function leaveFormAccess(formId: string): Promise<void> {
+  const res = await apiFetch(`/api/v1/forms/${formId}/access/me`, {
     method: "DELETE",
   });
   if (!res.ok) {
