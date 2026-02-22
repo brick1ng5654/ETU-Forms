@@ -59,7 +59,7 @@ async def _replace_elements_and_conditions(
     sorted_pages = sorted(payload.pages or [], key=lambda page: page.page_index)
     if not sorted_pages:
         sorted_pages = [
-            type("DefaultPage", (), {"page_id": None, "title": None, "allow_back": True, "page_index": 0})()
+            type("DefaultPage", (), {"page_id": None, "allow_back": True, "page_index": 0})()
         ]
 
     default_page_id: int | None = None
@@ -68,7 +68,6 @@ async def _replace_elements_and_conditions(
         row = models.FormPage(
             form_id=form_id,
             page_index=page_index,
-            title=page.title,
             allow_back=bool(page.allow_back),
         )
         db.add(row)

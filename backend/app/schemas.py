@@ -386,7 +386,6 @@ class BuilderConditionOut(BuilderConditionIn):
 class FormPageBase(BaseModel):
     page_id: Optional[int] = None
     form_id: Optional[int] = None
-    title: Optional[str] = None
     allow_back: bool = True
     page_index: int
 
@@ -394,15 +393,12 @@ class FormPageCreate(FormPageBase):
     form_id: int
 
 class FormPageUpdate(BaseModel):
-    title: Optional[str] = None
     allow_back: Optional[bool] = None
     page_index: int
 
 class FormPageResponse(FormPageBase):
     page_id: int
     form_id: int
-    created_at: datetime
-    updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
 

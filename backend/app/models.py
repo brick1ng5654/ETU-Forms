@@ -268,10 +268,7 @@ class FormPage(Base):
     form_id = Column(Integer, ForeignKey("form.form_id", ondelete="CASCADE"), nullable=False)
     
     page_index = Column(Integer, nullable=False)
-    title = Column(Text, nullable=True)
     allow_back = Column(Boolean, nullable=False, server_default="true")
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     __table_args__ = (
         CheckConstraint("page_index >= 0", name="chk_page_index"),
