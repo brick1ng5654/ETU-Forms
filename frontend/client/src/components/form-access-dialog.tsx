@@ -188,12 +188,18 @@ function ExpiryDateField({ value, onChange, disabled, locale, className }: DateF
 }
 
 function HintIcon({ text }: { text: string }) {
+  const [isTooltipOpen, setIsTooltipOpen] = useState(false);
+
   return (
-    <Tooltip delayDuration={0}>
+    <Tooltip open={isTooltipOpen}>
       <TooltipTrigger asChild>
         <button
           type="button"
           aria-label={text}
+          onPointerEnter={() => setIsTooltipOpen(true)}
+          onPointerLeave={() => setIsTooltipOpen(false)}
+          onFocus={() => setIsTooltipOpen(false)}
+          onBlur={() => setIsTooltipOpen(false)}
           className="h-5 w-5 rounded-full border border-muted-foreground/40 text-muted-foreground text-[11px] leading-none flex items-center justify-center hover:bg-muted"
         >
           ?
