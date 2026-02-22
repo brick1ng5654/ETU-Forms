@@ -2,11 +2,9 @@ FROM node:20.18.3-alpine AS build
 
 WORKDIR /app
 
-# Install dependencies inside Linux container to avoid host platform binaries.
 COPY package*.json ./
 RUN npm ci
 
-# Copy app sources after deps for better layer caching.
 COPY . .
 RUN npm run build
 
