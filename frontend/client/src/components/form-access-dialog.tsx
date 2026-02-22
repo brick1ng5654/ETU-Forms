@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Locale } from "date-fns";
 import { ru } from "date-fns/locale";
 import { useTranslation } from "react-i18next";
-import { CalendarDays, Check, Copy, Link as LinkIcon, Trash2, UserPlus } from "lucide-react";
+import { ArrowDown, ArrowUp, CalendarDays, Check, Copy, Link as LinkIcon, Trash2, UserPlus } from "lucide-react";
 
 import type { FormSchema } from "@/form/types";
 import {
@@ -28,6 +28,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 type RoleFilter = "all" | FormAccessRole;
+type AccessSortField = "name" | "startsAt" | "expiresAt";
+type AccessSortDirection = "asc" | "desc";
 
 type Props = {
   form: Pick<FormSchema, "id" | "title"> | null;
@@ -221,6 +223,8 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
   const [linkUnlimitedAccepts, setLinkUnlimitedAccepts] = useState(true);
   const [linkMaxAccepts, setLinkMaxAccepts] = useState("");
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
+  const [sortField, setSortField] = useState<AccessSortField>("name");
+  const [sortDirection, setSortDirection] = useState<AccessSortDirection>("asc");
   const [entryStartDrafts, setEntryStartDrafts] = useState<Record<number, string>>({});
   const [entryDateDrafts, setEntryDateDrafts] = useState<Record<number, string>>({});
   const [entryRoleDrafts, setEntryRoleDrafts] = useState<Record<number, FormAccessRole>>({});
@@ -253,13 +257,44 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
     void refreshEntries();
   }, [open, currentFormId, canManage]);
 
+  const currentDateInput = useMemo(() => formatDateForInput(new Date()), []);
+  const currentDateLabel = useMemo(
+    () =>
+      new Intl.DateTimeFormat(i18n.language.startsWith("ru") ? "ru-RU" : "en-US", {
+        dateStyle: "medium",
+      }).format(new Date()),
+    [i18n.language]
+  );
+
   const filteredEntries = useMemo(() => {
     const withoutUniversalLinks = entries.filter(
       (entry) => !(entry.entryType === "invite" && !entry.userEmail)
     );
-    if (roleFilter === "all") return withoutUniversalLinks;
-    return withoutUniversalLinks.filter((entry) => entry.role === roleFilter);
-  }, [entries, roleFilter]);
+    const roleFiltered = roleFilter === "all"
+      ? withoutUniversalLinks
+      : withoutUniversalLinks.filter((entry) => entry.role === roleFilter);
+
+    const sorted = [...roleFiltered].sort((a, b) => {
+      let left: string | number;
+      let right: string | number;
+      if (sortField === "name") {
+        left = (a.userName || a.userEmail || "").toLowerCase();
+        right = (b.userName || b.userEmail || "").toLowerCase();
+      } else if (sortField === "startsAt") {
+        left = a.startsAt ? new Date(a.startsAt).getTime() : new Date(`${currentDateInput}T00:00:00`).getTime();
+        right = b.startsAt ? new Date(b.startsAt).getTime() : new Date(`${currentDateInput}T00:00:00`).getTime();
+      } else {
+        left = a.expiresAt ? new Date(a.expiresAt).getTime() : Number.POSITIVE_INFINITY;
+        right = b.expiresAt ? new Date(b.expiresAt).getTime() : Number.POSITIVE_INFINITY;
+      }
+
+      if (left < right) return sortDirection === "asc" ? -1 : 1;
+      if (left > right) return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    return sorted;
+  }, [entries, roleFilter, sortField, sortDirection, currentDateInput]);
 
   const activeUniversalLinks = useMemo(() => {
     return entries.filter(
@@ -306,6 +341,7 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
   const handleInviteByEmail = async () => {
     if (!currentFormId || !canManage) return;
     const emailValue = email.trim().toLowerCase();
+    const startInput = emailStartsOn || currentDateInput;
     if (!emailValue) return;
     if (!isValidEmail(emailValue)) {
       toast({
@@ -315,7 +351,7 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
       });
       return;
     }
-    if (hasInvalidRange(emailStartsOn, emailExpiresOn, emailNoExpiry)) {
+    if (hasInvalidRange(startInput, emailExpiresOn, emailNoExpiry)) {
       toast({
         title: t("actions.error"),
         description: t("access.invalidDateRange"),
@@ -329,7 +365,7 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
       await inviteFormAccessByEmail(currentFormId, {
         email: emailValue,
         role: emailRole,
-        starts_at: toIsoStartOfDay(emailStartsOn),
+        starts_at: toIsoStartOfDay(startInput),
         expires_at: emailNoExpiry ? null : toIsoEndOfDay(emailExpiresOn),
         require_accept: false,
       });
@@ -350,7 +386,8 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
 
   const handleCreateLink = async () => {
     if (!currentFormId || !canManage) return;
-    if (hasInvalidRange(linkStartsOn, linkExpiresOn, linkNoExpiry)) {
+    const startInput = linkStartsOn || currentDateInput;
+    if (hasInvalidRange(startInput, linkExpiresOn, linkNoExpiry)) {
       toast({
         title: t("actions.error"),
         description: t("access.invalidDateRange"),
@@ -372,7 +409,7 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
     try {
       await createFormAccessLink(currentFormId, {
         role: linkRole,
-        starts_at: toIsoStartOfDay(linkStartsOn),
+        starts_at: toIsoStartOfDay(startInput),
         expires_at: linkNoExpiry ? null : toIsoEndOfDay(linkExpiresOn),
         max_accepts: linkUnlimitedAccepts ? null : parsedMaxAccepts,
       });
@@ -432,8 +469,10 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
     if (!currentFormId || !canManage || entry.entryType !== "access" || entry.accessId == null) return;
     const currentRole = entry.role;
     const draftRole = entryRoleDrafts[entry.accessId] ?? currentRole;
-    const currentStart = dateInputFromIso(entry.startsAt);
-    const draftStart = entryStartDrafts[entry.accessId] ?? currentStart;
+    const currentStartRaw = dateInputFromIso(entry.startsAt);
+    const draftStartRaw = entryStartDrafts[entry.accessId] ?? currentStartRaw;
+    const currentStart = currentStartRaw || currentDateInput;
+    const draftStart = draftStartRaw || currentDateInput;
     const currentDate = dateInputFromIso(entry.expiresAt);
     const draftDate = entryDateDrafts[entry.accessId] ?? currentDate;
     if (hasInvalidRange(draftStart, draftDate, draftDate === "")) {
@@ -604,18 +643,8 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">{t("access.acceptLimitLabel")}</label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      min={1}
-                      value={linkMaxAccepts}
-                      onChange={(event) => setLinkMaxAccepts(event.target.value)}
-                      disabled={isSubmitting || linkUnlimitedAccepts}
-                      placeholder="10"
-                      className="w-full"
-                    />
-                    <label className="inline-flex min-w-fit items-center gap-2 text-xs text-muted-foreground">
+                  <div className="grid gap-2 sm:grid-cols-[auto_1fr] sm:items-end">
+                    <label className="inline-flex min-w-fit items-center gap-2 pb-2 text-xs text-muted-foreground">
                       <Checkbox
                         simplifiedAnimation
                         checked={linkUnlimitedAccepts}
@@ -628,6 +657,18 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
                       />
                       <span>{t("access.unlimited")}</span>
                     </label>
+                    <div className="space-y-1">
+                      <label className="text-xs text-muted-foreground">{t("access.acceptLimitLabel")}</label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={linkMaxAccepts}
+                        onChange={(event) => setLinkMaxAccepts(event.target.value)}
+                        disabled={isSubmitting || linkUnlimitedAccepts}
+                        placeholder="10"
+                        className="w-full"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -684,7 +725,7 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
                   <div className="max-h-52 space-y-2 overflow-y-auto pr-1">
                     {activeUniversalLinks.map((entry) => {
                       const link = toAbsoluteUrl(entry.inviteUrl);
-                      const startsLabel = formatDateTime(entry.startsAt, i18n.language, t("access.noStartLimit"));
+                      const startsLabel = formatDateTime(entry.startsAt, i18n.language, currentDateLabel);
                       const expiresLabel = formatDateTime(entry.expiresAt, i18n.language, t("access.noExpiry"));
                       return (
                         <div key={`active-link-${entry.inviteId ?? link}`} className="space-y-2 rounded-md border border-border p-2">
@@ -726,18 +767,44 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
               </div>
             </div>
 
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="text-sm font-medium">{t("access.listTitle")}</div>
-              <Select value={roleFilter} onValueChange={(next) => setRoleFilter(next as RoleFilter)}>
-                <SelectTrigger className="w-44">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t("access.filterAll")}</SelectItem>
-                  <SelectItem value="participant">{t("access.roleParticipant")}</SelectItem>
-                  <SelectItem value="editor">{t("access.roleEditor")}</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex flex-wrap items-center gap-2">
+                <Select value={sortField} onValueChange={(next) => setSortField(next as AccessSortField)}>
+                  <SelectTrigger className="w-44">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="name">{t("results.sortName")}</SelectItem>
+                    <SelectItem value="startsAt">{t("access.startsAt")}</SelectItem>
+                    <SelectItem value="expiresAt">{t("access.expiresAt")}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-10 w-10 shrink-0"
+                  title={sortDirection === "asc" ? t("results.sortAsc") : t("results.sortDesc")}
+                  onClick={() => setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"))}
+                >
+                  {sortDirection === "asc" ? (
+                    <ArrowUp className="h-4 w-4" />
+                  ) : (
+                    <ArrowDown className="h-4 w-4" />
+                  )}
+                </Button>
+                <Select value={roleFilter} onValueChange={(next) => setRoleFilter(next as RoleFilter)}>
+                  <SelectTrigger className="w-44">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t("access.filterAll")}</SelectItem>
+                    <SelectItem value="participant">{t("access.roleParticipant")}</SelectItem>
+                    <SelectItem value="editor">{t("access.roleEditor")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
@@ -754,7 +821,7 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
                   const subtitle = isUniversalInvite
                     ? t("access.anyAuthorizedUser")
                     : (entry.userEmail ?? "-");
-                  const startsLabel = formatDateTime(entry.startsAt, i18n.language, t("access.noStartLimit"));
+                  const startsLabel = formatDateTime(entry.startsAt, i18n.language, currentDateLabel);
                   const expiresLabel = formatDateTime(entry.expiresAt, i18n.language, t("access.noExpiry"));
                   const currentRoleValue = entry.role;
                   const draftRoleValue =

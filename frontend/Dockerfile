@@ -1,31 +1,21 @@
-# Этап сборки
 FROM node:20.18.3-alpine AS build
 
 WORKDIR /app
 
-# Копируем все зависимости и конфиги
+# Install dependencies inside Linux container to avoid host platform binaries.
+COPY package*.json ./
+RUN npm ci
+
+# Copy app sources after deps for better layer caching.
 COPY . .
-
-# Устанавливаем зависимости
-RUN npm install
-
-# Копируем исходники клиента
-COPY client/ ./client/
-
-# Собираем проект
 RUN npm run build
 
-# Этап запуска
 FROM nginx:1.27.3-alpine
 
 RUN rm -rf /usr/share/nginx/html/*
-
 RUN mkdir -p /etc/nginx/ssl
 
-# Копируем результат сборки (по умолчанию Vite создает dist в корне)
 COPY --from=build /app/dist /usr/share/nginx/html
-
-# Копируем наш конфиг nginx
 COPY nginx.conf /etc/nginx/nginx.conf
 RUN rm /etc/nginx/conf.d/default.conf
 

@@ -240,7 +240,7 @@ async def grant_form_access_by_email(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You already have access")
 
     role = _enum_value(payload.role)
-    starts_at = _to_utc_naive(payload.starts_at)
+    starts_at = _to_utc_naive(payload.starts_at) or _utc_now_naive()
     expires_at = _to_utc_naive(payload.expires_at)
     require_accept = bool(payload.require_accept)
     if starts_at is not None and expires_at is not None and starts_at > expires_at:
@@ -301,7 +301,7 @@ async def create_form_access_link(
 ):
     await _ensure_manage_access(db, form_id, current_user)
 
-    starts_at = _to_utc_naive(payload.starts_at)
+    starts_at = _to_utc_naive(payload.starts_at) or _utc_now_naive()
     expires_at = _to_utc_naive(payload.expires_at)
     if starts_at is not None and expires_at is not None and starts_at > expires_at:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Start date must be before end date")

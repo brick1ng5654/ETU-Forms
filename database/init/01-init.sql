@@ -244,6 +244,7 @@ CREATE TABLE IF NOT EXISTS access_control (
     form_id INT NOT NULL,
     user_id INT NOT NULL,
     role access_role NOT NULL,
+    starts_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP NULL,
     
     CONSTRAINT fk_access_form
@@ -270,9 +271,6 @@ ON access_control (form_id, user_id);
 CREATE INDEX IF NOT EXISTS idx_access_expires
 ON access_control (expires_at);
 
-ALTER TABLE access_control
-    ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP NULL;
-
 COMMENT ON TABLE access_control IS 'Таблица контроля доступа к формам';
 COMMENT ON COLUMN access_control.access_id IS 'Уникальный идентификатор доступа';
 COMMENT ON COLUMN access_control.form_id IS 'ID формы';
@@ -288,6 +286,7 @@ CREATE TABLE IF NOT EXISTS access_invite (
     token VARCHAR(128) NOT NULL UNIQUE,
     requires_accept BOOLEAN NOT NULL DEFAULT TRUE,
     status access_invite_status NOT NULL DEFAULT 'pending',
+    starts_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP NULL,
     accepted_by_user_id INT NULL,
     accepted_at TIMESTAMP NULL,

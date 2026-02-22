@@ -43,15 +43,23 @@ export default function FormAccessInvitePage({ params }: { params: { token: stri
     }).format(date);
   }, [invite?.expiresAt, i18n.language, t]);
 
+  const currentDateLabel = useMemo(
+    () =>
+      new Intl.DateTimeFormat(i18n.language.startsWith("ru") ? "ru-RU" : "en-US", {
+        dateStyle: "medium",
+      }).format(new Date()),
+    [i18n.language]
+  );
+
   const startsAtLabel = useMemo(() => {
-    if (!invite?.startsAt) return t("access.noStartLimit");
+    if (!invite?.startsAt) return currentDateLabel;
     const date = new Date(invite.startsAt);
-    if (Number.isNaN(date.getTime())) return t("access.noStartLimit");
+    if (Number.isNaN(date.getTime())) return currentDateLabel;
     return new Intl.DateTimeFormat(i18n.language.startsWith("ru") ? "ru-RU" : "en-US", {
       dateStyle: "medium",
       timeStyle: "short",
     }).format(date);
-  }, [invite?.startsAt, i18n.language, t]);
+  }, [invite?.startsAt, i18n.language, currentDateLabel]);
 
   useEffect(() => {
     if (isLoading) return;
