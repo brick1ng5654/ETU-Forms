@@ -1222,7 +1222,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
       endAt: activeForm.endAt ?? null,
     });
   }, [activeForm, buildPayloadSignature]);
-  const hasSaveChanges = Boolean(syncedPayloadSignature && savePayloadSignature && savePayloadSignature !== syncedPayloadSignature);
+  const hasSaveChanges = Boolean(!syncedPayloadSignature || (savePayloadSignature && savePayloadSignature !== syncedPayloadSignature));
 
   const activeFormStatus = activeForm?.status ?? "temp";
   const isPublishDisabledByStatus = activeFormStatus !== "temp";
