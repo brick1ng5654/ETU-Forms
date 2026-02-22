@@ -85,6 +85,33 @@ def _invite_status(invite: AccessInvite, now: datetime) -> str:
     return "pending"
 
 
+def _is_same_access_as_invite(invite: AccessInvite, access: AccessControl | None) -> bool:
+    if access is None:
+        return False
+    same_role = _enum_value(access.role) == _enum_value(invite.role)
+    same_starts_at = _to_utc_naive(access.starts_at) == _to_utc_naive(invite.starts_at)
+    same_expires_at = _to_utc_naive(access.expires_at) == _to_utc_naive(invite.expires_at)
+    return same_role and same_starts_at and same_expires_at
+
+
+def _invite_already_accepted_by_user(
+    invite: AccessInvite,
+    *,
+    user_id: int,
+    existing_access: AccessControl | None,
+) -> bool:
+    status_value = _enum_value(invite.status)
+    if invite.invitee_email is not None:
+        return status_value == "accepted"
+
+    accepted_count = int(invite.accepted_count or 0)
+    if accepted_count <= 0:
+        return False
+    if invite.accepted_by_user_id == user_id:
+        return True
+    return _is_same_access_as_invite(invite, existing_access)
+
+
 async def _ensure_manage_access(
     db: AsyncSession,
     form_id: int,
@@ -427,6 +454,20 @@ async def resolve_access_invite(
 
     now = _utc_now_naive()
     status_value = _invite_status(invite, now)
+    if status_value == "pending":
+        existing_access = (
+            await db.execute(
+                select(AccessControl)
+                .where(AccessControl.form_id == invite.form_id)
+                .where(AccessControl.user_id == current_user.user_id)
+            )
+        ).scalar_one_or_none()
+        if _invite_already_accepted_by_user(
+            invite,
+            user_id=current_user.user_id,
+            existing_access=existing_access,
+        ):
+            status_value = "accepted"
     if status_value == "expired":
         status_value = "revoked"
 
@@ -476,11 +517,6 @@ async def accept_access_invite(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invite is not active yet")
     if invite_expires_at is not None and invite_expires_at <= now:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invite expired")
-    accepted_count = int(invite.accepted_count or 0)
-    if invite.max_accepts is not None and accepted_count >= invite.max_accepts:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invite usage limit reached")
-    if invite.invitee_email is not None and status_value == "accepted":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invite already accepted")
 
     existing_access = (
         await db.execute(
@@ -490,12 +526,17 @@ async def accept_access_invite(
             .with_for_update()
         )
     ).scalar_one_or_none()
-    if invite.invitee_email is None and existing_access is not None:
-        same_role = _enum_value(existing_access.role) == _enum_value(invite.role)
-        same_starts_at = _to_utc_naive(existing_access.starts_at) == invite_starts_at
-        same_expires_at = _to_utc_naive(existing_access.expires_at) == invite_expires_at
-        if same_role and same_starts_at and same_expires_at:
-            return await _access_entry_for_row(db, existing_access)
+
+    if _invite_already_accepted_by_user(
+        invite,
+        user_id=current_user.user_id,
+        existing_access=existing_access,
+    ):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invite already accepted by this user")
+
+    accepted_count = int(invite.accepted_count or 0)
+    if invite.max_accepts is not None and accepted_count >= invite.max_accepts:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invite usage limit reached")
 
     access = await _upsert_access(
         db,

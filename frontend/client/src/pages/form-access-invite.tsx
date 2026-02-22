@@ -22,6 +22,20 @@ const statusLabel = (status: "pending" | "accepted" | "revoked", t: (key: string
   return t("access.statusRevoked");
 };
 
+const isAlreadyAcceptedByUserError = (err: unknown) => {
+  const text = String((err as any)?.message ?? "");
+  const normalized = text.toLowerCase();
+  return normalized.includes("already accepted by this user");
+};
+
+const toAcceptInviteMessage = (err: unknown, t: (key: string) => string) => {
+  const text = String((err as any)?.message ?? "");
+  if (isAlreadyAcceptedByUserError(err)) {
+    return t("access.inviteAlreadyAcceptedByYou");
+  }
+  return text || t("access.acceptFailed");
+};
+
 export default function FormAccessInvitePage({ params }: { params: { token: string } }) {
   const { t, i18n } = useTranslation();
   const [, setLocation] = useLocation();
@@ -31,6 +45,7 @@ export default function FormAccessInvitePage({ params }: { params: { token: stri
   const [isInviteLoading, setIsInviteLoading] = useState(true);
   const [isAccepting, setIsAccepting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [acceptError, setAcceptError] = useState<string | null>(null);
   const [accepted, setAccepted] = useState(false);
 
   const expiresAtLabel = useMemo(() => {
@@ -96,14 +111,22 @@ export default function FormAccessInvitePage({ params }: { params: { token: stri
 
   const handleAccept = async () => {
     setIsAccepting(true);
+    setAcceptError(null);
     try {
       await acceptAccessInvite(params.token);
       setAccepted(true);
       toast({ title: t("access.acceptSuccess") });
     } catch (err: any) {
+      const description = toAcceptInviteMessage(err, t);
+      if (isAlreadyAcceptedByUserError(err)) {
+        setInvite((prev) => (prev ? { ...prev, status: "accepted" } : prev));
+        setAcceptError(null);
+      } else {
+        setAcceptError(description);
+      }
       toast({
         title: t("actions.error"),
-        description: err?.message ?? t("access.acceptFailed"),
+        description,
         variant: "destructive",
       });
     } finally {
@@ -147,6 +170,13 @@ export default function FormAccessInvitePage({ params }: { params: { token: stri
                 </div>
                 <Button onClick={() => setLocation("/")}>{t("access.openHome")}</Button>
               </div>
+            ) : invite?.status === "accepted" ? (
+              <div className="space-y-2 rounded-md border border-border p-4">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <CheckCircle2 className="h-4 w-4 text-primary" />
+                  {t("access.inviteAlreadyAcceptedByYou")}
+                </div>
+              </div>
             ) : invite ? (
               <div className="space-y-4 rounded-md border border-border p-4">
                 <div className="flex items-center gap-2 text-sm">
@@ -179,6 +209,7 @@ export default function FormAccessInvitePage({ params }: { params: { token: stri
                     {t("access.declineInvite")}
                   </Button>
                 </div>
+                {acceptError ? <div className="text-sm text-destructive">{acceptError}</div> : null}
               </div>
             ) : null}
           </CardContent>

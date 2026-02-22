@@ -210,6 +210,7 @@
     "declineInvite": "Decline",
     "acceptSuccess": "Access granted",
     "acceptFailed": "Failed to accept invitation",
+    "inviteAlreadyAcceptedByYou": "You have already accepted this invitation. Reusing the same link is unavailable.",
     "openHome": "Open home",
     "universalInvite": "Universal invite",
     "anyAuthorizedUser": "Available to any authenticated user by link",
