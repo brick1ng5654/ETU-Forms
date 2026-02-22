@@ -1105,6 +1105,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
   ) => {
     const form = sourceForm ?? activeForm;
     if (!form) return null;
+    const normalizedPages = normalizePages(form.pages);
     const accessMode = overrides?.accessMode ?? form.accessMode ?? "private";
     const startAt = overrides?.startAt ?? form.startAt ?? null;
     const endAt = overrides?.endAt ?? form.endAt ?? null;
@@ -1116,9 +1117,8 @@ export default function Builder({ params }: { params: { id?: string } }) {
       start_at: startAt,
       end_at: endAt,
       settings_json: form.settings_json ?? { client_form_id: form.id },
-      pages: pages.map((page, index) => ({
+      pages: normalizedPages.map((page, index) => ({
         page_id: page.id,
-        title: page.title,
         page_index: typeof page.pageIndex === "number" ? page.pageIndex : index,
         allow_back: page.allowBack,
       })),
@@ -1165,7 +1165,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
         })();
         return {
           client_id: f.id,
-          page_id: typeof f.pageId === "number" ? f.pageId : (pages[0]?.id ?? 1),
+          page_id: typeof f.pageId === "number" ? f.pageId : (normalizedPages[0]?.id ?? 1),
           widget: mapWidgetTypeForPublish(f.widgetType),
           semantic: f.semanticType ?? null,
           label: f.label,
@@ -1348,10 +1348,8 @@ export default function Builder({ params }: { params: { id?: string } }) {
     });
     if (saved.id !== activeForm.id) {
       storage.deleteForm(activeForm.id);
-      if (activeFormIdRef.current === activeForm.id) {
-        setActiveFormId(saved.id);
-        setLocation(`/builder/${saved.id}`);
-      }
+      setActiveFormId(saved.id);
+      setLocation(`/builder/${saved.id}`);
     }
     toast({ title: t("builder.formSaved"), description: "Saved to DB" });
   };
