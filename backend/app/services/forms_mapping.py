@@ -158,35 +158,46 @@ async def build_form_summaries(
     # Подсчитываем попытки пользователя для каждой формы
     attempts_by_form_id: Dict[int, int] = {}
     if current_user_id is not None and form_ids:
-        # Получаем все ответы пользователя на эти формы
+        # Получаем все ответы пользователя на эти формы (с флагом revoke_counts_as_attempt_at_revoke)
         responses_result = await db.execute(
-            select(models.Response.form_id, models.Response.status)
+            select(
+                models.Response.form_id,
+                models.Response.status,
+                models.Response.revoke_counts_as_attempt_at_revoke,
+            )
             .where(models.Response.form_id.in_(form_ids))
             .where(models.Response.user_id == current_user_id)
         )
         
-        # Группируем ответы по формам
-        responses_by_form: Dict[int, List[str]] = {}
-        for form_id, status in responses_result.all():
+        # Считаем попытки: submitted всегда; cancelled — только если при отзыве правило уже действовало
+        responses_by_form: Dict[int, List[tuple]] = {}
+        for form_id, status, revoke_counted in responses_result.all():
             status_value = status.value if hasattr(status, "value") else str(status)
             if form_id not in responses_by_form:
                 responses_by_form[form_id] = []
-            responses_by_form[form_id].append(status_value)
+            responses_by_form[form_id].append((status_value, bool(revoke_counted)))
         
-        # Для каждой формы определяем, какие статусы считать попытками
         for form in forms:
-            settings = form.settings_json if isinstance(form.settings_json, dict) else {}
-            revoke_counts_as_attempt = settings.get("revokeCountsAsAttempt", False)
-            
-            # Определяем статусы, которые считаются попытками
-            status_filter = ["submitted"]
-            if revoke_counts_as_attempt:
-                status_filter.append("cancelled")
-            
-            # Подсчитываем попытки для этой формы
             form_responses = responses_by_form.get(form.form_id, [])
-            attempts_count = sum(1 for status in form_responses if status in status_filter)
+            attempts_count = sum(
+                1
+                for status_val, revoke_counted in form_responses
+                if status_val == "submitted"
+                or (status_val == "cancelled" and revoke_counted)
+            )
             attempts_by_form_id[form.form_id] = attempts_count
+
+    # Формы, где у пользователя есть черновик (начал, но не закончил)
+    has_draft_by_form_id: Dict[int, bool] = {}
+    if current_user_id is not None and form_ids:
+        drafts_result = await db.execute(
+            select(models.Response.form_id)
+            .where(models.Response.form_id.in_(form_ids))
+            .where(models.Response.user_id == current_user_id)
+            .where(models.Response.status == "draft")
+        )
+        for (form_id,) in drafts_result.all():
+            has_draft_by_form_id[form_id] = True
 
     summaries: List[FormSummaryResponse] = []
     for form in forms:
@@ -241,6 +252,7 @@ async def build_form_summaries(
                 can_edit=bool(resolved_permissions.get("can_edit", False)),
                 can_view_responses=bool(resolved_permissions.get("can_view_responses", False)),
                 can_continue_passage=bool(resolved_permissions.get("can_continue_passage", False)),
+                has_draft=has_draft_by_form_id.get(form.form_id, False),
                 attempt_limit=attempt_limit,
                 attempts_used=attempts_used,
                 attempts_remaining=attempts_remaining,

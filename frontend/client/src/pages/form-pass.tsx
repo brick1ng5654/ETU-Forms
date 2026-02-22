@@ -48,6 +48,8 @@ export default function FormPass({ params }: { params: { id: string } }) {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const saveDraftTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveDraftPromiseRef = useRef<Promise<FormDraftResponse | null> | null>(null);
+  const lastDraftRef = useRef<FormDraftResponse | null>(null);
   const isUnauthenticatedMode = form?.accessMode === "unauthenticated";
   const sessionToken = useMemo(
     () => (form ? getOrCreateSessionToken(form.id) : null),
@@ -130,7 +132,10 @@ export default function FormPass({ params }: { params: { id: string } }) {
         const targetFormId = form.id;
         const tok = isUnauthenticatedMode ? sessionToken : undefined;
         const d = await fetchFormDraft(targetFormId, linkKey || undefined, tok);
-        if (active && d) setDraft(d);
+        if (active && d) {
+          lastDraftRef.current = d;
+          setDraft(d);
+        }
       } catch {
         // игнорируем ошибки загрузки черновика
       } finally {
@@ -143,24 +148,35 @@ export default function FormPass({ params }: { params: { id: string } }) {
   }, [form?.id, isSubmitted, isUnauthenticatedMode, linkKey, sessionToken, attemptsExhausted]);
 
   const saveDraft = useCallback(
-    async (answers: AnswersById) => {
-      if (!form || isSubmitted) return;
+    async (answers: AnswersById): Promise<FormDraftResponse | null> => {
+      if (!form || isSubmitted) return null;
       const targetFormId = form.id;
       const payload = buildAnswersPayload(form.fields, answers);
       const draftPayload = {
         answers: payload.answers,
         respondent_session_token: isUnauthenticatedMode ? sessionToken : undefined,
       };
-      try {
-        const result = await saveFormDraft(
-          targetFormId,
-          draftPayload,
-          linkKey || undefined
-        );
-        setDraft(result);
-      } catch {
-        // тихо игнорируем ошибки автосохранения
-      }
+      const promise = (async (): Promise<FormDraftResponse | null> => {
+        try {
+          const result = await saveFormDraft(
+            targetFormId,
+            draftPayload,
+            linkKey || undefined
+          );
+          lastDraftRef.current = result;
+          setDraft(result);
+          return result;
+        } catch {
+          
+          return null;
+        } finally {
+          if (saveDraftPromiseRef.current === promise) {
+            saveDraftPromiseRef.current = null;
+          }
+        }
+      })();
+      saveDraftPromiseRef.current = promise;
+      return promise;
     },
     [form, isSubmitted, isUnauthenticatedMode, linkKey, sessionToken]
   );
@@ -193,13 +209,18 @@ export default function FormPass({ params }: { params: { id: string } }) {
       saveDraftTimeoutRef.current = null;
     }
     try {
+      // Дождаться завершения автосохранения, чтобы избежать гонки с отправкой
+      if (saveDraftPromiseRef.current) {
+        await saveDraftPromiseRef.current;
+      }
+      const draftResponseId = lastDraftRef.current?.response_id ?? draft?.response_id;
       const targetFormId = form?.id ?? params.id;
       await submitPublicFormResponse(
         targetFormId,
         {
           ...payload,
           started_at: startedAt,
-          draft_response_id: draft?.response_id,
+          draft_response_id: draftResponseId,
         },
         linkKey || undefined
       );

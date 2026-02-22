@@ -141,6 +141,7 @@ class FormSummaryResponse(FormResponse):
     can_edit: bool = False
     can_view_responses: bool = False
     can_continue_passage: bool = False
+    has_draft: bool = False  # у пользователя есть черновик (начал, но не закончил)
 
 class FormDetailResponse(FormResponse):
     elements: List["BuilderElementOut"] = Field(default_factory=list)

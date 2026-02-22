@@ -25,6 +25,7 @@ type ServerFormSummary = {
   can_edit?: boolean;
   can_view_responses?: boolean;
   can_continue_passage?: boolean;
+  has_draft?: boolean;
   attempt_limit?: number | null;
   attempts_used?: number;
   attempts_remaining?: number | null;
@@ -285,6 +286,7 @@ export const mapServerSummaryToSchema = (summary: ServerFormSummary): FormSchema
     canEdit: summary.can_edit ?? undefined,
     canViewResponses: summary.can_view_responses ?? undefined,
     canContinuePassage: summary.can_continue_passage ?? undefined,
+    hasDraft: summary.has_draft ?? undefined,
   };
 };
 

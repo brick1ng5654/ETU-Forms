@@ -196,8 +196,11 @@ async def revoke_response(
             detail="Response revocation is not allowed for this form"
         )
     
-    # Отзываем ответ (меняем статус на cancelled)
+    revoke_counts_as_attempt = settings.get("revokeCountsAsAttempt", False)
+    
+    # Отзываем ответ (меняем статус на cancelled) и сохраняем правило на момент отзыва
     response.status = "cancelled"
+    response.revoke_counts_as_attempt_at_revoke = bool(revoke_counts_as_attempt)
     await db.commit()
     await db.refresh(response)
     

@@ -130,6 +130,7 @@ class Response(Base):
     completed_at = Column(DateTime(timezone=True), nullable=True)
     status = Column(response_status_enum, nullable=False, server_default="draft")
     respondent_session_token = Column(String(255), nullable=True, index=True)
+    revoke_counts_as_attempt_at_revoke = Column(Boolean, nullable=True)
 
     user = relationship("AppUser", back_populates="responses")
     form = relationship("Form", back_populates="responses")

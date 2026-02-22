@@ -5,7 +5,7 @@ import re
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select, update
+from sqlalchemy import and_, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -323,15 +323,20 @@ async def get_public_form(
         if attempt_limit is not None and isinstance(attempt_limit, (int, float)):
             attempt_limit = int(attempt_limit)
             if attempt_limit > 0:
-                revoke_counts_as_attempt = settings.get("revokeCountsAsAttempt", False)
-                status_filter = ["submitted"]
-                if revoke_counts_as_attempt:
-                    status_filter.append("cancelled")
+                # Считаем submitted всегда; cancelled — только если при отзыве правило уже действовало
                 attempts_result = await db.execute(
                     select(Response)
                     .where(Response.form_id == form.form_id)
                     .where(Response.user_id == responder.user_id)
-                    .where(Response.status.in_(status_filter))
+                    .where(
+                        or_(
+                            Response.status == "submitted",
+                            and_(
+                                Response.status == "cancelled",
+                                Response.revoke_counts_as_attempt_at_revoke == True,
+                            ),
+                        )
+                    )
                 )
                 attempts_used = len(attempts_result.scalars().all())
                 attempts_remaining = max(0, attempt_limit - attempts_used)
@@ -570,7 +575,7 @@ async def save_form_draft(
                 )
             )
 
-    await db.commit()
+    await db.flush()
     await db.refresh(draft)
 
     answers_out: dict[str, Any] = {}
@@ -611,21 +616,23 @@ async def submit_form_response(
         if attempt_limit is not None and isinstance(attempt_limit, (int, float)):
             attempt_limit = int(attempt_limit)
             if attempt_limit > 0:
-                # Определяем, какие ответы считаются попытками
-                revoke_counts_as_attempt = settings.get("revokeCountsAsAttempt", False)
-                status_filter = ["submitted"]
-                if revoke_counts_as_attempt:
-                    status_filter.append("cancelled")
-                
-                # Подсчитываем попытки пользователя
+                # Считаем submitted всегда; cancelled — только если при отзыве правило уже действовало
                 attempts_result = await db.execute(
                     select(Response)
                     .where(Response.form_id == form.form_id)
                     .where(Response.user_id == responder.user_id)
-                    .where(Response.status.in_(status_filter))
+                    .where(
+                        or_(
+                            Response.status == "submitted",
+                            and_(
+                                Response.status == "cancelled",
+                                Response.revoke_counts_as_attempt_at_revoke == True,
+                            ),
+                        )
+                    )
                 )
                 attempts_count = len(attempts_result.scalars().all())
-                
+
                 if attempts_count >= attempt_limit:
                     raise HTTPException(
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -694,7 +701,10 @@ async def submit_form_response(
     else:
         response_row.status = "submitted"
         response_row.completed_at = completed_at
-        if response_row.created_at is None or response_row.created_at > started_at:
+        created_at_val = response_row.created_at
+        if created_at_val is not None and created_at_val.tzinfo is None:
+            created_at_val = created_at_val.replace(tzinfo=timezone.utc)
+        if response_row.created_at is None or (created_at_val is not None and created_at_val > started_at):
             response_row.created_at = started_at
         existing_answers_result = await db.execute(
             select(ResponseAnswer).where(ResponseAnswer.response_id == response_row.response_id)
@@ -735,7 +745,7 @@ async def submit_form_response(
             )
         answers_count += 1
 
-    await db.commit()
+    await db.flush()
 
     return FormSubmitAnswersResponse(
         response_id=response_row.response_id,

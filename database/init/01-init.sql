@@ -204,6 +204,7 @@ CREATE TABLE IF NOT EXISTS Response (
     completed_at TIMESTAMP NULL,
     status response_status NOT NULL,
     respondent_session_token VARCHAR(255) NULL,
+    revoke_counts_as_attempt_at_revoke BOOLEAN NULL,
 
     CONSTRAINT fk_response_user
         FOREIGN KEY (user_id) 
@@ -239,6 +240,7 @@ COMMENT ON COLUMN Response.user_id IS 'ID пользователя, которы
 COMMENT ON COLUMN Response.created_at IS 'Дата и время создания ответа';
 COMMENT ON COLUMN Response.completed_at IS 'Дата и время завершения ответа';
 COMMENT ON COLUMN response.respondent_session_token IS 'Токен сессии анонимного респондента для черновиков';
+COMMENT ON COLUMN Response.revoke_counts_as_attempt_at_revoke IS 'При отзыве: считался ли отзыв попыткой по правилам формы на момент отзыва';
 
 CREATE TABLE IF NOT EXISTS access_control (
     access_id SERIAL PRIMARY KEY,

@@ -212,7 +212,9 @@ export default function Home() {
     } else if (selectedCategory === "responses") {
       current = current.filter(canViewResponses);
     } else if (selectedCategory === "continue") {
-      current = [];
+      current = current.filter(
+        (f) => f.canContinuePassage && f.hasDraft
+      );
     } else if (selectedCategory === "completed") {
       current = [];
     }
@@ -367,8 +369,7 @@ export default function Home() {
                   const canRevoke = form?.settings_json && 
                     typeof form.settings_json === "object" &&
                     Boolean((form.settings_json as Record<string, unknown>).allowRevoke) &&
-                    response.status === "submitted" &&
-                    !attemptsExhausted;
+                    response.status === "submitted";
                   
                   return (
                     <div key={response.responseId} className="group bg-white rounded-xl border border-border px-5 py-4 hover:border-primary/40 transition-colors">
