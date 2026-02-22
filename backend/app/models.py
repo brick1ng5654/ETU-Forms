@@ -119,7 +119,7 @@ class Form(Base):
     previous_version = relationship("Form", remote_side=[form_id], backref="next_version")
     elements = relationship("FormElement", back_populates="form", cascade="all, delete-orphan")
     conditions = relationship("FormElementCondition", back_populates="form", cascade="all, delete-orphan")
-
+    pages = relationship("FormPage", back_populates="form", cascade="all, delete-orphan", order_by="FormPage.page_index")
 class Response(Base):
     __tablename__="response"
 
@@ -168,6 +168,7 @@ class FormElement(Base):
     element_id = Column(Integer, primary_key=True, index=True)
     form_id = Column(Integer, ForeignKey("form.form_id", ondelete="CASCADE"), nullable=True)
     template_id = Column(Integer, ForeignKey("template.template_id", ondelete="CASCADE"), nullable=True)
+    page_id = Column(BigInteger, ForeignKey("form_pages.page_id", ondelete="CASCADE"), nullable=True)
     widget = Column(widget_type_enum, nullable=False)
     semantic = Column(semantic_type_enum, nullable=True)
     label = Column(String(255), nullable=False)
@@ -189,13 +190,14 @@ class FormElement(Base):
 
     form = relationship("Form", back_populates="elements")
     template = relationship("Template", back_populates="elements")
-
+    page = relationship("FormPage", back_populates="elements")
     answers = relationship("ResponseAnswer", back_populates="form_element", cascade="all, delete-orphan")
 
     __table_args__ = (
         CheckConstraint('widget NOT IN (\'heading\', \'static_text\') OR semantic IS NULL', name='chk_non_input_semantic'),
         CheckConstraint('(form_id IS NOT NULL AND template_id IS NULL) OR (form_id IS NULL AND template_id IS NOT NULL)', name='chk_element_owner'),
         CheckConstraint('coalesce(array_length(file_ids, 1), 0) <= 10', name='chk_element_file_ids'),
+        CheckConstraint("(template_id IS NULL) OR (page_id IS NULL)", name="chk_element_page_scope"),
     )
 
 
@@ -258,3 +260,21 @@ class UploadedFile(Base):
     status = Column(file_status_enum, nullable=False)
 
     response_answer = relationship("ResponseAnswer", back_populates="files")
+
+class FormPage(Base):
+    __tablename__="form_pages"
+
+    page_id = Column(BigInteger, primary_key=True, index=True)
+    form_id = Column(Integer, ForeignKey("form.form_id", ondelete="CASCADE"), nullable=False)
+    
+    page_index = Column(Integer, nullable=False)
+    allow_back = Column(Boolean, nullable=False, server_default="true")
+
+    __table_args__ = (
+        CheckConstraint("page_index >= 0", name="chk_page_index"),
+        Index("idx_page_form", "form_id", "page_index"),
+        Index("ix_form_pages_form_id_page_index", "form_id", "page_index", unique=True),  # аналог UNIQUE (form_id, page_index)
+    )
+
+    form = relationship("Form", back_populates="pages")
+    elements = relationship("FormElement", back_populates="page", cascade="all, delete-orphan")

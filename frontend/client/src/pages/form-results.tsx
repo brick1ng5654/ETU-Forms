@@ -778,14 +778,27 @@ export default function FormResults({ params }: { params: { id: string } }) {
     () => responses.filter((response) => response.formId === activeVersionId),
     [activeVersionId, responses]
   );
+  const sortFieldsByPage = (schema: FormSchema): FormElementModel[] => {
+    const pages = schema.pages ?? [];
+    const pageIndexById = new Map<number, number>(
+      pages.map((page) => [Number(page.id), Number(page.pageIndex ?? 0)])
+    );
+    return (schema.fields ?? [])
+      .filter((field) => field.widgetType !== "header")
+      .slice()
+      .sort((a, b) => {
+        const pageA = pageIndexById.get(Number(a.pageId)) ?? Number.MAX_SAFE_INTEGER;
+        const pageB = pageIndexById.get(Number(b.pageId)) ?? Number.MAX_SAFE_INTEGER;
+        if (pageA !== pageB) return pageA - pageB;
+        return (a.sortIndex ?? 0) - (b.sortIndex ?? 0);
+      });
+  };
+
   const answerableFieldsByFormId = useMemo(() => {
     const mapped = new Map<string, FormElementModel[]>();
     const put = (schema: FormSchema | null | undefined) => {
       if (!schema) return;
-      mapped.set(
-        schema.id,
-        (schema.fields ?? []).filter((field) => field.widgetType !== "header")
-      );
+      mapped.set(schema.id, sortFieldsByPage(schema));
     };
 
     put(form);
@@ -841,7 +854,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
   ]);
 
   const answerableFields = useMemo(
-    () => (activeVersionForm?.fields ?? []).filter((field) => field.widgetType !== "header"),
+    () => (activeVersionForm ? sortFieldsByPage(activeVersionForm) : []),
     [activeVersionForm]
   );
 

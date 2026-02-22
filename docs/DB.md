@@ -61,6 +61,22 @@
 - `prev_form_id` ссылается на `Form.form_id` и может быть NULL.
 - Если `status = temp` и `expires_at` в прошлом, форма переводится в `deleted` (soft-delete).
 
+### Form_Pages
+| Поле | Тип | Ключ | Ограничения | Суть |
+| --- | --- | --- | --- | --- |
+| page_id | BIGSERIAL | PK | NOT NULL | Первичный ключ страницы |
+| form_id | INT | FK | REFERENCES Form(form_id), NOT NULL | Форма, к которой относится страница |
+| page_index | INT |  | NOT NULL, CHECK (page_index >= 0) | Порядковый номер страницы в форме |
+| title | TEXT |  | NULL | Заголовок страницы |
+| allow_back | BOOLEAN |  | NOT NULL, DEFAULT TRUE | Разрешить переход назад |
+| created_at | TIMESTAMP WITH TIME ZONE |  | DEFAULT | Дата создания страницы |
+| updated_at | TIMESTAMP WITH TIME ZONE |  | DEFAULT | Дата обновления страницы |
+
+**Правила целостности**
+- `form_id` обязателен и ссылается на `Form.form_id`.
+- Уникальность `page_index` в рамках формы: `UNIQUE (form_id, page_index)`.
+- При удалении формы страницы удаляются каскадно.
+
 ### Response
 | Поле | Тип | Ключ | Ограничения | Суть |
 | --- | --- | --- | --- | --- |
@@ -121,6 +137,7 @@
 | element_id | INT | PK | NOT NULL | Первичный ключ элемента |
 | form_id | INT | FK | REFERENCES Form(form_id), NULL | Форма, если элемент принадлежит конкретной форме |
 | template_id | INT | FK | REFERENCES Template(template_id), NULL | Шаблон, если элемент принадлежит шаблону |
+| page_id | INT | FK | REFERENCES Form_Pages(page_id), NULL | Страница формы |
 | widget | WIDGET_TYPE |  | NOT NULL | Тип виджета элемента |
 | semantic | SEMANTIC_TYPE |  | NULL | Семантический подтип поля |
 | label | VARCHAR(255) |  | NOT NULL | Название элемента |
@@ -145,6 +162,7 @@
 
 **Правила целостности**
 - Заполнено ровно одно из `form_id` или `template_id`.
+- При удалении страницы, все элементы на странице удаляются каскадно.
 
 ### Form_Element_Condition
 | Поле | Тип | Ключ | Ограничения | Суть |
@@ -208,11 +226,13 @@
 - User 1—M Response (Response.user_id)
 - User 1—M Access_Control (Access_Control.user_id)
 - Form 1—M Response (Response.form_id)
+- Form 1—M Form_Pages (Form_Pages.form_id)
 - Form 1—M Form_Element (Form_Element.form_id)
 - Form 1—M Access_Control (Access_Control.form_id)
 - Form 1—M Form_Element_Condition (Form_Element_Condition.form_id)
 - Form 1—M Response_Answer (Response_Answer.response_id)
 - Form 1—M Form (Form.prev_form_id)
+- Form_Pages 1—M Form_Element (Form_Element.page_id)
 - Template 1—M Form_Element (Form_Element.template_id)
 - Form_Element 1—M Response_Answer (Response_Answer.element_id)
 - Form_Element 1—M Form_Element_Condition (source_element_id, target_element_id)
