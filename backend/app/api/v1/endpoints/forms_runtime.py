@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 import re
 from typing import Any
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import and_, or_, select, update
@@ -398,6 +399,13 @@ async def get_form_draft(
         if not respondent_session_token or not respondent_session_token.strip():
             return None
         token = respondent_session_token.strip()[:255]
+        try:
+            UUID(token)
+        except (ValueError, TypeError):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="session_token must be a valid UUID",
+            )
         q = (
             select(Response)
             .where(Response.form_id == form.form_id)

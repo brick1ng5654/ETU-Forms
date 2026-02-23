@@ -3,6 +3,7 @@
 from pydantic import BaseModel, EmailStr, Field, ConfigDict, model_validator, field_validator
 from datetime import datetime
 from typing import Optional, Dict, Any, List, Literal
+from uuid import UUID
 from enum import Enum
 from app.security.constants import PASSWORD_MAX_LEN, PASSWORD_MIN_LEN
 # Enum
@@ -180,6 +181,18 @@ class FormSubmitAnswersRequest(BaseModel):
 class FormDraftSaveRequest(BaseModel):
     answers: Dict[str, Any] = Field(default_factory=dict)
     respondent_session_token: Optional[str] = None  # для анонимных — UUID от клиента
+
+    @field_validator("respondent_session_token", mode="before")
+    @classmethod
+    def validate_session_token(cls, v: Any) -> Optional[str]:
+        if v is None or (isinstance(v, str) and not v.strip()):
+            return None
+        s = (v if isinstance(v, str) else str(v)).strip()[:255]
+        try:
+            UUID(s)
+        except (ValueError, TypeError):
+            raise ValueError("respondent_session_token must be a valid UUID")
+        return s
 
 class FormDraftResponse(BaseModel):
     response_id: int
