@@ -1,4 +1,4 @@
-import type { ElementAttachment, FormElementModel, SemanticType, WidgetType } from "@/form/types";
+import type { ElementAttachment, FormElementModel, FormPageModel, SemanticType, WidgetType } from "@/form/types";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { X, Plus, Trash2, Check, Lock, Unlock } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTranslation } from "react-i18next";
@@ -26,6 +27,10 @@ import { cn } from "@/lib/utils";
 import { MouseEvent } from 'react';
 import { getCountryOptions, isCountryField } from "@/lib/countries";
 interface PropertiesPanelProps {
+  pages: FormPageModel[];
+  selectedPageIds: number[];
+  onDeletePages: (pageIds: number[], options: { mode: "delete" | "move"; targetPageId?: number }) => void;
+  onTogglePageBack: (pageId: number, allowBack: boolean) => void;
   selectedField: FormElementModel | null;
   selectedIds: string[];
   updateField: (id: string, updates: Partial<FormElementModel>) => void;
@@ -34,6 +39,8 @@ interface PropertiesPanelProps {
   deleteSelected: () => void;
   fields: FormElementModel[];
 }
+
+const AUTO_PAGE_TITLE = /^(Страница|Page)\s+\d+$/;
 
 interface SortableFieldProps {
   field: FormElementModel;
@@ -520,7 +527,19 @@ const getValueByTarget = (field: FormElementModel, target: PropertyFieldDef["tar
   return undefined;
 };
 
-export function PropertiesPanel({ selectedField, selectedIds, updateField, updateFields, deleteField, deleteSelected, fields }: PropertiesPanelProps) {
+export function PropertiesPanel({
+  pages,
+  selectedPageIds,
+  onDeletePages,
+  onTogglePageBack,
+  selectedField,
+  selectedIds,
+  updateField,
+  updateFields,
+  deleteField,
+  deleteSelected,
+  fields,
+}: PropertiesPanelProps) {
   const { t, i18n } = useTranslation();
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -538,6 +557,10 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, updat
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
   const [textMaxCharsInput, setTextMaxCharsInput] = useState<string>("");
+  const [deletePageIds, setDeletePageIds] = useState<number[]>([]);
+  const [deletePageMode, setDeletePageMode] = useState<"delete" | "move">("delete");
+  const [deletePageTargetId, setDeletePageTargetId] = useState<number | null>(null);
+  const showPageControls = selectedIds.length === 0 && selectedPageIds.length > 0;
   useEffect(() => {
     if (!selectedField) return;
     const options = (selectedField.props as Record<string, any>).options as string[] | undefined;
@@ -577,6 +600,202 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, updat
 
   const readOnlyEnableHint = t("propert.readOnlyEnableTooltip");
   const readOnlyDisableHint = t("propert.readOnlyDisableTooltip");
+  useEffect(() => {
+    if (showPageControls) return;
+    setDeletePageIds([]);
+  }, [showPageControls]);
+  const pageOrder = pages.slice().sort((a, b) => a.pageIndex - b.pageIndex);
+  const selectedPageSet = new Set(selectedPageIds);
+  const selectedPages = pageOrder.filter((page) => selectedPageSet.has(page.id));
+  const isMultiPageSelection = selectedPages.length > 1;
+  const activePage = selectedPages[0] ?? null;
+  const pageFields = selectedPages.length > 0
+    ? fields.filter((field) => selectedPageSet.has(field.pageId))
+    : [];
+  const pageFieldIds = pageFields.map((field) => field.id);
+  const pageLabel = activePage
+    ? (() => {
+      const rawTitle = typeof activePage.title === "string" ? activePage.title.trim() : "";
+      return !rawTitle || AUTO_PAGE_TITLE.test(rawTitle)
+        ? t("pages.defaultTitle", { index: activePage.pageIndex + 1 })
+        : rawTitle;
+    })()
+    : t("pages.defaultTitle", { index: 1 });
+  const allPageReadOnly = pageFieldIds.length > 0
+    && pageFields.every((field) => Boolean((field.props as Record<string, any>).readOnly));
+  const canDeletePage = pageOrder.length > selectedPages.length;
+  const canToggleBack = activePage ? activePage.pageIndex > 0 : false;
+  const backToggleTooltip = t("pages.backToggleTooltip");
+  const availableDeleteTargets = deletePageIds.length > 0
+    ? pageOrder.filter((page) => !deletePageIds.includes(page.id))
+    : [];
+
+  const handleTogglePageReadOnly = () => {
+    if (pageFieldIds.length === 0) return;
+    const nextReadOnly = !allPageReadOnly;
+    updateFields(pageFieldIds, {
+      props: { readOnly: nextReadOnly },
+      ...(nextReadOnly ? { required: false } : {}),
+    });
+  };
+
+  const openDeletePageDialog = () => {
+    if (selectedPages.length === 0) return;
+    if (selectedPages.every((page) => !fields.some((field) => field.pageId === page.id))) {
+      onDeletePages(selectedPages.map((page) => page.id), { mode: "delete" });
+      return;
+    }
+    const targets = pageOrder.filter((page) => !selectedPageSet.has(page.id));
+    setDeletePageIds(selectedPages.map((page) => page.id));
+    setDeletePageMode("delete");
+    setDeletePageTargetId(targets[0]?.id ?? null);
+  };
+
+  const pageControls = showPageControls && activePage ? (
+    <div className="space-y-3 border-b border-border/50 pb-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-foreground">
+            {isMultiPageSelection ? t("pages.selectedCount", { count: selectedPages.length }) : pageLabel}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            onClick={handleTogglePageReadOnly}
+            disabled={pageFieldIds.length === 0}
+            aria-label={t("propert.readOnly")}
+            title={allPageReadOnly ? readOnlyDisableHint : readOnlyEnableHint}
+          >
+            {allPageReadOnly ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+          </Button>
+          <Button
+            variant="destructive"
+            size="icon"
+            className="h-8 w-8"
+            onClick={openDeletePageDialog}
+            disabled={!canDeletePage}
+            aria-label={t("pages.deleteTitle")}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+      {!isMultiPageSelection && (
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-foreground">{t("pages.backToggle")}</span>
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={backToggleTooltip}
+                  className="h-5 w-5 rounded-full border border-muted-foreground/40 text-muted-foreground text-[11px] leading-none flex items-center justify-center hover:bg-muted"
+                >
+                  ?
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">
+                {backToggleTooltip}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+          <div className={cn(!canToggleBack && "opacity-50")}>
+            <Switch
+              checked={Boolean(activePage.allowBack)}
+              onCheckedChange={(checked) => onTogglePageBack(activePage.id, checked)}
+              disabled={!canToggleBack}
+              aria-label={t("pages.backToggleAria")}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  ) : null;
+
+  const deletePageDialog = showPageControls ? (
+    <Dialog
+      open={deletePageIds.length > 0}
+      onOpenChange={(open) => {
+        if (!open) {
+          setDeletePageIds([]);
+        }
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t("pages.deleteTitle")}</DialogTitle>
+          <DialogDescription>{t("pages.deleteDesc")}</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <RadioGroup
+            value={deletePageMode}
+            onValueChange={(value) => setDeletePageMode(value as "delete" | "move")}
+            className="space-y-2"
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="delete" id="delete-page-elements" />
+              <label htmlFor="delete-page-elements" className="text-sm">
+                {t("pages.deleteWithElements")}
+              </label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="move" id="move-page-elements" />
+              <label htmlFor="move-page-elements" className="text-sm">
+                {t("pages.moveElements")}
+              </label>
+            </div>
+          </RadioGroup>
+          {deletePageMode === "move" && (
+            <Select
+              value={deletePageTargetId != null ? String(deletePageTargetId) : ""}
+              onValueChange={(value) => setDeletePageTargetId(Number(value))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={t("pages.selectTargetPlaceholder")} />
+              </SelectTrigger>
+              <SelectContent>
+                {availableDeleteTargets.map((page) => (
+                  <SelectItem key={page.id} value={String(page.id)}>
+                    {page.title?.trim() || t("pages.defaultTitle", { index: page.pageIndex + 1 })}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+        <DialogFooter className="gap-2 sm:justify-between">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => setDeletePageIds([])}
+          >
+            {t("actions.cancel")}
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            disabled={
+              deletePageIds.length === 0 ||
+              (deletePageMode === "move" && deletePageTargetId == null)
+            }
+            onClick={() => {
+              if (deletePageIds.length === 0) return;
+              onDeletePages(deletePageIds, {
+                mode: deletePageMode,
+                targetPageId: deletePageMode === "move" ? deletePageTargetId ?? undefined : undefined,
+              });
+              setDeletePageIds([]);
+            }}
+          >
+            {t("actions.delete")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  ) : null;
 
   if (selectedIds.length > 1) {
     const selectedFields = fields.filter((field) => selectedIds.includes(field.id));
@@ -587,7 +806,8 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, updat
       : "p-4 space-y-6 overflow-y-auto h-full pb-32";
     const spacerClassName = isConditionalSelectOpen ? "h-[40vh]" : "h-24";
     return (
-      <div className={panelClassName}>
+      <>
+        <div className={panelClassName}>
         <div className="flex items-center justify-between border-b pb-4">
           <h3 className="font-semibold text-lg">{t("propert.propet")}</h3>
           <div className="flex items-center gap-2">
@@ -627,14 +847,24 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, updat
           </Button>
         </div>
         <div className={spacerClassName} />
-      </div>
+        </div>
+        {deletePageDialog}
+      </>
     );
   }
   if (!selectedField) {
     return (
-      <div className="p-6 text-center text-muted-foreground">
-        <p>{t("back.properties")}</p>
-      </div>
+      <>
+        <div className="p-4 space-y-6 overflow-y-auto h-full">
+          {pageControls}
+          {!showPageControls && (
+            <div className="text-center text-muted-foreground">
+              <p>{t("back.properties")}</p>
+            </div>
+          )}
+        </div>
+        {deletePageDialog}
+      </>
     );
   }
 
@@ -1362,7 +1592,9 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, updat
   const attachmentsProgress = Math.min(attachments.length / MAX_ATTACHMENTS, 1);
 
   return (
-    <div className={panelClassName}>
+    <>
+      <div className={panelClassName}>
+        {pageControls}
       <div className="flex items-center justify-between border-b pb-4">
         <h3 className="font-semibold text-lg">{t("propert.propet")}</h3>
         <div className="flex items-center gap-2">
@@ -2358,6 +2590,8 @@ export function PropertiesPanel({ selectedField, selectedIds, updateField, updat
         </div>
       </div>
       <div className={spacerClassName} />
-    </div>
+      </div>
+      {deletePageDialog}
+    </>
   );
 }

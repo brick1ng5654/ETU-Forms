@@ -34,6 +34,41 @@ function getOrCreateSessionToken(formId: string): string {
     sessionStorage.setItem(key, token);
   }
   return token;
+/**
+ * Вариант B: если пользователь жмёт "назад" в браузере — отправляем на "/"
+ * locked=true включает блокировку.
+ */
+function useRedirectHomeOnBrowserBack(locked: boolean) {
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (!locked) return;
+
+    // Кладём "якорь" в history, чтобы Back не выкинул со страницы мгновенно.
+    // На Back поймаем popstate и уйдём на "/".
+    const pushAnchor = () => {
+      try {
+        history.pushState({ __lock_back__: true }, "", window.location.href);
+      } catch {
+        // ignore
+      }
+    };
+
+    // Ставим якорь 1 раз при включении locked
+    pushAnchor();
+
+    const onPopState = () => {
+      // Пользователь нажал назад/вперёд
+      // Мы не даём уйти назад — отправляем домой
+      setLocation("/", { replace: true });
+    };
+
+    window.addEventListener("popstate", onPopState);
+
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+    };
+  }, [locked, setLocation]);
 }
 
 export default function FormPass({ params }: { params: { id: string } }) {
@@ -50,12 +85,22 @@ export default function FormPass({ params }: { params: { id: string } }) {
   const saveDraftTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveDraftPromiseRef = useRef<Promise<FormDraftResponse | null> | null>(null);
   const lastDraftRef = useRef<FormDraftResponse | null>(null);
+  const [pageAllowBack, setPageAllowBack] = useState(true);
+  const [pageIsFirst, setPageIsFirst] = useState(true);
+  const [initialPageId, setInitialPageId] = useState<number | undefined>(undefined);
   const isUnauthenticatedMode = form?.accessMode === "unauthenticated";
   const sessionToken = useMemo(
     () => (form ? getOrCreateSessionToken(form.id) : null),
     [form?.id]
   );
   const shouldShowLoginButton = !accessToken && !isLoading && !isUnauthenticatedMode;
+  const progressKey = (formId: string | number) => `form_progress:${formId}`;
+
+  const savedStep = useMemo(() => {
+    const raw = localStorage.getItem(progressKey(params.id));
+    const n = raw ? Number(raw) : 1;
+    return Number.isFinite(n) && n >= 1 ? n : 1;
+  }, [params.id]);
 
   const linkKey = useMemo(() => {
     if (typeof window !== "undefined") {
@@ -64,7 +109,27 @@ export default function FormPass({ params }: { params: { id: string } }) {
     const query = location.includes("?") ? location.slice(location.indexOf("?")) : "";
     return new URLSearchParams(query).get("key") ?? "";
   }, [location]);
+
+  const initialPageNumber = useMemo(() => {
+    const query = typeof window !== "undefined"
+      ? window.location.search
+      : location.includes("?") ? location.slice(location.indexOf("?")) : "";
+
+    const raw = new URLSearchParams(query).get("p");
+    const n = raw ? Number(raw) : NaN;
+    return Number.isFinite(n) && n > 0 ? n : 1; // p=1..N
+  }, [location]);
+
+
   const startedAt = useMemo(() => new Date().toISOString(), [params.id, linkKey]);
+  const effectiveStep = useMemo(() => {
+    // 1) p из URL
+    const stepFromUrl = initialPageNumber; // у тебя уже есть
+    if (Number.isFinite(stepFromUrl) && stepFromUrl > 0) return stepFromUrl;
+
+    // 2) иначе из localStorage
+    return savedStep;
+  }, [initialPageNumber, savedStep]);
   const localizeSubmitError = (raw?: string) => {
     if (!raw) return t("respond.submitError");
     if (raw.includes("Invalid SNILS repeated digits")) {
@@ -80,9 +145,10 @@ export default function FormPass({ params }: { params: { id: string } }) {
   };
 
   const redirectToAuth = () => {
-    const next = typeof window !== "undefined"
-      ? `${window.location.pathname}${window.location.search}`
-      : `/form/${params.id}`;
+    const next =
+      typeof window !== "undefined"
+        ? `${window.location.pathname}${window.location.search}`
+        : `/form/${params.id}`;
     setLocation(`/auth?next=${encodeURIComponent(next)}`);
   };
 
@@ -96,11 +162,18 @@ export default function FormPass({ params }: { params: { id: string } }) {
       try {
         const detail = await fetchPublicFormDetail(params.id, linkKey || undefined);
         if (!active) return;
+
         if (detail.id !== params.id) {
           const nextPath = `/form/${detail.id}${linkKey ? `?key=${encodeURIComponent(linkKey)}` : ""}`;
           setLocation(nextPath);
         }
         setForm(detail);
+        const pages = (detail.pages ?? []).slice().sort((a, b) => a.pageIndex - b.pageIndex);
+        const step = Math.max(1, Math.min(pages.length || 1, effectiveStep));
+        const idx = step - 1;
+
+        setInitialPageId(pages[idx]?.id ?? pages[0]?.id ?? 1);
+
       } catch (err: any) {
         if (!active) return;
         const httpError = err as HttpError;
@@ -110,16 +183,30 @@ export default function FormPass({ params }: { params: { id: string } }) {
         }
         setError(err?.message ?? t("respond.loadError"));
       } finally {
-        if (active) {
-          setIsLoading(false);
-        }
+        if (active) setIsLoading(false);
       }
     })();
 
     return () => {
       active = false;
     };
-  }, [linkKey, params.id, t]);
+  }, [linkKey, params.id, t, setLocation, effectiveStep]);
+
+  /**
+   * ⚠️ Тут логика "когда запрещать Back".
+   * Сейчас: если у формы есть хотя бы одна страница с allowBack=false — блокируем Back браузера всегда.
+   *
+   * Если ты можешь получить текущую страницу (pageIndex/pageId) во время прохождения,
+   * лучше сделать: locked = !currentPage.allowBack
+   */
+  const backLocked = useMemo(() => {
+    // запрещаем browser-back только если:
+    // - мы не на первой странице
+    // - и allowBack=false
+    return !pageIsFirst && !pageAllowBack;
+  }, [pageIsFirst, pageAllowBack]);
+
+  useRedirectHomeOnBrowserBack(backLocked);
 
   const attemptsExhausted = form && form.attemptsRemaining === 0;
 
@@ -262,7 +349,9 @@ export default function FormPass({ params }: { params: { id: string } }) {
             <Languages className="h-4 w-4" />
             <span className="text-xs font-medium">{i18n.language.startsWith("ru") ? "RU" : "EN"}</span>
           </Button>
-          {accessToken ? <UserMenu /> : shouldShowLoginButton ? (
+          {accessToken ? (
+            <UserMenu />
+          ) : shouldShowLoginButton ? (
             <Button variant="outline" size="sm" onClick={redirectToAuth}>
               {t("auth.loginButton")}
             </Button>
@@ -329,11 +418,19 @@ export default function FormPass({ params }: { params: { id: string } }) {
                 <FormPreview
                   form={form}
                   mode="respond"
+                  initialPageId={initialPageId}
                   submitting={isSubmitting}
                   submitLabel={t("respond.submit")}
                   onSubmitAnswers={handleSubmit}
                   onAnswersChange={handleAnswersChange}
                   initialAnswers={draft?.answers as AnswersById | undefined}
+                  onActivePageChange={(info) => {
+                    setPageAllowBack(info.allowBack);
+                    setPageIsFirst(info.isFirst);
+
+                    const step = info.pageIndex + 1; // pageIndex 0-based → step 1-based
+                    localStorage.setItem(progressKey(params.id), String(step));
+                  }}
                 />
               )}
             </CardContent>

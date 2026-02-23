@@ -16,6 +16,14 @@ async def build_form_detail_response(
     db: AsyncSession,
     form: models.Form,
 ) -> FormDetailResponse:
+    pages_result = await db.execute(
+        select(models.FormPage)
+        .where(models.FormPage.form_id == form.form_id)
+        .order_by(models.FormPage.page_index.asc())
+    )
+    pages = pages_result.scalars().all()
+    default_page_id = pages[0].page_id if pages else 1
+
     elements_result = await db.execute(
         select(models.FormElement)
         .where(models.FormElement.form_id == form.form_id)
@@ -76,6 +84,7 @@ async def build_form_detail_response(
         builder_elements.append(
             BuilderElementOut(
                 client_id=client_id,
+                page_id=el.page_id if el.page_id is not None else default_page_id,
                 widget=_enum_value(el.widget),
                 semantic=_enum_value(el.semantic) if el.semantic is not None else None,
                 label=el.label,
@@ -126,6 +135,7 @@ async def build_form_detail_response(
         prev_form_id=form.prev_form_id,
         created_at=form.created_at,
         updated_at=form.updated_at,
+        pages=pages,
         elements=builder_elements,
         conditions=builder_conditions,
     )
