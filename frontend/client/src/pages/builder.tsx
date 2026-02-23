@@ -1143,7 +1143,8 @@ export default function Builder({ params }: { params: { id?: string } }) {
       access_mode: accessMode,
       start_at: startAt,
       end_at: endAt,
-      settings_json,
+      settings_json: form.settings_json ?? { client_form_id: form.id },
+      
       pages: normalizedPages.map((page, index) => ({
         page_id: page.id,
         page_index: typeof page.pageIndex === "number" ? page.pageIndex : index,
