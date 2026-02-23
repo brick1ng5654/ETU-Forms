@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import or_, select, update
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -460,6 +460,45 @@ async def revoke_form_access_invite(
 
     invite.status = "revoked"
     invite.revoked_at = _utc_now_naive()
+    await db.flush()
+    return None
+
+
+@router.delete("/{form_id}/access/active-links", status_code=status.HTTP_204_NO_CONTENT)
+async def revoke_all_active_form_access_links(
+    form_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: AppUser = Depends(get_current_user),
+):
+    await _ensure_manage_access(db, form_id, current_user)
+    await db.execute(
+        update(AccessInvite)
+        .where(AccessInvite.form_id == form_id)
+        .where(AccessInvite.status == "pending")
+        .where(AccessInvite.invitee_email.is_(None))
+        .values(status="revoked", revoked_at=_utc_now_naive())
+    )
+    await db.flush()
+    return None
+
+
+@router.delete("/{form_id}/access/entries", status_code=status.HTTP_204_NO_CONTENT)
+async def clear_form_access_entries(
+    form_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: AppUser = Depends(get_current_user),
+):
+    await _ensure_manage_access(db, form_id, current_user)
+    await db.execute(
+        delete(AccessControl).where(AccessControl.form_id == form_id)
+    )
+    await db.execute(
+        update(AccessInvite)
+        .where(AccessInvite.form_id == form_id)
+        .where(AccessInvite.status == "pending")
+        .where(AccessInvite.invitee_email.is_not(None))
+        .values(status="revoked", revoked_at=_utc_now_naive())
+    )
     await db.flush()
     return None
 

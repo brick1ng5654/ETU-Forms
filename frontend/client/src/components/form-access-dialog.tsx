@@ -6,10 +6,12 @@ import { ArrowDown, ArrowUp, CalendarDays, Check, Copy, Link as LinkIcon, Trash2
 
 import type { FormSchema } from "@/form/types";
 import {
+  clearFormAccessEntries,
   createFormAccessLink,
   deleteFormAccessUser,
   fetchFormAccessEntries,
   inviteFormAccessByEmail,
+  revokeAllActiveFormAccessLinks,
   revokeFormAccessInvite,
   type FormAccessEntry,
   type FormAccessRole,
@@ -462,6 +464,46 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
     }
   };
 
+  const handleDeleteAllActiveLinks = async () => {
+    if (!currentFormId || !canManage) return;
+    if (!window.confirm(t("access.deleteAllActiveLinksConfirm"))) return;
+    setIsSubmitting(true);
+    try {
+      await revokeAllActiveFormAccessLinks(currentFormId);
+      await refreshEntries();
+      onUpdated?.();
+      toast({ title: t("access.deleteAllActiveLinksSuccess") });
+    } catch (error: any) {
+      toast({
+        title: t("actions.error"),
+        description: error?.message ?? t("access.saveFailed"),
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleClearAllEntries = async () => {
+    if (!currentFormId || !canManage) return;
+    if (!window.confirm(t("access.clearAllEntriesConfirm"))) return;
+    setIsSubmitting(true);
+    try {
+      await clearFormAccessEntries(currentFormId);
+      await refreshEntries();
+      onUpdated?.();
+      toast({ title: t("access.clearAllEntriesSuccess") });
+    } catch (error: any) {
+      toast({
+        title: t("actions.error"),
+        description: error?.message ?? t("access.saveFailed"),
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleEntryRoleChange = (entry: FormAccessEntry, nextRole: FormAccessRole) => {
     if (entry.entryType !== "access" || entry.accessId == null) return;
     setEntryRoleDrafts((prev) => ({ ...prev, [entry.accessId as number]: nextRole }));
@@ -776,6 +818,15 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
                     })}
                   </div>
                 )}
+                <Button
+                  variant="outline"
+                  onClick={() => void handleDeleteAllActiveLinks()}
+                  disabled={isSubmitting || activeUniversalLinks.length === 0}
+                  className="w-full text-destructive hover:text-destructive"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  {t("access.deleteAllActiveLinks")}
+                </Button>
               </div>
             </div>
 
@@ -979,6 +1030,15 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
                 })
               )}
             </div>
+            <Button
+              variant="outline"
+              onClick={() => void handleClearAllEntries()}
+              disabled={isSubmitting || filteredEntries.length === 0}
+              className="w-full text-destructive hover:text-destructive"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              {t("access.clearAllEntries")}
+            </Button>
           </div>
         )}
       </DialogContent>

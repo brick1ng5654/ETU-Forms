@@ -598,6 +598,24 @@ export async function revokeFormAccessInvite(formId: string, inviteId: number): 
   }
 }
 
+export async function revokeAllActiveFormAccessLinks(formId: string): Promise<void> {
+  const res = await apiFetch(`/api/v1/forms/${formId}/access/active-links`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    throw await asHttpError(res);
+  }
+}
+
+export async function clearFormAccessEntries(formId: string): Promise<void> {
+  const res = await apiFetch(`/api/v1/forms/${formId}/access/entries`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    throw await asHttpError(res);
+  }
+}
+
 export async function fetchAccessInvite(token: string): Promise<AccessInviteResolveResult> {
   const res = await apiFetch(`/api/v1/forms/access-invites/${encodeURIComponent(token)}`);
   if (!res.ok) {
