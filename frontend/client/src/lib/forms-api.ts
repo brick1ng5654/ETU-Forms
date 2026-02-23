@@ -105,6 +105,7 @@ type ServerAccessInviteResolveResponse = {
   accepted_count?: number | null;
   invitee_email?: string | null;
   status: "pending" | "accepted" | "revoked";
+  accepted_by_current_user?: boolean | null;
 };
 
 type FormBuilderPayload = {
@@ -175,6 +176,7 @@ export type AccessInviteResolveResult = {
   acceptedCount: number;
   inviteeEmail: string | null;
   status: "pending" | "accepted" | "revoked";
+  acceptedByCurrentUser: boolean;
 };
 
 const readErrorMessage = async (res: Response): Promise<string> => {
@@ -612,6 +614,7 @@ export async function fetchAccessInvite(token: string): Promise<AccessInviteReso
     acceptedCount: data.accepted_count ?? 0,
     inviteeEmail: data.invitee_email ?? null,
     status: data.status,
+    acceptedByCurrentUser: !!data.accepted_by_current_user,
   };
 }
 

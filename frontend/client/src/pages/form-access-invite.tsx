@@ -7,6 +7,7 @@ import { acceptAccessInvite, fetchAccessInvite, type AccessInviteResolveResult }
 import { useAuth } from "@/lib/auth";
 import { toast } from "@/hooks/use-toast";
 import { AppBrand } from "@/components/app-brand";
+import { UserMenu } from "@/components/user-menu";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CustomLoader } from "@/components/ui/custom-loader";
@@ -34,6 +35,12 @@ const isFormCreatorInviteError = (err: unknown) => {
   return normalized.includes("already the form creator");
 };
 
+const isInviteUsageLimitReachedError = (err: unknown) => {
+  const text = String((err as any)?.message ?? "");
+  const normalized = text.toLowerCase();
+  return normalized.includes("usage limit reached");
+};
+
 const isNotFoundHttpError = (err: unknown) => {
   return Number((err as any)?.status) === 404;
 };
@@ -45,6 +52,9 @@ const toInviteErrorMessage = (err: unknown, t: (key: string) => string, fallback
   }
   if (isFormCreatorInviteError(err)) {
     return t("access.inviteNotForCreator");
+  }
+  if (isInviteUsageLimitReachedError(err)) {
+    return t("access.inviteLimitReached");
   }
   return text || t(fallbackKey);
 };
@@ -159,18 +169,21 @@ export default function FormAccessInvitePage({ params }: { params: { token: stri
     <div className="min-h-screen bg-muted/30">
       <header className="h-19 border-b border-border bg-white flex items-center justify-between px-3 sm:px-8 shrink-0">
         <AppBrand onClick={() => setLocation("/")} />
-        <Button
-          variant="ghost"
-          size="sm"
-          className="gap-1 h-9 px-3"
-          onClick={() => {
-            const newLang = i18n.language.startsWith("ru") ? "en" : "ru";
-            i18n.changeLanguage(newLang);
-          }}
-        >
-          <Languages className="h-4 w-4" />
-          <span className="text-xs font-medium">{i18n.language.startsWith("ru") ? "RU" : "EN"}</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1 h-9 px-3"
+            onClick={() => {
+              const newLang = i18n.language.startsWith("ru") ? "en" : "ru";
+              i18n.changeLanguage(newLang);
+            }}
+          >
+            <Languages className="h-4 w-4" />
+            <span className="text-xs font-medium">{i18n.language.startsWith("ru") ? "RU" : "EN"}</span>
+          </Button>
+          <UserMenu />
+        </div>
       </header>
       <main className="mx-auto max-w-2xl px-4 py-8">
         <Card>
@@ -195,7 +208,7 @@ export default function FormAccessInvitePage({ params }: { params: { token: stri
               <div className="space-y-2 rounded-md border border-border p-4">
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <CheckCircle2 className="h-4 w-4 text-primary" />
-                  {t("access.inviteAlreadyAcceptedByYou")}
+                  {invite.acceptedByCurrentUser ? t("access.inviteAlreadyAcceptedByYou") : t("access.inviteLimitReached")}
                 </div>
               </div>
             ) : invite ? (

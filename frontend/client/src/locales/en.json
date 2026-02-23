@@ -215,6 +215,7 @@
     "acceptSuccess": "Access granted",
     "acceptFailed": "Failed to accept invitation",
     "inviteAlreadyAcceptedByYou": "You have already accepted this invitation. Reusing the same link is unavailable.",
+    "inviteLimitReached": "The invitation usage limit has been reached.",
     "inviteNotForCreator": "You are the form owner. Accepting the invitation is not required.",
     "openHome": "Open home",
     "universalInvite": "Universal invite",

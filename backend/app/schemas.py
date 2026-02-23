@@ -276,6 +276,7 @@ class AccessInviteResolveResponse(BaseModel):
     accepted_count: int = 0
     invitee_email: Optional[EmailStr] = None
     status: AccessInviteStatus
+    accepted_by_current_user: bool = False
 
 # Template SCHEMAS
 class TemplateBase(BaseModel):

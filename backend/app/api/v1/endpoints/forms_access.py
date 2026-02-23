@@ -107,8 +107,8 @@ def _invite_already_accepted_by_user(
     accepted_count = int(invite.accepted_count or 0)
     if accepted_count <= 0:
         return False
-    if invite.accepted_by_user_id == user_id:
-        return True
+    if invite.accepted_by_user_id is not None:
+        return invite.accepted_by_user_id == user_id
     return _is_same_access_as_invite(invite, existing_access)
 
 
@@ -489,21 +489,23 @@ async def resolve_access_invite(
     if invite.invitee_email and _normalize_email(invite.invitee_email) != _normalize_email(current_user.email):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invite belongs to another email")
 
+    existing_access = (
+        await db.execute(
+            select(AccessControl)
+            .where(AccessControl.form_id == invite.form_id)
+            .where(AccessControl.user_id == current_user.user_id)
+        )
+    ).scalar_one_or_none()
+
     now = _utc_now_naive()
     status_value = _invite_status(invite, now)
+    accepted_by_current_user = _invite_already_accepted_by_user(
+        invite,
+        user_id=current_user.user_id,
+        existing_access=existing_access,
+    )
     if status_value == "pending":
-        existing_access = (
-            await db.execute(
-                select(AccessControl)
-                .where(AccessControl.form_id == invite.form_id)
-                .where(AccessControl.user_id == current_user.user_id)
-            )
-        ).scalar_one_or_none()
-        if _invite_already_accepted_by_user(
-            invite,
-            user_id=current_user.user_id,
-            existing_access=existing_access,
-        ):
+        if accepted_by_current_user:
             status_value = "accepted"
     if status_value == "expired":
         status_value = "revoked"
@@ -518,6 +520,7 @@ async def resolve_access_invite(
         accepted_count=int(invite.accepted_count or 0),
         invitee_email=invite.invitee_email,
         status=status_value,
+        accepted_by_current_user=accepted_by_current_user,
     )
 
 
