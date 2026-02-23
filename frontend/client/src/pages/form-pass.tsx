@@ -34,6 +34,8 @@ function getOrCreateSessionToken(formId: string): string {
     sessionStorage.setItem(key, token);
   }
   return token;
+}
+
 /**
  * Вариант B: если пользователь жмёт "назад" в браузере — отправляем на "/"
  * locked=true включает блокировку.
