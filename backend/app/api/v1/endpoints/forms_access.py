@@ -481,6 +481,8 @@ async def resolve_access_invite(
     ).scalar_one_or_none()
     if form is None or form.status == "deleted":
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Form not found")
+    if form.user_id == current_user.user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are already the form creator")
 
     if invite.invitee_email and _normalize_email(invite.invitee_email) != _normalize_email(current_user.email):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invite belongs to another email")
@@ -536,6 +538,8 @@ async def accept_access_invite(
     ).scalar_one_or_none()
     if form is None or form.status == "deleted":
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Form not found")
+    if form.user_id == current_user.user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are already the form creator")
 
     if invite.invitee_email and _normalize_email(invite.invitee_email) != _normalize_email(current_user.email):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invite belongs to another email")

@@ -28,12 +28,21 @@ const isAlreadyAcceptedByUserError = (err: unknown) => {
   return normalized.includes("already accepted by this user");
 };
 
-const toAcceptInviteMessage = (err: unknown, t: (key: string) => string) => {
+const isFormCreatorInviteError = (err: unknown) => {
+  const text = String((err as any)?.message ?? "");
+  const normalized = text.toLowerCase();
+  return normalized.includes("already the form creator");
+};
+
+const toInviteErrorMessage = (err: unknown, t: (key: string) => string, fallbackKey: string) => {
   const text = String((err as any)?.message ?? "");
   if (isAlreadyAcceptedByUserError(err)) {
     return t("access.inviteAlreadyAcceptedByYou");
   }
-  return text || t("access.acceptFailed");
+  if (isFormCreatorInviteError(err)) {
+    return t("access.inviteNotForCreator");
+  }
+  return text || t(fallbackKey);
 };
 
 export default function FormAccessInvitePage({ params }: { params: { token: string } }) {
@@ -98,7 +107,7 @@ export default function FormAccessInvitePage({ params }: { params: { token: stri
         setInvite(result);
       } catch (err: any) {
         if (!active) return;
-        setError(err?.message ?? t("access.loadFailed"));
+        setError(toInviteErrorMessage(err, t, "access.loadFailed"));
       } finally {
         if (active) setIsInviteLoading(false);
       }
@@ -117,7 +126,7 @@ export default function FormAccessInvitePage({ params }: { params: { token: stri
       setAccepted(true);
       toast({ title: t("access.acceptSuccess") });
     } catch (err: any) {
-      const description = toAcceptInviteMessage(err, t);
+      const description = toInviteErrorMessage(err, t, "access.acceptFailed");
       if (isAlreadyAcceptedByUserError(err)) {
         setInvite((prev) => (prev ? { ...prev, status: "accepted" } : prev));
         setAcceptError(null);
