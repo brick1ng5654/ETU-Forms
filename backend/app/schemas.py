@@ -239,7 +239,7 @@ class AccessInviteCreateByLink(BaseModel):
     role: AccessRole
     starts_at: Optional[datetime] = None
     expires_at: Optional[datetime] = None
-    max_accepts: Optional[int] = Field(default=None, ge=1)
+    max_accepts: Optional[int] = Field(default=None, ge=1, le=999999)
 
 class AccessEntryResponse(BaseModel):
     entry_type: Literal["access", "invite"]

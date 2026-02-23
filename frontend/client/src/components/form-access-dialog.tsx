@@ -32,6 +32,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 type RoleFilter = "all" | FormAccessRole;
 type AccessSortField = "name" | "startsAt" | "expiresAt";
 type AccessSortDirection = "asc" | "desc";
+const MAX_LINK_ACCEPT_LIMIT = 999999;
 
 type Props = {
   form: Pick<FormSchema, "id" | "title"> | null;
@@ -121,6 +122,13 @@ const statusLabelKey = (status: FormAccessEntry["status"]) => {
   if (status === "expired") return "access.statusExpired";
   if (status === "accepted") return "access.statusAccepted";
   return "access.statusRevoked";
+};
+
+const sanitizeAcceptLimitInput = (raw: string) => {
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return "";
+  const withoutLeadingZeros = digits.replace(/^0+(?=\d)/, "");
+  return withoutLeadingZeros.slice(0, 6);
 };
 
 const roleLabelKey = (role: FormAccessRole) => {
@@ -236,6 +244,7 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
   const [linkNoExpiry, setLinkNoExpiry] = useState(true);
   const [linkUnlimitedAccepts, setLinkUnlimitedAccepts] = useState(true);
   const [linkMaxAccepts, setLinkMaxAccepts] = useState("");
+  const [linkMaxAcceptsTouched, setLinkMaxAcceptsTouched] = useState(false);
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
   const [sortField, setSortField] = useState<AccessSortField>("name");
   const [sortDirection, setSortDirection] = useState<AccessSortDirection>("asc");
@@ -268,8 +277,15 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
     setEntryStartDrafts({});
     setEntryDateDrafts({});
     setEntryRoleDrafts({});
+    setLinkMaxAcceptsTouched(false);
     void refreshEntries();
   }, [open, currentFormId, canManage]);
+
+  const isLinkMaxAcceptsInvalid = useMemo(() => {
+    if (linkUnlimitedAccepts) return false;
+    const parsed = Number.parseInt(linkMaxAccepts, 10);
+    return !Number.isInteger(parsed) || parsed < 1 || parsed > MAX_LINK_ACCEPT_LIMIT;
+  }, [linkUnlimitedAccepts, linkMaxAccepts]);
 
   const currentDateInput = useMemo(() => formatDateForInput(new Date()), []);
   const currentDateLabel = useMemo(
@@ -410,12 +426,8 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
       return;
     }
     const parsedMaxAccepts = Number.parseInt(linkMaxAccepts, 10);
-    if (!linkUnlimitedAccepts && (!Number.isInteger(parsedMaxAccepts) || parsedMaxAccepts < 1)) {
-      toast({
-        title: t("actions.error"),
-        description: t("access.invalidAcceptLimit"),
-        variant: "destructive",
-      });
+    if (!linkUnlimitedAccepts && isLinkMaxAcceptsInvalid) {
+      setLinkMaxAcceptsTouched(true);
       return;
     }
 
@@ -428,6 +440,7 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
         max_accepts: linkUnlimitedAccepts ? null : parsedMaxAccepts,
       });
       if (!linkUnlimitedAccepts) setLinkMaxAccepts("");
+      setLinkMaxAcceptsTouched(false);
       await refreshEntries();
       onUpdated?.();
       toast({ title: t("access.linkGenerated") });
@@ -705,7 +718,10 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
                         onCheckedChange={(checked) => {
                           const next = Boolean(checked);
                           setLinkUnlimitedAccepts(next);
-                          if (next) setLinkMaxAccepts("");
+                          if (next) {
+                            setLinkMaxAccepts("");
+                            setLinkMaxAcceptsTouched(false);
+                          }
                         }}
                         disabled={isSubmitting}
                       />
@@ -714,14 +730,21 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
                     <div className="space-y-1">
                       <label className="text-xs text-muted-foreground">{t("access.acceptLimitLabel")}</label>
                       <Input
-                        type="number"
-                        min={1}
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={6}
                         value={linkMaxAccepts}
-                        onChange={(event) => setLinkMaxAccepts(event.target.value)}
+                        onChange={(event) => setLinkMaxAccepts(sanitizeAcceptLimitInput(event.target.value))}
+                        onBlur={() => setLinkMaxAcceptsTouched(true)}
                         disabled={isSubmitting || linkUnlimitedAccepts}
+                        aria-invalid={linkMaxAcceptsTouched && isLinkMaxAcceptsInvalid}
                         placeholder="10"
                         className="w-full"
                       />
+                      {!linkUnlimitedAccepts && linkMaxAcceptsTouched && isLinkMaxAcceptsInvalid ? (
+                        <div className="text-xs text-destructive">{t("access.invalidAcceptLimit")}</div>
+                      ) : null}
                     </div>
                   </div>
                 </div>

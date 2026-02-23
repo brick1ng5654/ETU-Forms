@@ -197,7 +197,7 @@
     "linkGenerated": "Invitation link generated",
     "acceptLimitLabel": "Accept limit",
     "unlimited": "Unlimited",
-    "invalidAcceptLimit": "Invalid accept limit",
+    "invalidAcceptLimit": "Enter a number from 1 to 999999",
     "invalidDateRange": "Start date must be before end date",
     "activeLinks": "Active invitation links",
     "emptyLinks": "No active links",
