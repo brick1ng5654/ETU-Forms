@@ -228,6 +228,54 @@ function HintIcon({ text }: { text: string }) {
   );
 }
 
+function RoleSelectItemLabel({ label, hint }: { label: string; hint: string }) {
+  const [isTooltipOpen, setIsTooltipOpen] = useState(false);
+
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span>{label}</span>
+      <Tooltip open={isTooltipOpen}>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            aria-label={hint}
+            onPointerDown={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+            onPointerEnter={(event) => {
+              event.stopPropagation();
+              setIsTooltipOpen(true);
+            }}
+            onPointerLeave={(event) => {
+              event.stopPropagation();
+              setIsTooltipOpen(false);
+            }}
+            onFocus={(event) => {
+              event.stopPropagation();
+              setIsTooltipOpen(false);
+            }}
+            onBlur={(event) => {
+              event.stopPropagation();
+              setIsTooltipOpen(false);
+            }}
+            className="h-5 w-5 rounded-full border border-muted-foreground/40 text-muted-foreground text-[11px] leading-none flex items-center justify-center hover:bg-muted"
+          >
+            ?
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="right" className="max-w-sm text-xs leading-relaxed">
+          {hint}
+        </TooltipContent>
+      </Tooltip>
+    </span>
+  );
+}
+
 export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdated }: Props) {
   const { t, i18n } = useTranslation();
   const [entries, setEntries] = useState<FormAccessEntry[]>([]);
@@ -638,8 +686,18 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="participant">{t("access.roleParticipant")}</SelectItem>
-                      <SelectItem value="editor">{t("access.roleEditor")}</SelectItem>
+                      <SelectItem value="participant">
+                        <RoleSelectItemLabel
+                          label={t("access.roleParticipant")}
+                          hint={t("access.roleParticipantHint")}
+                        />
+                      </SelectItem>
+                      <SelectItem value="editor">
+                        <RoleSelectItemLabel
+                          label={t("access.roleEditor")}
+                          hint={t("access.roleEditorHint")}
+                        />
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -704,8 +762,18 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="participant">{t("access.roleParticipant")}</SelectItem>
-                      <SelectItem value="editor">{t("access.roleEditor")}</SelectItem>
+                      <SelectItem value="participant">
+                        <RoleSelectItemLabel
+                          label={t("access.roleParticipant")}
+                          hint={t("access.roleParticipantHint")}
+                        />
+                      </SelectItem>
+                      <SelectItem value="editor">
+                        <RoleSelectItemLabel
+                          label={t("access.roleEditor")}
+                          hint={t("access.roleEditorHint")}
+                        />
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -886,8 +954,18 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">{t("access.filterAll")}</SelectItem>
-                    <SelectItem value="participant">{t("access.roleParticipant")}</SelectItem>
-                    <SelectItem value="editor">{t("access.roleEditor")}</SelectItem>
+                    <SelectItem value="participant">
+                      <RoleSelectItemLabel
+                        label={t("access.roleParticipant")}
+                        hint={t("access.roleParticipantHint")}
+                      />
+                    </SelectItem>
+                    <SelectItem value="editor">
+                      <RoleSelectItemLabel
+                        label={t("access.roleEditor")}
+                        hint={t("access.roleEditorHint")}
+                      />
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -993,8 +1071,18 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="participant">{t("access.roleParticipant")}</SelectItem>
-                                <SelectItem value="editor">{t("access.roleEditor")}</SelectItem>
+                                <SelectItem value="participant">
+                                  <RoleSelectItemLabel
+                                    label={t("access.roleParticipant")}
+                                    hint={t("access.roleParticipantHint")}
+                                  />
+                                </SelectItem>
+                                <SelectItem value="editor">
+                                  <RoleSelectItemLabel
+                                    label={t("access.roleEditor")}
+                                    hint={t("access.roleEditorHint")}
+                                  />
+                                </SelectItem>
                               </SelectContent>
                             </Select>
                             <Button

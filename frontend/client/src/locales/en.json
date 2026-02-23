@@ -170,6 +170,8 @@
     "role": "Role",
     "roleEditor": "Editor",
     "roleParticipant": "Observer",
+    "roleEditorHint": "Allows editing the form (if the user has the \"Form Creator\" role) and viewing its responses.",
+    "roleParticipantHint": "Allows viewing form responses.",
     "requireAccept": "Require invitation acceptance",
     "startDateLabel": "Access start date",
     "expireDateLabel": "Access end date",
