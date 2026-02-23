@@ -34,6 +34,10 @@ const isFormCreatorInviteError = (err: unknown) => {
   return normalized.includes("already the form creator");
 };
 
+const isNotFoundHttpError = (err: unknown) => {
+  return Number((err as any)?.status) === 404;
+};
+
 const toInviteErrorMessage = (err: unknown, t: (key: string) => string, fallbackKey: string) => {
   const text = String((err as any)?.message ?? "");
   if (isAlreadyAcceptedByUserError(err)) {
@@ -107,6 +111,10 @@ export default function FormAccessInvitePage({ params }: { params: { token: stri
         setInvite(result);
       } catch (err: any) {
         if (!active) return;
+        if (isNotFoundHttpError(err)) {
+          setLocation("/not-found");
+          return;
+        }
         setError(toInviteErrorMessage(err, t, "access.loadFailed"));
       } finally {
         if (active) setIsInviteLoading(false);
@@ -126,6 +134,10 @@ export default function FormAccessInvitePage({ params }: { params: { token: stri
       setAccepted(true);
       toast({ title: t("access.acceptSuccess") });
     } catch (err: any) {
+      if (isNotFoundHttpError(err)) {
+        setLocation("/not-found");
+        return;
+      }
       const description = toInviteErrorMessage(err, t, "access.acceptFailed");
       if (isAlreadyAcceptedByUserError(err)) {
         setInvite((prev) => (prev ? { ...prev, status: "accepted" } : prev));

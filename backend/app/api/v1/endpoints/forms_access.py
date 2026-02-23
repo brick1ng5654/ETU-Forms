@@ -475,6 +475,8 @@ async def resolve_access_invite(
     ).scalar_one_or_none()
     if invite is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite not found")
+    if _enum_value(invite.status) == "revoked":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite not found")
 
     form = (
         await db.execute(select(Form).where(Form.form_id == invite.form_id))
@@ -532,6 +534,8 @@ async def accept_access_invite(
     ).scalar_one_or_none()
     if invite is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite not found")
+    if _enum_value(invite.status) == "revoked":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite not found")
 
     form = (
         await db.execute(select(Form).where(Form.form_id == invite.form_id))
@@ -545,9 +549,6 @@ async def accept_access_invite(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invite belongs to another email")
 
     now = _utc_now_naive()
-    status_value = _enum_value(invite.status)
-    if status_value == "revoked":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invite was revoked")
     invite_starts_at = _to_utc_naive(invite.starts_at)
     invite_expires_at = _to_utc_naive(invite.expires_at)
     if invite_starts_at is not None and invite_starts_at > now:
