@@ -121,6 +121,13 @@ export default function Home() {
     }
   }, [isLoading, accessToken, selectedCategory]);
 
+  useEffect(() => {
+    if (!accessToken) return;
+    const onVisible = () => void refreshData();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [accessToken]);
+
   const createNewForm = async () => {
     if (isLoading) {
       return;
@@ -209,13 +216,15 @@ export default function Home() {
   const filteredForms = useMemo(() => {
     let current = [...forms];
 
-    if (selectedCategory === "edit") {
+    if (selectedCategory === "all") {
+      current = current.filter((f) => canEditForm(f) || canViewResponses(f));
+    } else if (selectedCategory === "edit") {
       current = current.filter(canEditForm);
     } else if (selectedCategory === "responses") {
       current = current.filter(canViewResponses);
     } else if (selectedCategory === "continue") {
       current = current.filter(
-        (f) => f.canContinuePassage && f.hasDraft
+        (f) => canContinuePassage(f) && f.hasDraft
       );
     } else if (selectedCategory === "completed") {
       current = [];
@@ -487,20 +496,24 @@ export default function Home() {
                       ) : null}
 
                       <div className="mt-4 flex flex-wrap gap-2">
-                        <Button size="sm" variant="outline" onClick={() => openBuilder(form)} disabled={!canEditForm(form)}>
-                          <PencilLine className="mr-2 h-4 w-4" />
-                          {t("results.openBuilder")}
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => openResults(form)} disabled={!canViewResponses(form)}>
-                          <BarChart3 className="mr-2 h-4 w-4" />
-                          {t("results.openResults")}
-                        </Button>
-                        {isContinueCategory ? (
+                        {canEditForm(form) && (
+                          <Button size="sm" variant="outline" onClick={() => openBuilder(form)}>
+                            <PencilLine className="mr-2 h-4 w-4" />
+                            {t("results.openBuilder")}
+                          </Button>
+                        )}
+                        {canViewResponses(form) && (
+                          <Button size="sm" variant="outline" onClick={() => openResults(form)}>
+                            <BarChart3 className="mr-2 h-4 w-4" />
+                            {t("results.openResults")}
+                          </Button>
+                        )}
+                        {isContinueCategory && canContinuePassage(form) && (
                           <Button size="sm" variant="outline" onClick={() => openPassage(form)}>
                             <Play className="mr-2 h-4 w-4" />
                             {t("home.continuePassage")}
                           </Button>
-                        ) : null}
+                        )}
                       </div>
                     </div>
 
@@ -517,17 +530,21 @@ export default function Home() {
                             <Info className="mr-2 h-4 w-4" /> {t("actions.properties")}
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => openBuilder(form)} disabled={!canEditForm(form)}>
-                            <PencilLine className="mr-2 h-4 w-4" /> {t("results.openBuilder")}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => openResults(form)} disabled={!canViewResponses(form)}>
-                            <BarChart3 className="mr-2 h-4 w-4" /> {t("results.openResults")}
-                          </DropdownMenuItem>
-                          {isContinueCategory ? (
+                          {canEditForm(form) && (
+                            <DropdownMenuItem onClick={() => openBuilder(form)}>
+                              <PencilLine className="mr-2 h-4 w-4" /> {t("results.openBuilder")}
+                            </DropdownMenuItem>
+                          )}
+                          {canViewResponses(form) && (
+                            <DropdownMenuItem onClick={() => openResults(form)}>
+                              <BarChart3 className="mr-2 h-4 w-4" /> {t("results.openResults")}
+                            </DropdownMenuItem>
+                          )}
+                          {isContinueCategory && canContinuePassage(form) && (
                             <DropdownMenuItem onClick={() => openPassage(form)}>
                               <Play className="mr-2 h-4 w-4" /> {t("home.continuePassage")}
                             </DropdownMenuItem>
-                          ) : null}
+                          )}
                           {canEditForm(form) ? (
                             <>
                               <DropdownMenuSeparator />

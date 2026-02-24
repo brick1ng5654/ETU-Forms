@@ -165,6 +165,7 @@
     "version": "Версия {{version}}",
     "submitted": "Отправлено {{time}}",
     "duration": "Длительность {{time}}",
+    "attemptNumber": "Попытка №{{number}}",
     "correctScore": "Правильные баллы: {{score}} / {{max}}",
     "noAnswer": "Нет ответа",
     "openResults": "Результаты",

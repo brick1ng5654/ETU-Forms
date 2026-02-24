@@ -447,8 +447,15 @@ export async function fetchFormDraft(
     if (res.status === 404) return null;
     throw await asHttpError(res);
   }
-  const data = (await res.json()) as FormDraftResponse | null;
-  return data;
+  if (res.status === 204) return null;
+  const text = await res.text();
+  if (!text || !text.trim()) return null;
+  try {
+    const data = JSON.parse(text) as FormDraftResponse | null;
+    return data;
+  } catch {
+    return null;
+  }
 }
 
 export async function saveFormDraft(

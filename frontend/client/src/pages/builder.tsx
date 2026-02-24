@@ -1420,9 +1420,9 @@ export default function Builder({ params }: { params: { id?: string } }) {
       startAt: publishNoStart ? null : toIsoFromParts(publishStartDate, publishStartTime),
       endAt: publishNoStart || publishNoEnd ? null : toIsoFromParts(publishEndDate, publishEndTime),
       allowRevoke: publishAllowRevoke,
-      revokeCountsAsAttempt: publishAllowRevoke ? publishRevokeCountsAsAttempt : false,
-      attemptLimitType: publishAttemptLimitType,
-      attemptLimit: publishAttemptLimitType === "limited" ? publishAttemptLimit : null,
+      revokeCountsAsAttempt: publishAccessMode === "unauthenticated" ? false : (publishAllowRevoke ? publishRevokeCountsAsAttempt : false),
+      attemptLimitType: publishAccessMode === "unauthenticated" ? "unlimited" : publishAttemptLimitType,
+      attemptLimit: publishAccessMode === "unauthenticated" ? null : (publishAttemptLimitType === "limited" ? publishAttemptLimit : null),
     });
     if (!payload) return;
     const result = await publishForm(activeForm.id, payload);
@@ -1844,7 +1844,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
                     </div>
                   </div>
 
-                  <div className="space-y-4 pt-2 border-t border-border">
+                  <div className={cn("space-y-4 pt-2 border-t border-border")}>
                     <div className="space-y-2">
                       <div className="flex items-center space-x-2">
                         <Checkbox
@@ -1865,6 +1865,8 @@ export default function Builder({ params }: { params: { id?: string } }) {
                       </p>
                     </div>
 
+                    {publishAccessMode !== "unauthenticated" && (
+                    <>
                     {publishAllowRevoke && (
                       <div className="space-y-2">
                         <div className="flex items-center space-x-2">
@@ -1929,11 +1931,14 @@ export default function Builder({ params }: { params: { id?: string } }) {
                               setPublishAttemptLimitInput(String(n));
                             }
                           }}
+                          className="[&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [appearance:textfield]"
                         />
                         <p className="text-xs text-muted-foreground">
                           {t("results.attemptLimitHint")}
                         </p>
                       </div>
+                    )}
+                    </>
                     )}
                   </div>
 

@@ -418,6 +418,7 @@ export default function FormPass({ params }: { params: { id: string } }) {
                 </Empty>
               ) : (
                 <FormPreview
+                  key={draft?.response_id ?? (draftLoading ? "draft-loading" : "draft-none")}
                   form={form}
                   mode="respond"
                   initialPageId={initialPageId}

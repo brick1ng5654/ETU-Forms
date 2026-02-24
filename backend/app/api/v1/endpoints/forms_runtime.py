@@ -549,42 +549,61 @@ async def save_form_draft(
         db.add(draft)
         await db.flush()
 
+    # Загружаем существующие ответы по response_id; перезаписываем по element_id, лишние удаляем
     existing_result = await db.execute(
         select(ResponseAnswer).where(ResponseAnswer.response_id == draft.response_id)
     )
-    for answer_row in existing_result.scalars().all():
-        db.delete(answer_row)
+    existing_by_element: dict[int, ResponseAnswer] = {
+        row.element_id: row for row in existing_result.scalars().all()
+    }
 
+    payload_element_ids: set[int] = set()
     for client_id, value in payload.answers.items():
         element = by_client_id.get(client_id)
         if element is None:
             continue
+        payload_element_ids.add(element.element_id)
         semantic_error = _validate_semantic_answer(element, value)
         if semantic_error is not None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid value for '{client_id}': {semantic_error}",
             )
-        answer_row = ResponseAnswer(
-            response_id=draft.response_id,
-            element_id=element.element_id,
-        )
-        _apply_answer_value(answer_row, value)
-        db.add(answer_row)
-        await db.flush()
-        file_ids = _extract_file_ids(value)
-        if file_ids:
-            await db.execute(
-                update(UploadedFile)
-                .where(UploadedFile.file_id.in_(file_ids))
-                .values(
-                    answer_id=answer_row.answer_id,
-                    status="temp",
-                    expires_at=datetime.now(timezone.utc) + timedelta(hours=24),
-                )
+        answer_row = existing_by_element.get(element.element_id)
+        if answer_row is not None:
+            _apply_answer_value(answer_row, value)
+        else:
+            answer_row = ResponseAnswer(
+                response_id=draft.response_id,
+                element_id=element.element_id,
             )
+            _apply_answer_value(answer_row, value)
+            db.add(answer_row)
+            existing_by_element[element.element_id] = answer_row
+
+    for eid, answer_row in list(existing_by_element.items()):
+        if eid not in payload_element_ids:
+            db.delete(answer_row)
 
     await db.flush()
+
+    for client_id, value in payload.answers.items():
+        element = by_client_id.get(client_id)
+        if element is None:
+            continue
+        file_ids = _extract_file_ids(value)
+        if file_ids:
+            answer_row = existing_by_element.get(element.element_id)
+            if answer_row is not None:
+                await db.execute(
+                    update(UploadedFile)
+                    .where(UploadedFile.file_id.in_(file_ids))
+                    .values(
+                        answer_id=answer_row.answer_id,
+                        status="temp",
+                        expires_at=datetime.now(timezone.utc) + timedelta(hours=24),
+                    )
+                )
     await db.refresh(draft)
 
     answers_out: dict[str, Any] = {}
@@ -774,7 +793,7 @@ async def get_form_responses(
     responses_result = await db.execute(
         select(Response)
         .where(Response.form_id == form.form_id)
-        .where(Response.status == "submitted")
+        .where(Response.status.in_(["submitted", "cancelled"]))
         .order_by(Response.completed_at.desc(), Response.created_at.desc())
     )
     responses = responses_result.scalars().all()

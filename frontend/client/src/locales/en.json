@@ -167,6 +167,7 @@
     "version": "Version {{version}}",
     "submitted": "Submitted {{time}}",
     "duration": "Duration {{time}}",
+    "attemptNumber": "Attempt #{{number}}",
     "correctScore": "Correct score: {{score}} / {{max}}",
     "noAnswer": "No answer",
     "openResults": "Results",

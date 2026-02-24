@@ -58,7 +58,9 @@ import { CustomLoader } from "@/components/ui/custom-loader";
 type ResponseEntry = {
   id: string;
   formId: string;
+  userId: number;
   name: string;
+  status: "draft" | "submitted" | "cancelled";
   submittedAt: string;
   durationMinutes: number;
   answers: AnswersById;
@@ -747,7 +749,9 @@ export default function FormResults({ params }: { params: { id: string } }) {
             return {
               id: String(response.responseId),
               formId: response.formId,
+              userId: response.userId,
               name: response.responderName,
+              status: response.status,
               submittedAt: response.completedAt ?? response.createdAt,
               durationMinutes,
               answers: response.answers,
@@ -807,6 +811,23 @@ export default function FormResults({ params }: { params: { id: string } }) {
     () => responses.filter((response) => response.formId === activeVersionId),
     [activeVersionId, responses]
   );
+  const attemptNumberByResponseId = useMemo(() => {
+    const map = new Map<string, number>();
+    const byFormUser = new Map<string, ResponseEntry[]>();
+    for (const r of responses) {
+      const key = `${r.formId}:${r.userId}`;
+      const list = byFormUser.get(key) ?? [];
+      list.push(r);
+      byFormUser.set(key, list);
+    }
+    byFormUser.forEach((list) => {
+      const sorted = [...list].sort(
+        (a, b) => toTimestampSafe(a.submittedAt) - toTimestampSafe(b.submittedAt)
+      );
+      sorted.forEach((r, i) => map.set(r.id, i + 1));
+    });
+    return map;
+  }, [responses]);
   const sortFieldsByPage = (schema: FormSchema): FormElementModel[] => {
     const pages = schema.pages ?? [];
     const pageIndexById = new Map<number, number>(
@@ -1063,7 +1084,9 @@ export default function FormResults({ params }: { params: { id: string } }) {
     }
     if (!activeResponse) return "";
     const locale = i18n.language.startsWith("ru") ? ru : undefined;
+    const attemptNum = attemptNumberByResponseId.get(activeResponse.id);
     return [
+      attemptNum != null ? t("results.attemptNumber", { number: attemptNum }) : null,
       t("results.version", { version: activeResponse.version }),
       t("results.submitted", {
         time: formatDistanceToNow(parseServerDate(activeResponse.submittedAt), { addSuffix: true, locale }),
@@ -1105,10 +1128,12 @@ export default function FormResults({ params }: { params: { id: string } }) {
         const storedRevokeCountsAsAttempt = Boolean(settings.revokeCountsAsAttempt);
         
         const attemptsChanged = 
-          allowRevoke !== storedAllowRevoke ||
-          attemptLimitType !== storedAttemptLimitType ||
-          (attemptLimitType === "limited" && attemptLimit !== storedAttemptLimit) ||
-          (allowRevoke && revokeCountsAsAttempt !== storedRevokeCountsAsAttempt);
+          accessMode === "unauthenticated"
+            ? (allowRevoke !== storedAllowRevoke)
+            : (allowRevoke !== storedAllowRevoke ||
+              attemptLimitType !== storedAttemptLimitType ||
+              (attemptLimitType === "limited" && attemptLimit !== storedAttemptLimit) ||
+              (allowRevoke && revokeCountsAsAttempt !== storedRevokeCountsAsAttempt));
         
         return (
           startAt !== getDateInputValue(form.startAt) ||
@@ -1130,10 +1155,10 @@ export default function FormResults({ params }: { params: { id: string } }) {
       settingsJson: {
         ...(form.settings_json ?? {}),
         privateLinkKey,
-        allowRevoke,
-        attemptLimitType,
-        attemptLimit: attemptLimitType === "limited" ? attemptLimit : null,
-        revokeCountsAsAttempt: allowRevoke ? revokeCountsAsAttempt : false,
+        allowRevoke: allowRevoke,
+        attemptLimitType: accessMode === "unauthenticated" ? "unlimited" : attemptLimitType,
+        attemptLimit: accessMode === "unauthenticated" ? null : (attemptLimitType === "limited" ? attemptLimit : null),
+        revokeCountsAsAttempt: accessMode === "unauthenticated" ? false : (allowRevoke ? revokeCountsAsAttempt : false),
       },
     });
     try {
@@ -1376,7 +1401,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
                       "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
                       selection.type === "response" && selection.responseId === response.id
                         ? "bg-primary/10 text-primary"
-                        : "hover:bg-muted"
+                        : response.status === "cancelled"
                     )}
                     onClick={() => {
                       setActiveVersionId(response.formId);
@@ -1387,11 +1412,21 @@ export default function FormResults({ params }: { params: { id: string } }) {
                       <AvatarFallback>{getInitials(response.name)}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1 text-left">
-                      <div className="font-medium flex items-center gap-2">
+                      <div className="font-medium flex items-center gap-2 flex-wrap">
                         <span>{response.name}</span>
+                        {attemptNumberByResponseId.get(response.id) != null && (
+                          <Badge variant="secondary" className="h-5 font-normal">
+                            {t("results.attemptNumber", { number: attemptNumberByResponseId.get(response.id) })}
+                          </Badge>
+                        )}
                         <Badge variant="outline" className="h-5">
                           {t("results.version", { version: response.version })}
                         </Badge>
+                        {response.status === "cancelled" && (
+                          <Badge variant="destructive" className="h-5 font-normal pointer-events-none">
+                            {t("home.revoked")}
+                          </Badge>
+                        )}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {formatDistanceToNow(parseServerDate(response.submittedAt), {
@@ -1518,6 +1553,12 @@ export default function FormResults({ params }: { params: { id: string } }) {
                       )}
                       <Separator orientation="vertical" className="h-4" />
                       <Badge variant="outline">{t("results.version", { version: activeResponse.version })}</Badge>
+                      {attemptNumberByResponseId.get(activeResponse.id) != null && (
+                        <Badge variant="secondary">{t("results.attemptNumber", { number: attemptNumberByResponseId.get(activeResponse.id) })}</Badge>
+                      )}
+                      {activeResponse.status === "cancelled" && (
+                        <Badge variant="destructive" className="pointer-events-none">{t("home.revoked")}</Badge>
+                      )}
                     </div>
 
                     <div className="space-y-4">
@@ -1636,6 +1677,8 @@ export default function FormResults({ params }: { params: { id: string } }) {
                   </p>
                 </div>
                 
+                {accessMode !== "unauthenticated" && (
+                <>
                 {allowRevoke && (
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2">
@@ -1703,11 +1746,14 @@ export default function FormResults({ params }: { params: { id: string } }) {
                         }
                       }}
                       disabled={!canEditCurrentForm}
+                      className="[&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [appearance:textfield]"
                     />
                     <p className="text-xs text-muted-foreground">
                       {t("results.attemptLimitHint")}
                     </p>
                   </div>
+                )}
+                </>
                 )}
               </div>
               
