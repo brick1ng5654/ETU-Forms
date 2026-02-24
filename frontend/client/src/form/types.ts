@@ -71,11 +71,8 @@ export interface FormSchema {
   folderId?: string;
   title: string;
   description: string;
-<<<<<<< invite_role_to_form
   ownerId?: number;
-=======
   pages: FormPageModel[];
->>>>>>> main
   ownerName?: string;
   fields: FormElementModel[];
   fieldCount?: number;

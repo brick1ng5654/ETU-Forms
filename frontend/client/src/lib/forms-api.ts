@@ -327,11 +327,8 @@ export const mapServerDetailToSchema = (detail: ServerFormDetail): FormSchema =>
     id: String(detail.form_id),
     title: detail.title,
     description: detail.description ?? "",
-<<<<<<< invite_role_to_form
     ownerId: detail.user_id,
-=======
     pages: normalizedPages,
->>>>>>> main
     fields,
     fieldCount: detail.elements_count ?? fields.length,
     status: detail.status,
@@ -351,11 +348,8 @@ export const mapServerSummaryToSchema = (summary: ServerFormSummary): FormSchema
     id: String(summary.form_id),
     title: summary.title,
     description: summary.description ?? "",
-<<<<<<< invite_role_to_form
     ownerId: summary.user_id,
-=======
     pages: [],
->>>>>>> main
     ownerName: summary.owner_name ?? undefined,
     fields: [],
     fieldCount: summary.elements_count ?? 0,
