@@ -266,6 +266,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
   const [publishRevokeCountsAsAttempt, setPublishRevokeCountsAsAttempt] = useState(false);
   const [publishAttemptLimitType, setPublishAttemptLimitType] = useState<"unlimited" | "limited">("unlimited");
   const [publishAttemptLimit, setPublishAttemptLimit] = useState<number>(1);
+  const [publishAttemptLimitInput, setPublishAttemptLimitInput] = useState("1");
   const [activePageId, setActivePageId] = useState<number | null>(null);
   const nextPageIdRef = useRef(-1);
   const [syncedPayloadSignatures, setSyncedPayloadSignatures] = useState<Record<string, string>>({});
@@ -495,6 +496,9 @@ export default function Builder({ params }: { params: { id?: string } }) {
       ? settings.attemptLimit
       : 1;
     setPublishAttemptLimit(limit);
+    if (settings.attemptLimitType === "limited") {
+      setPublishAttemptLimitInput(String(limit));
+    }
   }, [activeForm, isPublishOpen]);
 
   // Auto-save effect
@@ -1143,7 +1147,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
       access_mode: accessMode,
       start_at: startAt,
       end_at: endAt,
-      settings_json: form.settings_json ?? { client_form_id: form.id },
+      settings_json,
       
       pages: normalizedPages.map((page, index) => ({
         page_id: page.id,
@@ -1887,7 +1891,12 @@ export default function Builder({ params }: { params: { id?: string } }) {
                       <Label className="text-sm font-medium">{t("results.attemptLimitType")}</Label>
                       <Select
                         value={publishAttemptLimitType}
-                        onValueChange={(value) => setPublishAttemptLimitType(value as "unlimited" | "limited")}
+                        onValueChange={(value) => {
+                          setPublishAttemptLimitType(value as "unlimited" | "limited");
+                          if (value === "limited") {
+                            setPublishAttemptLimitInput(String(publishAttemptLimit));
+                          }
+                        }}
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -1908,11 +1917,16 @@ export default function Builder({ params }: { params: { id?: string } }) {
                           id="publish-attempt-limit"
                           type="number"
                           min={1}
-                          value={publishAttemptLimit}
-                          onChange={(e) => {
-                            const value = parseInt(e.target.value, 10);
-                            if (!isNaN(value) && value > 0) {
-                              setPublishAttemptLimit(value);
+                          value={publishAttemptLimitInput}
+                          onChange={(e) => setPublishAttemptLimitInput(e.target.value)}
+                          onBlur={() => {
+                            const n = parseInt(publishAttemptLimitInput.trim(), 10);
+                            if (Number.isNaN(n) || n < 1) {
+                              setPublishAttemptLimit(1);
+                              setPublishAttemptLimitInput("1");
+                            } else {
+                              setPublishAttemptLimit(n);
+                              setPublishAttemptLimitInput(String(n));
                             }
                           }}
                         />

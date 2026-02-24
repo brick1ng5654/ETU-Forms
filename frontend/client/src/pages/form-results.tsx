@@ -98,8 +98,10 @@ type FormBuilderPayload = {
   start_at?: string | null;
   end_at?: string | null;
   access_mode?: FormAccessMode | null;
+  pages: { page_id: number; page_index: number; allow_back: boolean }[];
   elements: {
     client_id: string;
+    page_id: number;
     widget: string;
     semantic?: string | null;
     label: string;
@@ -272,6 +274,11 @@ const buildFormPayload = (
     start_at: startAt,
     end_at: endAt,
     settings_json: settingsJson,
+    pages: (form.pages ?? []).map((p) => ({
+      page_id: p.id,
+      page_index: p.pageIndex ?? 0,
+      allow_back: p.allowBack ?? true,
+    })),
     elements: form.fields.map((field, index) => {
       const props = (field.props ?? {}) as Record<string, unknown>;
       const { placeholder, correctAnswer, correctAnswers, points, conditionalLogic, attachments, ...otherSettings } = props;
@@ -316,6 +323,7 @@ const buildFormPayload = (
 
       return {
         client_id: field.id,
+        page_id: field.pageId ?? (form.pages?.[0]?.id ?? 1),
         widget: mapWidgetTypeForPublish(field.widgetType),
         semantic: field.semanticType ?? null,
         label: field.label,
@@ -617,6 +625,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
   const [allowRevoke, setAllowRevoke] = useState(false);
   const [attemptLimitType, setAttemptLimitType] = useState<"unlimited" | "limited">("unlimited");
   const [attemptLimit, setAttemptLimit] = useState<number>(1);
+  const [attemptLimitInput, setAttemptLimitInput] = useState("1");
   const [revokeCountsAsAttempt, setRevokeCountsAsAttempt] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const isRussianLocale = i18n.language.startsWith("ru");
@@ -784,6 +793,9 @@ export default function FormResults({ params }: { params: { id: string } }) {
       ? settings.attemptLimit
       : 1;
     setAttemptLimit(limit);
+    if (settings.attemptLimitType === "limited") {
+      setAttemptLimitInput(String(limit));
+    }
     setRevokeCountsAsAttempt(Boolean(settings.revokeCountsAsAttempt));
   }, [form]);
 
@@ -1149,6 +1161,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
         ? settings.attemptLimit
         : 1;
       setAttemptLimit(limit);
+      setAttemptLimitInput(String(limit));
       setRevokeCountsAsAttempt(Boolean(settings.revokeCountsAsAttempt));
       
       toast({ title: t("results.settingsSaved") });
@@ -1650,7 +1663,12 @@ export default function FormResults({ params }: { params: { id: string } }) {
                   <label className="text-sm font-medium">{t("results.attemptLimitType")}</label>
                   <Select
                     value={attemptLimitType}
-                    onValueChange={(value) => setAttemptLimitType(value as "unlimited" | "limited")}
+                    onValueChange={(value) => {
+                      setAttemptLimitType(value as "unlimited" | "limited");
+                      if (value === "limited") {
+                        setAttemptLimitInput(String(attemptLimit));
+                      }
+                    }}
                     disabled={!canEditCurrentForm}
                   >
                     <SelectTrigger>
@@ -1672,11 +1690,16 @@ export default function FormResults({ params }: { params: { id: string } }) {
                       id="attemptLimit"
                       type="number"
                       min="1"
-                      value={attemptLimit}
-                      onChange={(e) => {
-                        const value = parseInt(e.target.value, 10);
-                        if (!isNaN(value) && value > 0) {
-                          setAttemptLimit(value);
+                      value={attemptLimitInput}
+                      onChange={(e) => setAttemptLimitInput(e.target.value)}
+                      onBlur={() => {
+                        const n = parseInt(attemptLimitInput.trim(), 10);
+                        if (Number.isNaN(n) || n < 1) {
+                          setAttemptLimit(1);
+                          setAttemptLimitInput("1");
+                        } else {
+                          setAttemptLimit(n);
+                          setAttemptLimitInput(String(n));
                         }
                       }}
                       disabled={!canEditCurrentForm}
