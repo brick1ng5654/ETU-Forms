@@ -505,24 +505,25 @@ export function FormCanvas({
       <div
         ref={scrollContainerRef}
         data-testid="builder-canvas"
-        className="flex-1 bg-muted/30 px-8 pb-8 pt-0 overflow-y-auto h-full builder-scroll"
+        className="flex-1 bg-muted/30 px-4 sm:px-6 md:px-8 pb-6 md:pb-8 pt-0 overflow-y-auto h-full builder-scroll"
         onClick={() => { console.log('FormCanvas background click, clearing selection'); clearSelection(); }}
       >
         <div
-          className="sticky top-0 z-20 -mx-8 mb-0 bg-white/95 backdrop-blur border-b border-border"
+          className="sticky top-0 z-20 -mx-4 sm:-mx-6 md:-mx-8 mb-0 bg-white/95 backdrop-blur border-b border-border"
           onClick={(event) => event.stopPropagation()}
         >
-          <div className="h-[52px] px-4 flex items-center gap-2">
+          <div className="h-12 sm:h-[52px] px-2 sm:px-4 flex items-center gap-1 sm:gap-2 overflow-x-auto no-scrollbar min-w-0">
             <Button
               variant="ghost"
               size="sm"
               data-testid="builder-undo"
               onClick={onUndo}
               disabled={!canUndo}
-              className={cn("gap-2", !canUndo && "text-muted-foreground")}
+              className={cn("shrink-0 gap-1 sm:gap-2 h-8 sm:h-9 px-2 sm:px-3", !canUndo && "text-muted-foreground")}
+              title={t("builder.undo")}
             >
               <Undo2 className={cn("h-4 w-4", !canUndo && "text-muted-foreground")} />
-              {t("builder.undo")}
+              <span className="hidden sm:inline">{t("builder.undo")}</span>
             </Button>
             <Button
               variant="ghost"
@@ -530,10 +531,11 @@ export function FormCanvas({
               data-testid="builder-redo"
               onClick={onRedo}
               disabled={!canRedo}
-              className={cn("gap-2", !canRedo && "text-muted-foreground")}
+              className={cn("shrink-0 gap-1 sm:gap-2 h-8 sm:h-9 px-2 sm:px-3", !canRedo && "text-muted-foreground")}
+              title={t("builder.redo")}
             >
               <Redo2 className={cn("h-4 w-4", !canRedo && "text-muted-foreground")} />
-              {t("builder.redo")}
+              <span className="hidden sm:inline">{t("builder.redo")}</span>
             </Button>
             <Button
               variant="ghost"
@@ -551,10 +553,11 @@ export function FormCanvas({
                 onMovePage(activePage.id, activePage.pageIndex);
               }}
               disabled={!canMoveUp}
-              className={cn("gap-2", !canMoveUp && "text-muted-foreground")}
+              className={cn("shrink-0 gap-1 sm:gap-2 h-8 sm:h-9 px-2 sm:px-3", !canMoveUp && "text-muted-foreground")}
+              title={t("builder.moveUp")}
             >
               <ArrowUp className={cn("h-4 w-4", !canMoveUp && "text-muted-foreground")} />
-              {t("builder.moveUp")}
+              <span className="hidden sm:inline">{t("builder.moveUp")}</span>
             </Button>
             <Button
               variant="ghost"
@@ -572,10 +575,11 @@ export function FormCanvas({
                 onMovePage(activePage.id, activePage.pageIndex + 2);
               }}
               disabled={!canMoveDown}
-              className={cn("gap-2", !canMoveDown && "text-muted-foreground")}
+              className={cn("shrink-0 gap-1 sm:gap-2 h-8 sm:h-9 px-2 sm:px-3", !canMoveDown && "text-muted-foreground")}
+              title={t("builder.moveDown")}
             >
               <ArrowDown className={cn("h-4 w-4", !canMoveDown && "text-muted-foreground")} />
-              {t("builder.moveDown")}
+              <span className="hidden sm:inline">{t("builder.moveDown")}</span>
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -583,10 +587,11 @@ export function FormCanvas({
                   variant="ghost"
                   size="sm"
                   disabled={!canTransform}
-                  className={cn("gap-2", !canTransform && "text-muted-foreground")}
+                  className={cn("shrink-0 gap-1 sm:gap-2 h-8 sm:h-9 px-2 sm:px-3", !canTransform && "text-muted-foreground")}
+                  title={t("builder.transform")}
                 >
                   <Repeat2 className="h-4 w-4" />
-                  {t("builder.transform")}
+                  <span className="hidden sm:inline">{t("builder.transform")}</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">

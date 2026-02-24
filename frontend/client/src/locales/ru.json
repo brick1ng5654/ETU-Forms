@@ -40,7 +40,8 @@
     "loadingForms": "Загрузка форм"
   },
   "builder": {
-    "toolbox": "Инструменты",
+    "toolbox": "Элементы",
+    "properties": "Свойства",
     "collapseToolbox": "Свернуть панель инструментов",
     "expandToolbox": "Развернуть панель инструментов",
     "preview": "Предпросмотр",
