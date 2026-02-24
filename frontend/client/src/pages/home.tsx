@@ -21,6 +21,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -45,6 +46,7 @@ const isSubmitted = (form: FormSchema) => form.status === "submitted";
 
 const canEditForm = (form: FormSchema) => form.canEdit ?? true;
 const canViewResponses = (form: FormSchema) => form.canViewResponses ?? (canEditForm(form) && isSubmitted(form));
+const canContinuePassage = (form: FormSchema) => form.canContinuePassage ?? isSubmitted(form);
 const getPrivateLinkKey = (form: FormSchema): string | null => {
   const rawSettings = form.settings_json;
   if (!rawSettings || typeof rawSettings !== "object") return null;
@@ -206,7 +208,7 @@ export default function Home() {
     } else if (selectedCategory === "responses") {
       current = current.filter(canViewResponses);
     } else if (selectedCategory === "continue") {
-      current = [];
+      current = current.filter(canContinuePassage);
     }
 
     return current;
@@ -419,6 +421,7 @@ export default function Home() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t("actions.properties")}</DialogTitle>
+            <DialogDescription className="sr-only">{t("actions.properties")}</DialogDescription>
           </DialogHeader>
           {propertiesForm ? (
             <div className="space-y-3 text-sm">

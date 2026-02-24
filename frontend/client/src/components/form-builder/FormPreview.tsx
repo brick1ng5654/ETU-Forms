@@ -5,6 +5,7 @@ import type {
   DateTimeAnswer,
   ElementAttachment,
   FormElementModel,
+  FormPageModel,
   FormSchema,
   FullNameAnswer,
   PassportAnswer,
@@ -24,6 +25,8 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { useTranslation } from "react-i18next";
+import { useLocation } from "wouter";
+
 import {
   DndContext,
   closestCenter,
@@ -89,6 +92,22 @@ const getTextareaMetrics = (textarea: HTMLTextAreaElement) => {
   };
 };
 
+function getPFromLocation(loc: string) {
+  const qIndex = loc.indexOf("?");
+  if (qIndex === -1) return null;
+  const params = new URLSearchParams(loc.slice(qIndex));
+  const raw = params.get("p");
+  const n = raw ? Number(raw) : NaN;
+  return Number.isFinite(n) ? n : null;
+}
+
+function setPInLocation(loc: string, pageId: number) {
+  const [path, query = ""] = loc.split("?");
+  const params = new URLSearchParams(query);
+  params.set("p", String(pageId));
+  const qs = params.toString();
+  return qs ? `${path}?${qs}` : path;
+}
 function CollapsibleTextarea({
   value,
   onChange,
@@ -416,7 +435,7 @@ function MatrixAnswerInput({
   const handleInputChange = (rowIdx: number, colIdx: number, inputValue: string) => {
     const cellKey = `${rowIdx + 1}:${colIdx + 1}`;
     const newValue = { ...objectValue };
-    
+
     if (matrixInputType === "number") {
       const min = matrixNumberMin ?? MATRIX_NUMBER_MIN_LIMIT;
       const max = matrixNumberMax ?? MATRIX_NUMBER_MAX_LIMIT;
@@ -431,7 +450,7 @@ function MatrixAnswerInput({
         newValue[cellKey] = inputValue;
       } else return;
     }
-    
+
     onChange(newValue);
     onTouched();
   };
@@ -508,7 +527,7 @@ function MatrixAnswerInput({
               {columns.map((_, colIdx) => {
                 const selected = isCellSelected(rowIdx, colIdx);
                 const cellValue = getCellValue(rowIdx, colIdx);
-                
+
                 if (matrixInputType === "number") {
                   const min = matrixNumberMin ?? MATRIX_NUMBER_MIN_LIMIT;
                   const max = matrixNumberMax ?? MATRIX_NUMBER_MAX_LIMIT;
@@ -531,10 +550,10 @@ function MatrixAnswerInput({
                     </td>
                   );
                 }
-                
+
                 if (matrixInputType === "text") {
                   const maxLength = matrixTextMaxLength ?? MATRIX_TEXT_MAX_LENGTH_LIMIT;
-                  
+
                   return (
                     <td
                       key={colIdx}
@@ -552,7 +571,7 @@ function MatrixAnswerInput({
                     </td>
                   );
                 }
-                
+
                 return (
                   <td
                     key={colIdx}
@@ -751,10 +770,20 @@ interface FormPreviewProps {
   form: FormSchema;
   mode?: "preview" | "respond";
   readOnly?: boolean;
+  requireRequiredOnPage?: boolean;
   submitLabel?: string;
   submitting?: boolean;
   onSubmitAnswers?: (payload: ReturnType<typeof buildAnswersPayload>) => void | Promise<void>;
+  initialPageId?: number;
+  onActivePageChange?: (info: {
+    pageId: number;
+    pageIndex: number;
+    allowBack: boolean;
+    isFirst: boolean;
+    isLast: boolean;
+  }) => void;
 }
+
 
 type Results = Record<string, boolean>;
 
@@ -762,9 +791,12 @@ export function FormPreview({
   form,
   mode = "preview",
   readOnly = false,
+  requireRequiredOnPage = true,
   submitLabel,
   submitting = false,
   onSubmitAnswers,
+  onActivePageChange,
+  initialPageId,
 }: FormPreviewProps) {
   const { t } = useTranslation();
   const isRespondMode = mode === "respond";
@@ -779,6 +811,7 @@ export function FormPreview({
   const [uploadingById, setUploadingById] = useState<Record<string, boolean>>({});
   const [showRequiredWarning, setShowRequiredWarning] = useState(false);
   const [isRequiredWarningFading, setIsRequiredWarningFading] = useState(false);
+  const [location, setLocation] = useLocation();
   const payloadRef = useRef<ReturnType<typeof buildAnswersPayload> | null>(null);
   const matrixContainerRef = useRef<HTMLDivElement>(null);
   const fieldRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -793,7 +826,42 @@ export function FormPreview({
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+  const normalizedPages = useMemo<FormPageModel[]>(() => {
+    const pages = Array.isArray(form.pages) ? form.pages : [];
+    if (pages.length === 0) {
+      return [{ id: 1, title: t("pages.defaultTitle", { index: 1 }), pageIndex: 0, allowBack: true }];
+    }
+    return pages
+      .map((page, index) => ({
+        id: typeof page.id === "number" ? page.id : index + 1,
+        title: typeof page.title === "string" ? page.title : t("pages.defaultTitle", { index: index + 1 }),
+        pageIndex: typeof page.pageIndex === "number" ? page.pageIndex : index,
+        allowBack: typeof page.allowBack === "boolean" ? page.allowBack : true,
+      }))
+      .sort((a, b) => a.pageIndex - b.pageIndex);
+  }, [form.pages, t]);
+  const pageIdSet = useMemo(() => new Set(normalizedPages.map((page) => page.id)), [normalizedPages]);
+  const fallbackPageId = normalizedPages[0]?.id ?? 1;
+  const urlPageId = useMemo(() => getPFromLocation(location), [location]);
+  const [activePageId, setActivePageId] = useState<number | null>(null);
 
+  useEffect(() => {
+    if (!isRespondMode) return;
+
+    setActivePageId((current) => {
+      // 1) если в URL есть валидный pageId — он главный
+      if (urlPageId && pageIdSet.has(urlPageId)) return urlPageId;
+
+      // 2) иначе если текущий стейт валидный — оставляем
+      if (current && pageIdSet.has(current)) return current;
+
+      // 3) иначе initialPageId (если есть)
+      if (initialPageId && pageIdSet.has(initialPageId)) return initialPageId;
+
+      // 4) иначе первая
+      return normalizedPages[0]?.id ?? null;
+    });
+  }, [isRespondMode, urlPageId, pageIdSet, initialPageId, normalizedPages]);
   const hasQuizFields = useMemo(() => {
     if (isRespondMode) return false;
     return form.fields.some((field) => {
@@ -1025,7 +1093,7 @@ export function FormPreview({
       if (!correctAnswers || correctAnswers.length === 0) return;
 
       const userAnswer = answers[field.id];
-      
+
       // Рассчитываем максимальное количество баллов для поля
       if (field.widgetType === "matrix") {
         const pointsPerCell = (props.pointsPerCell as Record<string, number> | undefined) || {};
@@ -1037,12 +1105,12 @@ export function FormPreview({
           (Object.keys(pointsPerCell).length > 0
             ? "cell"
             : Object.keys(pointsPerRow).length > 0
-            ? "row"
-            : Object.keys(pointsPerColumn).length > 0
-            ? "column"
-            : matrixTotalPoints > 0
-            ? "total"
-            : "cell");
+              ? "row"
+              : Object.keys(pointsPerColumn).length > 0
+                ? "column"
+                : matrixTotalPoints > 0
+                  ? "total"
+                  : "cell");
 
         const correctRowIds = new Set<number>();
         const correctColumnIds = new Set<number>();
@@ -1130,12 +1198,12 @@ export function FormPreview({
           (Object.keys(pointsPerCell).length > 0
             ? "cell"
             : Object.keys(pointsPerRow).length > 0
-            ? "row"
-            : Object.keys(pointsPerColumn).length > 0
-            ? "column"
-            : matrixTotalPoints > 0
-            ? "total"
-            : "cell");
+              ? "row"
+              : Object.keys(pointsPerColumn).length > 0
+                ? "column"
+                : matrixTotalPoints > 0
+                  ? "total"
+                  : "cell");
 
         const correctAnswersByRow: Record<number, string[]> = {};
         const correctAnswersByColumn: Record<number, string[]> = {};
@@ -1272,7 +1340,7 @@ export function FormPreview({
 
       newResults[field.id] = isCorrect;
     }
-  )
+    )
     setResults(newResults);
     setTotalScore(score);
     setMaxScore(max);
@@ -1892,7 +1960,7 @@ export function FormPreview({
                     >
                       <Clock className="mr-2 h-4 w-4" />
                       {timeValue ? <span>{timeValue}</span> : <span>{t("propert.selectTime")}</span>
-        }</Button>
+                      }</Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-4" align="start" portalled={false}>
                     <Input
@@ -2323,31 +2391,31 @@ export function FormPreview({
               <div className="space-y-3">
                 {canAddMore && (
                   <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 flex flex-col items-center justify-center text-center bg-muted/5">
-                  <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-                  <p className="text-sm text-muted-foreground font-medium">{t("back.loaddrag")}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {t("propert.sizefile")} {maxFileSize}MB • {t("propert.maxFiles")} {maxFiles}
-                    {acceptedTypes.length > 0 ? ` (${acceptedTypes.join(", ")})` : ""}
-                  </p>
-                  <input
-                    type="file"
-                    className="hidden"
-                    id={`file-upload-${field.id}`}
-                    multiple={maxFiles > 1}
-                    accept={acceptAttr}
-                    onChange={handleFileChange}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="mt-3"
-                    disabled={isUploading || isFieldDisabled}
-                    onClick={() => document.getElementById(`file-upload-${field.id}`)?.click()}
-                  >
-                    {isUploading ? t("propert.attachmentsUploading") : t("propert.attachmentsAdd")}
-                  </Button>
-                </div>
+                    <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+                    <p className="text-sm text-muted-foreground font-medium">{t("back.loaddrag")}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {t("propert.sizefile")} {maxFileSize}MB • {t("propert.maxFiles")} {maxFiles}
+                      {acceptedTypes.length > 0 ? ` (${acceptedTypes.join(", ")})` : ""}
+                    </p>
+                    <input
+                      type="file"
+                      className="hidden"
+                      id={`file-upload-${field.id}`}
+                      multiple={maxFiles > 1}
+                      accept={acceptAttr}
+                      onChange={handleFileChange}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-3"
+                      disabled={isUploading || isFieldDisabled}
+                      onClick={() => document.getElementById(`file-upload-${field.id}`)?.click()}
+                    >
+                      {isUploading ? t("propert.attachmentsUploading") : t("propert.attachmentsAdd")}
+                    </Button>
+                  </div>
                 )}
                 <ElementAttachments
                   attachments={attachments}
@@ -2384,43 +2452,168 @@ export function FormPreview({
         )}
 
         {hasCorrectAnswers && (!isRespondMode || (hasResult && results?.[field.id] === false)) && (
-  <div className="text-sm text-green-700 mt-2">
-    {field.widgetType === "ranking" ? (
-      <div>
-        <p className="font-medium">Правильный порядок:</p>
-        <ol className="list-decimal list-inside mt-1">
-          {correctAnswers.map((answer, idx) => (
-            <li key={idx}>{answer}</li>
-          ))}
-        </ol>
-      </div>
-    ) : field.widgetType === "matrix" ? (
-      <div>
-        <p className="font-medium">Правильные ячейки:</p>
-        <div className="mt-1">
-          {correctAnswers.map((cellKey, idx) => {
-            const [rowIdx, colIdx] = cellKey.split(':').map(Number);
-            const row = ((props.rows as string[]) || [])[rowIdx - 1] || `Row ${rowIdx}`;
-            const col = ((props.columns as string[]) || [])[colIdx - 1] || `Column ${colIdx}`;
-            return (
-              <p key={idx}>• Строка "{row}", Столбец "{col}"</p>
-            );
-          })}
-        </div>
-      </div>
-    ) : (
-      <p>Правильный ответ: {correctAnswers.join(", ")}</p>
-    )}
-  </div>
+          <div className="text-sm text-green-700 mt-2">
+            {field.widgetType === "ranking" ? (
+              <div>
+                <p className="font-medium">Правильный порядок:</p>
+                <ol className="list-decimal list-inside mt-1">
+                  {correctAnswers.map((answer, idx) => (
+                    <li key={idx}>{answer}</li>
+                  ))}
+                </ol>
+              </div>
+            ) : field.widgetType === "matrix" ? (
+              <div>
+                <p className="font-medium">Правильные ячейки:</p>
+                <div className="mt-1">
+                  {correctAnswers.map((cellKey, idx) => {
+                    const [rowIdx, colIdx] = cellKey.split(':').map(Number);
+                    const row = ((props.rows as string[]) || [])[rowIdx - 1] || `Row ${rowIdx}`;
+                    const col = ((props.columns as string[]) || [])[colIdx - 1] || `Column ${colIdx}`;
+                    return (
+                      <p key={idx}>• Строка "{row}", Столбец "{col}"</p>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <p>Правильный ответ: {correctAnswers.join(", ")}</p>
+            )}
+          </div>
         )}
       </div>
     );
   };
 
   const visibleFields = form.fields.filter(isFieldVisible);
-  const lastVisibleField = visibleFields[visibleFields.length - 1];
+  const fieldsByPage = useMemo(() => {
+    const grouped = new Map<number, FormElementModel[]>();
+    normalizedPages.forEach((page) => grouped.set(page.id, []));
+    visibleFields.forEach((field) => {
+      const pageId = pageIdSet.has(field.pageId) ? field.pageId : fallbackPageId;
+      const list = grouped.get(pageId) ?? [];
+      list.push(field);
+      grouped.set(pageId, list);
+    });
+    for (const [pageId, list] of grouped.entries()) {
+      grouped.set(
+        pageId,
+        list.slice().sort((a, b) => a.sortIndex - b.sortIndex)
+      );
+    }
+    return grouped;
+  }, [visibleFields, normalizedPages, pageIdSet, fallbackPageId]);
+  const currentPageId = activePageId ?? normalizedPages[0]?.id ?? fallbackPageId;
+  const currentPageIndex = normalizedPages.findIndex((page) => page.id === currentPageId);
+  const isFirstPage = currentPageIndex <= 0;
+  const isLastPage = currentPageIndex >= normalizedPages.length - 1;
+  const currentPage = normalizedPages[currentPageIndex];
+  const canGoBack = !isFirstPage && Boolean(currentPage?.allowBack);
+
+  useEffect(() => {
+    if (!isRespondMode) return; // только в режиме прохождения
+    if (!onActivePageChange) return;
+    if (!currentPage) return;
+
+    onActivePageChange({
+      pageId: currentPage.id,
+      pageIndex: currentPageIndex,
+      allowBack: Boolean(currentPage.allowBack),
+      isFirst: isFirstPage,
+      isLast: isLastPage,
+    });
+  }, [
+    isRespondMode,
+    onActivePageChange,
+    currentPage?.id,
+    currentPage?.allowBack,
+    currentPageIndex,
+    isFirstPage,
+    isLastPage,
+  ]);
+
+  const activePageFields = fieldsByPage.get(currentPageId) ?? [];
+  const activePageErrors = useMemo(
+    () => validateForm(activePageFields, answers),
+    [activePageFields, answers]
+  );
+  const hasRequiredErrorsOnPage = useMemo(
+    () => Object.values(activePageErrors).some((errors) => errors.some(isRequiredError)),
+    [activePageErrors]
+  );
+  const renderedFields = isRespondMode ? activePageFields : visibleFields;
+  const lastVisibleField = renderedFields[renderedFields.length - 1];
   const needsCountryPadding = Boolean(lastVisibleField && isCountryField(lastVisibleField));
   const isInputsDisabled = readOnly || submitting;
+
+  const goToPage = (pageId: number, replace = false) => {
+    setActivePageId(pageId);
+    const nextLoc = setPInLocation(location, pageId);
+    if (nextLoc !== location) {
+      setLocation(nextLoc, { replace }); // replace=false => push => back/forward работают
+    }
+  };
+
+
+  const handlePrevPage = () => {
+    if (!canGoBack) return;
+    const prevPage = normalizedPages[currentPageIndex - 1];
+    if (prevPage) goToPage(prevPage.id); // push
+  };
+
+  const handleNextPage = () => {
+    if (isLastPage) return;
+    const pageFields = activePageFields;
+    const pageFieldIds = new Set(pageFields.map((field) => field.id));
+    setTouched((prev) => {
+      const next = { ...prev };
+      pageFieldIds.forEach((fieldId) => {
+        next[fieldId] = true;
+      });
+      return next;
+    });
+    if (requireRequiredOnPage && hasRequiredErrorsOnPage) {
+      const firstRequiredField = pageFields.find((field) => {
+        if (field.widgetType === "header") return false;
+        const fieldErrors = activePageErrors[field.id] || [];
+        return fieldErrors.some(isRequiredError);
+      });
+      const targetField = firstRequiredField ?? pageFields.find((field) => Boolean(activePageErrors[field.id]));
+      if (targetField) {
+        focusField(targetField.id);
+      }
+      showRequiredFieldsWarning();
+      return;
+    }
+
+    const nextPage = normalizedPages[currentPageIndex + 1];
+    if (nextPage) {
+      goToPage(nextPage.id);
+    }
+  };
+
+  const renderPageSection = (page: FormPageModel, pageFields: FormElementModel[]) => {
+    const pageIndexLabel = t("pages.defaultTitle", { index: page.pageIndex + 1 });
+    const pageTitle = page.title?.trim();
+    const shouldShowTitle = Boolean(pageTitle && pageTitle !== pageIndexLabel);
+    return (
+      <section key={page.id} className="rounded-xl border border-border/40 bg-white shadow-sm">
+        <div className="px-6 py-4 border-b border-border/40 bg-muted/10">
+          <p className="text-sm font-semibold text-foreground">{pageIndexLabel}</p>
+          {shouldShowTitle ? (
+            <p className="text-xs text-muted-foreground mt-1">{pageTitle}</p>
+          ) : null}
+        </div>
+        <div className="px-6 py-6 space-y-6">
+          {pageFields.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t("pages.empty")}</p>
+          ) : (
+            pageFields.map(renderField)
+          )}
+        </div>
+      </section>
+    );
+  };
 
   const handleSubmitAnswers = async () => {
     if (!onSubmitAnswers || submitting) return;
@@ -2463,25 +2656,64 @@ export function FormPreview({
   };
 
   return (
-    <div 
+    <div
       className={cn("space-y-6 py-4", needsCountryPadding && "pb-24")}
       style={{ overflowX: 'hidden' }}
     >
 
-      {visibleFields.map(renderField)}
+      {(normalizedPages.filter((page) => page.id === currentPageId)).map(
+        (page) => renderPageSection(page, fieldsByPage.get(page.id) ?? [])
+      )}
 
       {isRespondMode ? (
-        <div className="pt-4 border-t">
+        <div className="flex items-center justify-between gap-3 pt-4 border-t">
           <Button
             type="button"
-            onClick={() => void handleSubmitAnswers()}
-            className="w-full"
-            disabled={submitting}
+            variant="outline"
+            onClick={handlePrevPage}
+            disabled={!canGoBack || submitting}
+            className="transition-all duration-200 ease-out enabled:hover:-translate-x-0.5 enabled:active:translate-x-0 disabled:opacity-50"
           >
-            {submitting ? t("respond.submitting") : submitLabel ?? t("respond.submit")}
+            {t("pages.prevButton")}
+          </Button>
+          {isLastPage ? (
+            <Button
+              type="button"
+              onClick={() => void handleSubmitAnswers()}
+              disabled={submitting}
+            >
+              {submitting ? t("respond.submitting") : submitLabel ?? t("respond.submit")}
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              onClick={handleNextPage}
+              disabled={submitting || (requireRequiredOnPage && hasRequiredErrorsOnPage)}
+            >
+              {t("pages.nextButton")}
+            </Button>
+          )}
+        </div>
+      ) : (
+        <div className="flex items-center justify-between gap-3 pt-4 border-t">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handlePrevPage}
+            disabled={!canGoBack}
+            className="transition-all duration-200 ease-out enabled:hover:-translate-x-0.5 enabled:active:translate-x-0 disabled:opacity-50"
+          >
+            {t("pages.prevButton")}
+          </Button>
+          <Button
+            type="button"
+            onClick={handleNextPage}
+            disabled={isLastPage}
+          >
+            {t("pages.nextButton")}
           </Button>
         </div>
-      ) : null}
+      )}
 
       {showRequiredWarning && (
         <div className="fixed right-4 bottom-4 z-[110] pointer-events-none">

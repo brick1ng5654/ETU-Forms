@@ -1,5 +1,5 @@
 import { Switch, Route, useRoute, useLocation } from "wouter";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useRef} from "react";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -15,6 +15,46 @@ import { useAuth } from "@/lib/auth";
 import FormResults from "@/pages/form-results";
 import { CustomLoader } from "@/components/ui/custom-loader";
 
+function getStepFromLocation(loc: string){
+  // loc может быть "/form/1?p=2"
+  const qIndex = loc.indexOf("?")
+  if (qIndex === -1) return 1;
+
+  const params = new URLSearchParams(loc.slice(qIndex));
+  const raw = params.get("p");
+  const n = raw ? Number(raw) : 1;
+
+  return Number.isFinite(n) && n >= 1 ? n : 1;
+}
+
+export function useRedirectHomeOnDisallowedBack(allowBackForStep: (step: number) => boolean){
+  const [location, setLocation] = useLocation();
+
+  const step = useMemo(() => getStepFromLocation(location), [location]);
+
+  const lastStepRef = useRef(step);
+  const redirectingRef = useRef(false);
+
+  useEffect(() => {
+    if (redirectingRef.current) return;
+
+    const prev = lastStepRef.current;
+    const next = step;
+
+    const isBack = next < prev;
+
+    if (isBack) {
+      const allowBack = allowBackForStep(prev);
+      if (!allowBack){
+        redirectingRef.current = true;
+        setLocation("/", { replace: false });
+        return;
+      }
+    }
+
+    lastStepRef.current = next;
+  }, [step, allowBackForStep, setLocation]);
+}
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const [, setLocation] = useLocation();
   const { accessToken, isLoading } = useAuth();
