@@ -19,6 +19,16 @@ import {
 } from "@/lib/forms-api";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -299,9 +309,16 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
   const [entryStartDrafts, setEntryStartDrafts] = useState<Record<number, string>>({});
   const [entryDateDrafts, setEntryDateDrafts] = useState<Record<number, string>>({});
   const [entryRoleDrafts, setEntryRoleDrafts] = useState<Record<number, FormAccessRole>>({});
+  const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState(false);
   const calendarLocale = i18n.language.startsWith("ru") ? ru : undefined;
 
   const currentFormId = form?.id ?? null;
+
+  const resetEntryDrafts = () => {
+    setEntryStartDrafts({});
+    setEntryDateDrafts({});
+    setEntryRoleDrafts({});
+  };
 
   const refreshEntries = async () => {
     if (!currentFormId) return;
@@ -383,6 +400,36 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
         Boolean(entry.inviteUrl)
     );
   }, [entries]);
+
+  const pendingAccessEntries = useMemo(() => {
+    return entries
+      .filter((entry) => entry.entryType === "access" && entry.accessId != null)
+      .map((entry) => {
+        const accessId = entry.accessId as number;
+        const currentRole = entry.role;
+        const draftRole = entryRoleDrafts[accessId] ?? currentRole;
+        const currentStartRaw = dateInputFromIso(entry.startsAt);
+        const draftStartRaw = entryStartDrafts[accessId] ?? currentStartRaw;
+        const currentStart = currentStartRaw || currentDateInput;
+        const draftStart = draftStartRaw || currentDateInput;
+        const currentDate = dateInputFromIso(entry.expiresAt);
+        const draftDate = entryDateDrafts[accessId] ?? currentDate;
+        const roleChanged = draftRole !== currentRole;
+        const startChanged = draftStart !== currentStart;
+        const dateChanged = draftDate !== currentDate;
+        const hasPendingChanges = roleChanged || startChanged || dateChanged;
+        return {
+          accessId,
+          draftRole,
+          draftStart,
+          draftDate,
+          hasPendingChanges,
+        };
+      })
+      .filter((entry) => entry.hasPendingChanges);
+  }, [entries, entryRoleDrafts, entryStartDrafts, entryDateDrafts, currentDateInput]);
+
+  const hasPendingAccessChanges = pendingAccessEntries.length > 0;
 
   const copyText = async (text: string) => {
     try {
@@ -638,9 +685,77 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
     }
   };
 
+  const handleSavePendingEntries = async () => {
+    if (!currentFormId || !canManage) return false;
+    if (pendingAccessEntries.length === 0) return true;
+
+    for (const entry of pendingAccessEntries) {
+      if (hasInvalidRange(entry.draftStart, entry.draftDate, entry.draftDate === "")) {
+        toast({
+          title: t("actions.error"),
+          description: t("access.invalidDateRange"),
+          variant: "destructive",
+        });
+        return false;
+      }
+    }
+
+    setIsSubmitting(true);
+    try {
+      for (const entry of pendingAccessEntries) {
+        await updateFormAccessUser(currentFormId, entry.accessId, {
+          role: entry.draftRole,
+          starts_at: toIsoStartOfDay(entry.draftStart),
+          expires_at: toIsoEndOfDay(entry.draftDate),
+        });
+      }
+      await refreshEntries();
+      resetEntryDrafts();
+      onUpdated?.();
+      toast({ title: t("access.saved") });
+      return true;
+    } catch (error: any) {
+      toast({
+        title: t("actions.error"),
+        description: error?.message ?? t("access.saveFailed"),
+        variant: "destructive",
+      });
+      return false;
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDialogOpenChange = (nextOpen: boolean) => {
+    if (nextOpen) {
+      onOpenChange(true);
+      return;
+    }
+    if (isSubmitting) return;
+    if (hasPendingAccessChanges) {
+      setIsCloseConfirmOpen(true);
+      return;
+    }
+    onOpenChange(false);
+  };
+
+  const handleCloseWithoutSaving = () => {
+    setIsCloseConfirmOpen(false);
+    resetEntryDrafts();
+    onOpenChange(false);
+  };
+
+  const handleSaveAndClose = async () => {
+    setIsCloseConfirmOpen(false);
+    const saved = await handleSavePendingEntries();
+    if (!saved) return;
+    onOpenChange(false);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+    <>
+      <Dialog open={open} onOpenChange={handleDialogOpenChange}>
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{t("access.title")}</DialogTitle>
           <DialogDescription>
@@ -1088,7 +1203,10 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-8 px-2"
+                              className={cn(
+                                "h-8 px-2 ring-0 transition-shadow duration-300 ease-out",
+                                hasPendingChanges && "ring-2 ring-primary ring-offset-1 ring-offset-background"
+                              )}
                               disabled={isSubmitting || !hasPendingChanges}
                               onClick={() => void handleSaveEntry(entry)}
                             >
@@ -1152,7 +1270,25 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
             </Button>
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+      <AlertDialog open={isCloseConfirmOpen} onOpenChange={setIsCloseConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("access.unsavedChangesTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("access.unsavedChangesDescription")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("actions.cancel")}</AlertDialogCancel>
+            <Button variant="outline" onClick={handleCloseWithoutSaving}>
+              {t("access.closeWithoutSaving")}
+            </Button>
+            <AlertDialogAction onClick={() => void handleSaveAndClose()}>
+              {t("access.saveAndClose")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
