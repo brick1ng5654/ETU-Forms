@@ -7,7 +7,7 @@ from app.database import AsyncSessionLocal
 from sqlalchemy import select, func, update, or_, and_
 
 from app.database import get_db
-from app.models import Form, AppUser, AccessControl
+from app.models import Form, AppUser, AccessControl, Response
 from app.security.auth_dependencies import (
     get_current_user as get_current_user_dep,
     can_edit_forms,
@@ -250,7 +250,31 @@ async def get_forms_catalog(
             "can_continue_passage": can_continue_passage,
         }
 
-    summaries = await build_form_summaries(db, accessible_forms, permissions_by_form)
+    # Формы, где пользователь — респондент (есть ответ), но не в AccessControl
+    responded_form_ids_result = await db.execute(
+        select(Response.form_id)
+        .where(Response.user_id == current_user.user_id)
+        .where(Response.status.in_(["submitted", "cancelled"]))
+        .distinct()
+    )
+    responded_form_ids = {row[0] for row in responded_form_ids_result.all()}
+
+    for form_id in responded_form_ids:
+        if form_id in permissions_by_form:
+            continue
+        form_result = await db.execute(
+            select(Form).where(Form.form_id == form_id).where(Form.status == "submitted")
+        )
+        form = form_result.scalar_one_or_none()
+        if form:
+            accessible_forms.append(form)
+            permissions_by_form[form.form_id] = {
+                "can_edit": False,
+                "can_view_responses": False,
+                "can_continue_passage": True,
+            }
+
+    summaries = await build_form_summaries(db, accessible_forms, permissions_by_form, current_user.user_id)
     return FormListResponse(forms=summaries, total=len(summaries))
 
 

@@ -26,6 +26,10 @@ type ServerFormSummary = {
   can_edit?: boolean;
   can_view_responses?: boolean;
   can_continue_passage?: boolean;
+  has_draft?: boolean;
+  attempt_limit?: number | null;
+  attempts_used?: number;
+  attempts_remaining?: number | null;
 };
 
 type ServerBuilderElement = {
@@ -133,6 +137,13 @@ type FormBuilderPayload = {
 export type FormSubmitAnswersPayload = {
   answers: Record<string, unknown>;
   started_at?: string;
+  draft_response_id?: number;
+};
+
+export type FormDraftResponse = {
+  response_id: number;
+  answers: Record<string, unknown>;
+  respondent_session_token?: string | null;
 };
 
 export type FormSubmitAnswersResult = {
@@ -323,6 +334,11 @@ export const mapServerDetailToSchema = (detail: ServerFormDetail): FormSchema =>
     };
   });
 
+  const settings = (detail.settings_json ?? {}) as Record<string, unknown>;
+  const rawLimit = settings.attemptLimit;
+  const attemptLimit =
+    typeof rawLimit === "number" && rawLimit > 0 ? rawLimit : undefined;
+
   return {
     id: String(detail.form_id),
     title: detail.title,
@@ -340,6 +356,8 @@ export const mapServerDetailToSchema = (detail: ServerFormDetail): FormSchema =>
     accessMode: detail.access_mode ?? undefined,
     createdAt: toTimestamp(detail.created_at),
     updatedAt: toTimestamp(detail.updated_at),
+    attemptLimit: attemptLimit ?? null,
+    attemptsRemaining: (detail as { attempts_remaining?: number | null }).attempts_remaining ?? undefined,
   };
 };
 
@@ -357,6 +375,9 @@ export const mapServerSummaryToSchema = (summary: ServerFormSummary): FormSchema
     version: summary.version,
     prevFormId: summary.prev_form_id ? String(summary.prev_form_id) : null,
     settings_json: summary.settings_json ?? null,
+    attemptLimit: summary.attempt_limit ?? undefined,
+    attemptsUsed: summary.attempts_used ?? 0,
+    attemptsRemaining: summary.attempts_remaining ?? undefined,
     startAt: summary.start_at ?? null,
     endAt: summary.end_at ?? null,
     accessMode: summary.access_mode ?? undefined,
@@ -365,6 +386,7 @@ export const mapServerSummaryToSchema = (summary: ServerFormSummary): FormSchema
     canEdit: summary.can_edit ?? undefined,
     canViewResponses: summary.can_view_responses ?? undefined,
     canContinuePassage: summary.can_continue_passage ?? undefined,
+    hasDraft: summary.has_draft ?? undefined,
   };
 };
 
@@ -481,6 +503,56 @@ export async function submitPublicFormResponse(
   return (await res.json()) as FormSubmitAnswersResult;
 }
 
+export async function fetchFormDraft(
+  formId: string,
+  key?: string | null,
+  sessionToken?: string | null
+): Promise<FormDraftResponse | null> {
+  const params = new URLSearchParams();
+  if (key) params.set("key", key);
+  if (sessionToken) params.set("session_token", sessionToken);
+  const query = params.toString();
+  const res = await apiFetch(
+    `/api/v1/forms/${formId}/responses/draft${query ? `?${query}` : ""}`,
+    { method: "GET" }
+  );
+  if (!res.ok) {
+    if (res.status === 404) return null;
+    throw await asHttpError(res);
+  }
+  if (res.status === 204) return null;
+  const text = await res.text();
+  if (!text || !text.trim()) return null;
+  try {
+    const data = JSON.parse(text) as FormDraftResponse | null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveFormDraft(
+  formId: string,
+  payload: { answers: Record<string, unknown>; respondent_session_token?: string | null },
+  key?: string | null
+): Promise<FormDraftResponse> {
+  const params = new URLSearchParams();
+  if (key) params.set("key", key);
+  const query = params.toString();
+  const res = await apiFetch(
+    `/api/v1/forms/${formId}/responses/draft${query ? `?${query}` : ""}`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }
+  );
+  if (!res.ok) {
+    throw await asHttpError(res);
+  }
+  return (await res.json()) as FormDraftResponse;
+}
+
 const mapStoredResponse = (row: ServerFormStoredResponse): StoredFormResponse => ({
   responseId: row.response_id,
   formId: String(row.form_id),
@@ -530,6 +602,33 @@ export async function deleteForm(formId: string): Promise<void> {
   if (!res.ok) {
     throw await asHttpError(res);
   }
+}
+
+export async function fetchMyResponses(): Promise<StoredFormResponse[]> {
+  const res = await apiFetch(`/api/v1/responses/me`);
+  if (!res.ok) {
+    throw await asHttpError(res);
+  }
+  const data = (await res.json()) as ServerFormStoredResponsesResponse;
+  return (data.responses ?? []).map(mapStoredResponse);
+}
+
+export type RevokeResponseResult = {
+  response_id: number;
+  status: "cancelled";
+  form_id: number;
+  form_title: string;
+};
+
+export async function revokeResponse(responseId: number): Promise<RevokeResponseResult> {
+  const res = await apiFetch(`/api/v1/responses/${responseId}/revoke`, {
+    method: "POST",
+    headers: {},
+  });
+  if (!res.ok) {
+    throw await asHttpError(res);
+  }
+  return await res.json();
 }
 
 export async function fetchFormAccessEntries(formId: string): Promise<FormAccessEntry[]> {

@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 import re
 from typing import Any
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import and_, or_, select, update
@@ -20,6 +21,8 @@ from app.models import (
 )
 from app.schemas import (
     BuilderElementOut,
+    FormDraftResponse,
+    FormDraftSaveRequest,
     FormStoredResponse,
     FormStoredResponsesResponse,
     FormSubmitAnswersRequest,
@@ -319,9 +322,36 @@ async def get_public_form(
     form = await _get_published_form(db, form_id)
     form = await _resolve_latest_submitted_form(db, form)
     _check_form_access(form, key, current_user)
+    responder = await _resolve_responder(db, current_user)
+
+    attempts_remaining: int | None = None
+    settings = form.settings_json if isinstance(form.settings_json, dict) else {}
+    attempt_limit_type = settings.get("attemptLimitType", "unlimited")
+    if attempt_limit_type == "limited":
+        attempt_limit = settings.get("attemptLimit")
+        if attempt_limit is not None and isinstance(attempt_limit, (int, float)):
+            attempt_limit = int(attempt_limit)
+            if attempt_limit > 0:
+                # Считаем submitted всегда; cancelled — только если при отзыве правило уже действовало
+                attempts_result = await db.execute(
+                    select(Response)
+                    .where(Response.form_id == form.form_id)
+                    .where(Response.user_id == responder.user_id)
+                    .where(
+                        or_(
+                            Response.status == "submitted",
+                            and_(
+                                Response.status == "cancelled",
+                                Response.revoke_counts_as_attempt_at_revoke == True,
+                            ),
+                        )
+                    )
+                )
+                attempts_used = len(attempts_result.scalars().all())
+                attempts_remaining = max(0, attempt_limit - attempts_used)
+
     _increment_link_views(form)
     await db.flush()
-    # `updated_at` may become expired after flush (onupdate=now()); refresh to avoid async lazy-load.
     await db.refresh(form)
 
     detail = await build_form_detail_response(db, form)
@@ -346,6 +376,252 @@ async def get_public_form(
         pages=detail.pages,
         elements=elements,
         conditions=detail.conditions,
+        attempts_remaining=attempts_remaining,
+    )
+
+
+@router.get("/{form_id}/responses/draft", response_model=FormDraftResponse | None)
+async def get_form_draft(
+    form_id: int,
+    key: str | None = Query(None),
+    respondent_session_token: str | None = Query(None, alias="session_token"),
+    db: AsyncSession = Depends(get_db),
+    current_user: AppUser | None = Depends(get_optional_user),
+):
+    """Получить черновик ответа на форму (если есть)."""
+    form = await _get_published_form(db, form_id)
+    form = await _resolve_latest_submitted_form(db, form)
+    _check_form_access(form, key, current_user)
+    responder = await _resolve_responder(db, current_user)
+
+    if current_user is not None:
+        q = (
+            select(Response)
+            .where(Response.form_id == form.form_id)
+            .where(Response.user_id == responder.user_id)
+            .where(Response.status == "draft")
+            .order_by(Response.created_at.desc())
+            .limit(1)
+        )
+    else:
+        if not respondent_session_token or not respondent_session_token.strip():
+            return None
+        token = respondent_session_token.strip()[:255]
+        try:
+            UUID(token)
+        except (ValueError, TypeError):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="session_token must be a valid UUID",
+            )
+        q = (
+            select(Response)
+            .where(Response.form_id == form.form_id)
+            .where(Response.respondent_session_token == token)
+            .where(Response.status == "draft")
+            .order_by(Response.created_at.desc())
+            .limit(1)
+        )
+    result = await db.execute(q)
+    draft = result.scalar_one_or_none()
+    if not draft:
+        return None
+
+    answers_result = await db.execute(
+        select(ResponseAnswer).where(ResponseAnswer.response_id == draft.response_id)
+    )
+    answer_rows = answers_result.scalars().all()
+    elements_result = await db.execute(
+        select(FormElement).where(FormElement.form_id == form.form_id)
+    )
+    elements = elements_result.scalars().all()
+    by_element_id = {e.element_id: e for e in elements}
+    element_client_map: dict[int, str] = {}
+    for element in elements:
+        settings = element.other_settings if isinstance(element.other_settings, dict) else {}
+        client_id = settings.get("client_id")
+        element_client_map[element.element_id] = (
+            str(client_id) if client_id is not None else str(element.element_id)
+        )
+
+    answer_ids = [row.answer_id for row in answer_rows]
+    files_by_answer_id: dict[int, list[dict[str, Any]]] = {}
+    if answer_ids:
+        files_result = await db.execute(
+            select(UploadedFile)
+            .where(UploadedFile.answer_id.in_(answer_ids))
+            .where(UploadedFile.status != "deleted")
+        )
+        for file_row in files_result.scalars().all():
+            if file_row.answer_id is None:
+                continue
+            files_by_answer_id.setdefault(file_row.answer_id, []).append(
+                {
+                    "file_id": file_row.file_id,
+                    "name": file_row.name,
+                    "mime_type": file_row.mime_type,
+                    "size_bytes": file_row.size_bytes,
+                    "url": _file_url(file_row.file_id, file_row.access_token),
+                    "content_hash": file_row.content_hash,
+                    "status": _enum_value(file_row.status),
+                }
+            )
+
+    answers: dict[str, Any] = {}
+    for answer_row in answer_rows:
+        client_id = element_client_map.get(answer_row.element_id, str(answer_row.element_id))
+        attachments = files_by_answer_id.get(answer_row.answer_id, [])
+        value = _deserialize_answer_value(answer_row, attachments)
+        answers[client_id] = value
+
+    return FormDraftResponse(
+        response_id=draft.response_id,
+        answers=answers,
+        respondent_session_token=getattr(draft, "respondent_session_token", None),
+    )
+
+
+@router.put("/{form_id}/responses/draft", response_model=FormDraftResponse)
+async def save_form_draft(
+    form_id: int,
+    payload: FormDraftSaveRequest,
+    key: str | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: AppUser | None = Depends(get_optional_user),
+):
+    """Сохранить черновик ответа на форму (создать или обновить)."""
+    form = await _get_published_form(db, form_id)
+    form = await _resolve_latest_submitted_form(db, form)
+    _check_form_access(form, key, current_user)
+    responder = await _resolve_responder(db, current_user)
+
+    elements_result = await db.execute(
+        select(FormElement).where(FormElement.form_id == form.form_id)
+    )
+    form_elements = elements_result.scalars().all()
+    by_client_id: dict[str, FormElement] = {}
+    for element in form_elements:
+        settings = element.other_settings if isinstance(element.other_settings, dict) else {}
+        client_id = settings.get("client_id")
+        resolved_id = str(client_id) if client_id is not None else str(element.element_id)
+        by_client_id[resolved_id] = element
+
+    unknown_ids = [
+        cid for cid in payload.answers.keys()
+        if cid not in by_client_id
+    ]
+    if unknown_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown element id(s): {', '.join(unknown_ids[:5])}",
+        )
+
+    session_token: str | None = None
+    if current_user is None:
+        raw = payload.respondent_session_token
+        session_token = raw.strip()[:255] if isinstance(raw, str) and raw.strip() else None
+        if not session_token:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="respondent_session_token required for unauthenticated users",
+            )
+
+    if current_user is not None:
+        draft_q = (
+            select(Response)
+            .where(Response.form_id == form.form_id)
+            .where(Response.user_id == responder.user_id)
+            .where(Response.status == "draft")
+            .order_by(Response.created_at.desc())
+            .limit(1)
+        )
+    else:
+        draft_q = (
+            select(Response)
+            .where(Response.form_id == form.form_id)
+            .where(Response.respondent_session_token == session_token)
+            .where(Response.status == "draft")
+            .order_by(Response.created_at.desc())
+            .limit(1)
+        )
+    draft_result = await db.execute(draft_q)
+    draft = draft_result.scalar_one_or_none()
+
+    if draft is None:
+        draft = Response(
+            user_id=responder.user_id,
+            form_id=form.form_id,
+            status="draft",
+            respondent_session_token=session_token,
+        )
+        db.add(draft)
+        await db.flush()
+
+    # Загружаем существующие ответы по response_id; перезаписываем по element_id, лишние удаляем
+    existing_result = await db.execute(
+        select(ResponseAnswer).where(ResponseAnswer.response_id == draft.response_id)
+    )
+    existing_by_element: dict[int, ResponseAnswer] = {
+        row.element_id: row for row in existing_result.scalars().all()
+    }
+
+    payload_element_ids: set[int] = set()
+    for client_id, value in payload.answers.items():
+        element = by_client_id.get(client_id)
+        if element is None:
+            continue
+        payload_element_ids.add(element.element_id)
+        semantic_error = _validate_semantic_answer(element, value)
+        if semantic_error is not None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid value for '{client_id}': {semantic_error}",
+            )
+        answer_row = existing_by_element.get(element.element_id)
+        if answer_row is not None:
+            _apply_answer_value(answer_row, value)
+        else:
+            answer_row = ResponseAnswer(
+                response_id=draft.response_id,
+                element_id=element.element_id,
+            )
+            _apply_answer_value(answer_row, value)
+            db.add(answer_row)
+            existing_by_element[element.element_id] = answer_row
+
+    for eid, answer_row in list(existing_by_element.items()):
+        if eid not in payload_element_ids:
+            db.delete(answer_row)
+
+    await db.flush()
+
+    for client_id, value in payload.answers.items():
+        element = by_client_id.get(client_id)
+        if element is None:
+            continue
+        file_ids = _extract_file_ids(value)
+        if file_ids:
+            answer_row = existing_by_element.get(element.element_id)
+            if answer_row is not None:
+                await db.execute(
+                    update(UploadedFile)
+                    .where(UploadedFile.file_id.in_(file_ids))
+                    .values(
+                        answer_id=answer_row.answer_id,
+                        status="temp",
+                        expires_at=datetime.now(timezone.utc) + timedelta(hours=24),
+                    )
+                )
+    await db.refresh(draft)
+
+    answers_out: dict[str, Any] = {}
+    for client_id, value in payload.answers.items():
+        answers_out[client_id] = value
+
+    return FormDraftResponse(
+        response_id=draft.response_id,
+        answers=answers_out,
+        respondent_session_token=draft.respondent_session_token,
     )
 
 
@@ -366,6 +642,39 @@ async def submit_form_response(
     _check_form_access(form, key, current_user)
 
     responder = await _resolve_responder(db, current_user)
+    
+    # Проверка лимита попыток
+    settings = form.settings_json if isinstance(form.settings_json, dict) else {}
+    attempt_limit_type = settings.get("attemptLimitType", "unlimited")
+    
+    if attempt_limit_type == "limited":
+        attempt_limit = settings.get("attemptLimit")
+        if attempt_limit is not None and isinstance(attempt_limit, (int, float)):
+            attempt_limit = int(attempt_limit)
+            if attempt_limit > 0:
+                # Считаем submitted всегда; cancelled — только если при отзыве правило уже действовало
+                attempts_result = await db.execute(
+                    select(Response)
+                    .where(Response.form_id == form.form_id)
+                    .where(Response.user_id == responder.user_id)
+                    .where(
+                        or_(
+                            Response.status == "submitted",
+                            and_(
+                                Response.status == "cancelled",
+                                Response.revoke_counts_as_attempt_at_revoke == True,
+                            ),
+                        )
+                    )
+                )
+                attempts_count = len(attempts_result.scalars().all())
+
+                if attempts_count >= attempt_limit:
+                    raise HTTPException(
+                        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                        detail=f"Attempt limit reached ({attempt_limit}). You have used all available attempts."
+                    )
+    
     elements_result = await db.execute(select(FormElement).where(FormElement.form_id == form.form_id))
     form_elements = elements_result.scalars().all()
 
@@ -398,15 +707,46 @@ async def submit_form_response(
             candidate = max_history
         started_at = candidate
 
-    response_row = Response(
-        user_id=responder.user_id,
-        form_id=form.form_id,
-        created_at=started_at,
-        status="submitted",
-        completed_at=completed_at,
-    )
-    db.add(response_row)
-    await db.flush()
+    response_row: Response | None = None
+    if payload.draft_response_id is not None:
+        draft_result = await db.execute(
+            select(Response)
+            .where(Response.response_id == payload.draft_response_id)
+            .where(Response.form_id == form.form_id)
+            .where(Response.status == "draft")
+        )
+        candidate_draft = draft_result.scalar_one_or_none()
+        if candidate_draft is not None:
+            if current_user is not None:
+                if candidate_draft.user_id == responder.user_id:
+                    response_row = candidate_draft
+            else:
+                if candidate_draft.respondent_session_token:
+                    response_row = candidate_draft
+
+    if response_row is None:
+        response_row = Response(
+            user_id=responder.user_id,
+            form_id=form.form_id,
+            created_at=started_at,
+            status="submitted",
+            completed_at=completed_at,
+        )
+        db.add(response_row)
+        await db.flush()
+    else:
+        response_row.status = "submitted"
+        response_row.completed_at = completed_at
+        created_at_val = response_row.created_at
+        if created_at_val is not None and created_at_val.tzinfo is None:
+            created_at_val = created_at_val.replace(tzinfo=timezone.utc)
+        if response_row.created_at is None or (created_at_val is not None and created_at_val > started_at):
+            response_row.created_at = started_at
+        existing_answers_result = await db.execute(
+            select(ResponseAnswer).where(ResponseAnswer.response_id == response_row.response_id)
+        )
+        for old_answer in existing_answers_result.scalars().all():
+            db.delete(old_answer)
 
     answers_count = 0
     for client_id, value in payload.answers.items():
@@ -441,6 +781,8 @@ async def submit_form_response(
             )
         answers_count += 1
 
+    await db.flush()
+
     return FormSubmitAnswersResponse(
         response_id=response_row.response_id,
         submitted_at=response_row.completed_at or completed_at,
@@ -459,7 +801,7 @@ async def get_form_responses(
     responses_result = await db.execute(
         select(Response)
         .where(Response.form_id == form.form_id)
-        .where(Response.status == "submitted")
+        .where(Response.status.in_(["submitted", "cancelled"]))
         .order_by(Response.completed_at.desc(), Response.created_at.desc())
     )
     responses = responses_result.scalars().all()

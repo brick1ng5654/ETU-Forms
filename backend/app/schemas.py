@@ -1,8 +1,9 @@
-﻿# Этот файл нужен для валидации входящих данных и сериализации ответов API. То есть что принимаем и что отдаём
+# Этот файл нужен для валидации входящих данных и сериализации ответов API. То есть что принимаем и что отдаём
 
 from pydantic import BaseModel, EmailStr, Field, ConfigDict, model_validator, field_validator
 from datetime import datetime
 from typing import Optional, Dict, Any, List, Literal
+from uuid import UUID
 from enum import Enum
 from app.security.constants import PASSWORD_MAX_LEN, PASSWORD_MIN_LEN
 # Enum
@@ -140,9 +141,13 @@ class FormListResponse(BaseModel):
 class FormSummaryResponse(FormResponse):
     elements_count: int = 0
     owner_name: Optional[str] = None
+    attempt_limit: Optional[int] = None  # None если unlimited, иначе количество попыток
+    attempts_used: int = 0  # Количество использованных попыток
+    attempts_remaining: Optional[int] = None  # None если unlimited, иначе оставшиеся попытки
     can_edit: bool = False
     can_view_responses: bool = False
     can_continue_passage: bool = False
+    has_draft: bool = False  # у пользователя есть черновик (начал, но не закончил)
 
 class FormDetailResponse(FormResponse):
     pages: List["FormPageResponse"] = Field(default_factory=list)   
@@ -166,6 +171,7 @@ class PublicFormDetailResponse(BaseModel):
     pages: List["FormPageResponse"] = Field(default_factory=list)
     elements: List["BuilderElementOut"] = Field(default_factory=list)
     conditions: List["BuilderConditionOut"] = Field(default_factory=list)
+    attempts_remaining: Optional[int] = None 
 
 # Response SCHEMAS
 class ResponseBase(BaseModel):
@@ -175,6 +181,28 @@ class ResponseBase(BaseModel):
 class FormSubmitAnswersRequest(BaseModel):
     answers: Dict[str, Any] = Field(default_factory=dict)
     started_at: Optional[datetime] = None
+    draft_response_id: Optional[int] = None  # если указан и валиден — обновляем черновик до submitted
+
+class FormDraftSaveRequest(BaseModel):
+    answers: Dict[str, Any] = Field(default_factory=dict)
+    respondent_session_token: Optional[str] = None  # для анонимных — UUID от клиента
+
+    @field_validator("respondent_session_token", mode="before")
+    @classmethod
+    def validate_session_token(cls, v: Any) -> Optional[str]:
+        if v is None or (isinstance(v, str) and not v.strip()):
+            return None
+        s = (v if isinstance(v, str) else str(v)).strip()[:255]
+        try:
+            UUID(s)
+        except (ValueError, TypeError):
+            raise ValueError("respondent_session_token must be a valid UUID")
+        return s
+
+class FormDraftResponse(BaseModel):
+    response_id: int
+    answers: Dict[str, Any] = Field(default_factory=dict)
+    respondent_session_token: Optional[str] = None
 
 class FormSubmitAnswersResponse(BaseModel):
     response_id: int

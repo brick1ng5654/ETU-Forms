@@ -1,4 +1,4 @@
-﻿import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
 import type { MouseEvent } from "react";
 import { nanoid } from "nanoid";
 import type { FormAccessMode, FormElementModel, FormPageModel, FormSchema } from "@/form/types";
@@ -25,6 +25,8 @@ import {
   Copy,
   Hexagon,
   SquareAsterisk,
+  SlidersHorizontal,
+  MoreVertical,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose, DialogDescription } from "@/components/ui/dialog";
@@ -39,6 +41,15 @@ import { storage } from "@/lib/storage";
 import { useLocation } from "wouter";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { UserMenu } from "@/components/user-menu";
@@ -261,6 +272,11 @@ export default function Builder({ params }: { params: { id?: string } }) {
   const [publishAccessMode, setPublishAccessMode] = useState<FormAccessMode>("private");
   const [publishNoStart, setPublishNoStart] = useState(false);
   const [publishNoEnd, setPublishNoEnd] = useState(false);
+  const [publishAllowRevoke, setPublishAllowRevoke] = useState(false);
+  const [publishRevokeCountsAsAttempt, setPublishRevokeCountsAsAttempt] = useState(false);
+  const [publishAttemptLimitType, setPublishAttemptLimitType] = useState<"unlimited" | "limited">("unlimited");
+  const [publishAttemptLimit, setPublishAttemptLimit] = useState<number>(1);
+  const [publishAttemptLimitInput, setPublishAttemptLimitInput] = useState("1");
   const [activePageId, setActivePageId] = useState<number | null>(null);
   const nextPageIdRef = useRef(-1);
   const [syncedPayloadSignatures, setSyncedPayloadSignatures] = useState<Record<string, string>>({});
@@ -342,6 +358,22 @@ export default function Builder({ params }: { params: { id?: string } }) {
     setLastSelectedPageId(pageId);
   };
   const [isToolboxOpen, setIsToolboxOpen] = useState(true);
+  const [isToolboxSheetOpen, setIsToolboxSheetOpen] = useState(false);
+  const [isPropertiesSheetOpen, setIsPropertiesSheetOpen] = useState(false);
+  const [isLgUp, setIsLgUp] = useState(typeof window !== "undefined" ? window.matchMedia("(min-width: 1024px)").matches : true);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const onChange = () => setIsLgUp(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  useEffect(() => {
+    if (!isLgUp && (selectedIds.length > 0 || selectedPageIds.length > 0)) {
+      setIsPropertiesSheetOpen(true);
+    }
+  }, [isLgUp, selectedIds.length, selectedPageIds.length]);
   const { t, i18n } = useTranslation();
 
   // Initialize
@@ -482,6 +514,17 @@ export default function Builder({ params }: { params: { id?: string } }) {
     setPublishEndTime(endTime);
     setPublishNoStart(noStart);
     setPublishNoEnd(noEnd);
+    const settings = activeForm.settings_json ?? {};
+    setPublishAllowRevoke(Boolean(settings.allowRevoke));
+    setPublishRevokeCountsAsAttempt(Boolean(settings.revokeCountsAsAttempt));
+    setPublishAttemptLimitType(settings.attemptLimitType === "limited" ? "limited" : "unlimited");
+    const limit = typeof settings.attemptLimit === "number" && settings.attemptLimit > 0
+      ? settings.attemptLimit
+      : 1;
+    setPublishAttemptLimit(limit);
+    if (settings.attemptLimitType === "limited") {
+      setPublishAttemptLimitInput(String(limit));
+    }
   }, [activeForm, isPublishOpen]);
 
   // Auto-save effect
@@ -1100,6 +1143,10 @@ export default function Builder({ params }: { params: { id?: string } }) {
       accessMode?: FormAccessMode;
       startAt?: string | null;
       endAt?: string | null;
+      allowRevoke?: boolean;
+      revokeCountsAsAttempt?: boolean;
+      attemptLimitType?: "unlimited" | "limited";
+      attemptLimit?: number | null;
     },
     sourceForm?: FormSchema | null
   ) => {
@@ -1109,6 +1156,16 @@ export default function Builder({ params }: { params: { id?: string } }) {
     const accessMode = overrides?.accessMode ?? form.accessMode ?? "private";
     const startAt = overrides?.startAt ?? form.startAt ?? null;
     const endAt = overrides?.endAt ?? form.endAt ?? null;
+    const baseSettings = form.settings_json ?? { client_form_id: form.id };
+    const baseObj = typeof baseSettings === "object" && baseSettings !== null ? baseSettings : {};
+    const settings_json = {
+      ...baseObj,
+      ...(overrides?.allowRevoke !== undefined && { allowRevoke: overrides.allowRevoke }),
+      ...(overrides?.revokeCountsAsAttempt !== undefined && { revokeCountsAsAttempt: overrides.revokeCountsAsAttempt }),
+      ...(overrides?.attemptLimitType !== undefined && { attemptLimitType: overrides.attemptLimitType }),
+      ...(overrides?.attemptLimitType === "limited" && overrides?.attemptLimit !== undefined && { attemptLimit: overrides.attemptLimit }),
+      ...(overrides?.attemptLimitType === "unlimited" && { attemptLimit: null }),
+    };
 
     return {
       title: form.title,
@@ -1116,7 +1173,8 @@ export default function Builder({ params }: { params: { id?: string } }) {
       access_mode: accessMode,
       start_at: startAt,
       end_at: endAt,
-      settings_json: form.settings_json ?? { client_form_id: form.id },
+      settings_json,
+      
       pages: normalizedPages.map((page, index) => ({
         page_id: page.id,
         page_index: typeof page.pageIndex === "number" ? page.pageIndex : index,
@@ -1387,6 +1445,10 @@ export default function Builder({ params }: { params: { id?: string } }) {
       accessMode: publishAccessMode,
       startAt: publishNoStart ? null : toIsoFromParts(publishStartDate, publishStartTime),
       endAt: publishNoStart || publishNoEnd ? null : toIsoFromParts(publishEndDate, publishEndTime),
+      allowRevoke: publishAccessMode === "unauthenticated" ? false : publishAllowRevoke,
+      revokeCountsAsAttempt: publishAccessMode === "unauthenticated" ? false : (publishAllowRevoke ? publishRevokeCountsAsAttempt : false),
+      attemptLimitType: publishAccessMode === "unauthenticated" ? "unlimited" : publishAttemptLimitType,
+      attemptLimit: publishAccessMode === "unauthenticated" ? null : (publishAttemptLimitType === "limited" ? publishAttemptLimit : null),
     });
     if (!payload) return;
     const result = await publishForm(activeForm.id, payload);
@@ -1458,53 +1520,174 @@ export default function Builder({ params }: { params: { id?: string } }) {
   console.log('Rendering Builder, activeForm:', activeForm, 'selectedIds:', selectedIds);
 
   return (
-    <div className="h-screen w-full flex flex-col bg-background overflow-hidden">
-      {/* Navbar */}
-      <header className="h-19 border-b border-border bg-white flex items-center justify-between px-4 shrink-0 z-20">
-        <div className="flex items-center gap-4">
-          <AppBrand onClick={() => setLocation('/')} />
+    <div className="h-screen w-full flex flex-col bg-background overflow-hidden min-h-0">
+      {/* Navbar: grid из 3 колонок — логотип+элементы | вкладки | действия (или меню на узких экранах) */}
+      <header className="h-14 sm:h-16 border-b border-border bg-white grid grid-cols-[auto_1fr_auto] items-center gap-2 px-2 sm:px-4 shrink-0 z-20 min-h-0">
+        {/* Левая колонка: только логотип и разделитель */}
+        <div className="flex items-center gap-2 shrink-0">
+          <AppBrand onClick={() => setLocation('/')} className="shrink-0" />
+          <div className="h-5 sm:h-6 w-px bg-border shrink-0 hidden sm:block" />
+        </div>
 
-          <div className="h-8 w-px bg-border mx-2 hidden md:block" />
-          <div className="flex-1 flex items-center overflow-x-auto no-scrollbar max-w-xl">
-            <div className="flex items-center gap-1">
-              {tabForms.map(form => (
-                <div
-                  key={form.id}
-                  onClick={() => {
-                    setActiveFormId(form.id);
-                    setLocation(`/builder/${form.id}`);
-                  }}
-                  className={cn(
-                    "group flex items-center gap-2 px-3 py-1.5 rounded-md text-sm cursor-pointer transition-colors min-w-[100px] max-w-[160px]",
-                    activeFormId === form.id
-                      ? "bg-secondary text-secondary-foreground font-medium"
-                      : "hover:bg-muted text-muted-foreground"
-                  )}
+        {/* Центр: вкладки форм — занимает оставшееся место, прокрутка по горизонтали */}
+        <div className="min-w-0 overflow-x-auto no-scrollbar flex items-center">
+          <div className="flex items-center gap-1 py-1">
+            {tabForms.map(form => (
+              <div
+                key={form.id}
+                onClick={() => {
+                  setActiveFormId(form.id);
+                  setLocation(`/builder/${form.id}`);
+                }}
+                className={cn(
+                  "group flex items-center gap-2 px-2 sm:px-3 py-1.5 rounded-md text-sm cursor-pointer transition-colors min-w-[80px] max-w-[140px] shrink-0",
+                  activeFormId === form.id
+                    ? "bg-secondary text-secondary-foreground font-medium"
+                    : "hover:bg-muted text-muted-foreground"
+                )}
+              >
+                <span className="truncate">{form.title || t("common.untitled")}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-5 w-5 opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive shrink-0"
+                  onClick={(e) => closeForm(e, form.id)}
+                  title="Close form"
                 >
-                  <span className="truncate">{form.title || t("common.untitled")}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-5 w-5 opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive"
-                    onClick={(e) => closeForm(e, form.id)}
-                    title="Close form"
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </div>
-              ))}
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={addNewForm}>
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            ))}
+            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={addNewForm}>
+              <Plus className="h-4 w-4" />
+            </Button>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2">
+
+        {/* Правая колонка: на узких экранах — кнопка «Элементы» + меню «Ещё», на больших — все кнопки */}
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0 justify-end">
+          {/* Кнопка раскрытия панели элементов (только на экранах < md, в одном ряду с действиями) */}
+          <Sheet open={isToolboxSheetOpen} onOpenChange={setIsToolboxSheetOpen}>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1.5 md:hidden shrink-0 h-8 px-2 sm:px-2.5" aria-label={t("builder.toolbox")}>
+                <PanelLeftOpen className="h-4 w-4" /> <span className="hidden sm:inline text-xs">{t("builder.toolbox")}</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-[280px] sm:w-[320px] p-0 flex flex-col">
+              <SheetHeader className="px-4 pt-4 pb-2 border-b border-border">
+                <SheetTitle>{t("builder.toolbox")}</SheetTitle>
+              </SheetHeader>
+              <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
+                {Object.entries(groupedToolbox).map(([category, items]) => {
+                  const CategoryIcon = CATEGORY_ICONS[category] ?? List;
+                  const categoryLabel = t(`categories.${category}`);
+                  return (
+                    <div key={category} className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground uppercase flex items-center mb-3 pl-1 gap-2">
+                        <CategoryIcon className="h-4 w-4 shrink-0" />
+                        <span>{categoryLabel}</span>
+                      </p>
+                      {items.map((item) => (
+                        <ToolboxItem
+                          key={`${item.category}-${item.labelKey}`}
+                          item={item}
+                          label={t(`fields.${item.labelKey}`)}
+                          icon={getIconForElement(item.widgetType, item.semanticType, item.props)}
+                          collapsed={false}
+                          onAddField={(it, label) => {
+                            addField(it, label);
+                            setIsToolboxSheetOpen(false);
+                          }}
+                        />
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            </SheetContent>
+          </Sheet>
+
+          {/* На экранах < lg: выпадающее меню с действиями */}
+          <div className="flex items-center gap-1 lg:hidden">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" aria-label={t("actions.act")}>
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem
+                  onClick={() => {
+                    const newLang = i18n.language.startsWith('ru') ? 'en' : 'ru';
+                    if (activeForm) {
+                      storage.saveForm(activeForm);
+                      localStorage.setItem("etu_prefer_local_form_id", activeForm.id);
+                    }
+                    localStorage.setItem("etu_pending_lang", newLang);
+                    window.location.reload();
+                  }}
+                >
+                  <Languages className="mr-2 h-4 w-4" /> {i18n.language.startsWith('ru') ? 'EN' : 'RU'}
+                </DropdownMenuItem>
+                {(selectedIds.length > 0 || selectedPageIds.length > 0) && (
+                  <DropdownMenuItem onClick={() => setIsPropertiesSheetOpen(true)}>
+                    <SlidersHorizontal className="mr-2 h-4 w-4" /> {t("builder.properties")}
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={() => document.querySelector<HTMLButtonElement>('[data-testid="builder-preview-open"]')?.click()}>
+                  <Eye className="mr-2 h-4 w-4" /> {t('builder.preview')}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={isResultsDisabled}
+                  onClick={() => !isResultsDisabled && setLocation(`/forms/${resultsTargetFormId}/results`)}
+                >
+                  <BarChart3 className="mr-2 h-4 w-4" /> {t("results.openResults")}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem disabled={!hasSaveChanges || isSaving} onClick={handleSave}>
+                  <Save className="mr-2 h-4 w-4" /> {t('builder.save')}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={isPublishDisabled}
+                  onClick={() => !isPublishDisabled && setIsPublishOpen(true)}
+                >
+                  <Share2 className="mr-2 h-4 w-4" /> {t("builder.publish")}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {(selectedIds.length > 0 || selectedPageIds.length > 0) && (
+              <Sheet open={isPropertiesSheetOpen} onOpenChange={setIsPropertiesSheetOpen}>
+                <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col overflow-hidden">
+                  <SheetHeader className="px-4 pt-4 pb-2 border-b border-border shrink-0">
+                    <SheetTitle>{t("builder.properties")}</SheetTitle>
+                  </SheetHeader>
+                  <div className="flex-1 overflow-y-auto min-h-0">
+                    <PropertiesPanel
+                      key={selectedField?.id || selectedIds.join("-") || "none"}
+                      pages={pages}
+                      selectedPageIds={selectedPageIds}
+                      onDeletePages={deletePages}
+                      onTogglePageBack={togglePageBack}
+                      selectedField={selectedField}
+                      selectedIds={selectedIds}
+                      updateField={updateField}
+                      updateFields={updateFields}
+                      deleteField={deleteField}
+                      deleteSelected={deleteSelected}
+                      fields={fields}
+                    />
+                  </div>
+                </SheetContent>
+              </Sheet>
+            )}
+          </div>
+
+          {/* На экранах lg+: все кнопки в ряд */}
+          <div className="hidden lg:flex items-center gap-1.5 flex-nowrap">
             <Button
               variant="ghost"
               size="sm"
-              className="gap-1 h-9 px-3"
+              className="gap-1.5 h-9 px-2.5"
               onClick={() => {
                 const newLang = i18n.language.startsWith('ru') ? 'en' : 'ru';
                 if (activeForm) {
@@ -1514,16 +1697,15 @@ export default function Builder({ params }: { params: { id?: string } }) {
                 localStorage.setItem("etu_pending_lang", newLang);
                 window.location.reload();
               }}
-              title={i18n.language.startsWith('ru') ? 'РџРµСЂРµРєР»СЋС‡РёС‚СЊ РЅР° РђРЅРіР»РёР№СЃРєРёР№' : 'Switch to Russian'}>
+              title={i18n.language.startsWith('ru') ? 'English' : 'Русский'}
+            >
               <Languages className="h-4 w-4" />
-              <span className="hidden sm:inline text-sm font-medium">
-                {i18n.language.startsWith('ru') ? 'RU' : 'EN'}
-              </span>
+              <span className="text-sm font-medium">{i18n.language.startsWith('ru') ? 'RU' : 'EN'}</span>
             </Button>
             <Dialog>
               <DialogTrigger asChild>
-                <Button data-testid="builder-preview-open" variant="outline" size="sm" className="gap-2">
-                  <Eye className="h-4 w-4" /> <span className="hidden sm:inline">{t('builder.preview')}</span>
+                <Button data-testid="builder-preview-open" variant="outline" size="sm" className="gap-1.5 h-9 px-2.5">
+                  <Eye className="h-4 w-4" /> <span>{t('builder.preview')}</span>
                 </Button>
               </DialogTrigger>
               <DialogContent data-testid="preview-dialog" className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -1543,56 +1725,52 @@ export default function Builder({ params }: { params: { id?: string } }) {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-
-            <span className="inline-flex" title={resultsDisabledHint}>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2"
-                disabled={isResultsDisabled}
-                onClick={() => {
-                  if (isResultsDisabled) return;
-                  setLocation(`/forms/${resultsTargetFormId}/results`);
-                }}
-              >
-                <BarChart3 className="h-4 w-4" />
-                <span className="hidden sm:inline">{t("results.openResults")}</span>
-              </Button>
-            </span>
-
-            <span className="inline-flex" title={saveDisabledHint}>
-              <Button
-                data-testid="builder-save"
-                variant="outline"
-                size="sm"
-                className="gap-2"
-                onClick={handleSave}
-                disabled={!hasSaveChanges || isSaving}
-              >
-                <Save className="h-4 w-4" /> <span className="hidden sm:inline">{t('builder.save')}</span>
-              </Button>
-            </span>
-            <Popover open={isPublishOpen} onOpenChange={setIsPublishOpen}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 h-9 px-2.5"
+              disabled={isResultsDisabled}
+              onClick={() => {
+                if (isResultsDisabled) return;
+                setLocation(`/forms/${resultsTargetFormId}/results`);
+              }}
+            >
+              <BarChart3 className="h-4 w-4" /> <span>{t("results.openResults")}</span>
+            </Button>
+            <Button
+              data-testid="builder-save"
+              variant="outline"
+              size="sm"
+              className="gap-1.5 h-9 px-2.5"
+              onClick={handleSave}
+              disabled={!hasSaveChanges || isSaving}
+            >
+              <Save className="h-4 w-4" /> <span>{t('builder.save')}</span>
+            </Button>
+            <Dialog open={isPublishOpen} onOpenChange={setIsPublishOpen}>
               {isPublishDisabled ? (
-                <span className="inline-flex" title={publishDisabledHint}>
-                  <Button data-testid="builder-publish-open" size="sm" className="gap-2" disabled>
-                    <Share2 className="h-4 w-4" /> <span className="hidden sm:inline">{t("builder.publish")}</span>
-                  </Button>
-                </span>
+                <Button data-testid="builder-publish-open" size="sm" className="gap-1.5 h-9 px-2.5" disabled title={publishDisabledHint}>
+                  <Share2 className="h-4 w-4" /> <span>{t("builder.publish")}</span>
+                </Button>
               ) : (
-                <PopoverTrigger asChild>
-                  <Button data-testid="builder-publish-open" size="sm" className="gap-2">
-                    <Share2 className="h-4 w-4" /> <span className="hidden sm:inline">{t("builder.publish")}</span>
-                  </Button>
-                </PopoverTrigger>
+                <Button
+                  data-testid="builder-publish-open"
+                  size="sm"
+                  className="gap-1.5 h-9 px-2.5"
+                  onClick={() => setIsPublishOpen(true)}
+                >
+                  <Share2 className="h-4 w-4" /> <span>{t("builder.publish")}</span>
+                </Button>
               )}
-              <PopoverContent data-testid="builder-publish-popover" align="end" className="w-[360px] p-4">
+              <DialogContent
+                data-testid="builder-publish-popover"
+                className="max-w-[min(480px,calc(100vw-2rem))] max-h-[90vh] overflow-y-auto p-4 sm:p-6"
+              >
+                <DialogHeader className="space-y-1">
+                  <DialogTitle className="text-sm font-semibold">{t("builder.publishTitle")}</DialogTitle>
+                  <DialogDescription className="text-xs text-muted-foreground">{t("builder.publishHint")}</DialogDescription>
+                </DialogHeader>
                 <div className="space-y-4">
-                  <div className="space-y-1">
-                    <h4 className="text-sm font-semibold">{t("builder.publishTitle")}</h4>
-                    <p className="text-xs text-muted-foreground">{t("builder.publishHint")}</p>
-                  </div>
-
                   <div className="space-y-2">
                     <Label>{t("builder.accessMode")}</Label>
                     <RadioGroup
@@ -1808,6 +1986,125 @@ export default function Builder({ params }: { params: { id?: string } }) {
                     </div>
                   </div>
 
+                  <div className={cn("space-y-4 pt-2 border-t border-border")}>
+                    {publishAccessMode !== "unauthenticated" && (
+                    <>
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="publish-allow-revoke"
+                          checked={publishAllowRevoke}
+                          onCheckedChange={(checked) => setPublishAllowRevoke(Boolean(checked))}
+                          simplifiedAnimation
+                        />
+                        <label
+                          htmlFor="publish-allow-revoke"
+                          className="text-sm font-medium leading-none cursor-pointer"
+                        >
+                          {t("results.allowRevoke")}
+                        </label>
+                      </div>
+                      <p className="text-xs text-muted-foreground pl-6">
+                        {t("results.allowRevokeHint")}
+                      </p>
+                    </div>
+
+                    {publishAllowRevoke && (
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="publish-revoke-counts"
+                            checked={publishRevokeCountsAsAttempt}
+                            onCheckedChange={(checked) => setPublishRevokeCountsAsAttempt(Boolean(checked))}
+                            simplifiedAnimation
+                          />
+                          <label
+                            htmlFor="publish-revoke-counts"
+                            className="text-sm font-medium leading-none cursor-pointer"
+                          >
+                            {t("results.revokeCountsAsAttempt")}
+                          </label>
+                        </div>
+                        <p className="text-xs text-muted-foreground pl-6">
+                          {t("results.revokeCountsAsAttemptHint")}
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">{t("results.attemptLimitType")}</Label>
+                      <Select
+                        value={publishAttemptLimitType}
+                        onValueChange={(value) => {
+                          setPublishAttemptLimitType(value as "unlimited" | "limited");
+                          if (value === "limited") {
+                            setPublishAttemptLimitInput(String(publishAttemptLimit));
+                          }
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="unlimited">{t("results.unlimitedAttempts")}</SelectItem>
+                          <SelectItem value="limited">{t("results.limitedAttempts")}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {publishAttemptLimitType === "limited" && (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium" htmlFor="publish-attempt-limit">
+                          {t("results.attemptLimit")}
+                        </Label>
+                        <Input
+                          id="publish-attempt-limit"
+                          type="number"
+                          min={1}
+                          max={9999}
+                          value={publishAttemptLimitInput}
+                          onKeyDown={(e) => {
+                            if (["+", "-", ".", "e", "E"].includes(e.key)) e.preventDefault();
+                          }}
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/\D/g, "");
+                            if (raw === "") {
+                              setPublishAttemptLimitInput("");
+                              return;
+                            }
+                            const n = parseInt(raw, 10);
+                            if (n > 9999) {
+                              setPublishAttemptLimit(9999);
+                              setPublishAttemptLimitInput("9999");
+                            } else {
+                              setPublishAttemptLimit(n);
+                              setPublishAttemptLimitInput(raw);
+                            }
+                          }}
+                          onBlur={() => {
+                            const n = parseInt(publishAttemptLimitInput.trim(), 10);
+                            if (Number.isNaN(n) || n < 1) {
+                              setPublishAttemptLimit(1);
+                              setPublishAttemptLimitInput("1");
+                            } else if (n > 9999) {
+                              setPublishAttemptLimit(9999);
+                              setPublishAttemptLimitInput("9999");
+                            } else {
+                              setPublishAttemptLimit(n);
+                              setPublishAttemptLimitInput(String(n));
+                            }
+                          }}
+                          className="[&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [appearance:textfield]"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          {t("results.attemptLimitHint")}
+                        </p>
+                      </div>
+                    )}
+                    </>
+                    )}
+                  </div>
+
                   <div className="flex justify-end gap-2 pt-2">
                     <Button variant="outline" size="sm" onClick={() => setIsPublishOpen(false)}>
                       {t("actions.cancel")}
@@ -1817,18 +2114,19 @@ export default function Builder({ params }: { params: { id?: string } }) {
                     </Button>
                   </div>
                 </div>
-              </PopoverContent>
-            </Popover>
+              </DialogContent>
+            </Dialog>
           </div>
           <UserMenu />
         </div>
       </header>
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden min-h-0">
+        {/* Боковая панель элементов: скрыта на узких экранах (< md), там используется Sheet */}
         <div
           className={cn(
-            "border-r border-border bg-white flex flex-col shrink-0 z-10 overflow-hidden transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
-            isToolboxOpen ? "w-64" : "w-24"
+            "hidden md:flex border-r border-border bg-white flex-col shrink-0 z-10 overflow-hidden transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
+            isToolboxOpen ? "w-56 sm:w-64" : "w-14 sm:w-24"
           )}
         >
           <div className="border-b border-border">
@@ -1884,6 +2182,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
           </div>
         </div>
 
+        <div className="flex-1 min-w-0 overflow-hidden flex flex-col">
         <FormCanvas
           key={activeForm.id}
           scrollContainerRef={canvasScrollRef}
@@ -1907,8 +2206,10 @@ export default function Builder({ params }: { params: { id?: string } }) {
           canRedo={redoHistory.length > 0}
           fields={fields}
         />
+        </div>
 
-        <div className="w-80 border-l border-border bg-white flex flex-col shrink-0 z-10">
+        {/* Панель свойств: скрыта на узких экранах (< lg), там используется Sheet */}
+        <div className="hidden lg:flex w-80 border-l border-border bg-white flex-col shrink-0 z-10 overflow-hidden">
           <PropertiesPanel
             key={selectedField?.id || selectedIds.join("-") || 'none'}
             pages={pages}

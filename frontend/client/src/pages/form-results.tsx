@@ -42,6 +42,7 @@ import { UserMenu } from "@/components/user-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
@@ -58,7 +59,9 @@ import { FormAccessDialog } from "@/components/form-access-dialog";
 type ResponseEntry = {
   id: string;
   formId: string;
+  userId: number;
   name: string;
+  status: "draft" | "submitted" | "cancelled";
   submittedAt: string;
   durationMinutes: number;
   answers: AnswersById;
@@ -98,8 +101,10 @@ type FormBuilderPayload = {
   start_at?: string | null;
   end_at?: string | null;
   access_mode?: FormAccessMode | null;
+  pages: { page_id: number; page_index: number; allow_back: boolean }[];
   elements: {
     client_id: string;
+    page_id: number;
     widget: string;
     semantic?: string | null;
     label: string;
@@ -272,6 +277,11 @@ const buildFormPayload = (
     start_at: startAt,
     end_at: endAt,
     settings_json: settingsJson,
+    pages: (form.pages ?? []).map((p) => ({
+      page_id: p.id,
+      page_index: p.pageIndex ?? 0,
+      allow_back: p.allowBack ?? true,
+    })),
     elements: form.fields.map((field, index) => {
       const props = (field.props ?? {}) as Record<string, unknown>;
       const { placeholder, correctAnswer, correctAnswers, points, conditionalLogic, attachments, ...otherSettings } = props;
@@ -316,6 +326,7 @@ const buildFormPayload = (
 
       return {
         client_id: field.id,
+        page_id: field.pageId ?? (form.pages?.[0]?.id ?? 1),
         widget: mapWidgetTypeForPublish(field.widgetType),
         semantic: field.semanticType ?? null,
         label: field.label,
@@ -614,6 +625,11 @@ export default function FormResults({ params }: { params: { id: string } }) {
   const [endAt, setEndAt] = useState("");
   const [accessMode, setAccessMode] = useState<FormAccessMode>("private");
   const [privateLinkKey, setPrivateLinkKey] = useState("");
+  const [allowRevoke, setAllowRevoke] = useState(false);
+  const [attemptLimitType, setAttemptLimitType] = useState<"unlimited" | "limited">("unlimited");
+  const [attemptLimit, setAttemptLimit] = useState<number>(1);
+  const [attemptLimitInput, setAttemptLimitInput] = useState("1");
+  const [revokeCountsAsAttempt, setRevokeCountsAsAttempt] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isAccessDialogOpen, setIsAccessDialogOpen] = useState(false);
   const isRussianLocale = i18n.language.startsWith("ru");
@@ -735,7 +751,9 @@ export default function FormResults({ params }: { params: { id: string } }) {
             return {
               id: String(response.responseId),
               formId: response.formId,
+              userId: response.userId,
               name: response.responderName,
+              status: response.status,
               submittedAt: response.completedAt ?? response.createdAt,
               durationMinutes,
               answers: response.answers,
@@ -770,6 +788,21 @@ export default function FormResults({ params }: { params: { id: string } }) {
       ? form.settings_json.privateLinkKey
       : "";
     setPrivateLinkKey(savedKey || createPrivateLinkKey());
+    
+    // Инициализация настроек попыток
+    const settings = form.settings_json ?? {};
+    setAllowRevoke(Boolean(settings.allowRevoke));
+    setAttemptLimitType(
+      settings.attemptLimitType === "limited" ? "limited" : "unlimited"
+    );
+    const limit = typeof settings.attemptLimit === "number" && settings.attemptLimit > 0
+      ? settings.attemptLimit
+      : 1;
+    setAttemptLimit(limit);
+    if (settings.attemptLimitType === "limited") {
+      setAttemptLimitInput(String(limit));
+    }
+    setRevokeCountsAsAttempt(Boolean(settings.revokeCountsAsAttempt));
   }, [form]);
 
   const activeVersionForm = useMemo(
@@ -780,6 +813,23 @@ export default function FormResults({ params }: { params: { id: string } }) {
     () => responses.filter((response) => response.formId === activeVersionId),
     [activeVersionId, responses]
   );
+  const attemptNumberByResponseId = useMemo(() => {
+    const map = new Map<string, number>();
+    const byFormUser = new Map<string, ResponseEntry[]>();
+    for (const r of responses) {
+      const key = `${r.formId}:${r.userId}`;
+      const list = byFormUser.get(key) ?? [];
+      list.push(r);
+      byFormUser.set(key, list);
+    }
+    byFormUser.forEach((list) => {
+      const sorted = [...list].sort(
+        (a, b) => toTimestampSafe(a.submittedAt) - toTimestampSafe(b.submittedAt)
+      );
+      sorted.forEach((r, i) => map.set(r.id, i + 1));
+    });
+    return map;
+  }, [responses]);
   const sortFieldsByPage = (schema: FormSchema): FormElementModel[] => {
     const pages = schema.pages ?? [];
     const pageIndexById = new Map<number, number>(
@@ -1036,7 +1086,9 @@ export default function FormResults({ params }: { params: { id: string } }) {
     }
     if (!activeResponse) return "";
     const locale = i18n.language.startsWith("ru") ? ru : undefined;
+    const attemptNum = attemptNumberByResponseId.get(activeResponse.id);
     return [
+      attemptNum != null ? t("results.attemptNumber", { number: attemptNum }) : null,
       t("results.version", { version: activeResponse.version }),
       t("results.submitted", {
         time: formatDistanceToNow(parseServerDate(activeResponse.submittedAt), { addSuffix: true, locale }),
@@ -1068,11 +1120,29 @@ export default function FormResults({ params }: { params: { id: string } }) {
           ? form.settings_json.privateLinkKey
           : "";
         const keyChanged = privateLinkKey !== storedKey;
+        
+        const settings = form.settings_json ?? {};
+        const storedAllowRevoke = Boolean(settings.allowRevoke);
+        const storedAttemptLimitType = settings.attemptLimitType === "limited" ? "limited" : "unlimited";
+        const storedAttemptLimit = typeof settings.attemptLimit === "number" && settings.attemptLimit > 0
+          ? settings.attemptLimit
+          : 1;
+        const storedRevokeCountsAsAttempt = Boolean(settings.revokeCountsAsAttempt);
+        
+        const attemptsChanged = 
+          accessMode === "unauthenticated"
+            ? (allowRevoke !== storedAllowRevoke)
+            : (allowRevoke !== storedAllowRevoke ||
+              attemptLimitType !== storedAttemptLimitType ||
+              (attemptLimitType === "limited" && attemptLimit !== storedAttemptLimit) ||
+              (allowRevoke && revokeCountsAsAttempt !== storedRevokeCountsAsAttempt));
+        
         return (
           startAt !== getDateInputValue(form.startAt) ||
           endAt !== getDateInputValue(form.endAt) ||
           accessMode !== (form.accessMode ?? "private") ||
-          keyChanged
+          keyChanged ||
+          attemptsChanged
         );
       })()
     : false;
@@ -1087,15 +1157,40 @@ export default function FormResults({ params }: { params: { id: string } }) {
       settingsJson: {
         ...(form.settings_json ?? {}),
         privateLinkKey,
+        allowRevoke: accessMode === "unauthenticated" ? false : allowRevoke,
+        attemptLimitType: accessMode === "unauthenticated" ? "unlimited" : attemptLimitType,
+        attemptLimit: accessMode === "unauthenticated" ? null : (attemptLimitType === "limited" ? attemptLimit : null),
+        revokeCountsAsAttempt: accessMode === "unauthenticated" ? false : (allowRevoke ? revokeCountsAsAttempt : false),
       },
     });
     try {
       const saved = await saveFormInPlace(form.id, payload);
       storage.saveForm(saved);
-      setForm(saved);
+      // Сохраняем права доступа: ответ PUT не содержит canEdit/canViewResponses/canContinuePassage
+      setForm({
+        ...saved,
+        canEdit: form.canEdit,
+        canViewResponses: form.canViewResponses,
+        canContinuePassage: form.canContinuePassage,
+        ownerName: form.ownerName,
+      });
       setStartAt(getDateInputValue(saved.startAt));
       setEndAt(getDateInputValue(saved.endAt));
       setAccessMode(saved.accessMode ?? "private");
+      
+      // Обновляем настройки попыток из сохраненной формы
+      const settings = saved.settings_json ?? {};
+      setAllowRevoke(Boolean(settings.allowRevoke));
+      setAttemptLimitType(
+        settings.attemptLimitType === "limited" ? "limited" : "unlimited"
+      );
+      const limit = typeof settings.attemptLimit === "number" && settings.attemptLimit > 0
+        ? settings.attemptLimit
+        : 1;
+      setAttemptLimit(limit);
+      setAttemptLimitInput(String(limit));
+      setRevokeCountsAsAttempt(Boolean(settings.revokeCountsAsAttempt));
+      
       toast({ title: t("results.settingsSaved") });
     } catch (error: any) {
       toast({
@@ -1315,31 +1410,43 @@ export default function FormResults({ params }: { params: { id: string } }) {
                     key={response.id}
                     type="button"
                     className={cn(
-                      "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                      "w-full flex items-center gap-3 rounded-lg pl-3 pr-7 py-2 text-sm transition-colors",
                       selection.type === "response" && selection.responseId === response.id
                         ? "bg-primary/10 text-primary"
-                        : "hover:bg-muted"
+                        : response.status === "cancelled"
                     )}
                     onClick={() => {
                       setActiveVersionId(response.formId);
                       setSelection({ type: "response", responseId: response.id });
                     }}
                   >
-                    <Avatar className="h-7 w-7">
+                    <Avatar className="h-7 w-7 shrink-0">
                       <AvatarFallback>{getInitials(response.name)}</AvatarFallback>
                     </Avatar>
-                    <div className="flex-1 text-left">
-                      <div className="font-medium flex items-center gap-2">
-                        <span>{response.name}</span>
-                        <Badge variant="outline" className="h-5">
+                    <div className="flex-1 text-left min-w-0 overflow-hidden space-y-1.5">
+                      <div className="flex items-center justify-between gap-2 min-h-5">
+                        <span className="font-medium truncate min-w-0 text-foreground">{response.name}</span>
+                        <span className="text-xs text-muted-foreground shrink-0 truncate max-w-[8.5rem] text-right">
+                          {formatDistanceToNow(parseServerDate(response.submittedAt), {
+                            addSuffix: true,
+                            locale: i18n.language.startsWith("ru") ? ru : undefined,
+                          })}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant="outline" className="h-5 font-normal text-xs">
                           {t("results.version", { version: response.version })}
                         </Badge>
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {formatDistanceToNow(parseServerDate(response.submittedAt), {
-                          addSuffix: true,
-                          locale: i18n.language.startsWith("ru") ? ru : undefined,
-                        })}
+                        {attemptNumberByResponseId.get(response.id) != null && (
+                          <Badge variant="outline" className="h-5 font-normal text-xs">
+                            {t("results.attemptNumber", { number: attemptNumberByResponseId.get(response.id) })}
+                          </Badge>
+                        )}
+                        {response.status === "cancelled" && (
+                          <Badge variant="destructive" className="h-5 font-normal text-xs pointer-events-none">
+                            {t("home.revoked")}
+                          </Badge>
+                        )}
                       </div>
                     </div>
                   </button>
@@ -1439,27 +1546,32 @@ export default function FormResults({ params }: { params: { id: string } }) {
               {!isLoading && selection.type === "response" && (
                 activeResponse ? (
                   <div className="space-y-4">
-                    <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-2">
-                        <User className="h-4 w-4" />
-                        <span>{activeResponse.name}</span>
+                    <div className="space-y-1.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 text-sm">
+                          <User className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-medium text-foreground">{activeResponse.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Clock className="h-4 w-4" />
+                          <span>{formatDuration(activeResponse.durationMinutes, isRussianLocale)}</span>
+                        </div>
                       </div>
-                      <Separator orientation="vertical" className="h-4" />
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4" />
-                        <span>{formatDuration(activeResponse.durationMinutes, isRussianLocale)}</span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="outline" className="h-5 font-normal">{t("results.version", { version: activeResponse.version })}</Badge>
+                        {attemptNumberByResponseId.get(activeResponse.id) != null && (
+                          <Badge variant="outline" className="h-5 font-normal">{t("results.attemptNumber", { number: attemptNumberByResponseId.get(activeResponse.id) })}</Badge>
+                        )}
+                        {activeResponse.status === "cancelled" && (
+                          <Badge variant="destructive" className="h-5 font-normal pointer-events-none">{t("home.revoked")}</Badge>
+                        )}
                       </div>
                       {activeResponseScore && (
-                        <>
-                          <Separator orientation="vertical" className="h-4" />
-                          <div className="flex items-center gap-2">
-                            <BarChart3 className="h-4 w-4" />
-                            <span>{t("results.correctScore", { score: activeResponseScore.score, max: activeResponseScore.maxScore })}</span>
-                          </div>
-                        </>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground pt-0.5">
+                          <BarChart3 className="h-4 w-4" />
+                          <span>{t("results.correctScore", { score: activeResponseScore.score, max: activeResponseScore.maxScore })}</span>
+                        </div>
                       )}
-                      <Separator orientation="vertical" className="h-4" />
-                      <Badge variant="outline">{t("results.version", { version: activeResponse.version })}</Badge>
                     </div>
 
                     <div className="space-y-4">
@@ -1553,6 +1665,132 @@ export default function FormResults({ params }: { params: { id: string } }) {
                   {accessMode === "private" ? t("results.privateLinkHint") : t("results.publicLinkHint")}
                 </p>
               </div>
+              
+              <Separator />
+              
+              <div className="space-y-4">
+                {accessMode !== "unauthenticated" && (
+                <>
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="allowRevoke"
+                      checked={allowRevoke}
+                      onCheckedChange={(checked) => setAllowRevoke(Boolean(checked))}
+                      disabled={!canEditCurrentForm}
+                      simplifiedAnimation
+                    />
+                    <label
+                      htmlFor="allowRevoke"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      {t("results.allowRevoke")}
+                    </label>
+                  </div>
+                  <p className="text-xs text-muted-foreground pl-6">
+                    {t("results.allowRevokeHint")}
+                  </p>
+                </div>
+                
+                {allowRevoke && (
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="revokeCountsAsAttempt"
+                        checked={revokeCountsAsAttempt}
+                        onCheckedChange={(checked) => setRevokeCountsAsAttempt(Boolean(checked))}
+                        disabled={!canEditCurrentForm}
+                        simplifiedAnimation
+                      />
+                      <label
+                        htmlFor="revokeCountsAsAttempt"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        {t("results.revokeCountsAsAttempt")}
+                      </label>
+                    </div>
+                    <p className="text-xs text-muted-foreground pl-6">
+                      {t("results.revokeCountsAsAttemptHint")}
+                    </p>
+                  </div>
+                )}
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">{t("results.attemptLimitType")}</label>
+                  <Select
+                    value={attemptLimitType}
+                    onValueChange={(value) => {
+                      setAttemptLimitType(value as "unlimited" | "limited");
+                      if (value === "limited") {
+                        setAttemptLimitInput(String(attemptLimit));
+                      }
+                    }}
+                    disabled={!canEditCurrentForm}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unlimited">{t("results.unlimitedAttempts")}</SelectItem>
+                      <SelectItem value="limited">{t("results.limitedAttempts")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {attemptLimitType === "limited" && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium" htmlFor="attemptLimit">
+                      {t("results.attemptLimit")}
+                    </label>
+                    <Input
+                      id="attemptLimit"
+                      type="number"
+                      min={1}
+                      max={9999}
+                      value={attemptLimitInput}
+                      onKeyDown={(e) => {
+                        if (["+", "-", ".", "e", "E"].includes(e.key)) e.preventDefault();
+                      }}
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/\D/g, "");
+                        if (raw === "") {
+                          setAttemptLimitInput("");
+                          return;
+                        }
+                        const n = parseInt(raw, 10);
+                        if (n > 9999) {
+                          setAttemptLimit(9999);
+                          setAttemptLimitInput("9999");
+                        } else {
+                          setAttemptLimit(n);
+                          setAttemptLimitInput(raw);
+                        }
+                      }}
+                      onBlur={() => {
+                        const n = parseInt(attemptLimitInput.trim(), 10);
+                        if (Number.isNaN(n) || n < 1) {
+                          setAttemptLimit(1);
+                          setAttemptLimitInput("1");
+                        } else if (n > 9999) {
+                          setAttemptLimit(9999);
+                          setAttemptLimitInput("9999");
+                        } else {
+                          setAttemptLimit(n);
+                          setAttemptLimitInput(String(n));
+                        }
+                      }}
+                      disabled={!canEditCurrentForm}
+                      className="[&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [appearance:textfield]"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {t("results.attemptLimitHint")}
+                    </p>
+                  </div>
+                )}
+                </>
+                )}
+              </div>
+              
               <Button
                 onClick={handleSaveSettings}
                 disabled={!canEditCurrentForm || !isDirty || isSaving}

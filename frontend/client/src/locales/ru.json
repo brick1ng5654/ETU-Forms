@@ -34,12 +34,14 @@
     "folder": "Папка",
     "forms": "Формы",
     "availableForContinue": "Доступные для продолжения прохождения формы",
+    "completedForms": "Пройденные формы",
     "fields": "Поля",
     "descriphome": "Нет описания",
     "loadingForms": "Загрузка форм"
   },
   "builder": {
-    "toolbox": "Инструменты",
+    "toolbox": "Элементы",
+    "properties": "Свойства",
     "collapseToolbox": "Свернуть панель инструментов",
     "expandToolbox": "Развернуть панель инструментов",
     "preview": "Предпросмотр",
@@ -164,6 +166,7 @@
     "version": "Версия {{version}}",
     "submitted": "Отправлено {{time}}",
     "duration": "Длительность {{time}}",
+    "attemptNumber": "Попытка №{{number}}",
     "correctScore": "Правильные баллы: {{score}} / {{max}}",
     "noAnswer": "Нет ответа",
     "openResults": "Результаты",
@@ -178,7 +181,16 @@
     "settingsPublished": "Настройки сохранены и опубликованы",
     "settingsSaveError": "Не удалось сохранить настройки",
     "formUnavailable": "Форма недоступна",
-    "formUnavailableDesc": "Не удалось загрузить данные формы."
+    "formUnavailableDesc": "Не удалось загрузить данные формы.",
+    "allowRevoke": "Разрешить отзыв ответов",
+    "allowRevokeHint": "Пользователи смогут отозвать свои отправленные ответы",
+    "revokeCountsAsAttempt": "Отзыв считается попыткой",
+    "revokeCountsAsAttemptHint": "Если включено, отозванные ответы будут учитываться в лимите попыток",
+    "attemptLimitType": "Ограничение попыток",
+    "unlimitedAttempts": "Без ограничений",
+    "limitedAttempts": "Ограниченное количество",
+    "attemptLimit": "Количество попыток",
+    "attemptLimitHint": "Максимальное количество попыток прохождения формы для каждого пользователя"
   },
   "respond": {
     "title": "Прохождение формы",
@@ -191,7 +203,9 @@
     "loadError": "Не удалось загрузить форму",
     "formUnavailable": "Форма недоступна",
     "submittedTitle": "Ответ успешно отправлен",
-    "submittedDesc": "Спасибо! Ваши ответы сохранены."
+    "submittedDesc": "Спасибо! Ваши ответы сохранены.",
+    "attemptsExhaustedHint": "Вы исчерпали доступное количество попыток для прохождения этой формы.",
+    "goToHome": "На главную"
   },
   "access": {
     "title": "Доступ к форме",
@@ -500,7 +514,22 @@
     "noEditAccess": "Недостаточно прав для редактирования формы",
     "noResultsAccess": "Недостаточно прав для просмотра ответов",
     "noContinueAccess": "Недостаточно прав для продолжения прохождения",
-    "createError": "Не удалось создать форму"
+    "createError": "Не удалось создать форму",
+    "noCompletedForms": "Нет пройденных форм",
+    "noCompletedFormsDesc": "Здесь будут отображаться формы, на которые вы уже ответили",
+    "submittedAt": "Отправлено: {{date}}",
+    "revokedAt": "Отозвано: {{date}}",
+    "revoked": "Отозвано",
+    "revokeResponse": "Отозвать ответ",
+    "retakeForm": "Пройти повторно",
+    "confirmRevoke": "Вы уверены, что хотите отозвать ответ на форму?",
+    "responseRevoked": "Ответ отозван",
+    "responseRevokedDesc": "Ответ на форму \"{{formTitle}}\" успешно отозван",
+    "wantToRetakeForm": "Хотите пройти форму \"{{formTitle}}\" повторно?",
+    "revokeError": "Не удалось отозвать ответ",
+    "attemptsRemaining": "Попыток осталось: {{remaining}} из {{total}}",
+    "noAttemptsRemaining": "Попытки закончились",
+    "formNotAvailable": "Форма недоступна или была удалена"
   },
   "logic": {
     "conditional": "Условная логика",

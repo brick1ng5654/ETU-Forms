@@ -211,6 +211,8 @@ CREATE TABLE IF NOT EXISTS Response (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     completed_at TIMESTAMP NULL,
     status response_status NOT NULL,
+    respondent_session_token VARCHAR(255) NULL,
+    revoke_counts_as_attempt_at_revoke BOOLEAN NULL,
 
     CONSTRAINT fk_response_user
         FOREIGN KEY (user_id) 
@@ -230,6 +232,13 @@ ON Response (form_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_response_user_created
 ON Response (user_id, created_at DESC);
 
+CREATE INDEX IF NOT EXISTS idx_response_draft_user
+ON response (form_id, user_id, created_at DESC)
+WHERE status = 'draft';
+
+CREATE INDEX IF NOT EXISTS idx_response_draft_session
+ON response (form_id, respondent_session_token, created_at DESC)
+WHERE status = 'draft' AND respondent_session_token IS NOT NULL;
 
 -- Комментарии к таблице и полям
 COMMENT ON TABLE Response IS 'Таблица ответов на формы';
@@ -238,6 +247,8 @@ COMMENT ON COLUMN Response.form_id IS 'ID формы (ссылка на forms.fo
 COMMENT ON COLUMN Response.user_id IS 'ID пользователя, который отправил ответ (ссылка на users.user_id)';
 COMMENT ON COLUMN Response.created_at IS 'Дата и время создания ответа';
 COMMENT ON COLUMN Response.completed_at IS 'Дата и время завершения ответа';
+COMMENT ON COLUMN response.respondent_session_token IS 'Токен сессии анонимного респондента для черновиков';
+COMMENT ON COLUMN Response.revoke_counts_as_attempt_at_revoke IS 'При отзыве: считался ли отзыв попыткой по правилам формы на момент отзыва';
 
 CREATE TABLE IF NOT EXISTS access_control (
     access_id SERIAL PRIMARY KEY,

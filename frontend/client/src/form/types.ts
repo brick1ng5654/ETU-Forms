@@ -88,6 +88,10 @@ export interface FormSchema {
   canEdit?: boolean;
   canViewResponses?: boolean;
   canContinuePassage?: boolean;
+  hasDraft?: boolean;
+  attemptLimit?: number | null;
+  attemptsUsed?: number;
+  attemptsRemaining?: number | null;
 }
 
 export interface ConditionalLogic {

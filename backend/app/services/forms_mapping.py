@@ -145,6 +145,7 @@ async def build_form_summaries(
     db: AsyncSession,
     forms: List[models.Form],
     permissions_by_form: Mapping[int, Dict[str, bool]] | None = None,
+    current_user_id: int | None = None,
 ) -> List[FormSummaryResponse]:
     if not forms:
         return []
@@ -164,6 +165,50 @@ async def build_form_summaries(
     )
     owner_name_map = {row[0]: row[1] for row in owners_result.all()}
 
+    # Подсчитываем попытки пользователя для каждой формы
+    attempts_by_form_id: Dict[int, int] = {}
+    if current_user_id is not None and form_ids:
+        # Получаем все ответы пользователя на эти формы (с флагом revoke_counts_as_attempt_at_revoke)
+        responses_result = await db.execute(
+            select(
+                models.Response.form_id,
+                models.Response.status,
+                models.Response.revoke_counts_as_attempt_at_revoke,
+            )
+            .where(models.Response.form_id.in_(form_ids))
+            .where(models.Response.user_id == current_user_id)
+        )
+        
+        # Считаем попытки: submitted всегда; cancelled — только если при отзыве правило уже действовало
+        responses_by_form: Dict[int, List[tuple]] = {}
+        for form_id, status, revoke_counted in responses_result.all():
+            status_value = status.value if hasattr(status, "value") else str(status)
+            if form_id not in responses_by_form:
+                responses_by_form[form_id] = []
+            responses_by_form[form_id].append((status_value, bool(revoke_counted)))
+        
+        for form in forms:
+            form_responses = responses_by_form.get(form.form_id, [])
+            attempts_count = sum(
+                1
+                for status_val, revoke_counted in form_responses
+                if status_val == "submitted"
+                or (status_val == "cancelled" and revoke_counted)
+            )
+            attempts_by_form_id[form.form_id] = attempts_count
+
+    # Формы, где у пользователя есть черновик (начал, но не закончил)
+    has_draft_by_form_id: Dict[int, bool] = {}
+    if current_user_id is not None and form_ids:
+        drafts_result = await db.execute(
+            select(models.Response.form_id)
+            .where(models.Response.form_id.in_(form_ids))
+            .where(models.Response.user_id == current_user_id)
+            .where(models.Response.status == "draft")
+        )
+        for (form_id,) in drafts_result.all():
+            has_draft_by_form_id[form_id] = True
+
     summaries: List[FormSummaryResponse] = []
     for form in forms:
         status_value = _enum_value(form.status)
@@ -177,6 +222,23 @@ async def build_form_summaries(
             if permissions_by_form
             else default_permissions
         )
+
+        # Вычисляем информацию о попытках
+        settings = form.settings_json if isinstance(form.settings_json, dict) else {}
+        attempt_limit_type = settings.get("attemptLimitType", "unlimited")
+        attempt_limit_value = settings.get("attemptLimit")
+        
+        attempt_limit: int | None = None
+        attempts_used = attempts_by_form_id.get(form.form_id, 0)
+        attempts_remaining: int | None = None
+        
+        if attempt_limit_type == "limited" and attempt_limit_value is not None:
+            try:
+                attempt_limit = int(attempt_limit_value)
+                if attempt_limit > 0:
+                    attempts_remaining = max(0, attempt_limit - attempts_used)
+            except (TypeError, ValueError):
+                pass
 
         summaries.append(
             FormSummaryResponse(
@@ -200,6 +262,10 @@ async def build_form_summaries(
                 can_edit=bool(resolved_permissions.get("can_edit", False)),
                 can_view_responses=bool(resolved_permissions.get("can_view_responses", False)),
                 can_continue_passage=bool(resolved_permissions.get("can_continue_passage", False)),
+                has_draft=has_draft_by_form_id.get(form.form_id, False),
+                attempt_limit=attempt_limit,
+                attempts_used=attempts_used,
+                attempts_remaining=attempts_remaining,
             )
         )
     return summaries
