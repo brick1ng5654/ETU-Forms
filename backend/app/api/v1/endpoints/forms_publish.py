@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import and_, select, or_
 
 from app.database import get_db
 from app.schemas import FormBuilderPayload, FormDetailResponse
@@ -11,6 +11,13 @@ from app.security.auth_dependencies import get_current_user, ensure_can_edit_for
 from app.models import AppUser, Form, AccessControl
 
 router = APIRouter()
+
+def _access_not_expired():
+    now = datetime.utcnow()
+    return and_(
+        or_(AccessControl.starts_at.is_(None), AccessControl.starts_at <= now),
+        or_(AccessControl.expires_at.is_(None), AccessControl.expires_at > now),
+    )
 
 async def _ensure_editor_or_owner(
     db: AsyncSession, form_id: int, current_user: AppUser
@@ -35,6 +42,7 @@ async def _ensure_editor_or_owner(
         .where(AccessControl.form_id == form_id)
         .where(AccessControl.user_id == current_user.user_id)
         .where(AccessControl.role == "editor")
+        .where(_access_not_expired())
     )
     if not access.scalar_one_or_none():
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")

@@ -71,6 +71,7 @@ export interface FormSchema {
   folderId?: string;
   title: string;
   description: string;
+  ownerId?: number;
   pages: FormPageModel[];
   ownerName?: string;
   fields: FormElementModel[];

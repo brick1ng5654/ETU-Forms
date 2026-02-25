@@ -14,6 +14,11 @@ class AccessRole(str, enum.Enum):
     EDITOR = 'editor'
     PARTICIPANT = 'participant'
 
+class AccessInviteStatus(str, enum.Enum):
+    PENDING = 'pending'
+    ACCEPTED = 'accepted'
+    REVOKED = 'revoked'
+
 class UserRole(str, enum.Enum):
     FORM_CREATOR = 'form_creator'
     ADMIN = 'admin'
@@ -36,6 +41,11 @@ form_status_enum = ENUM(
 access_role_enum = ENUM(
     'editor', 'participant',
     name='access_role'
+)
+
+access_invite_status_enum = ENUM(
+    'pending', 'accepted', 'revoked',
+    name='access_invite_status'
 )
 
 user_role_enum = ENUM(
@@ -84,6 +94,12 @@ class AppUser(Base):
     forms = relationship("Form", back_populates="user", cascade="all, delete-orphan")
     responses = relationship("Response", back_populates="user", cascade="all, delete-orphan")
     access_controls = relationship("AccessControl", back_populates="user", cascade="all, delete-orphan")
+    created_access_invites = relationship(
+        "AccessInvite",
+        back_populates="inviter",
+        cascade="all, delete-orphan",
+        foreign_keys="AccessInvite.inviter_user_id",
+    )
     templates = relationship("Template", back_populates="owner",cascade="all, delete-orphan",foreign_keys="Template.owner_id",)
 
 class Form(Base):
@@ -116,6 +132,7 @@ class Form(Base):
     user = relationship("AppUser", back_populates="forms")
     responses = relationship("Response", back_populates="form", cascade="all, delete-orphan")
     access_controls = relationship("AccessControl", back_populates="form", cascade="all, delete-orphan")
+    access_invites = relationship("AccessInvite", back_populates="form", cascade="all, delete-orphan")
     previous_version = relationship("Form", remote_side=[form_id], backref="next_version")
     elements = relationship("FormElement", back_populates="form", cascade="all, delete-orphan")
     conditions = relationship("FormElementCondition", back_populates="form", cascade="all, delete-orphan")
@@ -141,13 +158,51 @@ class AccessControl(Base):
     form_id = Column(Integer, ForeignKey("form.form_id", ondelete="CASCADE"), nullable=False)
     user_id = Column(Integer, ForeignKey("app_user.user_id", ondelete="CASCADE"), nullable=False)
     role = Column(access_role_enum, nullable=False)
+    starts_at = Column(DateTime(timezone=True), nullable=True)
+    expires_at = Column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (
         CheckConstraint('role IN (\'editor\', \'participant\')', name='valid_role'),
+        Index('ix_access_form_user', 'form_id', 'user_id', unique=True),
+        Index('ix_access_starts', 'starts_at'),
+        Index('ix_access_expires', 'expires_at'),
     )
 
     form = relationship("Form", back_populates="access_controls")
     user = relationship("AppUser", back_populates="access_controls")
+
+class AccessInvite(Base):
+    __tablename__ = "access_invite"
+
+    invite_id = Column(Integer, primary_key=True, index=True)
+    form_id = Column(Integer, ForeignKey("form.form_id", ondelete="CASCADE"), nullable=False)
+    inviter_user_id = Column(Integer, ForeignKey("app_user.user_id", ondelete="CASCADE"), nullable=False)
+    invitee_email = Column(String(100), nullable=True, index=True)
+    role = Column(access_role_enum, nullable=False)
+    token = Column(String(128), nullable=False, unique=True, index=True)
+    requires_accept = Column(Boolean, nullable=False, server_default="true")
+    status = Column(access_invite_status_enum, nullable=False, server_default="pending")
+    starts_at = Column(DateTime(timezone=True), nullable=True)
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+    max_accepts = Column(Integer, nullable=True)
+    accepted_count = Column(Integer, nullable=False, server_default="0")
+    accepted_by_user_id = Column(Integer, ForeignKey("app_user.user_id", ondelete="SET NULL"), nullable=True)
+    accepted_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index('ix_access_invite_form_status', 'form_id', 'status'),
+        CheckConstraint('max_accepts IS NULL OR max_accepts > 0', name='chk_access_invite_max_accepts_positive'),
+        CheckConstraint('accepted_count >= 0', name='chk_access_invite_accepted_count_non_negative'),
+        CheckConstraint('max_accepts IS NULL OR accepted_count <= max_accepts', name='chk_access_invite_count_within_limit'),
+        Index('ix_access_invite_expires', 'expires_at'),
+        Index('ix_access_invite_starts', 'starts_at'),
+    )
+
+    form = relationship("Form", back_populates="access_invites")
+    inviter = relationship("AppUser", foreign_keys=[inviter_user_id], back_populates="created_access_invites")
+    accepted_by = relationship("AppUser", foreign_keys=[accepted_by_user_id])
 
 class Template(Base):
     __tablename__="template"
