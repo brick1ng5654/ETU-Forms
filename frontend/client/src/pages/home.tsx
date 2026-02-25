@@ -70,6 +70,7 @@ export default function Home() {
   const [isLoadingForms, setIsLoadingForms] = useState(true);
   const categoryButtonClass = "w-full h-10 md:h-auto px-0 md:px-3 justify-center md:justify-start md:py-2 md:whitespace-normal md:text-left md:leading-tight";
   const canCreateForms = user?.role === "form_creator" || user?.role === "admin";
+  const hasAnyRole = Boolean(user?.role);
   const continueCategoryLabel = i18n.language.startsWith("ru")
     ? "Доступные для прохождения формы"
     : t("navigation.availableForContinue");
@@ -543,15 +544,17 @@ export default function Home() {
                             {t("home.continuePassage")}
                           </Button>
                         )}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setAccessForm(form)}
-                          disabled={!canEditForm(form)}
-                        >
-                          <Users className="mr-2 h-4 w-4" />
-                          {t("access.manageAccess")}
-                        </Button>
+                        {hasAnyRole ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setAccessForm(form)}
+                            disabled={!canEditForm(form)}
+                          >
+                            <Users className="mr-2 h-4 w-4" />
+                            {t("access.manageAccess")}
+                          </Button>
+                        ) : null}
                       </div>
                     </div>
 
