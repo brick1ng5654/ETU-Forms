@@ -1445,7 +1445,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
       accessMode: publishAccessMode,
       startAt: publishNoStart ? null : toIsoFromParts(publishStartDate, publishStartTime),
       endAt: publishNoStart || publishNoEnd ? null : toIsoFromParts(publishEndDate, publishEndTime),
-      allowRevoke: publishAllowRevoke,
+      allowRevoke: publishAccessMode === "unauthenticated" ? false : publishAllowRevoke,
       revokeCountsAsAttempt: publishAccessMode === "unauthenticated" ? false : (publishAllowRevoke ? publishRevokeCountsAsAttempt : false),
       attemptLimitType: publishAccessMode === "unauthenticated" ? "unlimited" : publishAttemptLimitType,
       attemptLimit: publishAccessMode === "unauthenticated" ? null : (publishAttemptLimitType === "limited" ? publishAttemptLimit : null),
@@ -1523,10 +1523,50 @@ export default function Builder({ params }: { params: { id?: string } }) {
     <div className="h-screen w-full flex flex-col bg-background overflow-hidden min-h-0">
       {/* Navbar: grid из 3 колонок — логотип+элементы | вкладки | действия (или меню на узких экранах) */}
       <header className="h-14 sm:h-16 border-b border-border bg-white grid grid-cols-[auto_1fr_auto] items-center gap-2 px-2 sm:px-4 shrink-0 z-20 min-h-0">
-        {/* Левая колонка: логотип, кнопка «Элементы», разделитель — не сжимается */}
+        {/* Левая колонка: только логотип и разделитель */}
         <div className="flex items-center gap-2 shrink-0">
           <AppBrand onClick={() => setLocation('/')} className="shrink-0" />
+          <div className="h-5 sm:h-6 w-px bg-border shrink-0 hidden sm:block" />
+        </div>
 
+        {/* Центр: вкладки форм — занимает оставшееся место, прокрутка по горизонтали */}
+        <div className="min-w-0 overflow-x-auto no-scrollbar flex items-center">
+          <div className="flex items-center gap-1 py-1">
+            {tabForms.map(form => (
+              <div
+                key={form.id}
+                onClick={() => {
+                  setActiveFormId(form.id);
+                  setLocation(`/builder/${form.id}`);
+                }}
+                className={cn(
+                  "group flex items-center gap-2 px-2 sm:px-3 py-1.5 rounded-md text-sm cursor-pointer transition-colors min-w-[80px] max-w-[140px] shrink-0",
+                  activeFormId === form.id
+                    ? "bg-secondary text-secondary-foreground font-medium"
+                    : "hover:bg-muted text-muted-foreground"
+                )}
+              >
+                <span className="truncate">{form.title || t("common.untitled")}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-5 w-5 opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive shrink-0"
+                  onClick={(e) => closeForm(e, form.id)}
+                  title="Close form"
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            ))}
+            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={addNewForm}>
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Правая колонка: на узких экранах — кнопка «Элементы» + меню «Ещё», на больших — все кнопки */}
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0 justify-end">
+          {/* Кнопка раскрытия панели элементов (только на экранах < md, в одном ряду с действиями) */}
           <Sheet open={isToolboxSheetOpen} onOpenChange={setIsToolboxSheetOpen}>
             <SheetTrigger asChild>
               <Button variant="outline" size="sm" className="gap-1.5 md:hidden shrink-0 h-8 px-2 sm:px-2.5" aria-label={t("builder.toolbox")}>
@@ -1567,46 +1607,6 @@ export default function Builder({ params }: { params: { id?: string } }) {
             </SheetContent>
           </Sheet>
 
-          <div className="h-5 sm:h-6 w-px bg-border shrink-0 hidden sm:block" />
-        </div>
-
-        {/* Центр: вкладки форм — занимает оставшееся место, прокрутка по горизонтали */}
-        <div className="min-w-0 overflow-x-auto no-scrollbar flex items-center">
-          <div className="flex items-center gap-1 py-1">
-            {tabForms.map(form => (
-              <div
-                key={form.id}
-                onClick={() => {
-                  setActiveFormId(form.id);
-                  setLocation(`/builder/${form.id}`);
-                }}
-                className={cn(
-                  "group flex items-center gap-2 px-2 sm:px-3 py-1.5 rounded-md text-sm cursor-pointer transition-colors min-w-[80px] max-w-[140px] shrink-0",
-                  activeFormId === form.id
-                    ? "bg-secondary text-secondary-foreground font-medium"
-                    : "hover:bg-muted text-muted-foreground"
-                )}
-              >
-                <span className="truncate">{form.title || t("common.untitled")}</span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-5 w-5 opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive shrink-0"
-                  onClick={(e) => closeForm(e, form.id)}
-                  title="Close form"
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              </div>
-            ))}
-            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={addNewForm}>
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Правая колонка: на узких экранах — одно меню «Ещё», на больших — все кнопки */}
-        <div className="flex items-center gap-1 sm:gap-2 shrink-0 justify-end">
           {/* На экранах < lg: выпадающее меню с действиями */}
           <div className="flex items-center gap-1 lg:hidden">
             <DropdownMenu>
@@ -1702,36 +1702,6 @@ export default function Builder({ params }: { params: { id?: string } }) {
               <Languages className="h-4 w-4" />
               <span className="text-sm font-medium">{i18n.language.startsWith('ru') ? 'RU' : 'EN'}</span>
             </Button>
-            {(selectedIds.length > 0 || selectedPageIds.length > 0) && (
-              <Sheet open={isPropertiesSheetOpen} onOpenChange={setIsPropertiesSheetOpen}>
-                <SheetTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-1.5 h-9 px-2.5" aria-label={t("builder.properties")}>
-                    <SlidersHorizontal className="h-4 w-4" /> <span>{t("builder.properties")}</span>
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col overflow-hidden">
-                  <SheetHeader className="px-4 pt-4 pb-2 border-b border-border shrink-0">
-                    <SheetTitle>{t("builder.properties")}</SheetTitle>
-                  </SheetHeader>
-                  <div className="flex-1 overflow-y-auto min-h-0">
-                    <PropertiesPanel
-                      key={selectedField?.id || selectedIds.join("-") || "none"}
-                      pages={pages}
-                      selectedPageIds={selectedPageIds}
-                      onDeletePages={deletePages}
-                      onTogglePageBack={togglePageBack}
-                      selectedField={selectedField}
-                      selectedIds={selectedIds}
-                      updateField={updateField}
-                      updateFields={updateFields}
-                      deleteField={deleteField}
-                      deleteSelected={deleteSelected}
-                      fields={fields}
-                    />
-                  </div>
-                </SheetContent>
-              </Sheet>
-            )}
             <Dialog>
               <DialogTrigger asChild>
                 <Button data-testid="builder-preview-open" variant="outline" size="sm" className="gap-1.5 h-9 px-2.5">
@@ -2017,6 +1987,8 @@ export default function Builder({ params }: { params: { id?: string } }) {
                   </div>
 
                   <div className={cn("space-y-4 pt-2 border-t border-border")}>
+                    {publishAccessMode !== "unauthenticated" && (
+                    <>
                     <div className="space-y-2">
                       <div className="flex items-center space-x-2">
                         <Checkbox
@@ -2037,8 +2009,6 @@ export default function Builder({ params }: { params: { id?: string } }) {
                       </p>
                     </div>
 
-                    {publishAccessMode !== "unauthenticated" && (
-                    <>
                     {publishAllowRevoke && (
                       <div className="space-y-2">
                         <div className="flex items-center space-x-2">
@@ -2091,13 +2061,34 @@ export default function Builder({ params }: { params: { id?: string } }) {
                           id="publish-attempt-limit"
                           type="number"
                           min={1}
+                          max={9999}
                           value={publishAttemptLimitInput}
-                          onChange={(e) => setPublishAttemptLimitInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (["+", "-", ".", "e", "E"].includes(e.key)) e.preventDefault();
+                          }}
+                          onChange={(e) => {
+                            const raw = e.target.value.replace(/\D/g, "");
+                            if (raw === "") {
+                              setPublishAttemptLimitInput("");
+                              return;
+                            }
+                            const n = parseInt(raw, 10);
+                            if (n > 9999) {
+                              setPublishAttemptLimit(9999);
+                              setPublishAttemptLimitInput("9999");
+                            } else {
+                              setPublishAttemptLimit(n);
+                              setPublishAttemptLimitInput(raw);
+                            }
+                          }}
                           onBlur={() => {
                             const n = parseInt(publishAttemptLimitInput.trim(), 10);
                             if (Number.isNaN(n) || n < 1) {
                               setPublishAttemptLimit(1);
                               setPublishAttemptLimitInput("1");
+                            } else if (n > 9999) {
+                              setPublishAttemptLimit(9999);
+                              setPublishAttemptLimitInput("9999");
                             } else {
                               setPublishAttemptLimit(n);
                               setPublishAttemptLimitInput(String(n));

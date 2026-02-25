@@ -1155,7 +1155,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
       settingsJson: {
         ...(form.settings_json ?? {}),
         privateLinkKey,
-        allowRevoke: allowRevoke,
+        allowRevoke: accessMode === "unauthenticated" ? false : allowRevoke,
         attemptLimitType: accessMode === "unauthenticated" ? "unlimited" : attemptLimitType,
         attemptLimit: accessMode === "unauthenticated" ? null : (attemptLimitType === "limited" ? attemptLimit : null),
         revokeCountsAsAttempt: accessMode === "unauthenticated" ? false : (allowRevoke ? revokeCountsAsAttempt : false),
@@ -1398,7 +1398,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
                     key={response.id}
                     type="button"
                     className={cn(
-                      "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                      "w-full flex items-center gap-3 rounded-lg pl-3 pr-7 py-2 text-sm transition-colors",
                       selection.type === "response" && selection.responseId === response.id
                         ? "bg-primary/10 text-primary"
                         : response.status === "cancelled"
@@ -1408,31 +1408,33 @@ export default function FormResults({ params }: { params: { id: string } }) {
                       setSelection({ type: "response", responseId: response.id });
                     }}
                   >
-                    <Avatar className="h-7 w-7">
+                    <Avatar className="h-7 w-7 shrink-0">
                       <AvatarFallback>{getInitials(response.name)}</AvatarFallback>
                     </Avatar>
-                    <div className="flex-1 text-left">
-                      <div className="font-medium flex items-center gap-2 flex-wrap">
-                        <span>{response.name}</span>
+                    <div className="flex-1 text-left min-w-0 overflow-hidden space-y-1.5">
+                      <div className="flex items-center justify-between gap-2 min-h-5">
+                        <span className="font-medium truncate min-w-0 text-foreground">{response.name}</span>
+                        <span className="text-xs text-muted-foreground shrink-0 truncate max-w-[8.5rem] text-right">
+                          {formatDistanceToNow(parseServerDate(response.submittedAt), {
+                            addSuffix: true,
+                            locale: i18n.language.startsWith("ru") ? ru : undefined,
+                          })}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant="outline" className="h-5 font-normal text-xs">
+                          {t("results.version", { version: response.version })}
+                        </Badge>
                         {attemptNumberByResponseId.get(response.id) != null && (
-                          <Badge variant="secondary" className="h-5 font-normal">
+                          <Badge variant="outline" className="h-5 font-normal text-xs">
                             {t("results.attemptNumber", { number: attemptNumberByResponseId.get(response.id) })}
                           </Badge>
                         )}
-                        <Badge variant="outline" className="h-5">
-                          {t("results.version", { version: response.version })}
-                        </Badge>
                         {response.status === "cancelled" && (
-                          <Badge variant="destructive" className="h-5 font-normal pointer-events-none">
+                          <Badge variant="destructive" className="h-5 font-normal text-xs pointer-events-none">
                             {t("home.revoked")}
                           </Badge>
                         )}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {formatDistanceToNow(parseServerDate(response.submittedAt), {
-                          addSuffix: true,
-                          locale: i18n.language.startsWith("ru") ? ru : undefined,
-                        })}
                       </div>
                     </div>
                   </button>
@@ -1532,32 +1534,31 @@ export default function FormResults({ params }: { params: { id: string } }) {
               {!isLoading && selection.type === "response" && (
                 activeResponse ? (
                   <div className="space-y-4">
-                    <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-2">
-                        <User className="h-4 w-4" />
-                        <span>{activeResponse.name}</span>
+                    <div className="space-y-1.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 text-sm">
+                          <User className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-medium text-foreground">{activeResponse.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Clock className="h-4 w-4" />
+                          <span>{formatDuration(activeResponse.durationMinutes, isRussianLocale)}</span>
+                        </div>
                       </div>
-                      <Separator orientation="vertical" className="h-4" />
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4" />
-                        <span>{formatDuration(activeResponse.durationMinutes, isRussianLocale)}</span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="outline" className="h-5 font-normal">{t("results.version", { version: activeResponse.version })}</Badge>
+                        {attemptNumberByResponseId.get(activeResponse.id) != null && (
+                          <Badge variant="outline" className="h-5 font-normal">{t("results.attemptNumber", { number: attemptNumberByResponseId.get(activeResponse.id) })}</Badge>
+                        )}
+                        {activeResponse.status === "cancelled" && (
+                          <Badge variant="destructive" className="h-5 font-normal pointer-events-none">{t("home.revoked")}</Badge>
+                        )}
                       </div>
                       {activeResponseScore && (
-                        <>
-                          <Separator orientation="vertical" className="h-4" />
-                          <div className="flex items-center gap-2">
-                            <BarChart3 className="h-4 w-4" />
-                            <span>{t("results.correctScore", { score: activeResponseScore.score, max: activeResponseScore.maxScore })}</span>
-                          </div>
-                        </>
-                      )}
-                      <Separator orientation="vertical" className="h-4" />
-                      <Badge variant="outline">{t("results.version", { version: activeResponse.version })}</Badge>
-                      {attemptNumberByResponseId.get(activeResponse.id) != null && (
-                        <Badge variant="secondary">{t("results.attemptNumber", { number: attemptNumberByResponseId.get(activeResponse.id) })}</Badge>
-                      )}
-                      {activeResponse.status === "cancelled" && (
-                        <Badge variant="destructive" className="pointer-events-none">{t("home.revoked")}</Badge>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground pt-0.5">
+                          <BarChart3 className="h-4 w-4" />
+                          <span>{t("results.correctScore", { score: activeResponseScore.score, max: activeResponseScore.maxScore })}</span>
+                        </div>
                       )}
                     </div>
 
@@ -1656,6 +1657,8 @@ export default function FormResults({ params }: { params: { id: string } }) {
               <Separator />
               
               <div className="space-y-4">
+                {accessMode !== "unauthenticated" && (
+                <>
                 <div className="space-y-2">
                   <div className="flex items-center space-x-2">
                     <Checkbox
@@ -1677,8 +1680,6 @@ export default function FormResults({ params }: { params: { id: string } }) {
                   </p>
                 </div>
                 
-                {accessMode !== "unauthenticated" && (
-                <>
                 {allowRevoke && (
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2">
@@ -1732,14 +1733,35 @@ export default function FormResults({ params }: { params: { id: string } }) {
                     <Input
                       id="attemptLimit"
                       type="number"
-                      min="1"
+                      min={1}
+                      max={9999}
                       value={attemptLimitInput}
-                      onChange={(e) => setAttemptLimitInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (["+", "-", ".", "e", "E"].includes(e.key)) e.preventDefault();
+                      }}
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/\D/g, "");
+                        if (raw === "") {
+                          setAttemptLimitInput("");
+                          return;
+                        }
+                        const n = parseInt(raw, 10);
+                        if (n > 9999) {
+                          setAttemptLimit(9999);
+                          setAttemptLimitInput("9999");
+                        } else {
+                          setAttemptLimit(n);
+                          setAttemptLimitInput(raw);
+                        }
+                      }}
                       onBlur={() => {
                         const n = parseInt(attemptLimitInput.trim(), 10);
                         if (Number.isNaN(n) || n < 1) {
                           setAttemptLimit(1);
                           setAttemptLimitInput("1");
+                        } else if (n > 9999) {
+                          setAttemptLimit(9999);
+                          setAttemptLimitInput("9999");
                         } else {
                           setAttemptLimit(n);
                           setAttemptLimitInput(String(n));

@@ -186,6 +186,13 @@ async def revoke_response(
             detail="Form not found"
         )
     
+    # Для публичного опроса отзыв ответа запрещён
+    if _enum_value(form.access_mode) == "unauthenticated":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Response revocation is not allowed for public forms"
+        )
+    
     # Проверяем, разрешен ли отзыв ответов
     settings = form.settings_json if isinstance(form.settings_json, dict) else {}
     allow_revoke = settings.get("allowRevoke", False)

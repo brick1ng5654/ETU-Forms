@@ -380,6 +380,7 @@ export default function Home() {
                   const canRevoke = form?.settings_json && 
                     typeof form.settings_json === "object" &&
                     Boolean((form.settings_json as Record<string, unknown>).allowRevoke) &&
+                    form.accessMode !== "unauthenticated" &&
                     response.status === "submitted";
                   
                   return (
