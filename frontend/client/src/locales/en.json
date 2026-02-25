@@ -17,7 +17,6 @@
     "showLess":"Collapse",
     "noResults":"No results found"
   },
-
   "navigation": {
     "allForms": "All Forms",
     "categories": "Categories",
@@ -40,7 +39,6 @@
     "descriphome":"No description",
     "loadingForms": "Uploading forms"
   },
-
   "builder": {
     "toolbox": "Elements",
     "properties": "Properties",
@@ -194,6 +192,85 @@
     "attemptLimit": "Number of attempts",
     "attemptLimitHint": "Maximum number of form completion attempts per user"
   },
+  "access": {
+    "title": "Form access",
+    "subtitle": "Manage users and invitation links",
+    "subtitleWithForm": "Manage access to \"{{form}}\"",
+    "manageAccess": "Access settings",
+    "manageAccessToForm": "Configure form access",
+    "leaveAccess": "Decline access",
+    "leaveAccessConfirm": "Do you really want to decline access to this form?",
+    "leaveAccessSuccess": "Access has been declined",
+    "leaveAccessFailed": "Failed to decline access",
+    "emailPlaceholder": "Enter user email and press Enter",
+    "role": "Role",
+    "roleEditor": "Editor",
+    "roleParticipant": "Observer",
+    "roleEditorHint": "Allows editing the form (if the user has the \"Form Creator\" role) and viewing its responses.",
+    "roleParticipantHint": "Allows viewing form responses.",
+    "requireAccept": "Require invitation acceptance",
+    "startDateLabel": "Access start date",
+    "expireDateLabel": "Access end date",
+    "inviteByEmail": "Invite by email",
+    "generateLink": "Generate access link",
+    "generatedLink": "Generated invitation link",
+    "listTitle": "Current roles and invites",
+    "filterAll": "All roles",
+    "expiresAt": "Expires at",
+    "noExpiry": "No expiry",
+    "status": "Status",
+    "statusActive": "Active",
+    "statusPending": "Pending",
+    "statusAccepted": "Accepted",
+    "statusExpired": "Expired",
+    "statusRevoked": "Revoked",
+    "saved": "Access settings updated",
+    "saveFailed": "Failed to update access settings",
+    "invalidEmail": "Invalid email",
+    "userNotFoundForAutoGrant": "User not found. Use invitation link mode.",
+    "loadFailed": "Failed to load access settings",
+    "deliveryHint": "Automatic email delivery is not configured: copy the invitation link and send it manually.",
+    "emailInviteGrantHint": "Inviting by email grants the selected role immediately to the found user.",
+    "linkUniversalHint": "Create link generates a universal invite link that can be sent to any authenticated user.",
+    "linkGenerated": "Invitation link generated",
+    "acceptLimitLabel": "Accept limit",
+    "unlimited": "Unlimited",
+    "invalidAcceptLimit": "Enter a number from 1 to 999999",
+    "invalidDateRange": "Start date must be before end date",
+    "activeLinks": "Active invitation links",
+    "emptyLinks": "No active links",
+    "deleteAllActiveLinks": "Delete all active links",
+    "deleteAllActiveLinksConfirm": "Delete all active invitation links for this form?",
+    "deleteAllActiveLinksSuccess": "All active links were deleted",
+    "startsAt": "Starts at",
+    "acceptedUsage": "Accepted",
+    "noStartLimit": "Immediately",
+    "emptyList": "No access entries",
+    "clearAllEntries": "Remove all roles and invites",
+    "clearAllEntriesConfirm": "Remove all current roles and invitations for this form?",
+    "clearAllEntriesSuccess": "All roles and invitations were removed",
+    "unsavedChangesTitle": "You have unsaved changes",
+    "unsavedChangesDescription": "Save changes before closing the window?",
+    "saveAndClose": "Save and close",
+    "closeWithoutSaving": "Close without saving",
+    "unknownUser": "Unknown user",
+    "noManagePermission": "You do not have permission to manage access for this form.",
+    "invitePageTitle": "Form access invitation",
+    "invitePageSubtitle": "Confirm that you want to accept this role",
+    "inviteToForm": "Invitation to form: {{form}}",
+    "acceptInvite": "Accept invitation",
+    "declineInvite": "Decline",
+    "acceptSuccess": "Access granted",
+    "acceptFailed": "Failed to accept invitation",
+    "inviteAlreadyAcceptedByYou": "You have already accepted this invitation. Reusing the same link is unavailable.",
+    "inviteLimitReached": "The invitation usage limit has been reached.",
+    "inviteNotForCreator": "You are the form owner. Accepting the invitation is not required.",
+    "openHome": "Open home",
+    "universalInvite": "Universal invite",
+    "anyAuthorizedUser": "Available to any authenticated user by link",
+    "linkExpireDateLabel": "Valid until (for link)",
+    "permanentAccess": "No expiration"
+  },
   "respond": {
     "title": "Form response",
     "subtitle": "Fill in the fields and submit",
@@ -209,14 +286,12 @@
     "attemptsExhaustedHint": "You have used all available attempts to complete this form.",
     "goToHome": "Go to home"
   },
-
   "categories": {
     "Basic": "Basic",
     "Choice": "Choice",
     "Advanced": "Advanced",
     "Specialized": "Specialized"
   },
-
   "fields": {
     "header": "Header",
     "text": "Text",
@@ -240,7 +315,6 @@
     "bik": "BIK",
     "matrix": "Choice Matrix"
   },
-
   "actions": {
     "act":"Actions",
     "properties": "Properties",
@@ -253,7 +327,6 @@
     "confirmDeleteFolder": "Are you sure? Forms in this folder will be moved to 'All Forms'.",
     "error":"Error"
   },
-
   "placeholders": {
     "folderName": "Folder Name",
     "search": "Search...",
@@ -289,7 +362,6 @@
       "birthPlace": "Place of birth"
     }
   },
-
   "language": {
     "switched": "Language Switched",
     "switchedTo": "Switched to {{lang}}"
@@ -298,14 +370,12 @@
     "account": "Account",
     "logout": "Log out"
   },
-
   "back":{
     "bgFormCreate":"Click elements from the sidebar to add them",
     "drag":"Drag fields to reorder them",
     "properties":"Select a field on the canvas to edit its properties",
     "loaddrag":"Drag & drop files here or click to upload"
   },
-
   "propert":{
     "propet":"Properties",
     "label":"Label",
@@ -435,8 +505,7 @@
     "invalidSnilsRepeatedDigits": "Invalid SNILS",
     "invalidSnilsChecksum": "Invalid SNILS checksum"
   },
-  
-  "descerr":{
+  "descerr": {
     "empty":"Folder name cannot be empty",
     "query":"Folder with this name already exists"
   },
@@ -471,17 +540,16 @@
     "noAttemptsRemaining": "No attempts remaining"
   },
   "logic": {
-  "conditional": "Conditional Logic",
-  "dependsOn": "Depends on",
-  "none": "None",
-  "condition": "Condition",
-  "equals": "Equals",
-  "not_equals": "Not Equals",
-  "answered": "Answered",
-  "not_answered": "Not Answered",
-  "expectedValue": "Expected Value"
-},
-
+    "conditional":"Conditional Logic",
+    "dependsOn":"Depends on",
+    "none":"None",
+    "condition":"Condition",
+    "equals":"Equals",
+    "not_equals":"Not Equals",
+    "answered":"Answered",
+    "not_answered":"Not Answered",
+    "expectedValue":"Expected Value"
+  },
   "auth": {
     "login": "Login",
     "loginDesc": "Choose login method",

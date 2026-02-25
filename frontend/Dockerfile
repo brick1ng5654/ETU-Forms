@@ -3,14 +3,10 @@ FROM node:20.18.3-alpine AS build
 
 WORKDIR /app
 
-# Копируем все зависимости и конфиги
+COPY package*.json ./
+RUN npm ci
+
 COPY . .
-
-# Устанавливаем зависимости
-RUN npm install
-
-# Копируем исходники клиента
-COPY client/ ./client/
 
 # Собираем проект
 RUN npm run build

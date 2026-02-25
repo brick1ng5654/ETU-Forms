@@ -54,6 +54,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { toast } from "@/hooks/use-toast";
 import { AppBrand } from "@/components/app-brand";
 import { CustomLoader } from "@/components/ui/custom-loader";
+import { FormAccessDialog } from "@/components/form-access-dialog";
 
 type ResponseEntry = {
   id: string;
@@ -90,7 +91,7 @@ type PublishCondition = {
   source_client_id: string;
   target_client_id: string;
   operator: "equals" | "not_equals" | "in" | "not_in" | "greater_than" | "less_than" | "contains" | "answered";
-  value: unknown;
+  value: Record<string, unknown> | null;
 };
 
 type FormBuilderPayload = {
@@ -223,7 +224,7 @@ const extractConditionsFromFields = (publishFields: FormElementModel[]): Publish
     if (!logic?.dependsOn || !logic.condition) continue;
 
     let operator: PublishCondition["operator"] | null = null;
-    let value: unknown = null;
+    let value: Record<string, unknown> | null = null;
 
     if (logic.condition === "equals") {
       operator = "equals";
@@ -630,6 +631,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
   const [attemptLimitInput, setAttemptLimitInput] = useState("1");
   const [revokeCountsAsAttempt, setRevokeCountsAsAttempt] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isAccessDialogOpen, setIsAccessDialogOpen] = useState(false);
   const isRussianLocale = i18n.language.startsWith("ru");
   const canEditCurrentForm = form?.canEdit === true;
 
@@ -1226,6 +1228,16 @@ export default function FormResults({ params }: { params: { id: string } }) {
               <span className="hidden sm:inline">{t("results.editForm")}</span>
             </Button>
           ) : null}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => setIsAccessDialogOpen(true)}
+            disabled={!canEditCurrentForm}
+          >
+            <Users className="h-4 w-4" />
+            <span className="hidden sm:inline">{t("access.manageAccessToForm")}</span>
+          </Button>
           <Button
             variant="ghost"
             size="sm"
@@ -1841,6 +1853,12 @@ export default function FormResults({ params }: { params: { id: string } }) {
         </aside>
       </div>
       )}
+      <FormAccessDialog
+        form={form ? { id: form.id, title: form.title } : null}
+        open={isAccessDialogOpen}
+        onOpenChange={setIsAccessDialogOpen}
+        canManage={canEditCurrentForm}
+      />
     </div>
   );
 }

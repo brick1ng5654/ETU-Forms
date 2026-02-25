@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -74,6 +76,7 @@ async def _ensure_access(
         user_id: int,
         role: str,
 ) -> None:
+    now = datetime.utcnow()
     q = select(models.AccessControl).where(
         models.AccessControl.form_id == form_id,
         models.AccessControl.user_id == user_id,
@@ -82,12 +85,15 @@ async def _ensure_access(
     if access:
         if access.role != role:
             access.role = role
+        if access.starts_at is None:
+            access.starts_at = now
         return
     
     access = models.AccessControl(
         form_id=form_id,
         user_id=user_id,
         role=role,
+        starts_at=now,
     )
     db.add(access)
 

@@ -14,6 +14,8 @@ import {
   Languages,
   CheckCircle,
   RotateCcw,
+  Users,
+  UserMinus,
 } from "lucide-react";
 import { storage } from "@/lib/storage";
 import { FormSchema } from "@/lib/form-types";
@@ -35,7 +37,8 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import { UserMenu } from "@/components/user-menu";
-import { createForm, deleteForm as deleteFormApi, fetchFormsCatalog, fetchMyResponses, revokeResponse, type StoredFormResponse } from "@/lib/forms-api";
+import { FormAccessDialog } from "@/components/form-access-dialog";
+import { createForm, deleteForm as deleteFormApi, fetchFormsCatalog, fetchMyResponses, leaveFormAccess, revokeResponse, type StoredFormResponse } from "@/lib/forms-api";
 import { useAuth } from "@/lib/auth";
 import { AppBrand } from "@/components/app-brand";
 import { CustomLoader } from "@/components/ui/custom-loader";
@@ -60,6 +63,7 @@ export default function Home() {
   const [propertiesForm, setPropertiesForm] = useState<FormSchema | null>(null);
   const [myResponses, setMyResponses] = useState<StoredFormResponse[]>([]);
   const [isLoadingResponses, setIsLoadingResponses] = useState(false);
+  const [accessForm, setAccessForm] = useState<FormSchema | null>(null);
   const { accessToken, isLoading, user } = useAuth();
   const { t, i18n } = useTranslation();
   const [, setLocation] = useLocation();
@@ -200,6 +204,30 @@ export default function Home() {
     const key = getPrivateLinkKey(form);
     const href = key ? `/form/${form.id}?key=${encodeURIComponent(key)}` : `/form/${form.id}`;
     setLocation(href);
+  };
+
+  const isFormOwner = (form: FormSchema) => {
+    if (!user) return false;
+    return (form.ownerId ?? null) === user.user_id;
+  };
+
+  const declineAccess = async (form: FormSchema) => {
+    if (isFormOwner(form)) return;
+    if (!confirm(t("access.leaveAccessConfirm"))) return;
+    try {
+      await leaveFormAccess(form.id);
+      toast({ title: t("access.leaveAccessSuccess") });
+      if (accessForm?.id === form.id) {
+        setAccessForm(null);
+      }
+      void refreshData();
+    } catch (error: any) {
+      toast({
+        title: t("actions.error"),
+        description: error?.message ?? t("access.leaveAccessFailed"),
+        variant: "destructive",
+      });
+    }
   };
 
   const categoryLabel = useMemo<Record<AccessCategory, string>>(
@@ -515,6 +543,15 @@ export default function Home() {
                             {t("home.continuePassage")}
                           </Button>
                         )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setAccessForm(form)}
+                          disabled={!canEditForm(form)}
+                        >
+                          <Users className="mr-2 h-4 w-4" />
+                          {t("access.manageAccess")}
+                        </Button>
                       </div>
                     </div>
 
@@ -546,6 +583,17 @@ export default function Home() {
                               <Play className="mr-2 h-4 w-4" /> {t("home.continuePassage")}
                             </DropdownMenuItem>
                           )}
+                          {!isFormOwner(form) ? (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => void declineAccess(form)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <UserMinus className="mr-2 h-4 w-4" /> {t("access.leaveAccess")}
+                              </DropdownMenuItem>
+                            </>
+                          ) : null}
                           {canEditForm(form) ? (
                             <>
                               <DropdownMenuSeparator />
@@ -600,6 +648,20 @@ export default function Home() {
           ) : null}
         </DialogContent>
       </Dialog>
+
+      <FormAccessDialog
+        form={accessForm}
+        open={Boolean(accessForm)}
+        onOpenChange={(next) => {
+          if (!next) {
+            setAccessForm(null);
+          }
+        }}
+        canManage={Boolean(accessForm && canEditForm(accessForm))}
+        onUpdated={() => {
+          void refreshData();
+        }}
+      />
     </div>
   );
 }
