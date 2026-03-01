@@ -168,7 +168,7 @@ export default function FormAccessInvitePage({ params }: { params: { token: stri
   return (
     <div className="min-h-screen bg-muted/30">
       <header className="h-19 border-b border-border bg-white flex items-center justify-between px-3 sm:px-8 shrink-0">
-        <AppBrand onClick={() => setLocation("/")} />
+        <AppBrand href="/" onClick={() => setLocation("/")} />
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
