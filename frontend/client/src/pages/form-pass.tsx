@@ -7,6 +7,16 @@ import { buildAnswersPayload } from "@/form/answers";
 import FormPreview from "@/components/form-builder/FormPreview";
 import { AppBrand } from "@/components/app-brand";
 import { UserMenu } from "@/components/user-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
@@ -90,6 +100,7 @@ export default function FormPass({ params }: { params: { id: string } }) {
   const [pageAllowBack, setPageAllowBack] = useState(true);
   const [pageIsFirst, setPageIsFirst] = useState(true);
   const [initialPageId, setInitialPageId] = useState<number | undefined>(undefined);
+  const [pendingSubmitPayload, setPendingSubmitPayload] = useState<{ answers: Record<string, unknown> } | null>(null);
   const isUnauthenticatedMode = form?.accessMode === "unauthenticated";
   const sessionToken = useMemo(
     () => (form ? getOrCreateSessionToken(form.id) : null),
@@ -211,6 +222,9 @@ export default function FormPass({ params }: { params: { id: string } }) {
   useRedirectHomeOnBrowserBack(backLocked);
 
   const attemptsExhausted = form && form.attemptsRemaining === 0;
+  const allowRevoke = Boolean(form?.settings_json && (form.settings_json as Record<string, unknown>).allowRevoke);
+  const attemptLimit = form?.attemptLimit ?? null;
+  const attemptsRemaining = form?.attemptsRemaining;
 
   useEffect(() => {
     if (!form || isSubmitted || attemptsExhausted) return;
@@ -291,8 +305,9 @@ export default function FormPass({ params }: { params: { id: string } }) {
     };
   }, []);
 
-  const handleSubmit = async (payload: { answers: Record<string, unknown> }) => {
+  const doSubmit = async (payload: { answers: Record<string, unknown> }) => {
     setIsSubmitting(true);
+    setPendingSubmitPayload(null);
     if (saveDraftTimeoutRef.current) {
       clearTimeout(saveDraftTimeoutRef.current);
       saveDraftTimeoutRef.current = null;
@@ -329,6 +344,10 @@ export default function FormPass({ params }: { params: { id: string } }) {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleSubmit = (payload: { answers: Record<string, unknown> }) => {
+    setPendingSubmitPayload(payload);
   };
 
   return (
@@ -400,6 +419,37 @@ export default function FormPass({ params }: { params: { id: string } }) {
             </CardContent>
           </Card>
         ) : form ? (
+          <>
+          <AlertDialog open={pendingSubmitPayload !== null} onOpenChange={(open) => !open && setPendingSubmitPayload(null)}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{t("respond.confirmSubmitTitle")}</AlertDialogTitle>
+                <AlertDialogDescription asChild>
+                  <div className="space-y-2">
+                    
+                    {!allowRevoke && <p>{t("respond.confirmSubmitNoChanges")}</p>}
+                    {allowRevoke && <p>{t("respond.confirmSubmitCanRevoke")}</p>}
+                    {attemptLimit != null && attemptsRemaining !== undefined && attemptsRemaining !== null && (
+                      <p>
+                        {attemptsRemaining === 1
+                          ? t("respond.confirmSubmitLastAttempt")
+                          : t("respond.confirmSubmitAttemptsRemaining", {
+                              count: attemptsRemaining - 1,
+                              total: attemptLimit,
+                            })}
+                      </p>
+                    )}
+                  </div>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>{t("actions.cancel")}</AlertDialogCancel>
+                <AlertDialogAction onClick={() => pendingSubmitPayload && void doSubmit(pendingSubmitPayload)}>
+                  {t("respond.submit")}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
           <Card>
             <CardHeader>
               <CardTitle>{form.title || t("common.untitled")}</CardTitle>
@@ -438,6 +488,7 @@ export default function FormPass({ params }: { params: { id: string } }) {
               )}
             </CardContent>
           </Card>
+          </>
         ) : null}
       </main>
     </div>
