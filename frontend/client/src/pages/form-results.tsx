@@ -3,13 +3,11 @@ import type { ReactNode } from "react";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import { format, formatDistanceToNow } from "date-fns";
-import type { Locale } from "date-fns";
 import { ru } from "date-fns/locale";
 import {
   ArrowDown,
   ArrowUp,
   BarChart3,
-  CalendarDays,
   Clock,
   Copy,
   FileText,
@@ -47,10 +45,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DatePickerInput } from "@/components/ui/date-picker-input";
 import { toast } from "@/hooks/use-toast";
 import { AppBrand } from "@/components/app-brand";
 import { CustomLoader } from "@/components/ui/custom-loader";
@@ -141,23 +138,6 @@ const toIsoDate = (value: string, fallbackTime: string) => {
   if (!value) return null;
   return new Date(`${value}T${fallbackTime}`).toISOString();
 };
-
-const isValidDateString = (value: string) => {
-  if (value.length !== 10) return false;
-  const [year, month, day] = value.split("-").map(Number);
-  if (!year || !month || !day) return false;
-  if (month < 1 || month > 12) return false;
-  const parsed = new Date(year, month - 1, day);
-  return parsed.getFullYear() === year && parsed.getMonth() === month - 1 && parsed.getDate() === day;
-};
-
-const parseDateFromString = (value: string) => {
-  if (!isValidDateString(value)) return undefined;
-  const [year, month, day] = value.split("-").map(Number);
-  return new Date(year, month - 1, day);
-};
-
-const getStableDate = (value: string) => parseDateFromString(value);
 
 const createPrivateLinkKey = () => {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -439,81 +419,6 @@ const calculateMedian = (values: number[]) => {
   return sorted[middle];
 };
 
-type DateFieldProps = {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  title: string;
-  locale?: Locale;
-};
-
-const DateField = ({ label, value, onChange, title, locale }: DateFieldProps) => {
-  const [month, setMonth] = useState<Date>(() => getStableDate(value) ?? new Date());
-
-  useEffect(() => {
-    const parsed = getStableDate(value);
-    if (parsed) {
-      setMonth(parsed);
-    }
-  }, [value]);
-
-  return (
-    <div className="space-y-2">
-      <label className="text-sm font-medium">{label}</label>
-      <div className="relative">
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="absolute left-1 top-1/2 -translate-y-1/2 h-8 w-8"
-              title={title}
-            >
-              <CalendarDays className="h-4 w-4 text-muted-foreground" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start" portalled={false}>
-            <Calendar
-              mode="single"
-              selected={getStableDate(value)}
-              month={month}
-              onMonthChange={setMonth}
-              onSelect={(date) => {
-                if (!date) {
-                  onChange("");
-                  return;
-                }
-                setMonth(date);
-                onChange(format(date, "yyyy-MM-dd"));
-              }}
-              locale={locale}
-            />
-          </PopoverContent>
-        </Popover>
-        <Input
-          type="date"
-          value={value}
-          onChange={(event) => {
-            const next = event.target.value;
-            if (next === "") {
-              onChange("");
-              return;
-            }
-            if (isValidDateString(next)) {
-              const parsed = parseDateFromString(next);
-              if (parsed) {
-                setMonth(parsed);
-              }
-              onChange(next);
-            }
-          }}
-          className="pl-10"
-        />
-      </div>
-    </div>
-  );
-};
 const formatAnswerValue = (
   field: FormElementModel,
   value: AnswersById[string],
@@ -1624,20 +1529,26 @@ export default function FormResults({ params }: { params: { id: string } }) {
               <CardDescription>{t("results.linkHint")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <DateField
-                label={t("results.openDate")}
-                value={startAt}
-                onChange={setStartAt}
-                title={t("results.openCalendar")}
-                locale={calendarLocale}
-              />
-              <DateField
-                label={t("results.closeDate")}
-                value={endAt}
-                onChange={setEndAt}
-                title={t("results.openCalendar")}
-                locale={calendarLocale}
-              />
+              <div className="space-y-2">
+                <label className="text-sm font-medium">{t("results.openDate")}</label>
+                <DatePickerInput
+                  value={startAt}
+                  onChange={setStartAt}
+                  title={t("results.openCalendar")}
+                  locale={calendarLocale}
+                  popoverPortalled={false}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">{t("results.closeDate")}</label>
+                <DatePickerInput
+                  value={endAt}
+                  onChange={setEndAt}
+                  title={t("results.openCalendar")}
+                  locale={calendarLocale}
+                  popoverPortalled={false}
+                />
+              </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">{t("builder.accessMode")}</label>
                 <Select value={accessMode} onValueChange={(value) => setAccessMode(value as FormAccessMode)}>
