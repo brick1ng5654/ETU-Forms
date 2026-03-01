@@ -71,9 +71,7 @@ export default function Home() {
   const categoryButtonClass = "w-full h-10 md:h-auto px-0 md:px-3 justify-center md:justify-start md:py-2 md:whitespace-normal md:text-left md:leading-tight";
   const canCreateForms = user?.role === "form_creator" || user?.role === "admin";
   const hasAnyRole = Boolean(user?.role);
-  const continueCategoryLabel = i18n.language.startsWith("ru")
-    ? "Доступные для прохождения формы"
-    : t("navigation.availableForContinue");
+  const continueCategoryLabel = t("navigation.availableForContinue");
 
   const formatDateTime = (value?: number) => {
     if (!value) return t("home.notAvailable");

@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import { format, formatDistanceToNow } from "date-fns";
 import type { Locale } from "date-fns";
-import { ru } from "date-fns/locale";
+import { enUS, ru } from "date-fns/locale";
 import {
   ArrowDown,
   ArrowUp,
@@ -447,8 +447,16 @@ type DateFieldProps = {
   locale?: Locale;
 };
 
+const formatDateDisplay = (yyyyMmDd: string) => {
+  if (!yyyyMmDd || yyyyMmDd.length !== 10) return "";
+  const [y, m, d] = yyyyMmDd.split("-");
+  return `${d}.${m}.${y}`;
+};
+
 const DateField = ({ label, value, onChange, title, locale }: DateFieldProps) => {
+  const { t } = useTranslation();
   const [month, setMonth] = useState<Date>(() => getStableDate(value) ?? new Date());
+  const [popoverOpen, setPopoverOpen] = useState(false);
 
   useEffect(() => {
     const parsed = getStableDate(value);
@@ -461,7 +469,7 @@ const DateField = ({ label, value, onChange, title, locale }: DateFieldProps) =>
     <div className="space-y-2">
       <label className="text-sm font-medium">{label}</label>
       <div className="relative">
-        <Popover>
+        <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
           <PopoverTrigger asChild>
             <Button
               type="button"
@@ -482,33 +490,24 @@ const DateField = ({ label, value, onChange, title, locale }: DateFieldProps) =>
               onSelect={(date) => {
                 if (!date) {
                   onChange("");
+                  setPopoverOpen(false);
                   return;
                 }
                 setMonth(date);
                 onChange(format(date, "yyyy-MM-dd"));
+                setPopoverOpen(false);
               }}
               locale={locale}
             />
           </PopoverContent>
         </Popover>
         <Input
-          type="date"
-          value={value}
-          onChange={(event) => {
-            const next = event.target.value;
-            if (next === "") {
-              onChange("");
-              return;
-            }
-            if (isValidDateString(next)) {
-              const parsed = parseDateFromString(next);
-              if (parsed) {
-                setMonth(parsed);
-              }
-              onChange(next);
-            }
-          }}
-          className="pl-10"
+          type="text"
+          readOnly
+          value={value ? formatDateDisplay(value) : ""}
+          placeholder={t("propert.dateFormatPlaceholder")}
+          onClick={() => setPopoverOpen(true)}
+          className="pl-10 cursor-pointer"
         />
       </div>
     </div>
@@ -1085,7 +1084,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
       return [activeVersionLabel, t("results.summaryHint")].filter(Boolean).join(" | ");
     }
     if (!activeResponse) return "";
-    const locale = i18n.language.startsWith("ru") ? ru : undefined;
+    const locale: Locale = i18n.language.startsWith("ru") ? ru : enUS;
     const attemptNum = attemptNumberByResponseId.get(activeResponse.id);
     return [
       attemptNum != null ? t("results.attemptNumber", { number: attemptNum }) : null,
@@ -1203,7 +1202,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
     }
   };
 
-  const calendarLocale = i18n.language.startsWith("ru") ? ru : undefined;
+  const calendarLocale = i18n.language.startsWith("ru") ? ru : enUS;
 
   return (
     <div className="min-h-screen bg-muted/30 flex flex-col">
@@ -1429,7 +1428,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
                         <span className="text-xs text-muted-foreground shrink-0 truncate max-w-[8.5rem] text-right">
                           {formatDistanceToNow(parseServerDate(response.submittedAt), {
                             addSuffix: true,
-                            locale: i18n.language.startsWith("ru") ? ru : undefined,
+                            locale: i18n.language.startsWith("ru") ? ru : enUS,
                           })}
                         </span>
                       </div>

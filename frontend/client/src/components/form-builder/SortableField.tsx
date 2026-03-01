@@ -304,8 +304,9 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
                 <div key={part.key} className="relative">
                   <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
                   <Input
-                    type="date"
-                    placeholder={placeholder || t("propert.selectDate")}
+                    type="text"
+                    value=""
+                    placeholder={placeholder || t("propert.dateFormatPlaceholder")}
                     disabled
                     className="pl-10 h-10 bg-white/50 pointer-events-none text-muted-foreground"
                   />
@@ -754,10 +755,11 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
               <div className="relative">
                 <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
                 <Input
-                  type="date"
+                  type="text"
+                  value=""
                   disabled
                   className="pl-10 h-10 bg-white/50 pointer-events-none text-muted-foreground"
-                  placeholder={t("propert.selectDate")}
+                  placeholder={t("propert.dateFormatPlaceholder")}
                 />
               </div>
             )}

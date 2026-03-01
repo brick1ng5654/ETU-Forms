@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Locale } from "date-fns";
-import { ru } from "date-fns/locale";
+import { enUS, ru } from "date-fns/locale";
 import { useTranslation } from "react-i18next";
 import { ArrowDown, ArrowUp, CalendarDays, Check, Copy, Link as LinkIcon, Trash2, UserPlus } from "lucide-react";
 
@@ -154,8 +154,16 @@ type DateFieldProps = {
   className?: string;
 };
 
+const formatDateDisplay = (yyyyMmDd: string) => {
+  if (!yyyyMmDd || yyyyMmDd.length !== 10) return "";
+  const [y, m, d] = yyyyMmDd.split("-");
+  return `${d}.${m}.${y}`;
+};
+
 function ExpiryDateField({ value, onChange, disabled, locale, className }: DateFieldProps) {
+  const { t } = useTranslation();
   const [month, setMonth] = useState<Date>(() => parseDateFromString(value) ?? new Date());
+  const [popoverOpen, setPopoverOpen] = useState(false);
 
   useEffect(() => {
     const parsed = parseDateFromString(value);
@@ -164,7 +172,7 @@ function ExpiryDateField({ value, onChange, disabled, locale, className }: DateF
 
   return (
     <div className={cn("relative", className)}>
-      <Popover>
+      <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
         <PopoverTrigger asChild>
           <Button
             type="button"
@@ -186,28 +194,24 @@ function ExpiryDateField({ value, onChange, disabled, locale, className }: DateF
             onSelect={(date) => {
               if (!date) {
                 onChange("");
+                setPopoverOpen(false);
                 return;
               }
               setMonth(date);
               onChange(formatDateForInput(date));
+              setPopoverOpen(false);
             }}
           />
         </PopoverContent>
       </Popover>
       <Input
-        type="date"
-        value={value}
+        type="text"
+        readOnly
+        value={value ? formatDateDisplay(value) : ""}
+        placeholder={t("propert.dateFormatPlaceholder")}
         disabled={disabled}
-        className="pl-10"
-        onChange={(event) => {
-          const next = event.target.value;
-          if (next === "") {
-            onChange("");
-            return;
-          }
-          if (!isValidDateString(next)) return;
-          onChange(next);
-        }}
+        className="pl-10 cursor-pointer"
+        onClick={() => !disabled && setPopoverOpen(true)}
       />
     </div>
   );
@@ -310,7 +314,7 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
   const [entryDateDrafts, setEntryDateDrafts] = useState<Record<number, string>>({});
   const [entryRoleDrafts, setEntryRoleDrafts] = useState<Record<number, FormAccessRole>>({});
   const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState(false);
-  const calendarLocale = i18n.language.startsWith("ru") ? ru : undefined;
+  const calendarLocale = i18n.language.startsWith("ru") ? ru : enUS;
 
   const currentFormId = form?.id ?? null;
 

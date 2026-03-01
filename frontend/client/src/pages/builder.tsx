@@ -51,7 +51,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
-import { ru } from "date-fns/locale";
+import { enUS, ru } from "date-fns/locale";
 import { UserMenu } from "@/components/user-menu";
 import {
   createForm,
@@ -108,6 +108,12 @@ const CATEGORY_ICONS: Record<string, LucideIcon> = {
 const formatDateInput = (value: string | null | undefined) => {
   if (!value) return "";
   return value;
+};
+
+const formatDateDisplay = (yyyyMmDd: string) => {
+  if (!yyyyMmDd || yyyyMmDd.length !== 10) return "";
+  const [y, m, d] = yyyyMmDd.split("-");
+  return `${d}.${m}.${y}`;
 };
 
 const isValidDateString = (value: string) => {
@@ -272,6 +278,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
   const [publishAccessMode, setPublishAccessMode] = useState<FormAccessMode>("private");
   const [publishNoStart, setPublishNoStart] = useState(false);
   const [publishNoEnd, setPublishNoEnd] = useState(false);
+  const [publishDatePopoverOpen, setPublishDatePopoverOpen] = useState<"start" | "end" | null>(null);
   const [publishAllowRevoke, setPublishAllowRevoke] = useState(false);
   const [publishRevokeCountsAsAttempt, setPublishRevokeCountsAsAttempt] = useState(false);
   const [publishAttemptLimitType, setPublishAttemptLimitType] = useState<"unlimited" | "limited">("unlimited");
@@ -375,6 +382,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
     }
   }, [isLgUp, selectedIds.length, selectedPageIds.length]);
   const { t, i18n } = useTranslation();
+  const calendarLocale = i18n.language.startsWith("ru") ? ru : enUS;
 
   // Initialize
 
@@ -1820,7 +1828,10 @@ export default function Builder({ params }: { params: { id?: string } }) {
                     </div>
                     <div className="space-y-2">
                       <div className="relative">
-                        <Popover>
+                        <Popover
+                          open={publishDatePopoverOpen === "start"}
+                          onOpenChange={(open) => setPublishDatePopoverOpen(open ? "start" : null)}
+                        >
                           <PopoverTrigger asChild>
                             <Button
                               variant="ghost"
@@ -1838,27 +1849,20 @@ export default function Builder({ params }: { params: { id?: string } }) {
                               selected={publishStartDate ? parseDateFromString(publishStartDate) : undefined}
                               onSelect={(date) => {
                                 setPublishStartDate(date ? format(date, "yyyy-MM-dd") : null);
+                                setPublishDatePopoverOpen(null);
                               }}
-                              locale={ru}
+                              locale={calendarLocale}
                             />
                           </PopoverContent>
                         </Popover>
                         <Input
-                          type="date"
-                          value={formatDateInput(publishStartDate)}
-                          onChange={(event) => {
-                            const val = event.target.value;
-                            if (val === "") {
-                              setPublishStartDate(null);
-                              return;
-                            }
-                            if (isValidDateString(val)) {
-                              setPublishStartDate(val);
-                            }
-                          }}
+                          type="text"
+                          readOnly
+                          value={publishStartDate ? formatDateDisplay(publishStartDate) : ""}
+                          placeholder={t("propert.dateFormatPlaceholder")}
                           disabled={publishNoStart}
-                          className="pl-10 h-10 text-muted-foreground"
-                          placeholder={t("propert.selectDate")}
+                          onClick={() => !publishNoStart && setPublishDatePopoverOpen("start")}
+                          className="pl-10 h-10 text-muted-foreground cursor-pointer"
                         />
                       </div>
                       <Popover>
@@ -1916,7 +1920,10 @@ export default function Builder({ params }: { params: { id?: string } }) {
                     </div>
                     <div className="space-y-2">
                       <div className="relative">
-                        <Popover>
+                        <Popover
+                          open={publishDatePopoverOpen === "end"}
+                          onOpenChange={(open) => setPublishDatePopoverOpen(open ? "end" : null)}
+                        >
                           <PopoverTrigger asChild>
                             <Button
                               variant="ghost"
@@ -1934,27 +1941,20 @@ export default function Builder({ params }: { params: { id?: string } }) {
                               selected={publishEndDate ? parseDateFromString(publishEndDate) : undefined}
                               onSelect={(date) => {
                                 setPublishEndDate(date ? format(date, "yyyy-MM-dd") : null);
+                                setPublishDatePopoverOpen(null);
                               }}
-                              locale={ru}
+                              locale={calendarLocale}
                             />
                           </PopoverContent>
                         </Popover>
                         <Input
-                          type="date"
-                          value={formatDateInput(publishEndDate)}
-                          onChange={(event) => {
-                            const val = event.target.value;
-                            if (val === "") {
-                              setPublishEndDate(null);
-                              return;
-                            }
-                            if (isValidDateString(val)) {
-                              setPublishEndDate(val);
-                            }
-                          }}
+                          type="text"
+                          readOnly
+                          value={publishEndDate ? formatDateDisplay(publishEndDate) : ""}
+                          placeholder={t("propert.dateFormatPlaceholder")}
                           disabled={publishNoEnd || publishNoStart}
-                          className="pl-10 h-10 text-muted-foreground"
-                          placeholder={t("propert.selectDate")}
+                          onClick={() => !(publishNoEnd || publishNoStart) && setPublishDatePopoverOpen("end")}
+                          className="pl-10 h-10 text-muted-foreground cursor-pointer"
                         />
                       </div>
                       <Popover>

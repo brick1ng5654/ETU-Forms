@@ -23,7 +23,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { CalendarDays, Clock, CheckCircle2, GripVertical, Upload, ChevronsUpDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { ru } from "date-fns/locale";
+import { enUS, ru } from "date-fns/locale";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "wouter";
 
@@ -802,7 +802,8 @@ export function FormPreview({
   onActivePageChange,
   initialPageId,
 }: FormPreviewProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const calendarLocale = i18n.language.startsWith("ru") ? ru : enUS;
   const isRespondMode = mode === "respond";
   const [answers, setAnswers] = useState<AnswersById>(initialAnswers ?? {});
   const [results, setResults] = useState<Results | null>(null);
@@ -812,6 +813,7 @@ export function FormPreview({
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [focusedFieldId, setFocusedFieldId] = useState<string | null>(null);
   const [calendarMonths, setCalendarMonths] = useState<Record<string, Date>>({});
+  const [datePopoverOpenKey, setDatePopoverOpenKey] = useState<string | null>(null);
   const [uploadingById, setUploadingById] = useState<Record<string, boolean>>({});
   const [showRequiredWarning, setShowRequiredWarning] = useState(false);
   const [isRequiredWarningFading, setIsRequiredWarningFading] = useState(false);
@@ -1006,6 +1008,12 @@ export function FormPreview({
   const formatDateInput = (value: string | null | undefined) => {
     if (!value) return "";
     return value;
+  };
+
+  const formatDateDisplay = (yyyyMmDd: string) => {
+    if (!yyyyMmDd || yyyyMmDd.length !== 10) return "";
+    const [y, m, d] = yyyyMmDd.split("-");
+    return `${d}.${m}.${y}`;
   };
 
   const isValidDateString = (value: string) => {
@@ -1602,7 +1610,10 @@ export function FormPreview({
                   </RadioGroup>
                 ) : isDatePart ? (
                   <div className="relative">
-                    <Popover>
+                    <Popover
+                      open={datePopoverOpenKey === calendarKey}
+                      onOpenChange={(open) => setDatePopoverOpenKey(open ? calendarKey : null)}
+                    >
                       <PopoverTrigger asChild>
                         <Button
                           variant="ghost"
@@ -1628,35 +1639,24 @@ export function FormPreview({
                               ...compositeRecord,
                               [part.key]: date ? format(date, "yyyy-MM-dd") : null,
                             } as AnswerValue);
+                            setDatePopoverOpenKey(null);
                           }}
-                          locale={ru}
+                          locale={calendarLocale}
                         />
                       </PopoverContent>
                     </Popover>
                     <Input
-                      type="date"
-                      value={formatDateInput(rawValue)}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val === "") {
-                          updateAnswer(field.id, { ...compositeRecord, [part.key]: null } as AnswerValue);
-                          return;
-                        }
-                        if (isValidDateString(val)) {
-                          const parsed = parseDateFromString(val);
-                          if (parsed) {
-                            setCalendarMonth(calendarKey, parsed);
-                          }
-                          updateAnswer(field.id, { ...compositeRecord, [part.key]: val } as AnswerValue);
-                        }
-                      }}
+                      type="text"
+                      readOnly
+                      value={rawValue ? formatDateDisplay(rawValue) : ""}
+                      placeholder={t("propert.dateFormatPlaceholder")}
                       onBlur={() => markTouched(field.id)}
                       disabled={isDisabled}
+                      onClick={() => !isDisabled && setDatePopoverOpenKey(calendarKey)}
                       className={cn(
-                        "pl-10 h-10 text-muted-foreground",
+                        "pl-10 h-10 text-muted-foreground cursor-pointer",
                         partError ? "border-destructive focus-visible:ring-destructive/20" : ""
                       )}
-                      placeholder={placeholder || t("propert.selectDate")}
                     />
                   </div>
                 ) : (
@@ -1816,12 +1816,12 @@ export function FormPreview({
               {field.required && <span className="text-destructive">*</span>}
               {typeof props.points === "number" && props.points > 0 && (
                 <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
-                  {props.points} pts
+                  {props.points} {t("propert.pointsShort")}
                 </span>
               )}
               {field.widgetType === "matrix" && typeof props.matrixTotalPoints === "number" && props.matrixTotalPoints > 0 && (
                 <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
-                  {props.matrixTotalPoints} pts (за всю матрицу)
+                  {props.matrixTotalPoints} {t("propert.pointsShort")} ({t("propert.pointsForMatrix")})
                 </span>
               )}
             </Label>
@@ -1909,7 +1909,10 @@ export function FormPreview({
             <div className="space-y-3">
               {!hideDate && (
                 <div className="relative">
-                  <Popover>
+                  <Popover
+                    open={datePopoverOpenKey === calendarKey}
+                    onOpenChange={(open) => setDatePopoverOpenKey(open ? calendarKey : null)}
+                  >
                     <PopoverTrigger asChild>
                       <Button
                         variant="ghost"
@@ -1935,32 +1938,21 @@ export function FormPreview({
                             ...dateTime,
                             date: date ? format(date, "yyyy-MM-dd") : null,
                           });
+                          setDatePopoverOpenKey(null);
                         }}
-                        locale={ru}
+                        locale={calendarLocale}
                       />
                     </PopoverContent>
                   </Popover>
                   <Input
-                    type="date"
-                    value={formatDateInput(dateValue)}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (val === "") {
-                        updateAnswer(field.id, { ...dateTime, date: null });
-                        return;
-                      }
-                      if (isValidDateString(val)) {
-                        const parsed = parseDateFromString(val);
-                        if (parsed) {
-                          setCalendarMonth(calendarKey, parsed);
-                        }
-                        updateAnswer(field.id, { ...dateTime, date: val });
-                      }
-                    }}
+                    type="text"
+                    readOnly
+                    value={dateValue ? formatDateDisplay(dateValue) : ""}
+                    placeholder={t("propert.dateFormatPlaceholder")}
                     onBlur={() => markTouched(field.id)}
                     disabled={isFieldDisabled}
-                    className="pl-10 h-10 text-muted-foreground"
-                    placeholder={t("propert.selectDate")}
+                    onClick={() => !isFieldDisabled && setDatePopoverOpenKey(calendarKey)}
+                    className="pl-10 h-10 text-muted-foreground cursor-pointer"
                   />
                 </div>
               )}
@@ -2000,7 +1992,7 @@ export function FormPreview({
           isCountrySelect ? (
             <CountrySelect
               value={(answers[field.id] as string) || ""}
-              placeholder={(props.placeholder as string) || t("common.selectopt")}
+              placeholder={(props.placeholder as string) || t("placeholders.selectCountry")}
               disabled={isFieldDisabled}
               onValueChange={(value) => {
                 updateAnswer(field.id, value);
@@ -2253,7 +2245,7 @@ export function FormPreview({
         {field.widgetType === "ranking" && options && options.length > 0 && (
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground mb-2">
-              Перетащите элементы, чтобы расположить их в правильном порядке
+              {t("propert.dragToOrderRanking")}
             </p>
             <DndContext
               sensors={sensors}
@@ -2472,7 +2464,7 @@ export function FormPreview({
           <div className="text-sm text-green-700 mt-2">
             {field.widgetType === "ranking" ? (
               <div>
-                <p className="font-medium">Правильный порядок:</p>
+                <p className="font-medium">{t("propert.correctOrderLabel")}:</p>
                 <ol className="list-decimal list-inside mt-1">
                   {correctAnswers.map((answer, idx) => (
                     <li key={idx}>{answer}</li>
@@ -2481,20 +2473,20 @@ export function FormPreview({
               </div>
             ) : field.widgetType === "matrix" ? (
               <div>
-                <p className="font-medium">Правильные ячейки:</p>
+                <p className="font-medium">{t("propert.correctCellsLabel")}:</p>
                 <div className="mt-1">
                   {correctAnswers.map((cellKey, idx) => {
                     const [rowIdx, colIdx] = cellKey.split(':').map(Number);
-                    const row = ((props.rows as string[]) || [])[rowIdx - 1] || `Row ${rowIdx}`;
-                    const col = ((props.columns as string[]) || [])[colIdx - 1] || `Column ${colIdx}`;
+                    const row = ((props.rows as string[]) || [])[rowIdx - 1] || `${t("propert.rowLabel")} ${rowIdx}`;
+                    const col = ((props.columns as string[]) || [])[colIdx - 1] || `${t("propert.columnLabel")} ${colIdx}`;
                     return (
-                      <p key={idx}>• Строка "{row}", Столбец "{col}"</p>
+                      <p key={idx}>• {t("propert.rowColumnFormat", { row, col })}</p>
                     );
                   })}
                 </div>
               </div>
             ) : (
-              <p>Правильный ответ: {correctAnswers.join(", ")}</p>
+              <p>{t("propert.correctAnswerLabel")}: {correctAnswers.join(", ")}</p>
             )}
           </div>
         )}
