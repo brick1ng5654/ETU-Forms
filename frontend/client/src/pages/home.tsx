@@ -35,6 +35,7 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/hooks/use-toast";
+import { confirmDialog } from "@/components/confirm-dialog";
 import { useTranslation } from "react-i18next";
 import { UserMenu } from "@/components/user-menu";
 import { FormAccessDialog } from "@/components/form-access-dialog";
@@ -165,7 +166,12 @@ export default function Home() {
       toast({ title: t("actions.error"), description: t("home.noEditAccess"), variant: "destructive" });
       return;
     }
-    if (confirm(t("actions.confirmDeleteForm"))) {
+    const ok = await confirmDialog({
+      description: t("actions.confirmDeleteForm"),
+      variant: "destructive",
+      confirmLabel: t("actions.delete"),
+    });
+    if (ok) {
       try {
         await deleteFormApi(form.id);
       } catch (error) {
@@ -214,7 +220,8 @@ export default function Home() {
 
   const declineAccess = async (form: FormSchema) => {
     if (isFormOwner(form)) return;
-    if (!confirm(t("access.leaveAccessConfirm"))) return;
+    const ok = await confirmDialog({ description: t("access.leaveAccessConfirm") });
+    if (!ok) return;
     try {
       await leaveFormAccess(form.id);
       toast({ title: t("access.leaveAccessSuccess") });
@@ -265,24 +272,24 @@ export default function Home() {
   const handleRevokeResponse = async (response: StoredFormResponse) => {
     const form = forms.find(f => f.id === String(response.formId));
     const formTitle = form?.title || `Form ${response.formId}`;
-    if (!confirm(t("home.confirmRevoke", { formTitle }))) {
-      return;
-    }
-    
+    const ok = await confirmDialog({ description: t("home.confirmRevoke", { formTitle }) });
+    if (!ok) return;
+
     try {
       const result = await revokeResponse(response.responseId);
       toast({
         title: t("home.responseRevoked"),
         description: t("home.responseRevokedDesc", { formTitle: result.form_title }),
       });
-      
-      // Обновляем список ответов
+
       await refreshResponses();
-      
-      // Предлагаем пройти форму повторно только если форма существует и не удалена
+
       const formAfterRevoke = forms.find(f => f.id === String(result.form_id));
       if (formAfterRevoke && formAfterRevoke.status === "submitted") {
-        if (confirm(t("home.wantToRetakeForm", { formTitle: result.form_title }))) {
+        const retake = await confirmDialog({
+          description: t("home.wantToRetakeForm", { formTitle: result.form_title }),
+        });
+        if (retake) {
           const key = getPrivateLinkKey(formAfterRevoke);
           const href = key ? `/form/${result.form_id}?key=${encodeURIComponent(key)}` : `/form/${result.form_id}`;
           setLocation(href);

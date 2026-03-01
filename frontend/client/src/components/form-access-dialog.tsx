@@ -18,6 +18,7 @@ import {
   updateFormAccessUser,
 } from "@/lib/forms-api";
 import { toast } from "@/hooks/use-toast";
+import { confirmDialog } from "@/components/confirm-dialog";
 import { cn } from "@/lib/utils";
 import {
   AlertDialog,
@@ -574,7 +575,12 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
 
   const handleDeleteAllActiveLinks = async () => {
     if (!currentFormId || !canManage) return;
-    if (!window.confirm(t("access.deleteAllActiveLinksConfirm"))) return;
+    const ok = await confirmDialog({
+      description: t("access.deleteAllActiveLinksConfirm"),
+      variant: "destructive",
+      confirmLabel: t("actions.delete"),
+    });
+    if (!ok) return;
     setIsSubmitting(true);
     try {
       await revokeAllActiveFormAccessLinks(currentFormId);
@@ -594,7 +600,12 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
 
   const handleClearAllEntries = async () => {
     if (!currentFormId || !canManage) return;
-    if (!window.confirm(t("access.clearAllEntriesConfirm"))) return;
+    const ok = await confirmDialog({
+      description: t("access.clearAllEntriesConfirm"),
+      variant: "destructive",
+      confirmLabel: t("actions.delete"),
+    });
+    if (!ok) return;
     setIsSubmitting(true);
     try {
       await clearFormAccessEntries(currentFormId);
