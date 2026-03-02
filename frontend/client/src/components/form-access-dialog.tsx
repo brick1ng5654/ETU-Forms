@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Locale } from "date-fns";
 import { enUS, ru } from "date-fns/locale";
 import { useTranslation } from "react-i18next";
-import { ArrowDown, ArrowUp, CalendarDays, Check, Copy, Link as LinkIcon, Trash2, UserPlus } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, Copy, Link as LinkIcon, Trash2, UserPlus } from "lucide-react";
 
 import type { FormSchema } from "@/form/types";
 import {
@@ -34,8 +34,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DatePickerInput } from "@/components/ui/date-picker-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -67,21 +66,6 @@ const toIsoStartOfDay = (value: string) => {
 };
 
 const isValidEmail = (value: string) => /.+@.+\..+/.test(value);
-
-const isValidDateString = (value: string) => {
-  if (value.length !== 10) return false;
-  const [year, month, day] = value.split("-").map(Number);
-  if (!year || !month || !day) return false;
-  if (month < 1 || month > 12) return false;
-  const parsed = new Date(year, month - 1, day);
-  return parsed.getFullYear() === year && parsed.getMonth() === month - 1 && parsed.getDate() === day;
-};
-
-const parseDateFromString = (value: string) => {
-  if (!isValidDateString(value)) return undefined;
-  const [year, month, day] = value.split("-").map(Number);
-  return new Date(year, month - 1, day);
-};
 
 const formatDateForInput = (date: Date) => {
   const year = date.getFullYear();
@@ -154,66 +138,15 @@ type DateFieldProps = {
   className?: string;
 };
 
-const formatDateDisplay = (yyyyMmDd: string) => {
-  if (!yyyyMmDd || yyyyMmDd.length !== 10) return "";
-  const [y, m, d] = yyyyMmDd.split("-");
-  return `${d}.${m}.${y}`;
-};
-
 function ExpiryDateField({ value, onChange, disabled, locale, className }: DateFieldProps) {
-  const { t } = useTranslation();
-  const [month, setMonth] = useState<Date>(() => parseDateFromString(value) ?? new Date());
-  const [popoverOpen, setPopoverOpen] = useState(false);
-
-  useEffect(() => {
-    const parsed = parseDateFromString(value);
-    if (parsed) setMonth(parsed);
-  }, [value]);
-
   return (
-    <div className={cn("relative", className)}>
-      <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="absolute left-1 top-1/2 h-8 w-8 -translate-y-1/2"
-            disabled={disabled}
-          >
-            <CalendarDays className="h-4 w-4 text-muted-foreground" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
-          <Calendar
-            mode="single"
-            selected={parseDateFromString(value)}
-            month={month}
-            onMonthChange={setMonth}
-            locale={locale}
-            onSelect={(date) => {
-              if (!date) {
-                onChange("");
-                setPopoverOpen(false);
-                return;
-              }
-              setMonth(date);
-              onChange(formatDateForInput(date));
-              setPopoverOpen(false);
-            }}
-          />
-        </PopoverContent>
-      </Popover>
-      <Input
-        type="text"
-        readOnly
-        value={value ? formatDateDisplay(value) : ""}
-        placeholder={t("propert.dateFormatPlaceholder")}
-        disabled={disabled}
-        className="pl-10 cursor-pointer"
-        onClick={() => !disabled && setPopoverOpen(true)}
-      />
-    </div>
+    <DatePickerInput
+      value={value}
+      onChange={onChange}
+      disabled={disabled}
+      locale={locale}
+      className={className}
+    />
   );
 }
 

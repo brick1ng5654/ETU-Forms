@@ -9,7 +9,6 @@ import {
   ArrowDown,
   ArrowUp,
   BarChart3,
-  CalendarDays,
   Clock,
   Copy,
   FileText,
@@ -48,10 +47,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DatePickerInput } from "@/components/ui/date-picker-input";
 import { toast } from "@/hooks/use-toast";
 import { AppBrand } from "@/components/app-brand";
 import { CustomLoader } from "@/components/ui/custom-loader";
@@ -142,23 +140,6 @@ const toIsoDate = (value: string, fallbackTime: string) => {
   if (!value) return null;
   return new Date(`${value}T${fallbackTime}`).toISOString();
 };
-
-const isValidDateString = (value: string) => {
-  if (value.length !== 10) return false;
-  const [year, month, day] = value.split("-").map(Number);
-  if (!year || !month || !day) return false;
-  if (month < 1 || month > 12) return false;
-  const parsed = new Date(year, month - 1, day);
-  return parsed.getFullYear() === year && parsed.getMonth() === month - 1 && parsed.getDate() === day;
-};
-
-const parseDateFromString = (value: string) => {
-  if (!isValidDateString(value)) return undefined;
-  const [year, month, day] = value.split("-").map(Number);
-  return new Date(year, month - 1, day);
-};
-
-const getStableDate = (value: string) => parseDateFromString(value);
 
 const createPrivateLinkKey = () => {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -440,80 +421,6 @@ const calculateMedian = (values: number[]) => {
   return sorted[middle];
 };
 
-type DateFieldProps = {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  title: string;
-  locale?: Locale;
-};
-
-const formatDateDisplay = (yyyyMmDd: string) => {
-  if (!yyyyMmDd || yyyyMmDd.length !== 10) return "";
-  const [y, m, d] = yyyyMmDd.split("-");
-  return `${d}.${m}.${y}`;
-};
-
-const DateField = ({ label, value, onChange, title, locale }: DateFieldProps) => {
-  const { t } = useTranslation();
-  const [month, setMonth] = useState<Date>(() => getStableDate(value) ?? new Date());
-  const [popoverOpen, setPopoverOpen] = useState(false);
-
-  useEffect(() => {
-    const parsed = getStableDate(value);
-    if (parsed) {
-      setMonth(parsed);
-    }
-  }, [value]);
-
-  return (
-    <div className="space-y-2">
-      <label className="text-sm font-medium">{label}</label>
-      <div className="relative">
-        <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="absolute left-1 top-1/2 -translate-y-1/2 h-8 w-8"
-              title={title}
-            >
-              <CalendarDays className="h-4 w-4 text-muted-foreground" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start" portalled={false}>
-            <Calendar
-              mode="single"
-              selected={getStableDate(value)}
-              month={month}
-              onMonthChange={setMonth}
-              onSelect={(date) => {
-                if (!date) {
-                  onChange("");
-                  setPopoverOpen(false);
-                  return;
-                }
-                setMonth(date);
-                onChange(format(date, "yyyy-MM-dd"));
-                setPopoverOpen(false);
-              }}
-              locale={locale}
-            />
-          </PopoverContent>
-        </Popover>
-        <Input
-          type="text"
-          readOnly
-          value={value ? formatDateDisplay(value) : ""}
-          placeholder={t("propert.dateFormatPlaceholder")}
-          onClick={() => setPopoverOpen(true)}
-          className="pl-10 cursor-pointer"
-        />
-      </div>
-    </div>
-  );
-};
 const formatAnswerValue = (
   field: FormElementModel,
   value: AnswersById[string],
@@ -1207,9 +1114,9 @@ export default function FormResults({ params }: { params: { id: string } }) {
 
   return (
     <div className="min-h-screen bg-muted/30 flex flex-col">
-      <header className="h-19 border-b border-border bg-white flex items-center justify-between px-6 shrink-0">
+      <header className="h-19 border-b border-border bg-white flex items-center justify-between px-3 sm:px-8 shrink-0">
         <div className="flex items-center gap-4">
-          <AppBrand onClick={() => setLocation("/")} />
+          <AppBrand href="/" onClick={() => setLocation("/")} />
           <div className="h-8 w-px bg-border hidden sm:block" />
           <div>
             <h1 className="text-lg font-semibold">{form?.title || t("common.untitled")}</h1>
@@ -1624,20 +1531,26 @@ export default function FormResults({ params }: { params: { id: string } }) {
               <CardDescription>{t("results.linkHint")}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <DateField
-                label={t("results.openDate")}
-                value={startAt}
-                onChange={setStartAt}
-                title={t("results.openCalendar")}
-                locale={calendarLocale}
-              />
-              <DateField
-                label={t("results.closeDate")}
-                value={endAt}
-                onChange={setEndAt}
-                title={t("results.openCalendar")}
-                locale={calendarLocale}
-              />
+              <div className="space-y-2">
+                <label className="text-sm font-medium">{t("results.openDate")}</label>
+                <DatePickerInput
+                  value={startAt}
+                  onChange={setStartAt}
+                  title={t("results.openCalendar")}
+                  locale={calendarLocale}
+                  popoverPortalled={false}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">{t("results.closeDate")}</label>
+                <DatePickerInput
+                  value={endAt}
+                  onChange={setEndAt}
+                  title={t("results.openCalendar")}
+                  locale={calendarLocale}
+                  popoverPortalled={false}
+                />
+              </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">{t("builder.accessMode")}</label>
                 <Select value={accessMode} onValueChange={(value) => setAccessMode(value as FormAccessMode)}>

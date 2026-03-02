@@ -18,11 +18,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarDays, Clock, CheckCircle2, GripVertical, Upload, ChevronsUpDown, Check } from "lucide-react";
+import { Clock, CheckCircle2, GripVertical, Upload, ChevronsUpDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
 import { enUS, ru } from "date-fns/locale";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "wouter";
@@ -60,6 +58,7 @@ import { toast } from "@/hooks/use-toast";
 import { getCountryLabel, getCountryOptions, isCountryField, normalizeCountrySearch, resolveCountryCode } from "@/lib/countries";
 import { formatPoints } from "@/lib/points-label";
 import { authHeader } from "@/lib/auth";
+import { DatePickerInput } from "@/components/ui/date-picker-input";
 
 interface CollapsibleTextareaProps extends React.ComponentProps<typeof Textarea> {
   textareaRef?: React.RefObject<HTMLTextAreaElement>;
@@ -813,8 +812,6 @@ export function FormPreview({
   const [errorsById, setErrorsById] = useState<Record<string, string[]>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [focusedFieldId, setFocusedFieldId] = useState<string | null>(null);
-  const [calendarMonths, setCalendarMonths] = useState<Record<string, Date>>({});
-  const [datePopoverOpenKey, setDatePopoverOpenKey] = useState<string | null>(null);
   const [uploadingById, setUploadingById] = useState<Record<string, boolean>>({});
   const [showRequiredWarning, setShowRequiredWarning] = useState(false);
   const [isRequiredWarningFading, setIsRequiredWarningFading] = useState(false);
@@ -824,8 +821,6 @@ export function FormPreview({
   const fieldRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const requiredWarningHideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requiredWarningFadeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const dateCacheRef = useRef<Map<string, Date | undefined>>(new Map());
-  const calendarInitialMonthRef = useRef<Map<string, Date>>(new Map());
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -1004,70 +999,6 @@ export function FormPreview({
       setIsRequiredWarningFading(false);
       requiredWarningHideTimeoutRef.current = null;
     }, REQUIRED_WARNING_DURATION_MS);
-  };
-
-  const formatDateInput = (value: string | null | undefined) => {
-    if (!value) return "";
-    return value;
-  };
-
-  const formatDateDisplay = (yyyyMmDd: string) => {
-    if (!yyyyMmDd || yyyyMmDd.length !== 10) return "";
-    const [y, m, d] = yyyyMmDd.split("-");
-    return `${d}.${m}.${y}`;
-  };
-
-  const isValidDateString = (value: string) => {
-    if (value.length !== 10) return false;
-    const [y, m, d] = value.split("-").map(Number);
-    if (!y || !m || !d) return false;
-    if (m < 1 || m > 12) return false;
-    const parsed = new Date(y, m - 1, d);
-    return parsed.getFullYear() === y && parsed.getMonth() === m - 1 && parsed.getDate() === d;
-  };
-
-  const parseDateFromString = (value: string) => {
-    if (!isValidDateString(value)) return undefined;
-    const [y, m, d] = value.split("-").map(Number);
-    return new Date(y, m - 1, d);
-  };
-
-  const getStableDate = (value: string | null | undefined) => {
-    if (!value) return undefined;
-    const cache = dateCacheRef.current;
-    if (cache.has(value)) {
-      return cache.get(value);
-    }
-    const parsed = parseDateFromString(value);
-    cache.set(value, parsed);
-    return parsed;
-  };
-
-  const getCalendarKey = (fieldId: string, partKey?: string) =>
-    partKey ? `${fieldId}:${partKey}` : `${fieldId}:date`;
-
-  const getCalendarMonth = (key: string, selectedValue?: string | null) => {
-    const stored = calendarMonths[key];
-    if (stored) return stored;
-    const initialCache = calendarInitialMonthRef.current;
-    if (initialCache.has(key)) {
-      return initialCache.get(key) as Date;
-    }
-    const parsed = selectedValue ? parseDateFromString(selectedValue) : undefined;
-    const initial = parsed ?? new Date();
-    initialCache.set(key, initial);
-    return initial;
-  };
-
-  const setCalendarMonth = (key: string, month: Date) => {
-    calendarInitialMonthRef.current.set(key, month);
-    setCalendarMonths((prev) => {
-      const prevMonth = prev[key];
-      if (prevMonth && prevMonth.getTime() === month.getTime()) {
-        return prev;
-      }
-      return { ...prev, [key]: month };
-    });
   };
 
   const handleRankingDragEnd = (fieldId: string, event: DragEndEvent) => {
@@ -1578,7 +1509,6 @@ export function FormPreview({
             const hasOptions = optionItems.length > 0;
             const optionValue = typeof rawValue === "string" ? rawValue : "";
             const suppressPlaceholders = field.semanticType === "passport" || field.semanticType === "full_name";
-            const calendarKey = isDatePart ? getCalendarKey(field.id, part.key) : "";
 
             return (
               <div key={part.key} className="space-y-1">
@@ -1610,56 +1540,25 @@ export function FormPreview({
                     })}
                   </RadioGroup>
                 ) : isDatePart ? (
-                  <div className="relative">
-                    <Popover
-                      open={datePopoverOpenKey === calendarKey}
-                      onOpenChange={(open) => setDatePopoverOpenKey(open ? calendarKey : null)}
-                    >
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="absolute left-0 top-0 h-10 w-10 hover:bg-transparent z-10"
-                          disabled={isDisabled}
-                          type="button"
-                        >
-                          <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start" portalled={false}>
-                        <Calendar
-                          mode="single"
-                          month={getCalendarMonth(calendarKey, rawValue)}
-                          onMonthChange={(month) => setCalendarMonth(calendarKey, month)}
-                          selected={getStableDate(rawValue)}
-                          onSelect={(date) => {
-                            if (date) {
-                              setCalendarMonth(calendarKey, date);
-                            }
-                            updateAnswer(field.id, {
-                              ...compositeRecord,
-                              [part.key]: date ? format(date, "yyyy-MM-dd") : null,
-                            } as AnswerValue);
-                            setDatePopoverOpenKey(null);
-                          }}
-                          locale={calendarLocale}
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <Input
-                      type="text"
-                      readOnly
-                      value={rawValue ? formatDateDisplay(rawValue) : ""}
-                      placeholder={t("propert.dateFormatPlaceholder")}
-                      onBlur={() => markTouched(field.id)}
-                      disabled={isDisabled}
-                      onClick={() => !isDisabled && setDatePopoverOpenKey(calendarKey)}
-                      className={cn(
-                        "pl-10 h-10 text-muted-foreground cursor-pointer",
-                        partError ? "border-destructive focus-visible:ring-destructive/20" : ""
-                      )}
-                    />
-                  </div>
+                  <DatePickerInput
+                    value={rawValue || ""}
+                    onChange={(next) =>
+                      updateAnswer(field.id, {
+                        ...compositeRecord,
+                        [part.key]: next || null,
+                      } as AnswerValue)
+                    }
+                    onBlur={() => markTouched(field.id)}
+                    disabled={isDisabled}
+                    locale={calendarLocale}
+                    placeholder={placeholder || t("propert.selectDate")}
+                    popoverPortalled={false}
+                    inputClassName={cn(
+                      "h-10 text-muted-foreground",
+                      partError ? "border-destructive focus-visible:ring-destructive/20" : ""
+                    )}
+                    buttonClassName="!left-0 !top-0 !h-10 !w-10 !translate-y-0 hover:bg-transparent z-10"
+                  />
                 ) : (
                   <div className="relative">
                     <Input
@@ -1905,57 +1804,20 @@ export function FormPreview({
           const dateTime = (answers[field.id] as DateTimeAnswer) || {};
           const dateValue = dateTime.date ?? null;
           const timeValue = dateTime.time ?? "";
-          const calendarKey = getCalendarKey(field.id);
           return (
             <div className="space-y-3">
               {!hideDate && (
-                <div className="relative">
-                  <Popover
-                    open={datePopoverOpenKey === calendarKey}
-                    onOpenChange={(open) => setDatePopoverOpenKey(open ? calendarKey : null)}
-                  >
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute left-0 top-0 h-10 w-10 hover:bg-transparent z-10"
-                        disabled={isFieldDisabled}
-                        type="button"
-                      >
-                        <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start" portalled={false}>
-                      <Calendar
-                        mode="single"
-                        month={getCalendarMonth(calendarKey, dateValue)}
-                        onMonthChange={(month) => setCalendarMonth(calendarKey, month)}
-                        selected={getStableDate(dateValue)}
-                        onSelect={(date) => {
-                          if (date) {
-                            setCalendarMonth(calendarKey, date);
-                          }
-                          updateAnswer(field.id, {
-                            ...dateTime,
-                            date: date ? format(date, "yyyy-MM-dd") : null,
-                          });
-                          setDatePopoverOpenKey(null);
-                        }}
-                        locale={calendarLocale}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <Input
-                    type="text"
-                    readOnly
-                    value={dateValue ? formatDateDisplay(dateValue) : ""}
-                    placeholder={t("propert.dateFormatPlaceholder")}
-                    onBlur={() => markTouched(field.id)}
-                    disabled={isFieldDisabled}
-                    onClick={() => !isFieldDisabled && setDatePopoverOpenKey(calendarKey)}
-                    className="pl-10 h-10 text-muted-foreground cursor-pointer"
-                  />
-                </div>
+                <DatePickerInput
+                  value={dateValue ?? ""}
+                  onChange={(next) => updateAnswer(field.id, { ...dateTime, date: next || null })}
+                  onBlur={() => markTouched(field.id)}
+                  disabled={isFieldDisabled}
+                  locale={calendarLocale}
+                  placeholder={t("propert.selectDate")}
+                  popoverPortalled={false}
+                  inputClassName="h-10 text-muted-foreground"
+                  buttonClassName="!left-0 !top-0 !h-10 !w-10 !translate-y-0 hover:bg-transparent z-10"
+                />
               )}
               {!hideTime && (
                 <Popover>
