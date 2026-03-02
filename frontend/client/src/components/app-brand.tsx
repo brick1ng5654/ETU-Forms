@@ -1,9 +1,11 @@
+import type { MouseEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
 type AppBrandProps = {
   className?: string;
   onClick?: () => void;
+  href?: string;
   showText?: boolean;
   showTextOnMobile?: boolean;
 };
@@ -11,6 +13,7 @@ type AppBrandProps = {
 export function AppBrand({
   className,
   onClick,
+  href,
   showText = true,
   showTextOnMobile = false,
 }: AppBrandProps) {
@@ -35,9 +38,36 @@ export function AppBrand({
     </>
   );
 
+  if (href) {
+    const handleLinkClick = (event: MouseEvent<HTMLAnchorElement>) => {
+      if (!onClick) return;
+      if (
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      ) {
+        return;
+      }
+      event.preventDefault();
+      onClick();
+    };
+
+    return (
+      <a
+        href={href}
+        className={cn("flex items-center gap-2 cursor-pointer", className)}
+        onClick={handleLinkClick}
+      >
+        {content}
+      </a>
+    );
+  }
+
   if (onClick) {
     return (
-      <button type="button" className={cn("flex items-center gap-2", className)} onClick={onClick}>
+      <button type="button" className={cn("flex items-center gap-2 cursor-pointer", className)} onClick={onClick}>
         {content}
       </button>
     );

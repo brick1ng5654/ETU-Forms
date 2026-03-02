@@ -1112,9 +1112,9 @@ export default function FormResults({ params }: { params: { id: string } }) {
 
   return (
     <div className="min-h-screen bg-muted/30 flex flex-col">
-      <header className="h-19 border-b border-border bg-white flex items-center justify-between px-6 shrink-0">
+      <header className="h-19 border-b border-border bg-white flex items-center justify-between px-3 sm:px-8 shrink-0">
         <div className="flex items-center gap-4">
-          <AppBrand onClick={() => setLocation("/")} />
+          <AppBrand href="/" onClick={() => setLocation("/")} />
           <div className="h-8 w-px bg-border hidden sm:block" />
           <div>
             <h1 className="text-lg font-semibold">{form?.title || t("common.untitled")}</h1>

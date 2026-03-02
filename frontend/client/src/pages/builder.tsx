@@ -1510,10 +1510,10 @@ export default function Builder({ params }: { params: { id?: string } }) {
   return (
     <div className="h-screen w-full flex flex-col bg-background overflow-hidden min-h-0">
       {/* Navbar: grid из 3 колонок — логотип+элементы | вкладки | действия (или меню на узких экранах) */}
-      <header className="h-14 sm:h-16 border-b border-border bg-white grid grid-cols-[auto_1fr_auto] items-center gap-2 px-2 sm:px-4 shrink-0 z-20 min-h-0">
+      <header className="h-19 border-b border-border bg-white grid grid-cols-[auto_1fr_auto] items-center gap-2 px-3 sm:px-8 shrink-0 z-20 min-h-0">
         {/* Левая колонка: только логотип и разделитель */}
         <div className="flex items-center gap-2 shrink-0">
-          <AppBrand onClick={() => setLocation('/')} className="shrink-0" />
+          <AppBrand href="/" onClick={() => setLocation('/')} className="shrink-0" />
           <div className="h-5 sm:h-6 w-px bg-border shrink-0 hidden sm:block" />
         </div>
 

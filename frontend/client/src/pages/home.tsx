@@ -305,7 +305,7 @@ export default function Home() {
     <div className="min-h-screen bg-muted/30 flex flex-col">
       <header className="h-19 border-b border-border bg-white flex items-center justify-between px-3 sm:px-8 shrink-0">
         <div className="flex items-center gap-3">
-          <AppBrand />
+          <AppBrand href="/" />
         </div>
         <div className="flex items-center gap-2">
           <Button

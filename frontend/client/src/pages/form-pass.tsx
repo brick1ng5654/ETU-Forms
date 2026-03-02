@@ -352,9 +352,9 @@ export default function FormPass({ params }: { params: { id: string } }) {
 
   return (
     <div className="min-h-screen bg-muted/30">
-      <header className="border-b border-border bg-white flex items-center justify-between gap-2 px-3 sm:px-6 py-2">
+      <header className="h-19 border-b border-border bg-white flex items-center justify-between gap-2 px-3 sm:px-8 shrink-0">
         <div className="flex items-center min-w-0">
-          <AppBrand onClick={() => setLocation("/")} showTextOnMobile className="min-w-0" />
+          <AppBrand href="/" onClick={() => setLocation("/")} showTextOnMobile className="min-w-0" />
         </div>
         <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           <Button
