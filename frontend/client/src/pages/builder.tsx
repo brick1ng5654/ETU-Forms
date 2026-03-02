@@ -17,7 +17,6 @@ import {
   PanelLeftOpen,
   Plus,
   X,
-  CalendarDays,
   Clock,
   List,
   Languages,
@@ -39,7 +38,6 @@ import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { storage } from "@/lib/storage";
 import { useLocation } from "wouter";
-import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import {
@@ -52,6 +50,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
+import { DatePickerInput } from "@/components/ui/date-picker-input";
 import { UserMenu } from "@/components/user-menu";
 import {
   createForm,
@@ -105,11 +104,6 @@ const CATEGORY_ICONS: Record<string, LucideIcon> = {
   Specialized: SquareAsterisk,
 };
 
-const formatDateInput = (value: string | null | undefined) => {
-  if (!value) return "";
-  return value;
-};
-
 const isValidDateString = (value: string) => {
   if (value.length !== 10) return false;
   const [y, m, d] = value.split("-").map(Number);
@@ -117,12 +111,6 @@ const isValidDateString = (value: string) => {
   if (m < 1 || m > 12) return false;
   const parsed = new Date(y, m - 1, d);
   return parsed.getFullYear() === y && parsed.getMonth() === m - 1 && parsed.getDate() === d;
-};
-
-const parseDateFromString = (value: string) => {
-  if (!isValidDateString(value)) return undefined;
-  const [y, m, d] = value.split("-").map(Number);
-  return new Date(y, m - 1, d);
 };
 
 const getLocalDatePart = (value: string | null | undefined) => {
@@ -1819,48 +1807,15 @@ export default function Builder({ params }: { params: { id?: string } }) {
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <div className="relative">
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="absolute left-0 top-0 h-10 w-10 hover:bg-transparent z-10"
-                              disabled={publishNoStart}
-                              type="button"
-                            >
-                              <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={publishStartDate ? parseDateFromString(publishStartDate) : undefined}
-                              onSelect={(date) => {
-                                setPublishStartDate(date ? format(date, "yyyy-MM-dd") : null);
-                              }}
-                              locale={ru}
-                            />
-                          </PopoverContent>
-                        </Popover>
-                        <Input
-                          type="date"
-                          value={formatDateInput(publishStartDate)}
-                          onChange={(event) => {
-                            const val = event.target.value;
-                            if (val === "") {
-                              setPublishStartDate(null);
-                              return;
-                            }
-                            if (isValidDateString(val)) {
-                              setPublishStartDate(val);
-                            }
-                          }}
-                          disabled={publishNoStart}
-                          className="pl-10 h-10 text-muted-foreground"
-                          placeholder={t("propert.selectDate")}
-                        />
-                      </div>
+                      <DatePickerInput
+                        value={publishStartDate ?? ""}
+                        onChange={(next) => setPublishStartDate(next || null)}
+                        disabled={publishNoStart}
+                        locale={ru}
+                        placeholder={t("propert.selectDate")}
+                        inputClassName="h-10 text-muted-foreground"
+                        buttonClassName="!left-0 !top-0 !h-10 !w-10 !translate-y-0 hover:bg-transparent z-10"
+                      />
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button
@@ -1915,48 +1870,15 @@ export default function Builder({ params }: { params: { id?: string } }) {
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <div className="relative">
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="absolute left-0 top-0 h-10 w-10 hover:bg-transparent z-10"
-                              disabled={publishNoEnd || publishNoStart}
-                              type="button"
-                            >
-                              <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={publishEndDate ? parseDateFromString(publishEndDate) : undefined}
-                              onSelect={(date) => {
-                                setPublishEndDate(date ? format(date, "yyyy-MM-dd") : null);
-                              }}
-                              locale={ru}
-                            />
-                          </PopoverContent>
-                        </Popover>
-                        <Input
-                          type="date"
-                          value={formatDateInput(publishEndDate)}
-                          onChange={(event) => {
-                            const val = event.target.value;
-                            if (val === "") {
-                              setPublishEndDate(null);
-                              return;
-                            }
-                            if (isValidDateString(val)) {
-                              setPublishEndDate(val);
-                            }
-                          }}
-                          disabled={publishNoEnd || publishNoStart}
-                          className="pl-10 h-10 text-muted-foreground"
-                          placeholder={t("propert.selectDate")}
-                        />
-                      </div>
+                      <DatePickerInput
+                        value={publishEndDate ?? ""}
+                        onChange={(next) => setPublishEndDate(next || null)}
+                        disabled={publishNoEnd || publishNoStart}
+                        locale={ru}
+                        placeholder={t("propert.selectDate")}
+                        inputClassName="h-10 text-muted-foreground"
+                        buttonClassName="!left-0 !top-0 !h-10 !w-10 !translate-y-0 hover:bg-transparent z-10"
+                      />
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button
