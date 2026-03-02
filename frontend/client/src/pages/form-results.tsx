@@ -36,6 +36,7 @@ import {
 import { fetchFormDetail, fetchFormResponses, fetchForms, fetchFormsCatalog, saveFormInPlace } from "@/lib/forms-api";
 import { storage } from "@/lib/storage";
 import { cn } from "@/lib/utils";
+import { formatScoreRange } from "@/lib/points-label";
 import FormPreview from "@/components/form-builder/FormPreview";
 import { ElementAttachments } from "@/components/form-builder/ElementAttachments";
 import { UserMenu } from "@/components/user-menu";
@@ -1568,7 +1569,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
                       {activeResponseScore && (
                         <div className="flex items-center gap-2 text-sm text-muted-foreground pt-0.5">
                           <BarChart3 className="h-4 w-4" />
-                          <span>{t("results.correctScore", { score: activeResponseScore.score, max: activeResponseScore.maxScore })}</span>
+                          <span>{t("results.correctScore", { scoreText: formatScoreRange(activeResponseScore.score, activeResponseScore.maxScore, i18n.language) })}</span>
                         </div>
                       )}
                     </div>

@@ -58,6 +58,7 @@ import {
 import { ElementAttachments } from "@/components/form-builder/ElementAttachments";
 import { toast } from "@/hooks/use-toast";
 import { getCountryLabel, getCountryOptions, isCountryField, normalizeCountrySearch, resolveCountryCode } from "@/lib/countries";
+import { formatPoints } from "@/lib/points-label";
 import { authHeader } from "@/lib/auth";
 
 interface CollapsibleTextareaProps extends React.ComponentProps<typeof Textarea> {
@@ -1816,12 +1817,12 @@ export function FormPreview({
               {field.required && <span className="text-destructive">*</span>}
               {typeof props.points === "number" && props.points > 0 && (
                 <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
-                  {props.points} {t("propert.pointsShort")}
+                  {formatPoints(props.points, i18n.language)}
                 </span>
               )}
               {field.widgetType === "matrix" && typeof props.matrixTotalPoints === "number" && props.matrixTotalPoints > 0 && (
                 <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
-                  {props.matrixTotalPoints} {t("propert.pointsShort")} ({t("propert.pointsForMatrix")})
+                  {formatPoints(props.matrixTotalPoints, i18n.language)} ({t("propert.pointsForMatrix")})
                 </span>
               )}
             </Label>
