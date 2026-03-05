@@ -2435,7 +2435,7 @@ export function PropertiesPanel({
                   }}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Выберите условие" />
+                    <SelectValue placeholder={t("logic.selectConditionPlaceholder")} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="equals">{t("logic.equals")}</SelectItem>
@@ -2524,7 +2524,7 @@ export function PropertiesPanel({
                           }}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Выберите значение" />
+                            <SelectValue placeholder={t("logic.selectValuePlaceholder")} />
                           </SelectTrigger>
                           <SelectContent>
                             {dependsOnOptions.filter(Boolean).map((option) => (
@@ -2575,10 +2575,10 @@ export function PropertiesPanel({
                             const normalized = normalizeSemicolonList(e.target.value);
                             setCommaDrafts((prev) => ({ ...prev, [draftKey]: normalized }));
                           }}
-                          placeholder="Введите ожидаемое значение"
+                          placeholder={t("logic.expectedValuePlaceholder")}
                         />
                         <p className="text-xs text-muted-foreground">
-                          Для множественных значений разделяйте точкой с запятой
+                          {t("logic.multipleValuesHint")}
                         </p>
                       </>
                     );

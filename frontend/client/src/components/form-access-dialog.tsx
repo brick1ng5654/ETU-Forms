@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Locale } from "date-fns";
-import { ru } from "date-fns/locale";
+import { enUS, ru } from "date-fns/locale";
 import { useTranslation } from "react-i18next";
 import { ArrowDown, ArrowUp, Check, Copy, Link as LinkIcon, Trash2, UserPlus } from "lucide-react";
 
@@ -248,7 +248,7 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
   const [entryDateDrafts, setEntryDateDrafts] = useState<Record<number, string>>({});
   const [entryRoleDrafts, setEntryRoleDrafts] = useState<Record<number, FormAccessRole>>({});
   const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState(false);
-  const calendarLocale = i18n.language.startsWith("ru") ? ru : undefined;
+  const calendarLocale = i18n.language.startsWith("ru") ? ru : enUS;
 
   const currentFormId = form?.id ?? null;
 

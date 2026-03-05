@@ -3,7 +3,8 @@ import type { ReactNode } from "react";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import { format, formatDistanceToNow } from "date-fns";
-import { ru } from "date-fns/locale";
+import type { Locale } from "date-fns";
+import { enUS, ru } from "date-fns/locale";
 import {
   ArrowDown,
   ArrowUp,
@@ -34,6 +35,7 @@ import {
 import { fetchFormDetail, fetchFormResponses, fetchForms, fetchFormsCatalog, saveFormInPlace } from "@/lib/forms-api";
 import { storage } from "@/lib/storage";
 import { cn } from "@/lib/utils";
+import { formatScoreRange } from "@/lib/points-label";
 import FormPreview from "@/components/form-builder/FormPreview";
 import { ElementAttachments } from "@/components/form-builder/ElementAttachments";
 import { UserMenu } from "@/components/user-menu";
@@ -990,7 +992,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
       return [activeVersionLabel, t("results.summaryHint")].filter(Boolean).join(" | ");
     }
     if (!activeResponse) return "";
-    const locale = i18n.language.startsWith("ru") ? ru : undefined;
+    const locale: Locale = i18n.language.startsWith("ru") ? ru : enUS;
     const attemptNum = attemptNumberByResponseId.get(activeResponse.id);
     return [
       attemptNum != null ? t("results.attemptNumber", { number: attemptNum }) : null,
@@ -1108,7 +1110,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
     }
   };
 
-  const calendarLocale = i18n.language.startsWith("ru") ? ru : undefined;
+  const calendarLocale = i18n.language.startsWith("ru") ? ru : enUS;
 
   return (
     <div className="min-h-screen bg-muted/30 flex flex-col">
@@ -1334,7 +1336,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
                         <span className="text-xs text-muted-foreground shrink-0 truncate max-w-[8.5rem] text-right">
                           {formatDistanceToNow(parseServerDate(response.submittedAt), {
                             addSuffix: true,
-                            locale: i18n.language.startsWith("ru") ? ru : undefined,
+                            locale: i18n.language.startsWith("ru") ? ru : enUS,
                           })}
                         </span>
                       </div>
@@ -1474,7 +1476,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
                       {activeResponseScore && (
                         <div className="flex items-center gap-2 text-sm text-muted-foreground pt-0.5">
                           <BarChart3 className="h-4 w-4" />
-                          <span>{t("results.correctScore", { score: activeResponseScore.score, max: activeResponseScore.maxScore })}</span>
+                          <span>{t("results.correctScore", { scoreText: formatScoreRange(activeResponseScore.score, activeResponseScore.maxScore, i18n.language) })}</span>
                         </div>
                       )}
                     </div>

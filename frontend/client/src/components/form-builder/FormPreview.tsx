@@ -21,7 +21,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Clock, CheckCircle2, GripVertical, Upload, ChevronsUpDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ru } from "date-fns/locale";
+import { enUS, ru } from "date-fns/locale";
 import { useTranslation } from "react-i18next";
 import { useLocation } from "wouter";
 
@@ -56,6 +56,7 @@ import {
 import { ElementAttachments } from "@/components/form-builder/ElementAttachments";
 import { toast } from "@/hooks/use-toast";
 import { getCountryLabel, getCountryOptions, isCountryField, normalizeCountrySearch, resolveCountryCode } from "@/lib/countries";
+import { formatPoints } from "@/lib/points-label";
 import { authHeader } from "@/lib/auth";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
 
@@ -801,7 +802,8 @@ export function FormPreview({
   onActivePageChange,
   initialPageId,
 }: FormPreviewProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const calendarLocale = i18n.language.startsWith("ru") ? ru : enUS;
   const isRespondMode = mode === "respond";
   const [answers, setAnswers] = useState<AnswersById>(initialAnswers ?? {});
   const [results, setResults] = useState<Results | null>(null);
@@ -1548,7 +1550,7 @@ export function FormPreview({
                     }
                     onBlur={() => markTouched(field.id)}
                     disabled={isDisabled}
-                    locale={ru}
+                    locale={calendarLocale}
                     placeholder={placeholder || t("propert.selectDate")}
                     popoverPortalled={false}
                     inputClassName={cn(
@@ -1714,12 +1716,12 @@ export function FormPreview({
               {field.required && <span className="text-destructive">*</span>}
               {typeof props.points === "number" && props.points > 0 && (
                 <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
-                  {props.points} pts
+                  {formatPoints(props.points, i18n.language)}
                 </span>
               )}
               {field.widgetType === "matrix" && typeof props.matrixTotalPoints === "number" && props.matrixTotalPoints > 0 && (
                 <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
-                  {props.matrixTotalPoints} pts (за всю матрицу)
+                  {formatPoints(props.matrixTotalPoints, i18n.language)} ({t("propert.pointsForMatrix")})
                 </span>
               )}
             </Label>
@@ -1810,7 +1812,7 @@ export function FormPreview({
                   onChange={(next) => updateAnswer(field.id, { ...dateTime, date: next || null })}
                   onBlur={() => markTouched(field.id)}
                   disabled={isFieldDisabled}
-                  locale={ru}
+                  locale={calendarLocale}
                   placeholder={t("propert.selectDate")}
                   popoverPortalled={false}
                   inputClassName="h-10 text-muted-foreground"
@@ -1853,7 +1855,7 @@ export function FormPreview({
           isCountrySelect ? (
             <CountrySelect
               value={(answers[field.id] as string) || ""}
-              placeholder={(props.placeholder as string) || t("common.selectopt")}
+              placeholder={(props.placeholder as string) || t("placeholders.selectCountry")}
               disabled={isFieldDisabled}
               onValueChange={(value) => {
                 updateAnswer(field.id, value);
@@ -2106,7 +2108,7 @@ export function FormPreview({
         {field.widgetType === "ranking" && options && options.length > 0 && (
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground mb-2">
-              Перетащите элементы, чтобы расположить их в правильном порядке
+              {t("propert.dragToOrderRanking")}
             </p>
             <DndContext
               sensors={sensors}
@@ -2325,7 +2327,7 @@ export function FormPreview({
           <div className="text-sm text-green-700 mt-2">
             {field.widgetType === "ranking" ? (
               <div>
-                <p className="font-medium">Правильный порядок:</p>
+                <p className="font-medium">{t("propert.correctOrderLabel")}:</p>
                 <ol className="list-decimal list-inside mt-1">
                   {correctAnswers.map((answer, idx) => (
                     <li key={idx}>{answer}</li>
@@ -2334,20 +2336,20 @@ export function FormPreview({
               </div>
             ) : field.widgetType === "matrix" ? (
               <div>
-                <p className="font-medium">Правильные ячейки:</p>
+                <p className="font-medium">{t("propert.correctCellsLabel")}:</p>
                 <div className="mt-1">
                   {correctAnswers.map((cellKey, idx) => {
                     const [rowIdx, colIdx] = cellKey.split(':').map(Number);
-                    const row = ((props.rows as string[]) || [])[rowIdx - 1] || `Row ${rowIdx}`;
-                    const col = ((props.columns as string[]) || [])[colIdx - 1] || `Column ${colIdx}`;
+                    const row = ((props.rows as string[]) || [])[rowIdx - 1] || `${t("propert.rowLabel")} ${rowIdx}`;
+                    const col = ((props.columns as string[]) || [])[colIdx - 1] || `${t("propert.columnLabel")} ${colIdx}`;
                     return (
-                      <p key={idx}>• Строка "{row}", Столбец "{col}"</p>
+                      <p key={idx}>• {t("propert.rowColumnFormat", { row, col })}</p>
                     );
                   })}
                 </div>
               </div>
             ) : (
-              <p>Правильный ответ: {correctAnswers.join(", ")}</p>
+              <p>{t("propert.correctAnswerLabel")}: {correctAnswers.join(", ")}</p>
             )}
           </div>
         )}

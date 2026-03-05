@@ -49,7 +49,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
-import { ru } from "date-fns/locale";
+import { enUS, ru } from "date-fns/locale";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
 import { UserMenu } from "@/components/user-menu";
 import {
@@ -363,6 +363,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
     }
   }, [isLgUp, selectedIds.length, selectedPageIds.length]);
   const { t, i18n } = useTranslation();
+  const calendarLocale = i18n.language.startsWith("ru") ? ru : enUS;
 
   // Initialize
 
@@ -1811,7 +1812,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
                         value={publishStartDate ?? ""}
                         onChange={(next) => setPublishStartDate(next || null)}
                         disabled={publishNoStart}
-                        locale={ru}
+                        locale={calendarLocale}
                         placeholder={t("propert.selectDate")}
                         inputClassName="h-10 text-muted-foreground"
                         buttonClassName="!left-0 !top-0 !h-10 !w-10 !translate-y-0 hover:bg-transparent z-10"
@@ -1874,7 +1875,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
                         value={publishEndDate ?? ""}
                         onChange={(next) => setPublishEndDate(next || null)}
                         disabled={publishNoEnd || publishNoStart}
-                        locale={ru}
+                        locale={calendarLocale}
                         placeholder={t("propert.selectDate")}
                         inputClassName="h-10 text-muted-foreground"
                         buttonClassName="!left-0 !top-0 !h-10 !w-10 !translate-y-0 hover:bg-transparent z-10"
