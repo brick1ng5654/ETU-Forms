@@ -35,6 +35,41 @@ import { CustomLoader } from "@/components/ui/custom-loader";
 
 const DRAFT_SAVE_DEBOUNCE_MS = 1500;
 const SESSION_STORAGE_KEY = (formId: string) => `form-draft-session-${formId}`;
+/** Сохраняем ключ приватной ссылки, чтобы обновление страницы работало без ?key= (часто на мобильных). */
+const LINK_KEY_STORAGE = (formId: string) => `form-private-link-key-${formId}`;
+
+function readResolvedLinkKey(formId: string): string {
+  if (typeof window === "undefined") return "";
+  let fromUrl = "";
+  try {
+    fromUrl = new URLSearchParams(window.location.search).get("key") ?? "";
+  } catch {
+    return "";
+  }
+  const storageKey = LINK_KEY_STORAGE(formId);
+  if (fromUrl) {
+    try {
+      sessionStorage.setItem(storageKey, fromUrl);
+    } catch {
+      // private mode / quota
+    }
+    return fromUrl;
+  }
+  try {
+    return sessionStorage.getItem(storageKey) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function migrateStoredLinkKey(fromFormId: string, toFormId: string, key: string): void {
+  if (!key || fromFormId === toFormId) return;
+  try {
+    sessionStorage.setItem(LINK_KEY_STORAGE(toFormId), key);
+  } catch {
+    // ignore
+  }
+}
 
 function getOrCreateSessionToken(formId: string): string {
   const key = SESSION_STORAGE_KEY(formId);
@@ -115,34 +150,26 @@ export default function FormPass({ params }: { params: { id: string } }) {
     return Number.isFinite(n) && n >= 1 ? n : 1;
   }, [params.id]);
 
-  const linkKey = useMemo(() => {
-    if (typeof window !== "undefined") {
-      return new URLSearchParams(window.location.search).get("key") ?? "";
+  const [linkKey, setLinkKey] = useState(() => readResolvedLinkKey(params.id));
+
+  useEffect(() => {
+    setLinkKey(readResolvedLinkKey(params.id));
+  }, [params.id, location]);
+
+  /** Подтягиваем ?key= в адресную строку, если ключ взят из sessionStorage (копирование ссылки, отладка). */
+  useEffect(() => {
+    if (typeof window === "undefined" || !linkKey) return;
+    try {
+      const u = new URL(window.location.href);
+      if (u.searchParams.get("key")) return;
+      u.searchParams.set("key", linkKey);
+      window.history.replaceState(null, "", `${u.pathname}${u.search}${u.hash}`);
+    } catch {
+      // ignore
     }
-    const query = location.includes("?") ? location.slice(location.indexOf("?")) : "";
-    return new URLSearchParams(query).get("key") ?? "";
-  }, [location]);
+  }, [linkKey, params.id]);
 
-  const initialPageNumber = useMemo(() => {
-    const query = typeof window !== "undefined"
-      ? window.location.search
-      : location.includes("?") ? location.slice(location.indexOf("?")) : "";
-
-    const raw = new URLSearchParams(query).get("p");
-    const n = raw ? Number(raw) : NaN;
-    return Number.isFinite(n) && n > 0 ? n : 1; // p=1..N
-  }, [location]);
-
-
-  const startedAt = useMemo(() => new Date().toISOString(), [params.id, linkKey]);
-  const effectiveStep = useMemo(() => {
-    // 1) p из URL
-    const stepFromUrl = initialPageNumber; // у тебя уже есть
-    if (Number.isFinite(stepFromUrl) && stepFromUrl > 0) return stepFromUrl;
-
-    // 2) иначе из localStorage
-    return savedStep;
-  }, [initialPageNumber, savedStep]);
+  const startedAt = useMemo(() => new Date().toISOString(), [params.id]);
   const localizeSubmitError = (raw?: string) => {
     if (!raw) return t("respond.submitError");
     if (raw.includes("Invalid SNILS repeated digits")) {
@@ -177,15 +204,47 @@ export default function FormPass({ params }: { params: { id: string } }) {
         if (!active) return;
 
         if (detail.id !== params.id) {
+          migrateStoredLinkKey(params.id, detail.id, linkKey);
           const nextPath = `/form/${detail.id}${linkKey ? `?key=${encodeURIComponent(linkKey)}` : ""}`;
           setLocation(nextPath);
         }
         setForm(detail);
         const pages = (detail.pages ?? []).slice().sort((a, b) => a.pageIndex - b.pageIndex);
-        const step = Math.max(1, Math.min(pages.length || 1, effectiveStep));
-        const idx = step - 1;
+        const pageCount = pages.length || 1;
 
-        setInitialPageId(pages[idx]?.id ?? pages[0]?.id ?? 1);
+        /**
+         * В FormPreview в query `p` хранится pageId (числовой id страницы), а не номер шага 1..N.
+         * Раньше здесь p ошибочно трактовали как шаг → min(pages.length, p) давало последнюю страницу
+         * при любом pageId больше числа страниц (типичные id из БД).
+         */
+        const search =
+          typeof window !== "undefined"
+            ? window.location.search
+            : location.includes("?")
+              ? location.slice(location.indexOf("?"))
+              : "";
+        const rawP = new URLSearchParams(search).get("p");
+        let resolvedInitialPageId: number;
+        if (rawP !== null && rawP !== "") {
+          const pageIdFromUrl = Number(rawP);
+          if (Number.isFinite(pageIdFromUrl)) {
+            const match = pages.find((p) => p.id === pageIdFromUrl);
+            if (match) {
+              resolvedInitialPageId = match.id;
+            } else {
+              const step = Math.max(1, Math.min(pageCount, savedStep));
+              resolvedInitialPageId = pages[step - 1]?.id ?? pages[0]?.id ?? 1;
+            }
+          } else {
+            const step = Math.max(1, Math.min(pageCount, savedStep));
+            resolvedInitialPageId = pages[step - 1]?.id ?? pages[0]?.id ?? 1;
+          }
+        } else {
+          const step = Math.max(1, Math.min(pageCount, savedStep));
+          resolvedInitialPageId = pages[step - 1]?.id ?? pages[0]?.id ?? 1;
+        }
+
+        setInitialPageId(resolvedInitialPageId);
 
       } catch (err: any) {
         if (!active) return;
@@ -203,7 +262,7 @@ export default function FormPass({ params }: { params: { id: string } }) {
     return () => {
       active = false;
     };
-  }, [linkKey, params.id, t, setLocation, effectiveStep]);
+  }, [linkKey, params.id, t, setLocation, savedStep]);
 
   /**
    * ⚠️ Тут логика "когда запрещать Back".
@@ -259,7 +318,8 @@ export default function FormPass({ params }: { params: { id: string } }) {
         answers: payload.answers,
         respondent_session_token: isUnauthenticatedMode ? sessionToken : undefined,
       };
-      const promise = (async (): Promise<FormDraftResponse | null> => {
+      const draftPromiseHolder: { current?: Promise<FormDraftResponse | null> } = {};
+      draftPromiseHolder.current = (async (): Promise<FormDraftResponse | null> => {
         try {
           const result = await saveFormDraft(
             targetFormId,
@@ -270,16 +330,16 @@ export default function FormPass({ params }: { params: { id: string } }) {
           setDraft(result);
           return result;
         } catch {
-          
           return null;
         } finally {
-          if (saveDraftPromiseRef.current === promise) {
+          if (saveDraftPromiseRef.current === draftPromiseHolder.current) {
             saveDraftPromiseRef.current = null;
           }
         }
       })();
-      saveDraftPromiseRef.current = promise;
-      return promise;
+      const draftSavePromise = draftPromiseHolder.current!;
+      saveDraftPromiseRef.current = draftSavePromise;
+      return draftSavePromise;
     },
     [form, isSubmitted, isUnauthenticatedMode, linkKey, sessionToken]
   );
