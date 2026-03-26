@@ -81,18 +81,12 @@ function getOrCreateSessionToken(formId: string): string {
   return token;
 }
 
-/**
- * Вариант B: если пользователь жмёт "назад" в браузере — отправляем на "/"
- * locked=true включает блокировку.
- */
 function useRedirectHomeOnBrowserBack(locked: boolean) {
   const [, setLocation] = useLocation();
 
   useEffect(() => {
     if (!locked) return;
 
-    // Кладём "якорь" в history, чтобы Back не выкинул со страницы мгновенно.
-    // На Back поймаем popstate и уйдём на "/".
     const pushAnchor = () => {
       try {
         history.pushState({ __lock_back__: true }, "", window.location.href);
@@ -264,17 +258,7 @@ export default function FormPass({ params }: { params: { id: string } }) {
     };
   }, [linkKey, params.id, t, setLocation, savedStep]);
 
-  /**
-   * ⚠️ Тут логика "когда запрещать Back".
-   * Сейчас: если у формы есть хотя бы одна страница с allowBack=false — блокируем Back браузера всегда.
-   *
-   * Если ты можешь получить текущую страницу (pageIndex/pageId) во время прохождения,
-   * лучше сделать: locked = !currentPage.allowBack
-   */
   const backLocked = useMemo(() => {
-    // запрещаем browser-back только если:
-    // - мы не на первой странице
-    // - и allowBack=false
     return !pageIsFirst && !pageAllowBack;
   }, [pageIsFirst, pageAllowBack]);
 
