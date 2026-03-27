@@ -1394,17 +1394,18 @@ export default function FormResults({ params }: { params: { id: string } }) {
 
           <Card className="h-full flex flex-col">
             <CardHeader className="pb-4 border-b">
-              <div className="flex items-start justify-between gap-4">
-                <div>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                <div className="min-w-0">
                   <CardTitle className="text-lg">{selectionTitle}</CardTitle>
                   <CardDescription>{selectionSubtitle}</CardDescription>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
                   {canExportResponses ? (
-                    <>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                       <Button
                         variant="outline"
                         size="sm"
+                        className="w-full sm:w-auto"
                         onClick={() => handleExportResponses("csv")}
                         disabled={Boolean(isExportingFormat)}
                       >
@@ -1413,14 +1414,15 @@ export default function FormResults({ params }: { params: { id: string } }) {
                       <Button
                         variant="outline"
                         size="sm"
+                        className="w-full sm:w-auto"
                         onClick={() => handleExportResponses("xlsx")}
                         disabled={Boolean(isExportingFormat)}
                       >
                         {isExportingFormat === "xlsx" ? t("results.exporting") : t("results.exportXlsx")}
                       </Button>
-                    </>
+                    </div>
                   ) : null}
-                  <Badge variant="outline" className="gap-1">
+                  <Badge variant="outline" className="gap-1 w-fit">
                     <Users className="h-3.5 w-3.5" />
                     {t("results.responsesCount", { count: responsesForVersion.length })}
                   </Badge>
