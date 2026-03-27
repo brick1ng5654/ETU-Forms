@@ -620,6 +620,22 @@ export type RevokeResponseResult = {
   form_title: string;
 };
 
+export type FormResponsesExportFormat = "csv" | "xlsx";
+
+const parseFilenameFromContentDisposition = (value: string | null): string | null => {
+  if (!value) return null;
+  const utf8Match = value.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1].trim());
+    } catch {
+      // ignore invalid header encoding
+    }
+  }
+  const plainMatch = value.match(/filename="?([^";]+)"?/i);
+  return plainMatch?.[1]?.trim() || null;
+};
+
 export async function revokeResponse(responseId: number): Promise<RevokeResponseResult> {
   const res = await apiFetch(`/api/v1/responses/${responseId}/revoke`, {
     method: "POST",
@@ -629,6 +645,39 @@ export async function revokeResponse(responseId: number): Promise<RevokeResponse
     throw await asHttpError(res);
   }
   return await res.json();
+}
+
+export async function downloadFormResponsesExport(
+  formId: string,
+  format: FormResponsesExportFormat,
+  locale: string
+): Promise<void> {
+  const query = new URLSearchParams({
+    format,
+    locale: locale || "en",
+  });
+  const res = await apiFetch(`/api/v1/forms/${formId}/responses/export?${query.toString()}`);
+  if (!res.ok) {
+    throw await asHttpError(res);
+  }
+  const blob = await res.blob();
+  const fallbackFilename = `svodka-form-${formId}-responses.${format}`;
+  const fromHeader = parseFilenameFromContentDisposition(res.headers.get("Content-Disposition"));
+  const normalizedFilename = (() => {
+    const base = (fromHeader ?? fallbackFilename).trim();
+    const expectedSuffix = `.${format}`;
+    if (base.toLowerCase().endsWith(expectedSuffix)) return base;
+    return `${base}${expectedSuffix}`;
+  })();
+
+  const objectUrl = window.URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = normalizedFilename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.URL.revokeObjectURL(objectUrl);
 }
 
 export async function fetchFormAccessEntries(formId: string): Promise<FormAccessEntry[]> {

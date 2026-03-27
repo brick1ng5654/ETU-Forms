@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+import csv
+import io
+import json
 from datetime import datetime, timedelta, timezone
 import re
 from typing import Any
+from urllib.parse import quote
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import Response as FastApiResponse
 from sqlalchemy import and_, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +20,7 @@ from app.models import (
     AppUser,
     Form,
     FormElement,
+    FormPage,
     Response,
     ResponseAnswer,
     UploadedFile,
@@ -44,6 +50,22 @@ SNILS_CHECKSUM_THRESHOLD = 1_001_998
 SNILS_INVALID_MSG = "Invalid SNILS"
 SNILS_REPEATED_DIGITS_MSG = "Invalid SNILS repeated digits"
 SNILS_CHECKSUM_MSG = "Invalid SNILS checksum"
+EXPORT_HEADERS = {
+    "ru": {
+        "response_id": "ID ответа",
+        "responder_name": "Респондент",
+        "responder_email": "Email",
+        "version": "Версия",
+        "other": "Другое",
+    },
+    "en": {
+        "response_id": "Response ID",
+        "responder_name": "Responder",
+        "responder_email": "Email",
+        "version": "Version",
+        "other": "Other",
+    },
+}
 
 
 def _enum_value(x: Any) -> Any:
@@ -310,6 +332,182 @@ async def _ensure_editor_or_owner(
     if not access.scalar_one_or_none():
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
     return form
+
+
+def _sorted_form_elements(
+    elements: list[FormElement],
+    page_index_by_id: dict[int, int],
+) -> list[FormElement]:
+    return sorted(
+        elements,
+        key=lambda item: (
+            page_index_by_id.get(item.page_id, 10_000),
+            item.position if item.position is not None else 10_000,
+            item.element_id,
+        ),
+    )
+
+
+def _extract_element_client_id(element: FormElement) -> str:
+    settings = element.other_settings if isinstance(element.other_settings, dict) else {}
+    client_id = settings.get("client_id")
+    return str(client_id) if client_id is not None else str(element.element_id)
+
+
+def _extract_export_answer_parts(value: Any, locale: str) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        out: list[str] = []
+        for item in value:
+            text = _stringify_export_value(item, locale)
+            if text:
+                out.append(text)
+        return out
+    if isinstance(value, dict):
+        if "attachments" in value and isinstance(value.get("attachments"), list):
+            return _extract_export_answer_parts(value.get("attachments"), locale)
+        if "name" in value and isinstance(value.get("name"), str):
+            name = str(value.get("name")).strip()
+            return [name] if name else []
+        if "url" in value and isinstance(value.get("url"), str):
+            url = str(value.get("url")).strip()
+            return [url] if url else []
+        if "selected" in value or "otherSelected" in value:
+            selected = value.get("selected")
+            selected_parts: list[str] = []
+            if isinstance(selected, list):
+                selected_parts.extend([str(item) for item in selected if str(item).strip()])
+            elif selected is not None and str(selected).strip():
+                selected_parts.append(str(selected))
+            if value.get("otherSelected"):
+                other_text = str(value.get("otherText") or "").strip()
+                other_label = EXPORT_HEADERS.get(locale, EXPORT_HEADERS["en"])["other"]
+                selected_parts.append(f"{other_label}: {other_text}" if other_text else other_label)
+            return selected_parts
+        if "date" in value or "time" in value:
+            date_part = str(value.get("date") or "").strip()
+            time_part = str(value.get("time") or "").strip()
+            joined = " ".join([part for part in [date_part, time_part] if part]).strip()
+            return [joined] if joined else []
+    text = _stringify_export_value(value, locale).strip()
+    return [text] if text else []
+
+
+def _stringify_export_value(value: Any, locale: str) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        return "; ".join(_extract_export_answer_parts(value, locale))
+    if isinstance(value, dict):
+        parts = _extract_export_answer_parts(value, locale)
+        if parts:
+            return "; ".join(parts)
+        return json.dumps(value, ensure_ascii=False)
+    return str(value)
+
+
+def _sanitize_filename_part(value: str) -> str:
+    # Windows/macOS-safe filename cleanup.
+    cleaned = re.sub(r'[<>:"/\\|?*\x00-\x1f]+', " ", value or "")
+    cleaned = re.sub(r"\s+", " ", cleaned).strip().strip(".")
+    return cleaned
+
+
+def _build_export_rows(
+    *,
+    form_version: int,
+    responses: list[Response],
+    answer_rows: list[ResponseAnswer],
+    users_map: dict[int, AppUser],
+    files_by_answer_id: dict[int, list[dict[str, Any]]],
+    elements: list[FormElement],
+    page_index_by_id: dict[int, int],
+    locale: str,
+) -> tuple[list[str], list[list[str]]]:
+    sorted_elements = _sorted_form_elements(elements, page_index_by_id)
+    element_client_ids = [_extract_element_client_id(element) for element in sorted_elements]
+    element_label_by_client_id = {
+        _extract_element_client_id(element): (element.label or f"Field {element.element_id}")
+        for element in sorted_elements
+    }
+    answer_rows_by_response_id: dict[int, dict[str, Any]] = {}
+    element_client_map = {
+        element.element_id: _extract_element_client_id(element)
+        for element in sorted_elements
+    }
+    for answer_row in answer_rows:
+        client_id = element_client_map.get(answer_row.element_id, str(answer_row.element_id))
+        attachments = files_by_answer_id.get(answer_row.answer_id, [])
+        value = _deserialize_answer_value(answer_row, attachments)
+        answer_rows_by_response_id.setdefault(answer_row.response_id, {})[client_id] = value
+
+    labels = EXPORT_HEADERS.get(locale, EXPORT_HEADERS["en"])
+    headers = [
+        labels.get("response_id", "Response ID"),
+        labels.get("responder_name", "Responder"),
+        labels.get("responder_email", "Email"),
+        labels.get("version", "Version"),
+    ] + [element_label_by_client_id.get(client_id, client_id) for client_id in element_client_ids]
+
+    rows: list[list[str]] = []
+    for response_row in responses:
+        user = users_map.get(response_row.user_id)
+        answers = answer_rows_by_response_id.get(response_row.response_id, {})
+        row = [
+            str(response_row.response_id),
+            user.name if user else f"User {response_row.user_id}",
+            user.email if user else "",
+            str(_enum_value(response_row.status)),
+            response_row.created_at.isoformat() if response_row.created_at else "",
+            response_row.completed_at.isoformat() if response_row.completed_at else "",
+            str(form_version),
+        ]
+        for client_id in element_client_ids:
+            row.append(_stringify_export_value(answers.get(client_id), locale))
+        rows.append(row)
+    return headers, rows
+
+
+def _build_csv_export(headers: list[str], rows: list[list[str]]) -> bytes:
+    out = io.StringIO(newline="")
+    writer = csv.writer(out, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL)
+    writer.writerow(headers)
+    writer.writerows(rows)
+    return ("\ufeff" + out.getvalue()).encode("utf-8")
+
+
+def _build_xlsx_export(headers: list[str], rows: list[list[str]]) -> bytes:
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font
+
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Responses"
+    sheet.append(headers)
+    for row in rows:
+        sheet.append(row)
+    sheet.freeze_panes = "A2"
+    for cell in sheet[1]:
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(wrap_text=True, vertical="top")
+    for col in sheet.iter_cols(min_row=1, max_row=sheet.max_row, min_col=1, max_col=sheet.max_column):
+        max_len = 10
+        for cell in col:
+            value = "" if cell.value is None else str(cell.value)
+            max_len = max(max_len, min(len(value), 80))
+            cell.alignment = Alignment(wrap_text=True, vertical="top")
+        col_letter = col[0].column_letter
+        sheet.column_dimensions[col_letter].width = min(max_len + 2, 80)
+    stream = io.BytesIO()
+    workbook.save(stream)
+    return stream.getvalue()
 
 
 @router.get("/{form_id}/public", response_model=PublicFormDetailResponse)
@@ -879,3 +1077,104 @@ async def get_form_responses(
         )
 
     return FormStoredResponsesResponse(responses=out)
+
+
+@router.get("/{form_id}/responses/export")
+async def export_form_responses(
+    form_id: int,
+    format: str = Query("xlsx", pattern="^(csv|xlsx)$"),
+    locale: str = Query("en"),
+    db: AsyncSession = Depends(get_db),
+    current_user: AppUser = Depends(get_current_user),
+):
+    export_locale = "ru" if locale.lower().startswith("ru") else "en"
+    form = await _ensure_editor_or_owner(db, form_id, current_user, allowed_roles=("editor", "participant"))
+
+    responses_result = await db.execute(
+        select(Response)
+        .where(Response.form_id == form.form_id)
+        .where(Response.status.in_(["submitted", "cancelled"]))
+        .order_by(Response.completed_at.desc(), Response.created_at.desc())
+    )
+    responses = responses_result.scalars().all()
+
+    response_ids = [item.response_id for item in responses]
+    user_ids = list({item.user_id for item in responses})
+
+    answers_result = await db.execute(
+        select(ResponseAnswer).where(ResponseAnswer.response_id.in_(response_ids))
+    ) if response_ids else None
+    answer_rows = answers_result.scalars().all() if answers_result is not None else []
+
+    elements_result = await db.execute(
+        select(FormElement).where(FormElement.form_id == form.form_id)
+    )
+    elements = [item for item in elements_result.scalars().all() if _enum_value(item.widget) != "heading"]
+    pages_result = await db.execute(
+        select(FormPage).where(FormPage.form_id == form.form_id)
+    )
+    page_index_by_id = {
+        int(page.page_id): int(page.page_index)
+        for page in pages_result.scalars().all()
+    }
+
+    users_result = await db.execute(select(AppUser).where(AppUser.user_id.in_(user_ids))) if user_ids else None
+    users_map = {user.user_id: user for user in (users_result.scalars().all() if users_result is not None else [])}
+
+    answer_ids = [row.answer_id for row in answer_rows]
+    files_by_answer_id: dict[int, list[dict[str, Any]]] = {}
+    if answer_ids:
+        files_result = await db.execute(
+            select(UploadedFile)
+            .where(UploadedFile.answer_id.in_(answer_ids))
+            .where(UploadedFile.status != "deleted")
+        )
+        for file_row in files_result.scalars().all():
+            if file_row.answer_id is None:
+                continue
+            files_by_answer_id.setdefault(file_row.answer_id, []).append(
+                {
+                    "file_id": file_row.file_id,
+                    "name": file_row.name,
+                    "mime_type": file_row.mime_type,
+                    "size_bytes": file_row.size_bytes,
+                    "url": _file_url(file_row.file_id, file_row.access_token),
+                    "content_hash": file_row.content_hash,
+                    "status": _enum_value(file_row.status),
+                }
+            )
+
+    headers, rows = _build_export_rows(
+        form_version=form.version or 1,
+        responses=responses,
+        answer_rows=answer_rows,
+        users_map=users_map,
+        files_by_answer_id=files_by_answer_id,
+        elements=elements,
+        page_index_by_id=page_index_by_id,
+        locale=export_locale,
+    )
+
+    base_title = _sanitize_filename_part(form.title or "")
+    if not base_title:
+        base_title = f"form-{form.form_id}"
+    filename_base = f"сводка-{base_title}"
+    ascii_prefix = "svodka-"
+    if format == "csv":
+        content = _build_csv_export(headers, rows)
+        media_type = "text/csv; charset=utf-8"
+        filename = f"{filename_base}.csv"
+        ascii_filename = f"{ascii_prefix}form-{form.form_id}.csv"
+    else:
+        content = _build_xlsx_export(headers, rows)
+        media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        filename = f"{filename_base}.xlsx"
+        ascii_filename = f"{ascii_prefix}form-{form.form_id}.xlsx"
+
+    quoted_name = quote(filename)
+    content_disposition = f"attachment; filename=\"{ascii_filename}\"; filename*=UTF-8''{quoted_name}"
+    return FastApiResponse(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": content_disposition},
+    )

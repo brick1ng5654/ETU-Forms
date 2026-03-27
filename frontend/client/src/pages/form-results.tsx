@@ -32,7 +32,7 @@ import {
   getChoiceSingleState,
   isChoiceAnswer,
 } from "@/form/choice-answer";
-import { fetchFormDetail, fetchFormResponses, fetchForms, fetchFormsCatalog, saveFormInPlace } from "@/lib/forms-api";
+import { downloadFormResponsesExport, fetchFormDetail, fetchFormResponses, fetchForms, fetchFormsCatalog, saveFormInPlace } from "@/lib/forms-api";
 import { storage } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import { formatScoreRange } from "@/lib/points-label";
@@ -538,9 +538,11 @@ export default function FormResults({ params }: { params: { id: string } }) {
   const [attemptLimitInput, setAttemptLimitInput] = useState("1");
   const [revokeCountsAsAttempt, setRevokeCountsAsAttempt] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isExportingFormat, setIsExportingFormat] = useState<"csv" | "xlsx" | null>(null);
   const [isAccessDialogOpen, setIsAccessDialogOpen] = useState(false);
   const isRussianLocale = i18n.language.startsWith("ru");
   const canEditCurrentForm = form?.canEdit === true;
+  const canExportResponses = form?.canViewResponses === true || canEditCurrentForm;
 
   useEffect(() => {
     setActiveVersionId(params.id);
@@ -1021,6 +1023,23 @@ export default function FormResults({ params }: { params: { id: string } }) {
     }
   };
 
+  const handleExportResponses = async (format: "csv" | "xlsx") => {
+    if (!form || !canExportResponses || isExportingFormat) return;
+    setIsExportingFormat(format);
+    try {
+      await downloadFormResponsesExport(form.id, format, i18n.language);
+      toast({ title: t("results.exportSuccess") });
+    } catch (error: any) {
+      toast({
+        title: t("results.exportErrorTitle"),
+        description: error?.message ?? t("results.exportErrorDescription"),
+        variant: "destructive",
+      });
+    } finally {
+      setIsExportingFormat(null);
+    }
+  };
+
   const isDirty = form
     ? (() => {
         const storedKey = typeof form.settings_json?.privateLinkKey === "string"
@@ -1380,10 +1399,32 @@ export default function FormResults({ params }: { params: { id: string } }) {
                   <CardTitle className="text-lg">{selectionTitle}</CardTitle>
                   <CardDescription>{selectionSubtitle}</CardDescription>
                 </div>
-                <Badge variant="outline" className="gap-1">
-                  <Users className="h-3.5 w-3.5" />
-                  {t("results.responsesCount", { count: responsesForVersion.length })}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  {canExportResponses ? (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleExportResponses("csv")}
+                        disabled={Boolean(isExportingFormat)}
+                      >
+                        {isExportingFormat === "csv" ? t("results.exporting") : t("results.exportCsv")}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleExportResponses("xlsx")}
+                        disabled={Boolean(isExportingFormat)}
+                      >
+                        {isExportingFormat === "xlsx" ? t("results.exporting") : t("results.exportXlsx")}
+                      </Button>
+                    </>
+                  ) : null}
+                  <Badge variant="outline" className="gap-1">
+                    <Users className="h-3.5 w-3.5" />
+                    {t("results.responsesCount", { count: responsesForVersion.length })}
+                  </Badge>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="flex-1 overflow-y-auto pr-2 pt-6 space-y-6">

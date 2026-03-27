@@ -190,7 +190,13 @@
     "unlimitedAttempts": "Без ограничений",
     "limitedAttempts": "Ограниченное количество",
     "attemptLimit": "Количество попыток",
-    "attemptLimitHint": "Максимальное количество попыток прохождения формы для каждого пользователя"
+    "attemptLimitHint": "Максимальное количество попыток прохождения формы для каждого пользователя",
+    "exportCsv": "Экспорт CSV",
+    "exportXlsx": "Экспорт XLSX",
+    "exporting": "Экспорт...",
+    "exportSuccess": "Файл с ответами сформирован",
+    "exportErrorTitle": "Не удалось выгрузить ответы",
+    "exportErrorDescription": "Попробуйте еще раз позже"
   },
   "respond": {
     "title": "Прохождение формы",
