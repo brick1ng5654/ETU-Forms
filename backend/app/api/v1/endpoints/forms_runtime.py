@@ -1367,7 +1367,7 @@ async def export_form_responses(
     )
 
     export_at = datetime.now(timezone.utc)
-    date_part = export_at.strftime("%Y-%m-%d")
+    date_part = export_at.strftime("%d-%m-%Y")
     time_part = export_at.strftime("%H-%M-%S")
 
     base_title = _sanitize_filename_part(form.title or "")
