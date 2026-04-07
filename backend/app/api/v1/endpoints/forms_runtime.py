@@ -52,18 +52,73 @@ SNILS_REPEATED_DIGITS_MSG = "Invalid SNILS repeated digits"
 SNILS_CHECKSUM_MSG = "Invalid SNILS checksum"
 EXPORT_HEADERS = {
     "ru": {
-        "response_id": "ID ответа",
         "responder_name": "Респондент",
         "responder_email": "Email",
-        "version": "Версия",
+        "status": "Статус",
+        "created_at": "Создан",
+        "completed_at": "Завершён",
+        "version": "Версия формы",
         "other": "Другое",
     },
     "en": {
-        "response_id": "Response ID",
         "responder_name": "Responder",
         "responder_email": "Email",
-        "version": "Version",
+        "status": "Status",
+        "created_at": "Created at",
+        "completed_at": "Completed at",
+        "version": "Form version",
         "other": "Other",
+    },
+}
+
+EXPORT_LIST_SEP_CSV = " ; "
+
+EXPORT_SHEETS = {
+    "ru": {"responses": "Ответы", "summary": "Итоги", "statistics": "Статистика"},
+    "en": {"responses": "Responses", "summary": "Summary", "statistics": "Statistics"},
+}
+
+EXPORT_SUMMARY = {
+    "ru": {
+        "metric": "Показатель",
+        "value": "Значение",
+        "form_title": "Название формы",
+        "exported_at": "Дата и время выгрузки",
+        "responses_in_export": "Ответов в выгрузке",
+        "status_submitted": "Отправлено",
+        "status_cancelled": "Отменено",
+        "form_version": "Версия формы",
+    },
+    "en": {
+        "metric": "Metric",
+        "value": "Value",
+        "form_title": "Form title",
+        "exported_at": "Export date and time",
+        "responses_in_export": "Responses in export",
+        "status_submitted": "Submitted",
+        "status_cancelled": "Cancelled",
+        "form_version": "Form version",
+    },
+}
+
+EXPORT_STATS = {
+    "ru": {
+        "dimension": "Показатель",
+        "value_col": "Значение",
+        "nonempty": "Ответов с данными по полю",
+        "min": "Минимум",
+        "max": "Максимум",
+        "average": "Среднее",
+        "distribution": "Распределение",
+    },
+    "en": {
+        "dimension": "Metric",
+        "value_col": "Value",
+        "nonempty": "Non-empty answers for field",
+        "min": "Minimum",
+        "max": "Maximum",
+        "average": "Average",
+        "distribution": "Distribution",
     },
 }
 
@@ -354,19 +409,19 @@ def _extract_element_client_id(element: FormElement) -> str:
     return str(client_id) if client_id is not None else str(element.element_id)
 
 
-def _extract_export_answer_parts(value: Any, locale: str) -> list[str]:
+def _extract_export_answer_parts(value: Any, locale: str, list_sep: str) -> list[str]:
     if value is None:
         return []
     if isinstance(value, list):
         out: list[str] = []
         for item in value:
-            text = _stringify_export_value(item, locale)
+            text = _stringify_export_value(item, locale, list_sep)
             if text:
                 out.append(text)
         return out
     if isinstance(value, dict):
         if "attachments" in value and isinstance(value.get("attachments"), list):
-            return _extract_export_answer_parts(value.get("attachments"), locale)
+            return _extract_export_answer_parts(value.get("attachments"), locale, list_sep)
         if "name" in value and isinstance(value.get("name"), str):
             name = str(value.get("name")).strip()
             return [name] if name else []
@@ -390,11 +445,11 @@ def _extract_export_answer_parts(value: Any, locale: str) -> list[str]:
             time_part = str(value.get("time") or "").strip()
             joined = " ".join([part for part in [date_part, time_part] if part]).strip()
             return [joined] if joined else []
-    text = _stringify_export_value(value, locale).strip()
+    text = _stringify_export_value(value, locale, list_sep).strip()
     return [text] if text else []
 
 
-def _stringify_export_value(value: Any, locale: str) -> str:
+def _stringify_export_value(value: Any, locale: str, list_sep: str) -> str:
     if value is None:
         return ""
     if isinstance(value, bool):
@@ -404,13 +459,157 @@ def _stringify_export_value(value: Any, locale: str) -> str:
     if isinstance(value, str):
         return value
     if isinstance(value, list):
-        return "; ".join(_extract_export_answer_parts(value, locale))
+        return list_sep.join(_extract_export_answer_parts(value, locale, list_sep))
     if isinstance(value, dict):
-        parts = _extract_export_answer_parts(value, locale)
+        parts = _extract_export_answer_parts(value, locale, list_sep)
         if parts:
-            return "; ".join(parts)
+            return list_sep.join(parts)
         return json.dumps(value, ensure_ascii=False)
     return str(value)
+
+
+def _is_nonempty_export_answer(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, list):
+        return len(value) > 0
+    if isinstance(value, bool):
+        return True
+    if isinstance(value, (int, float)):
+        return True
+    if isinstance(value, dict):
+        return True
+    return True
+
+
+def _collect_numeric_values_for_stats(values: list[Any]) -> list[float] | None:
+    nums: list[float] = []
+    for raw in values:
+        if raw is None:
+            continue
+        if isinstance(raw, bool):
+            return None
+        if isinstance(raw, (int, float)):
+            nums.append(float(raw))
+            continue
+        if isinstance(raw, str):
+            s = raw.strip().replace(",", ".")
+            if not s:
+                continue
+            try:
+                nums.append(float(s))
+            except ValueError:
+                return None
+            continue
+        return None
+    return nums if nums else None
+
+
+def _build_answer_map_by_response(
+    answer_rows: list[ResponseAnswer],
+    files_by_answer_id: dict[int, list[dict[str, Any]]],
+    sorted_elements: list[FormElement],
+) -> dict[int, dict[str, Any]]:
+    element_client_map = {
+        element.element_id: _extract_element_client_id(element) for element in sorted_elements
+    }
+    answer_rows_by_response_id: dict[int, dict[str, Any]] = {}
+    for answer_row in answer_rows:
+        client_id = element_client_map.get(answer_row.element_id, str(answer_row.element_id))
+        attachments = files_by_answer_id.get(answer_row.answer_id, [])
+        value = _deserialize_answer_value(answer_row, attachments)
+        answer_rows_by_response_id.setdefault(answer_row.response_id, {})[client_id] = value
+    return answer_rows_by_response_id
+
+
+def _build_summary_export_rows(
+    *,
+    locale: str,
+    form_title: str,
+    form_version: int,
+    responses: list[Response],
+    export_at: datetime,
+) -> list[list[str]]:
+    labels = EXPORT_SUMMARY.get(locale, EXPORT_SUMMARY["en"])
+    submitted = sum(1 for r in responses if _enum_value(r.status) == "submitted")
+    cancelled = sum(1 for r in responses if _enum_value(r.status) == "cancelled")
+    ts = export_at.isoformat(timespec="seconds")
+    return [
+        [labels["metric"], labels["value"]],
+        [labels["form_title"], form_title],
+        [labels["form_version"], str(form_version)],
+        [labels["exported_at"], ts],
+        [labels["responses_in_export"], str(len(responses))],
+        [labels["status_submitted"], str(submitted)],
+        [labels["status_cancelled"], str(cancelled)],
+    ]
+
+
+def _build_statistics_export_rows(
+    *,
+    locale: str,
+    sorted_elements: list[FormElement],
+    answer_rows_by_response_id: dict[int, dict[str, Any]],
+    responses: list[Response],
+) -> list[list[str]]:
+    stats_labels = EXPORT_STATS.get(locale, EXPORT_STATS["en"])
+    rows: list[list[str]] = [
+        [stats_labels["dimension"], stats_labels["value_col"]],
+    ]
+    list_sep = EXPORT_LIST_SEP_CSV
+
+    for element in sorted_elements:
+        widget = _enum_value(element.widget)
+        if widget in ("heading", "static_text"):
+            continue
+        client_id = _extract_element_client_id(element)
+        label = (element.label or "").strip() or f"Field {element.element_id}"
+        rows.append([f"— {label} —", ""])
+
+        per_response: list[Any] = []
+        for response_row in responses:
+            raw = answer_rows_by_response_id.get(response_row.response_id, {}).get(client_id)
+            per_response.append(raw)
+
+        nonempty = [v for v in per_response if _is_nonempty_export_answer(v)]
+        rows.append([stats_labels["nonempty"], str(len(nonempty))])
+
+        if not nonempty:
+            rows.append(["", ""])
+            continue
+
+        nums = _collect_numeric_values_for_stats(nonempty)
+        if (
+            nums is not None
+            and len(nums) == len(nonempty)
+            and widget in ("number_input", "rating")
+        ):
+            rows.append([stats_labels["min"], str(min(nums))])
+            rows.append([stats_labels["max"], str(max(nums))])
+            rows.append([stats_labels["average"], str(round(sum(nums) / len(nums), 6))])
+            rows.append(["", ""])
+            continue
+
+        counter: dict[str, int] = {}
+        for v in nonempty:
+            for part in _extract_export_answer_parts(v, locale, list_sep):
+                p = part.strip()
+                if not p:
+                    continue
+                counter[p] = counter.get(p, 0) + 1
+        if not counter:
+            rows.append(["", ""])
+            continue
+        rows.append([stats_labels["distribution"], ""])
+        for key in sorted(counter.keys(), key=lambda s: (-counter[s], s)):
+            rows.append([key, str(counter[key])])
+        rows.append(["", ""])
+
+    while rows and rows[-1] == ["", ""]:
+        rows.pop()
+    return rows
 
 
 def _sanitize_filename_part(value: str) -> str:
@@ -424,36 +623,27 @@ def _build_export_rows(
     *,
     form_version: int,
     responses: list[Response],
-    answer_rows: list[ResponseAnswer],
+    answer_rows_by_response_id: dict[int, dict[str, Any]],
     users_map: dict[int, AppUser],
-    files_by_answer_id: dict[int, list[dict[str, Any]]],
-    elements: list[FormElement],
-    page_index_by_id: dict[int, int],
+    sorted_elements: list[FormElement],
     locale: str,
+    list_sep: str,
 ) -> tuple[list[str], list[list[str]]]:
-    sorted_elements = _sorted_form_elements(elements, page_index_by_id)
     element_client_ids = [_extract_element_client_id(element) for element in sorted_elements]
     element_label_by_client_id = {
-        _extract_element_client_id(element): (element.label or f"Field {element.element_id}")
+        _extract_element_client_id(element): (element.label or f"Field {element.element_id}").strip()
+        or f"Field {element.element_id}"
         for element in sorted_elements
     }
-    answer_rows_by_response_id: dict[int, dict[str, Any]] = {}
-    element_client_map = {
-        element.element_id: _extract_element_client_id(element)
-        for element in sorted_elements
-    }
-    for answer_row in answer_rows:
-        client_id = element_client_map.get(answer_row.element_id, str(answer_row.element_id))
-        attachments = files_by_answer_id.get(answer_row.answer_id, [])
-        value = _deserialize_answer_value(answer_row, attachments)
-        answer_rows_by_response_id.setdefault(answer_row.response_id, {})[client_id] = value
 
     labels = EXPORT_HEADERS.get(locale, EXPORT_HEADERS["en"])
     headers = [
-        labels.get("response_id", "Response ID"),
-        labels.get("responder_name", "Responder"),
-        labels.get("responder_email", "Email"),
-        labels.get("version", "Version"),
+        labels["responder_name"],
+        labels["responder_email"],
+        labels["status"],
+        labels["created_at"],
+        labels["completed_at"],
+        labels["version"],
     ] + [element_label_by_client_id.get(client_id, client_id) for client_id in element_client_ids]
 
     rows: list[list[str]] = []
@@ -461,7 +651,6 @@ def _build_export_rows(
         user = users_map.get(response_row.user_id)
         answers = answer_rows_by_response_id.get(response_row.response_id, {})
         row = [
-            str(response_row.response_id),
             user.name if user else f"User {response_row.user_id}",
             user.email if user else "",
             str(_enum_value(response_row.status)),
@@ -470,7 +659,7 @@ def _build_export_rows(
             str(form_version),
         ]
         for client_id in element_client_ids:
-            row.append(_stringify_export_value(answers.get(client_id), locale))
+            row.append(_stringify_export_value(answers.get(client_id), locale, list_sep))
         rows.append(row)
     return headers, rows
 
@@ -483,16 +672,9 @@ def _build_csv_export(headers: list[str], rows: list[list[str]]) -> bytes:
     return ("\ufeff" + out.getvalue()).encode("utf-8")
 
 
-def _build_xlsx_export(headers: list[str], rows: list[list[str]]) -> bytes:
-    from openpyxl import Workbook
+def _apply_xlsx_sheet_style(sheet: Any) -> None:
     from openpyxl.styles import Alignment, Font
 
-    workbook = Workbook()
-    sheet = workbook.active
-    sheet.title = "Responses"
-    sheet.append(headers)
-    for row in rows:
-        sheet.append(row)
     sheet.freeze_panes = "A2"
     for cell in sheet[1]:
         cell.font = Font(bold=True)
@@ -505,6 +687,37 @@ def _build_xlsx_export(headers: list[str], rows: list[list[str]]) -> bytes:
             cell.alignment = Alignment(wrap_text=True, vertical="top")
         col_letter = col[0].column_letter
         sheet.column_dimensions[col_letter].width = min(max_len + 2, 80)
+
+
+def _build_xlsx_export(
+    *,
+    locale: str,
+    headers: list[str],
+    rows: list[list[str]],
+    summary_rows: list[list[str]],
+    statistics_rows: list[list[str]],
+) -> bytes:
+    from openpyxl import Workbook
+
+    names = EXPORT_SHEETS.get(locale, EXPORT_SHEETS["en"])
+    workbook = Workbook()
+    main = workbook.active
+    main.title = names["responses"]
+    main.append(headers)
+    for row in rows:
+        main.append(row)
+    _apply_xlsx_sheet_style(main)
+
+    ws_summary = workbook.create_sheet(names["summary"])
+    for row in summary_rows:
+        ws_summary.append(row)
+    _apply_xlsx_sheet_style(ws_summary)
+
+    ws_stats = workbook.create_sheet(names["statistics"])
+    for row in statistics_rows:
+        ws_stats.append(row)
+    _apply_xlsx_sheet_style(ws_stats)
+
     stream = io.BytesIO()
     workbook.save(stream)
     return stream.getvalue()
@@ -1094,7 +1307,7 @@ async def export_form_responses(
         select(Response)
         .where(Response.form_id == form.form_id)
         .where(Response.status.in_(["submitted", "cancelled"]))
-        .order_by(Response.completed_at.desc(), Response.created_at.desc())
+        .order_by(Response.response_id.asc())
     )
     responses = responses_result.scalars().all()
 
@@ -1109,7 +1322,11 @@ async def export_form_responses(
     elements_result = await db.execute(
         select(FormElement).where(FormElement.form_id == form.form_id)
     )
-    elements = [item for item in elements_result.scalars().all() if _enum_value(item.widget) != "heading"]
+    elements = [
+        item
+        for item in elements_result.scalars().all()
+        if _enum_value(item.widget) not in ("heading", "static_text")
+    ]
     pages_result = await db.execute(
         select(FormPage).where(FormPage.form_id == form.form_id)
     )
@@ -1144,32 +1361,68 @@ async def export_form_responses(
                 }
             )
 
-    headers, rows = _build_export_rows(
-        form_version=form.version or 1,
-        responses=responses,
-        answer_rows=answer_rows,
-        users_map=users_map,
-        files_by_answer_id=files_by_answer_id,
-        elements=elements,
-        page_index_by_id=page_index_by_id,
-        locale=export_locale,
+    sorted_elements = _sorted_form_elements(elements, page_index_by_id)
+    answer_rows_by_response_id = _build_answer_map_by_response(
+        answer_rows, files_by_answer_id, sorted_elements
     )
+
+    export_at = datetime.now(timezone.utc)
+    date_part = export_at.strftime("%Y-%m-%d")
+    time_part = export_at.strftime("%H-%M-%S")
 
     base_title = _sanitize_filename_part(form.title or "")
     if not base_title:
         base_title = f"form-{form.form_id}"
-    filename_base = f"сводка-{base_title}"
-    ascii_prefix = "svodka-"
+    filename_base = f"{base_title}-{date_part}-{time_part}"
+    ascii_prefix = f"form-{form.form_id}-{date_part}-{time_part}"
+
     if format == "csv":
+        headers, rows = _build_export_rows(
+            form_version=form.version or 1,
+            responses=responses,
+            answer_rows_by_response_id=answer_rows_by_response_id,
+            users_map=users_map,
+            sorted_elements=sorted_elements,
+            locale=export_locale,
+            list_sep=EXPORT_LIST_SEP_CSV,
+        )
         content = _build_csv_export(headers, rows)
         media_type = "text/csv; charset=utf-8"
         filename = f"{filename_base}.csv"
-        ascii_filename = f"{ascii_prefix}form-{form.form_id}.csv"
+        ascii_filename = f"{ascii_prefix}.csv"
     else:
-        content = _build_xlsx_export(headers, rows)
+        headers, rows = _build_export_rows(
+            form_version=form.version or 1,
+            responses=responses,
+            answer_rows_by_response_id=answer_rows_by_response_id,
+            users_map=users_map,
+            sorted_elements=sorted_elements,
+            locale=export_locale,
+            list_sep="\n",
+        )
+        summary_rows = _build_summary_export_rows(
+            locale=export_locale,
+            form_title=form.title or "",
+            form_version=form.version or 1,
+            responses=responses,
+            export_at=export_at,
+        )
+        statistics_rows = _build_statistics_export_rows(
+            locale=export_locale,
+            sorted_elements=sorted_elements,
+            answer_rows_by_response_id=answer_rows_by_response_id,
+            responses=responses,
+        )
+        content = _build_xlsx_export(
+            locale=export_locale,
+            headers=headers,
+            rows=rows,
+            summary_rows=summary_rows,
+            statistics_rows=statistics_rows,
+        )
         media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         filename = f"{filename_base}.xlsx"
-        ascii_filename = f"{ascii_prefix}form-{form.form_id}.xlsx"
+        ascii_filename = f"{ascii_prefix}.xlsx"
 
     quoted_name = quote(filename)
     content_disposition = f"attachment; filename=\"{ascii_filename}\"; filename*=UTF-8''{quoted_name}"
