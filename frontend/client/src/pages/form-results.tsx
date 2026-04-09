@@ -528,11 +528,28 @@ const formatAnswerValue = (
   }
 
   if (field.widgetType === "matrix") {
+    const props = field.props as Record<string, unknown>;
+    const multiplePerRow = Boolean(props.multiplePerRow);
+    const matrixInputType = (props.matrixInputType as "radio" | "checkbox" | "number" | "text")
+      || (multiplePerRow ? "checkbox" : "radio");
     const { rows, columns } = getMatrixLabels(field);
-    const selectedKeys = Array.isArray(value) ? new Set(value.map(String)) : new Set<string>();
-    const cellValues = isRecord(value)
-      ? Object.fromEntries(Object.entries(value).map(([key, val]) => [key, val == null ? "" : String(val)]))
-      : {};
+    const selectedKeys = new Set<string>();
+    const cellValues: Record<string, string> = {};
+    if (Array.isArray(value)) {
+      value.forEach((item) => selectedKeys.add(String(item)));
+    }
+    if (isRecord(value)) {
+      Object.entries(value).forEach(([key, cellValue]) => {
+        if (typeof cellValue === "boolean") {
+          if (cellValue) selectedKeys.add(key);
+          return;
+        }
+        if (cellValue == null) return;
+        const normalized = String(cellValue);
+        if (!normalized.trim()) return;
+        cellValues[key] = normalized;
+      });
+    }
     if (rows.length === 0 || columns.length === 0) {
       return <span className="text-muted-foreground">{t("results.noAnswer")}</span>;
     }
@@ -562,11 +579,43 @@ const formatAnswerValue = (
                     <td
                       key={colIdx}
                       className={cn(
-                        "border border-border p-2 text-center",
-                        (isSelected || hasValue) && "bg-primary/10 font-medium text-primary"
+                        "border border-border p-2",
+                        (matrixInputType === "radio" || matrixInputType === "checkbox") && "text-center",
+                        (isSelected || hasValue) && "font-medium text-primary"
                       )}
                     >
-                      {hasValue ? textValue : (isSelected ? "✓" : "—")}
+                      {matrixInputType === "text" ? (
+                        <Input
+                          disabled
+                          type="text"
+                          value={textValue ?? ""}
+                          className="h-8 bg-background"
+                          placeholder="—"
+                        />
+                      ) : matrixInputType === "number" ? (
+                        <Input
+                          disabled
+                          type="number"
+                          value={textValue ?? ""}
+                          className="h-8 bg-background"
+                          placeholder="—"
+                        />
+                      ) : matrixInputType === "checkbox" ? (
+                        <Checkbox checked={isSelected} disabled className="mx-auto" />
+                      ) : (
+                        <button
+                          type="button"
+                          disabled
+                          aria-label={`matrix-radio-${rowIdx + 1}-${colIdx + 1}`}
+                          className={cn(
+                            "mx-auto inline-flex aspect-square h-4 w-4 items-center justify-center align-middle rounded-full border border-primary text-primary shadow focus:outline-none focus-visible:ring-1 focus-visible:ring-ring transition-colors duration-200 leading-none p-0 disabled:cursor-not-allowed disabled:opacity-50 relative overflow-hidden"
+                          )}
+                        >
+                          {isSelected && (
+                            <span className="absolute inset-0 rounded-full bg-primary animate-in zoom-in-50 duration-200 ease-out" />
+                          )}
+                        </button>
+                      )}
                     </td>
                   );
                 })}
