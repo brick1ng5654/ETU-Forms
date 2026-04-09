@@ -538,7 +538,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
   const [attemptLimitInput, setAttemptLimitInput] = useState("1");
   const [revokeCountsAsAttempt, setRevokeCountsAsAttempt] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isExportingFormat, setIsExportingFormat] = useState<"csv" | "xlsx" | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
   const [isAccessDialogOpen, setIsAccessDialogOpen] = useState(false);
   const isRussianLocale = i18n.language.startsWith("ru");
   const canEditCurrentForm = form?.canEdit === true;
@@ -1023,11 +1023,11 @@ export default function FormResults({ params }: { params: { id: string } }) {
     }
   };
 
-  const handleExportResponses = async (format: "csv" | "xlsx") => {
-    if (!form || !canExportResponses || isExportingFormat) return;
-    setIsExportingFormat(format);
+  const handleExportResponses = async () => {
+    if (!form || !canExportResponses || isExporting) return;
+    setIsExporting(true);
     try {
-      await downloadFormResponsesExport(form.id, format, i18n.language);
+      await downloadFormResponsesExport(form.id, i18n.language);
       toast({ title: t("results.exportSuccess") });
     } catch (error: any) {
       toast({
@@ -1036,7 +1036,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
         variant: "destructive",
       });
     } finally {
-      setIsExportingFormat(null);
+      setIsExporting(false);
     }
   };
 
@@ -1401,24 +1401,15 @@ export default function FormResults({ params }: { params: { id: string } }) {
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
                   {canExportResponses ? (
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-2">
                       <Button
                         variant="outline"
                         size="sm"
                         className="w-full sm:w-auto"
-                        onClick={() => handleExportResponses("csv")}
-                        disabled={Boolean(isExportingFormat)}
+                        onClick={handleExportResponses}
+                        disabled={isExporting}
                       >
-                        {isExportingFormat === "csv" ? t("results.exporting") : t("results.exportCsv")}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full sm:w-auto"
-                        onClick={() => handleExportResponses("xlsx")}
-                        disabled={Boolean(isExportingFormat)}
-                      >
-                        {isExportingFormat === "xlsx" ? t("results.exporting") : t("results.exportXlsx")}
+                        {isExporting ? t("results.exporting") : t("results.exportXlsx")}
                       </Button>
                     </div>
                   ) : null}

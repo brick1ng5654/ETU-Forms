@@ -620,8 +620,6 @@ export type RevokeResponseResult = {
   form_title: string;
 };
 
-export type FormResponsesExportFormat = "csv" | "xlsx";
-
 const parseFilenameFromContentDisposition = (value: string | null): string | null => {
   if (!value) return null;
   const utf8Match = value.match(/filename\*=UTF-8''([^;]+)/i);
@@ -649,11 +647,10 @@ export async function revokeResponse(responseId: number): Promise<RevokeResponse
 
 export async function downloadFormResponsesExport(
   formId: string,
-  format: FormResponsesExportFormat,
   locale: string
 ): Promise<void> {
   const query = new URLSearchParams({
-    format,
+    format: "xlsx",
     locale: locale || "en",
   });
   const res = await apiFetch(`/api/v1/forms/${formId}/responses/export?${query.toString()}`);
@@ -661,11 +658,11 @@ export async function downloadFormResponsesExport(
     throw await asHttpError(res);
   }
   const blob = await res.blob();
-  const fallbackFilename = `svodka-form-${formId}-responses.${format}`;
+  const fallbackFilename = `svodka-form-${formId}-responses.xlsx`;
   const fromHeader = parseFilenameFromContentDisposition(res.headers.get("Content-Disposition"));
   const normalizedFilename = (() => {
     const base = (fromHeader ?? fallbackFilename).trim();
-    const expectedSuffix = `.${format}`;
+    const expectedSuffix = ".xlsx";
     if (base.toLowerCase().endsWith(expectedSuffix)) return base;
     return `${base}${expectedSuffix}`;
   })();

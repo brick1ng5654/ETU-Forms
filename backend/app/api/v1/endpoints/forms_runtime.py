@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import csv
 import io
 import json
 from datetime import datetime, timedelta, timezone
@@ -71,7 +70,7 @@ EXPORT_HEADERS = {
     },
 }
 
-EXPORT_LIST_SEP_CSV = " ; "
+EXPORT_LIST_SEP = " ; "
 
 EXPORT_SHEETS = {
     "ru": {"responses": "Ответы", "summary": "Итоги", "statistics": "Статистика"},
@@ -558,7 +557,7 @@ def _build_statistics_export_rows(
     rows: list[list[str]] = [
         [stats_labels["dimension"], stats_labels["value_col"]],
     ]
-    list_sep = EXPORT_LIST_SEP_CSV
+    list_sep = EXPORT_LIST_SEP
 
     for element in sorted_elements:
         widget = _enum_value(element.widget)
@@ -662,14 +661,6 @@ def _build_export_rows(
             row.append(_stringify_export_value(answers.get(client_id), locale, list_sep))
         rows.append(row)
     return headers, rows
-
-
-def _build_csv_export(headers: list[str], rows: list[list[str]]) -> bytes:
-    out = io.StringIO(newline="")
-    writer = csv.writer(out, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL)
-    writer.writerow(headers)
-    writer.writerows(rows)
-    return ("\ufeff" + out.getvalue()).encode("utf-8")
 
 
 def _apply_xlsx_sheet_style(sheet: Any) -> None:
@@ -1295,7 +1286,6 @@ async def get_form_responses(
 @router.get("/{form_id}/responses/export")
 async def export_form_responses(
     form_id: int,
-    format: str = Query("xlsx", pattern="^(csv|xlsx)$"),
     locale: str = Query("en"),
     db: AsyncSession = Depends(get_db),
     current_user: AppUser = Depends(get_current_user),
@@ -1368,7 +1358,7 @@ async def export_form_responses(
 
     export_at = datetime.now(timezone.utc)
     date_part = export_at.strftime("%d-%m-%Y")
-    time_part = export_at.strftime("%H:%M")
+    time_part = export_at.strftime("%H-%M")
 
     base_title = _sanitize_filename_part(form.title or "")
     if not base_title:
@@ -1376,53 +1366,38 @@ async def export_form_responses(
     filename_base = f"{base_title}-{date_part}-{time_part}"
     ascii_prefix = f"form-{form.form_id}-{date_part}-{time_part}"
 
-    if format == "csv":
-        headers, rows = _build_export_rows(
-            form_version=form.version or 1,
-            responses=responses,
-            answer_rows_by_response_id=answer_rows_by_response_id,
-            users_map=users_map,
-            sorted_elements=sorted_elements,
-            locale=export_locale,
-            list_sep=EXPORT_LIST_SEP_CSV,
-        )
-        content = _build_csv_export(headers, rows)
-        media_type = "text/csv; charset=utf-8"
-        filename = f"{filename_base}.csv"
-        ascii_filename = f"{ascii_prefix}.csv"
-    else:
-        headers, rows = _build_export_rows(
-            form_version=form.version or 1,
-            responses=responses,
-            answer_rows_by_response_id=answer_rows_by_response_id,
-            users_map=users_map,
-            sorted_elements=sorted_elements,
-            locale=export_locale,
-            list_sep="\n",
-        )
-        summary_rows = _build_summary_export_rows(
-            locale=export_locale,
-            form_title=form.title or "",
-            form_version=form.version or 1,
-            responses=responses,
-            export_at=export_at,
-        )
-        statistics_rows = _build_statistics_export_rows(
-            locale=export_locale,
-            sorted_elements=sorted_elements,
-            answer_rows_by_response_id=answer_rows_by_response_id,
-            responses=responses,
-        )
-        content = _build_xlsx_export(
-            locale=export_locale,
-            headers=headers,
-            rows=rows,
-            summary_rows=summary_rows,
-            statistics_rows=statistics_rows,
-        )
-        media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        filename = f"{filename_base}.xlsx"
-        ascii_filename = f"{ascii_prefix}.xlsx"
+    headers, rows = _build_export_rows(
+        form_version=form.version or 1,
+        responses=responses,
+        answer_rows_by_response_id=answer_rows_by_response_id,
+        users_map=users_map,
+        sorted_elements=sorted_elements,
+        locale=export_locale,
+        list_sep="\n",
+    )
+    summary_rows = _build_summary_export_rows(
+        locale=export_locale,
+        form_title=form.title or "",
+        form_version=form.version or 1,
+        responses=responses,
+        export_at=export_at,
+    )
+    statistics_rows = _build_statistics_export_rows(
+        locale=export_locale,
+        sorted_elements=sorted_elements,
+        answer_rows_by_response_id=answer_rows_by_response_id,
+        responses=responses,
+    )
+    content = _build_xlsx_export(
+        locale=export_locale,
+        headers=headers,
+        rows=rows,
+        summary_rows=summary_rows,
+        statistics_rows=statistics_rows,
+    )
+    media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    filename = f"{filename_base}.xlsx"
+    ascii_filename = f"{ascii_prefix}.xlsx"
 
     quoted_name = quote(filename)
     content_disposition = f"attachment; filename=\"{ascii_filename}\"; filename*=UTF-8''{quoted_name}"

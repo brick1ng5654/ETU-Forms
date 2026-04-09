@@ -191,7 +191,6 @@
     "limitedAttempts": "Limited number",
     "attemptLimit": "Number of attempts",
     "attemptLimitHint": "Maximum number of form completion attempts per user",
-    "exportCsv": "Export CSV",
     "exportXlsx": "Export XLSX",
     "exporting": "Exporting...",
     "exportSuccess": "Responses file generated",
