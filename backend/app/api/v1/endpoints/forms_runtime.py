@@ -121,6 +121,20 @@ EXPORT_STATS = {
     },
 }
 
+_XLSX_CELL_MAX_LEN = 32767
+_ILLEGAL_XLSX_CTRL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+
+
+def _prepare_xlsx_cell_value(value: Any) -> str:
+    if value is None:
+        text = ""
+    else:
+        text = str(value)
+    text = _ILLEGAL_XLSX_CTRL.sub("", text)
+    if len(text) > _XLSX_CELL_MAX_LEN:
+        text = text[: _XLSX_CELL_MAX_LEN - 1] + "…"
+    return text
+
 
 def _enum_value(x: Any) -> Any:
     return x.value if hasattr(x, "value") else x
@@ -463,7 +477,7 @@ def _stringify_export_value(value: Any, locale: str, list_sep: str) -> str:
         parts = _extract_export_answer_parts(value, locale, list_sep)
         if parts:
             return list_sep.join(parts)
-        return json.dumps(value, ensure_ascii=False)
+        return json.dumps(value, ensure_ascii=False, default=str)
     return str(value)
 
 
@@ -650,8 +664,8 @@ def _build_export_rows(
         user = users_map.get(response_row.user_id)
         answers = answer_rows_by_response_id.get(response_row.response_id, {})
         row = [
-            user.name if user else f"User {response_row.user_id}",
-            user.email if user else "",
+            (user.name or f"User {response_row.user_id}") if user else f"User {response_row.user_id}",
+            (user.email or "") if user else "",
             str(_enum_value(response_row.status)),
             response_row.created_at.isoformat() if response_row.created_at else "",
             response_row.completed_at.isoformat() if response_row.completed_at else "",
@@ -666,7 +680,9 @@ def _build_export_rows(
 def _apply_xlsx_sheet_style(sheet: Any) -> None:
     from openpyxl.styles import Alignment, Font
 
-    sheet.freeze_panes = "A2"
+    if not sheet.max_row or not sheet.max_column:
+        return
+    sheet.freeze_panes = "A2" if sheet.max_row > 1 else None
     for cell in sheet[1]:
         cell.font = Font(bold=True)
         cell.alignment = Alignment(wrap_text=True, vertical="top")
@@ -694,19 +710,23 @@ def _build_xlsx_export(
     workbook = Workbook()
     main = workbook.active
     main.title = names["responses"]
-    main.append(headers)
+
+    def _append_prepared(ws: Any, row: list[Any]) -> None:
+        ws.append([_prepare_xlsx_cell_value(v) for v in row])
+
+    _append_prepared(main, headers)
     for row in rows:
-        main.append(row)
+        _append_prepared(main, row)
     _apply_xlsx_sheet_style(main)
 
     ws_summary = workbook.create_sheet(names["summary"])
     for row in summary_rows:
-        ws_summary.append(row)
+        _append_prepared(ws_summary, row)
     _apply_xlsx_sheet_style(ws_summary)
 
     ws_stats = workbook.create_sheet(names["statistics"])
     for row in statistics_rows:
-        ws_stats.append(row)
+        _append_prepared(ws_stats, row)
     _apply_xlsx_sheet_style(ws_stats)
 
     stream = io.BytesIO()
@@ -1388,13 +1408,19 @@ async def export_form_responses(
         answer_rows_by_response_id=answer_rows_by_response_id,
         responses=responses,
     )
-    content = _build_xlsx_export(
-        locale=export_locale,
-        headers=headers,
-        rows=rows,
-        summary_rows=summary_rows,
-        statistics_rows=statistics_rows,
-    )
+    try:
+        content = _build_xlsx_export(
+            locale=export_locale,
+            headers=headers,
+            rows=rows,
+            summary_rows=summary_rows,
+            statistics_rows=statistics_rows,
+        )
+    except ImportError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Экспорт в Excel недоступен:не установлен openpyxl.",
+        ) from exc
     media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     filename = f"{filename_base}.xlsx"
     ascii_filename = f"{ascii_prefix}.xlsx"
