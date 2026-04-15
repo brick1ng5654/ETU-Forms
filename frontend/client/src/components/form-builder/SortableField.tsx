@@ -1,7 +1,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { KeyboardEvent, MouseEvent } from "react";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import type { FormElementModel } from "@/form/types";
 import { presets } from "@/form/presets";
 import { cn } from "@/lib/utils";
@@ -12,14 +12,296 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import { useTranslation } from "react-i18next";
 import { MatrixCorrectAnswersModal } from "./MatrixCorrectAnswersModal";
-import { getCountryOptions, isCountryField } from "@/lib/countries";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { getCountryOptions, isCountryField, normalizeCountrySearch } from "@/lib/countries";
 import { t } from "i18next";
+import { enUS, ru } from "date-fns/locale";
 
 const MAX_UPLOAD_MB = 20;
+
+interface CanvasSelectPreviewProps {
+  options: string[];
+  placeholder: string;
+  allowOtherOption: boolean;
+  otherOptionLabel: string;
+}
+
+function CanvasSelectPreview({
+  options,
+  placeholder,
+  allowOtherOption,
+  otherOptionLabel,
+}: CanvasSelectPreviewProps) {
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const visibleOptions = options.filter(Boolean);
+
+  const closePreview = () => {
+    setOpen(false);
+    requestAnimationFrame(() => triggerRef.current?.blur());
+  };
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (!nextOpen) {
+          requestAnimationFrame(() => triggerRef.current?.blur());
+        }
+      }}
+    >
+      <PopoverTrigger asChild>
+        <Button
+          ref={triggerRef}
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between bg-white/50 font-normal focus-visible:ring-0 focus-visible:ring-offset-0"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <span className="truncate text-muted-foreground">{placeholder}</span>
+          <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="p-1 w-[var(--radix-popover-trigger-width)] max-h-72 overflow-y-auto"
+        align="start"
+        side="bottom"
+        sideOffset={4}
+        onOpenAutoFocus={(event) => event.preventDefault()}
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
+      >
+        {visibleOptions.map((opt, i) => (
+          <button
+            key={`${opt}-${i}`}
+            type="button"
+            className="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
+            onClick={closePreview}
+          >
+            {opt}
+          </button>
+        ))}
+        {allowOtherOption && (
+          <button
+            type="button"
+            className="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
+            onClick={closePreview}
+          >
+            {otherOptionLabel}
+          </button>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+interface CanvasCountrySelectPreviewProps {
+  options: string[];
+  placeholder: string;
+}
+
+function CanvasCountrySelectPreview({ options, placeholder }: CanvasCountrySelectPreviewProps) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState("");
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const normalizedQuery = useMemo(() => normalizeCountrySearch(searchValue), [searchValue]);
+  const filteredOptions = useMemo(() => {
+    if (!normalizedQuery) return options;
+    return options.filter((option) => normalizeCountrySearch(option).includes(normalizedQuery));
+  }, [options, normalizedQuery]);
+
+  useEffect(() => {
+    if (!open) {
+      setSearchValue("");
+      requestAnimationFrame(() => triggerRef.current?.blur());
+    }
+  }, [open]);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          ref={triggerRef}
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between bg-white/50 font-normal focus-visible:ring-0 focus-visible:ring-offset-0"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <span className="truncate text-muted-foreground">{placeholder}</span>
+          <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="p-0 w-[var(--radix-popover-trigger-width)]"
+        align="start"
+        side="bottom"
+        sideOffset={8}
+        onOpenAutoFocus={(event) => event.preventDefault()}
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <Command shouldFilter={false}>
+          <CommandInput
+            placeholder={t("placeholders.search")}
+            value={searchValue}
+            onValueChange={setSearchValue}
+          />
+          <CommandList className="max-h-72">
+            <CommandEmpty>{t("common.noResults")}</CommandEmpty>
+            <CommandGroup>
+              {filteredOptions.map((option) => (
+                <CommandItem
+                  key={option}
+                  value={option}
+                  onSelect={() => {
+                    setOpen(false);
+                  }}
+                >
+                  {option}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function CanvasDatePreview({ placeholder }: { placeholder: string }) {
+  const { i18n } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const [month, setMonth] = useState(new Date());
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const calendarLocale = i18n.language?.startsWith("ru") ? ru : enUS;
+
+  const closePreview = () => {
+    setOpen(false);
+    requestAnimationFrame(() => triggerRef.current?.blur());
+  };
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (!nextOpen) {
+          requestAnimationFrame(() => triggerRef.current?.blur());
+        }
+      }}
+    >
+      <PopoverTrigger asChild>
+        <Button
+          ref={triggerRef}
+          type="button"
+          variant="outline"
+          className="w-full justify-start bg-white/50 text-left font-normal text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <CalendarDays className="mr-2 h-4 w-4" />
+          <span>{placeholder}</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-auto p-0"
+        align="start"
+        side="bottom"
+        sideOffset={8}
+        onOpenAutoFocus={(event) => event.preventDefault()}
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <Calendar
+          mode="single"
+          month={month}
+          onMonthChange={setMonth}
+          locale={calendarLocale}
+          selected={undefined}
+          onSelect={closePreview}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function CanvasTimePreview({ placeholder }: { placeholder: string }) {
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const timeOptions = useMemo(
+    () =>
+      Array.from({ length: 48 }, (_, index) => {
+        const hours = Math.floor(index / 2).toString().padStart(2, "0");
+        const minutes = index % 2 === 0 ? "00" : "30";
+        return `${hours}:${minutes}`;
+      }),
+    []
+  );
+
+  const closePreview = () => {
+    setOpen(false);
+    requestAnimationFrame(() => triggerRef.current?.blur());
+  };
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (!nextOpen) {
+          requestAnimationFrame(() => triggerRef.current?.blur());
+        }
+      }}
+    >
+      <PopoverTrigger asChild>
+        <Button
+          ref={triggerRef}
+          type="button"
+          variant="outline"
+          className="w-full justify-start bg-white/50 text-left font-normal text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <Clock className="mr-2 h-4 w-4" />
+          <span>{placeholder}</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="p-1 w-[var(--radix-popover-trigger-width)] max-h-60 overflow-y-auto"
+        align="start"
+        side="bottom"
+        sideOffset={8}
+        onOpenAutoFocus={(event) => event.preventDefault()}
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
+      >
+        {timeOptions.map((time) => (
+          <button
+            key={time}
+            type="button"
+            className="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none"
+            onClick={closePreview}
+          >
+            {time}
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 interface MatrixPreviewProps {
   fieldId: string;
@@ -468,29 +750,19 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
             </div>
           </div>
         ) : (
-          <Select disabled>
-            <SelectTrigger
-              className="bg-white/50 cursor-pointer"
-              onClick={(e) => {
-                e.stopPropagation();
-                startEditing("options");
-              }}
-            >
-              <SelectValue placeholder={t("common.selectopt")} />
-            </SelectTrigger>
-            <SelectContent>
-              {options.filter(Boolean).map((opt, i) => (
-                <SelectItem key={i} value={opt}>
-                  {opt}
-                </SelectItem>
-              ))}
-              {allowOtherOption && (
-                <SelectItem value="__other_preview__" disabled>
-                  {otherOptionLabel}
-                </SelectItem>
-              )}
-            </SelectContent>
-          </Select>
+          isCountrySelect ? (
+            <CanvasCountrySelectPreview
+              options={countryOptions}
+              placeholder={(props.placeholder as string) || t("placeholders.selectCountry")}
+            />
+          ) : (
+            <CanvasSelectPreview
+              options={options}
+              placeholder={(props.placeholder as string) || t("common.selectopt")}
+              allowOtherOption={allowOtherOption}
+              otherOptionLabel={otherOptionLabel}
+            />
+          )
         );
       case "checkbox":
         return editingElement === "options" ? (
@@ -752,27 +1024,10 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
         return (
           <div className="space-y-3">
             {!props.hideDate && (
-              <div className="relative">
-                <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
-                <Input
-                  type="text"
-                  value=""
-                  disabled
-                  className="pl-10 h-10 bg-white/50 pointer-events-none text-muted-foreground"
-                  placeholder={t("propert.dateFormatPlaceholder")}
-                />
-              </div>
+              <CanvasDatePreview placeholder={t("propert.selectDate")} />
             )}
             {!props.hideTime && (
-              <div className="relative">
-                <Input
-                  type="time"
-                  disabled
-                  className="pl-10 h-10 bg-white/50 pointer-events-none"
-                  placeholder={t("propert.selectTime")}
-                />
-                <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-              </div>
+              <CanvasTimePreview placeholder={t("propert.selectTime")} />
             )}
           </div>
         );
@@ -942,7 +1197,7 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
 
             <div className={cn(
               "pointer-events-none",
-              field.widgetType === "matrix" && "!pointer-events-auto"
+              (field.widgetType === "select" || field.widgetType === "datetime" || field.widgetType === "matrix") && "!pointer-events-auto"
             )}>
               {renderFieldPreview()}
             </div>
