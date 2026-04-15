@@ -32,6 +32,7 @@ import {
   getChoiceSingleState,
   isChoiceAnswer,
 } from "@/form/choice-answer";
+import { getCountryLabel, isCountryField, resolveCountryCode } from "@/lib/countries";
 import { downloadFormResponsesExport, fetchFormDetail, fetchFormResponses, fetchForms, fetchFormsCatalog, saveFormInPlace } from "@/lib/forms-api";
 import { storage } from "@/lib/storage";
 import { cn } from "@/lib/utils";
@@ -362,6 +363,22 @@ const normalizeAnswerValues = (field: FormElementModel, value: AnswersById[strin
   return [String(value)];
 };
 
+const normalizeAnswerValuesForDisplay = (
+  field: FormElementModel,
+  value: AnswersById[string],
+  locale: string
+): string[] => {
+  const base = normalizeAnswerValues(field, value);
+  if (!isCountryField(field)) return base;
+  return base.map((raw) => {
+    const normalizedRaw = String(raw ?? "").trim();
+    const isCodeLike = /^[A-Za-z]{2}$/.test(normalizedRaw);
+    if (!isCodeLike) return raw;
+    const code = resolveCountryCode(normalizedRaw);
+    return code ? (getCountryLabel(code, locale) ?? raw) : raw;
+  });
+};
+
 const isCorrectAnswer = (
   field: FormElementModel,
   value: AnswersById[string],
@@ -421,10 +438,130 @@ const calculateMedian = (values: number[]) => {
   return sorted[middle];
 };
 
-const formatAnswerValue = (
+const fullNamePartDefs = [
+  { key: "lastName", labelKey: "formParts.fullName.lastName" },
+  { key: "firstName", labelKey: "formParts.fullName.firstName" },
+  { key: "patronymic", labelKey: "formParts.fullName.patronymic" },
+] as const;
+
+const passportPartDefs = [
+  { key: "lastName", labelKey: "formParts.fullName.lastName", hiddenProp: "hidePassportFullName" },
+  { key: "firstName", labelKey: "formParts.fullName.firstName", hiddenProp: "hidePassportFullName" },
+  { key: "patronymic", labelKey: "formParts.fullName.patronymic", hiddenProp: "hidePassportFullName" },
+  { key: "gender", labelKey: "formParts.passport.gender", hiddenProp: "hidePassportGender" },
+  { key: "birthDate", labelKey: "formParts.passport.birthDate", hiddenProp: "hidePassportBirthDate" },
+  { key: "seriesNumber", labelKey: "formParts.passport.seriesNumber", hiddenProp: "hidePassportSeriesNumber" },
+  { key: "issuedBy", labelKey: "formParts.passport.issuedBy", hiddenProp: "hidePassportIssuedBy" },
+  { key: "issueDate", labelKey: "formParts.passport.issueDate", hiddenProp: "hidePassportIssueDate" },
+  { key: "departmentCode", labelKey: "formParts.passport.departmentCode", hiddenProp: "hidePassportDepartmentCode" },
+  { key: "birthPlace", labelKey: "formParts.passport.birthPlace", hiddenProp: "hidePassportBirthPlace" },
+] as const;
+
+const toHumanObjectValue = (value: unknown): string => {
+  if (value == null) return "";
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => toHumanObjectValue(item))
+      .filter(Boolean)
+      .join(", ");
+  }
+  if (typeof value === "object") {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return "";
+    }
+  }
+  return String(value);
+};
+
+const formatCompositeGender = (
+  raw: unknown,
+  t: (key: string, options?: Record<string, unknown>) => string
+): string => {
+  const normalized = String(raw ?? "").trim().toLowerCase();
+  if (!normalized) return "";
+  if (normalized === "male") return t("formParts.passport.genderMale");
+  if (normalized === "female") return t("formParts.passport.genderFemale");
+  return String(raw);
+};
+
+const renderCompositeAnswer = (
   field: FormElementModel,
   value: AnswersById[string],
   t: (key: string, options?: Record<string, unknown>) => string
+): ReactNode | null => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  if (field.semanticType !== "full_name" && field.semanticType !== "passport") return null;
+
+  const rawRecord = value as Record<string, unknown>;
+  const parts =
+    field.semanticType === "full_name"
+      ? fullNamePartDefs
+      : passportPartDefs.filter((part) => !(part.hiddenProp && Boolean((field.props as Record<string, unknown>)?.[part.hiddenProp])));
+
+  const rows = parts.reduce<Array<{ key: string; label: string; value: string }>>((acc, part) => {
+      const raw = rawRecord[part.key];
+      const normalized =
+        part.key === "gender"
+          ? formatCompositeGender(raw, t)
+          : toHumanObjectValue(raw);
+      if (!normalized) return acc;
+      acc.push({
+        key: part.key,
+        label: t(part.labelKey),
+        value: normalized,
+      });
+      return acc;
+    }, []);
+
+  if (rows.length === 0) {
+    return <span className="text-muted-foreground">{t("results.noAnswer")}</span>;
+  }
+
+  return (
+    <div className="space-y-2">
+      {rows.map((row) => (
+        <div key={row.key} className="text-sm">
+          <span className="text-muted-foreground">{row.label}: </span>
+          <span>{row.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const renderGenericObjectAnswer = (
+  value: Record<string, unknown>,
+  t: (key: string, options?: Record<string, unknown>) => string
+): ReactNode => {
+  const rows = Object.entries(value)
+    .map(([key, raw]) => ({ key, text: toHumanObjectValue(raw) }))
+    .filter((row) => row.text.length > 0);
+
+  if (rows.length === 0) {
+    return <span className="text-muted-foreground">{t("results.noAnswer")}</span>;
+  }
+
+  return (
+    <div className="space-y-2">
+      {rows.map((row) => (
+        <div key={row.key} className="text-sm break-words">
+          <span className="text-muted-foreground">{row.key}: </span>
+          <span>{row.text}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const formatAnswerValue = (
+  field: FormElementModel,
+  value: AnswersById[string],
+  t: (key: string, options?: Record<string, unknown>) => string,
+  locale: string
 ): ReactNode => {
   if (value == null || value === "" || (Array.isArray(value) && value.length === 0)) {
     return <span className="text-muted-foreground">{t("results.noAnswer")}</span>;
@@ -441,11 +578,11 @@ const formatAnswerValue = (
       return <span className="text-muted-foreground">{t("results.noAnswer")}</span>;
     }
     return (
-      <div className="flex flex-wrap gap-2">
+      <div className="space-y-1">
         {items.map((item) => (
-          <Badge key={String(item)} variant="secondary">
+          <div key={String(item)} className="text-sm">
             {String(item)}
-          </Badge>
+          </div>
         ))}
       </div>
     );
@@ -503,13 +640,24 @@ const formatAnswerValue = (
         ? <span>{`${t("common.otherOption")}: ${otherText}`}</span>
         : <span className="text-muted-foreground">{t("results.noAnswer")}</span>;
     }
+    const selectedRaw = state.selected ?? "";
+    const normalizedSelected = String(selectedRaw).trim();
+    const selectedCountryCode =
+      isCountryField(field) && /^[A-Za-z]{2}$/.test(normalizedSelected)
+        ? resolveCountryCode(normalizedSelected)
+        : undefined;
+    const selectedDisplay = selectedCountryCode
+      ? getCountryLabel(selectedCountryCode, locale) ?? selectedRaw
+      : selectedRaw;
     return state.selected
-      ? <span>{state.selected}</span>
+      ? <span>{selectedDisplay}</span>
       : <span className="text-muted-foreground">{t("results.noAnswer")}</span>;
   }
 
   if (typeof value === "object") {
-    return <span>{JSON.stringify(value)}</span>;
+    const composite = renderCompositeAnswer(field, value, t);
+    if (composite) return composite;
+    return renderGenericObjectAnswer(value as Record<string, unknown>, t);
   }
 
   return <span>{String(value)}</span>;
@@ -873,7 +1021,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
         };
       }
 
-      const flatValues = values.flatMap((value) => normalizeAnswerValues(field, value));
+      const flatValues = values.flatMap((value) => normalizeAnswerValuesForDisplay(field, value, i18n.language));
 
       if (field.widgetType === "matrix") {
         const normalized = flatValues.map((value) => formatMatrixCell(field, value));
@@ -1535,7 +1683,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
                                 }
                               />
                             )}
-                            {formatAnswerValue(field, activeResponse.answers[field.id], t)}
+                            {formatAnswerValue(field, activeResponse.answers[field.id], t, i18n.language)}
                           </CardContent>
                         </Card>
                       ))}
