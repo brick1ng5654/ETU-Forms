@@ -1167,7 +1167,7 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
               </p>
             ) : (
               <p
-                className="mt-1 text-sm text-muted-foreground/50 -mt-1 cursor-pointer hover:bg-muted/50 px-2 py-1 mr-8 rounded transition-colors italic"
+                className="mt-1 text-sm text-muted-foreground -mt-1 cursor-pointer hover:bg-muted/50 px-2 py-1 mr-8 rounded transition-colors italic"
                 onClick={(e) => {
                   e.stopPropagation();
                   startEditing("helperText", "");
