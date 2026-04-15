@@ -25,6 +25,8 @@ import type {
   ElementAttachment,
   FormAccessMode,
   FormElementModel,
+  FullNameAnswer,
+  PassportAnswer,
   FormSchema,
 } from "@/form/types";
 import {
@@ -37,6 +39,7 @@ import { downloadFormResponsesExport, fetchFormDetail, fetchFormResponses, fetch
 import { storage } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import { formatScoreRange } from "@/lib/points-label";
+import { getCountryLabel, isCountryField } from "@/lib/countries";
 import FormPreview from "@/components/form-builder/FormPreview";
 import { ElementAttachments } from "@/components/form-builder/ElementAttachments";
 import { UserMenu } from "@/components/user-menu";
@@ -190,6 +193,65 @@ const formatMatrixCell = (field: FormElementModel, key: string) => {
   const colLabel = columns[colIdx - 1] || `Column ${colIdx}`;
   return `${rowLabel} / ${colLabel}`;
 };
+
+const formatRuDate = (value?: string | null) => {
+  if (!value) return "";
+  const normalized = value.trim();
+  if (!normalized) return "";
+  const pureDateMatch = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (pureDateMatch) {
+    return `${pureDateMatch[3]}.${pureDateMatch[2]}.${pureDateMatch[1]}`;
+  }
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) return normalized;
+  return format(parsed, "dd.MM.yyyy");
+};
+
+const formatRuPhone = (value: string) => {
+  const digitsRaw = value.replace(/\D/g, "");
+  if (!digitsRaw) return value;
+  let digits = digitsRaw.slice(0, 11);
+  if (digits.startsWith("8")) digits = `7${digits.slice(1)}`;
+  if (!digits.startsWith("7")) digits = `7${digits}`.slice(0, 11);
+  const rest = digits.slice(1);
+  const p1 = rest.slice(0, 3);
+  const p2 = rest.slice(3, 6);
+  const p3 = rest.slice(6, 8);
+  const p4 = rest.slice(8, 10);
+  if (rest.length <= 3) return `+7 (${p1}`;
+  if (rest.length <= 6) return `+7 (${p1}) ${p2}`;
+  if (rest.length <= 8) return `+7 (${p1}) ${p2}-${p3}`;
+  return `+7 (${p1}) ${p2}-${p3}-${p4}`;
+};
+
+const formatSnils = (value: string) => {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+  if (!digits) return value;
+  const p1 = digits.slice(0, 3);
+  const p2 = digits.slice(3, 6);
+  const p3 = digits.slice(6, 9);
+  const p4 = digits.slice(9, 11);
+  let out = p1;
+  if (p2) out += `-${p2}`;
+  if (p3) out += `-${p3}`;
+  if (p4) out += ` ${p4}`;
+  return out;
+};
+
+const formatPassportSeries = (value: string) => {
+  const digits = value.replace(/\D/g, "").slice(0, 10);
+  if (digits.length <= 4) return digits;
+  return `${digits.slice(0, 4)} ${digits.slice(4)}`;
+};
+
+const formatPassportDepartmentCode = (value: string) => {
+  const digits = value.replace(/\D/g, "").slice(0, 6);
+  if (digits.length <= 3) return digits;
+  return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
 
 const mapWidgetTypeForPublish = (widgetType: FormElementModel["widgetType"]) => {
   if (widgetType === "header") return "heading";
@@ -601,14 +663,102 @@ const formatAnswerValue = (
     );
   }
 
-  if (field.widgetType === "matrix" && Array.isArray(value)) {
+  if (field.widgetType === "matrix") {
+    const props = field.props as Record<string, unknown>;
+    const multiplePerRow = Boolean(props.multiplePerRow);
+    const matrixInputType = (props.matrixInputType as "radio" | "checkbox" | "number" | "text")
+      || (multiplePerRow ? "checkbox" : "radio");
+    const { rows, columns } = getMatrixLabels(field);
+    const selectedKeys = new Set<string>();
+    const cellValues: Record<string, string> = {};
+    if (Array.isArray(value)) {
+      value.forEach((item) => selectedKeys.add(String(item)));
+    }
+    if (isRecord(value)) {
+      Object.entries(value).forEach(([key, cellValue]) => {
+        if (typeof cellValue === "boolean") {
+          if (cellValue) selectedKeys.add(key);
+          return;
+        }
+        if (cellValue == null) return;
+        const normalized = String(cellValue);
+        if (!normalized.trim()) return;
+        cellValues[key] = normalized;
+      });
+    }
+    if (rows.length === 0 || columns.length === 0) {
+      return <span className="text-muted-foreground">{t("results.noAnswer")}</span>;
+    }
     return (
-      <div className="space-y-2">
-        {value.map((cell) => (
-          <div key={String(cell)} className="text-sm text-muted-foreground">
-            {formatMatrixCell(field, String(cell))}
-          </div>
-        ))}
+      <div className="overflow-auto">
+        <table className="w-full min-w-[420px] border-collapse border border-border text-sm">
+          <thead>
+            <tr>
+              <th className="border border-border bg-muted/30 p-2 text-left font-medium"></th>
+              {columns.map((column, colIdx) => (
+                <th key={colIdx} className="border border-border bg-muted/30 p-2 text-center font-medium">
+                  {column || `Column ${colIdx + 1}`}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, rowIdx) => (
+              <tr key={rowIdx}>
+                <td className="border border-border bg-muted/20 p-2 font-medium">{row || `Row ${rowIdx + 1}`}</td>
+                {columns.map((_, colIdx) => {
+                  const key = `${rowIdx + 1}:${colIdx + 1}`;
+                  const isSelected = selectedKeys.has(key);
+                  const textValue = cellValues[key];
+                  const hasValue = typeof textValue === "string" && textValue.trim() !== "";
+                  return (
+                    <td
+                      key={colIdx}
+                      className={cn(
+                        "border border-border p-2",
+                        (matrixInputType === "radio" || matrixInputType === "checkbox") && "text-center",
+                        (isSelected || hasValue) && "font-medium text-primary"
+                      )}
+                      style={{ pointerEvents: 'none', cursor: 'default' }}
+                    >
+                      {matrixInputType === "text" ? (
+                        <Input
+                          readOnly
+                          type="text"
+                          value={textValue ?? ""}
+                          className="h-8 bg-background"
+                          placeholder="—"
+                        />
+                      ) : matrixInputType === "number" ? (
+                        <Input
+                          readOnly
+                          type="number"
+                          value={textValue ?? ""}
+                          className="h-8 bg-background"
+                          placeholder="—"
+                        />
+                      ) : matrixInputType === "checkbox" ? (
+                        <Checkbox checked={isSelected} simplifiedAnimation className="mx-auto" />
+                      ) : (
+                        <button
+                          type="button"
+                          aria-label={`matrix-radio-${rowIdx + 1}-${colIdx + 1}`}
+                          className={cn(
+                            "mx-auto inline-flex aspect-square h-4 w-4 items-center justify-center align-middle rounded-full border border-primary text-primary shadow focus:outline-none focus-visible:ring-1 focus-visible:ring-ring transition-colors duration-200 leading-none p-0 disabled:cursor-not-allowed disabled:opacity-50 relative overflow-hidden"
+                          )}
+                        >
+                          {isSelected && (
+                            <span className="absolute inset-0 rounded-full bg-primary animate-in zoom-in-50 duration-200 ease-out" />
+                          )}
+                        </button>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     );
   }
@@ -627,7 +777,7 @@ const formatAnswerValue = (
 
   if (field.widgetType === "datetime") {
     const dateTime = value as DateTimeAnswer;
-    const date = dateTime?.date ?? "";
+    const date = formatRuDate(dateTime?.date ?? "");
     const time = dateTime?.time ?? "";
     return <span>{[date, time].filter(Boolean).join(" ")}</span>;
   }
@@ -652,6 +802,87 @@ const formatAnswerValue = (
     return state.selected
       ? <span>{selectedDisplay}</span>
       : <span className="text-muted-foreground">{t("results.noAnswer")}</span>;
+  }
+
+  if (field.semanticType === "full_name" && isRecord(value)) {
+    const fullName = value as FullNameAnswer;
+    const parts = [fullName.lastName, fullName.firstName, fullName.patronymic].filter(
+      (part): part is string => Boolean(part && part.trim())
+    );
+    return parts.length > 0
+      ? <span>{parts.join(" ")}</span>
+      : <span className="text-muted-foreground">{t("results.noAnswer")}</span>;
+  }
+
+  if (field.semanticType === "passport" && isRecord(value)) {
+    const passport = value as PassportAnswer;
+    const items: Array<{ label: string; value: string }> = [];
+    const fullNameParts = [passport.lastName, passport.firstName, passport.patronymic]
+      .filter((part): part is string => Boolean(part && part.trim()))
+      .join(" ");
+    if (fullNameParts) {
+      items.push({ label: locale.startsWith("ru") ? "ФИО" : "Full name", value: fullNameParts });
+    }
+    if (passport.gender) {
+      items.push({
+        label: t("formParts.passport.gender"),
+        value: passport.gender === "male"
+          ? t("formParts.passport.genderMale")
+          : passport.gender === "female"
+            ? t("formParts.passport.genderFemale")
+            : String(passport.gender),
+      });
+    }
+    if (passport.birthDate) {
+      items.push({ label: t("formParts.passport.birthDate"), value: formatRuDate(passport.birthDate) });
+    }
+    if (passport.seriesNumber) {
+      items.push({
+        label: t("formParts.passport.seriesNumber"),
+        value: formatPassportSeries(String(passport.seriesNumber)),
+      });
+    }
+    if (passport.issuedBy) {
+      items.push({ label: t("formParts.passport.issuedBy"), value: String(passport.issuedBy) });
+    }
+    if (passport.issueDate) {
+      items.push({ label: t("formParts.passport.issueDate"), value: formatRuDate(passport.issueDate) });
+    }
+    if (passport.departmentCode) {
+      items.push({
+        label: t("formParts.passport.departmentCode"),
+        value: formatPassportDepartmentCode(String(passport.departmentCode)),
+      });
+    }
+    if (passport.birthPlace) {
+      items.push({ label: t("formParts.passport.birthPlace"), value: String(passport.birthPlace) });
+    }
+    if (items.length === 0) {
+      return <span className="text-muted-foreground">{t("results.noAnswer")}</span>;
+    }
+    return (
+      <div className="space-y-1.5">
+        {items.map((item) => (
+          <div key={item.label}>
+            <span className="text-muted-foreground">{item.label}: </span>
+            <span>{item.value}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (field.semanticType === "phone" && typeof value === "string") {
+    return <span>{formatRuPhone(value)}</span>;
+  }
+
+  if (field.semanticType === "snils" && typeof value === "string") {
+    return <span>{formatSnils(value)}</span>;
+  }
+
+  if (isCountryField(field) && typeof value === "string") {
+    const countryLabel = getCountryLabel(value, locale);
+    return <span>{countryLabel ?? value}</span>;
   }
 
   if (typeof value === "object") {
