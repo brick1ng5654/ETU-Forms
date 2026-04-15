@@ -583,10 +583,11 @@ const formatAnswerValue = (
                         (matrixInputType === "radio" || matrixInputType === "checkbox") && "text-center",
                         (isSelected || hasValue) && "font-medium text-primary"
                       )}
+                      style={{ pointerEvents: 'none', cursor: 'default' }}
                     >
                       {matrixInputType === "text" ? (
                         <Input
-                          disabled
+                          readOnly
                           type="text"
                           value={textValue ?? ""}
                           className="h-8 bg-background"
@@ -594,18 +595,17 @@ const formatAnswerValue = (
                         />
                       ) : matrixInputType === "number" ? (
                         <Input
-                          disabled
+                          readOnly
                           type="number"
                           value={textValue ?? ""}
                           className="h-8 bg-background"
                           placeholder="—"
                         />
                       ) : matrixInputType === "checkbox" ? (
-                        <Checkbox checked={isSelected} disabled className="mx-auto" />
+                        <Checkbox checked={isSelected} simplifiedAnimation className="mx-auto" />
                       ) : (
                         <button
                           type="button"
-                          disabled
                           aria-label={`matrix-radio-${rowIdx + 1}-${colIdx + 1}`}
                           className={cn(
                             "mx-auto inline-flex aspect-square h-4 w-4 items-center justify-center align-middle rounded-full border border-primary text-primary shadow focus:outline-none focus-visible:ring-1 focus-visible:ring-ring transition-colors duration-200 leading-none p-0 disabled:cursor-not-allowed disabled:opacity-50 relative overflow-hidden"
@@ -722,7 +722,7 @@ const formatAnswerValue = (
     return (
       <div className="space-y-1.5">
         {items.map((item) => (
-          <div key={item.label} className="text-sm">
+          <div key={item.label}>
             <span className="text-muted-foreground">{item.label}: </span>
             <span>{item.value}</span>
           </div>
