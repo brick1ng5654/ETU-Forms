@@ -7,7 +7,7 @@ import { useState, useRef, useEffect } from "react";
 import type { FormElementModel } from "@/form/types";
 import { presets } from "@/form/presets";
 import { cn } from "@/lib/utils";
-import { GripVertical, Upload, GripHorizontal, CalendarDays, Clock, ChevronDown, ChevronUp, X, Plus, Check } from "lucide-react";
+import { GripVertical, Upload, CalendarDays, Clock, ChevronDown, ChevronUp, X, Plus, Check } from "lucide-react";
 import { ElementAttachments } from "@/components/form-builder/ElementAttachments";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -752,9 +752,12 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
       }
       case "ranking":
         return editingElement === "options" ? (
-          <div className="space-y-2">
+          <div className="space-y-1">
             {editingOptions.map((opt, index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-muted/30 rounded-md border border-transparent">
+              <div
+                key={index}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-muted/30 rounded-md border border-transparent"
+              >
                 <Input
                   value={opt}
                   onChange={(e) => {
@@ -762,23 +765,20 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
                     newOptions[index] = e.target.value;
                     setEditingOptions(newOptions);
                   }}
-                  className="flex-1 border border-primary bg-white"
+                  className="flex-1 h-8 border border-primary bg-white"
                   autoFocus={index === 0}
                 />
-                <div className="flex items-center gap-2">
-                  <GripHorizontal className="h-4 w-4 text-muted-foreground" />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                    onClick={() => {
-                      const newOptions = editingOptions.filter((_, i) => i !== index);
-                      setEditingOptions(newOptions);
-                    }}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                  onClick={() => {
+                    const newOptions = editingOptions.filter((_, i) => i !== index);
+                    setEditingOptions(newOptions);
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
             ))}
             <Button
