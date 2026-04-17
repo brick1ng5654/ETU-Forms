@@ -191,7 +191,7 @@ const PageSection = React.memo(function PageSection({
           {pageFields.length === 0 ? (
             <div className="h-40 flex flex-col items-center justify-center border-2 border-dashed border-muted-foreground/20 rounded-lg bg-muted/5">
               <p className="text-muted-foreground font-medium">{t("back.bgFormCreate")}</p>
-              <p className="text-sm text-muted-foreground/60 mt-1">{t("back.drag")}</p>
+              <p className="text-sm text-muted-foreground/90 mt-1">{t("back.drag")}</p>
             </div>
           ) : (
             pageFields.map((field) => (
@@ -519,7 +519,10 @@ export function FormCanvas({
               data-testid="builder-undo"
               onClick={onUndo}
               disabled={!canUndo}
-              className={cn("shrink-0 gap-1 sm:gap-2 h-8 sm:h-9 px-2 sm:px-3", !canUndo && "text-muted-foreground")}
+              className={cn(
+                "shrink-0 gap-1 sm:gap-2 h-8 sm:h-9 px-2 sm:px-3 disabled:opacity-95",
+                !canUndo && "text-muted-foreground"
+              )}
               title={t("builder.undo")}
             >
               <Undo2 className={cn("h-4 w-4", !canUndo && "text-muted-foreground")} />
@@ -531,7 +534,10 @@ export function FormCanvas({
               data-testid="builder-redo"
               onClick={onRedo}
               disabled={!canRedo}
-              className={cn("shrink-0 gap-1 sm:gap-2 h-8 sm:h-9 px-2 sm:px-3", !canRedo && "text-muted-foreground")}
+              className={cn(
+                "shrink-0 gap-1 sm:gap-2 h-8 sm:h-9 px-2 sm:px-3 disabled:opacity-95",
+                !canRedo && "text-muted-foreground"
+              )}
               title={t("builder.redo")}
             >
               <Redo2 className={cn("h-4 w-4", !canRedo && "text-muted-foreground")} />
@@ -553,7 +559,10 @@ export function FormCanvas({
                 onMovePage(activePage.id, activePage.pageIndex);
               }}
               disabled={!canMoveUp}
-              className={cn("shrink-0 gap-1 sm:gap-2 h-8 sm:h-9 px-2 sm:px-3", !canMoveUp && "text-muted-foreground")}
+              className={cn(
+                "shrink-0 gap-1 sm:gap-2 h-8 sm:h-9 px-2 sm:px-3 disabled:opacity-95",
+                !canMoveUp && "text-muted-foreground"
+              )}
               title={t("builder.moveUp")}
             >
               <ArrowUp className={cn("h-4 w-4", !canMoveUp && "text-muted-foreground")} />
@@ -575,7 +584,10 @@ export function FormCanvas({
                 onMovePage(activePage.id, activePage.pageIndex + 2);
               }}
               disabled={!canMoveDown}
-              className={cn("shrink-0 gap-1 sm:gap-2 h-8 sm:h-9 px-2 sm:px-3", !canMoveDown && "text-muted-foreground")}
+              className={cn(
+                "shrink-0 gap-1 sm:gap-2 h-8 sm:h-9 px-2 sm:px-3 disabled:opacity-95",
+                !canMoveDown && "text-muted-foreground"
+              )}
               title={t("builder.moveDown")}
             >
               <ArrowDown className={cn("h-4 w-4", !canMoveDown && "text-muted-foreground")} />
@@ -587,10 +599,13 @@ export function FormCanvas({
                   variant="ghost"
                   size="sm"
                   disabled={!canTransform}
-                  className={cn("shrink-0 gap-1 sm:gap-2 h-8 sm:h-9 px-2 sm:px-3", !canTransform && "text-muted-foreground")}
+                  className={cn(
+                    "shrink-0 gap-1 sm:gap-2 h-8 sm:h-9 px-2 sm:px-3 disabled:opacity-95",
+                    !canTransform && "text-muted-foreground"
+                  )}
                   title={t("builder.transform")}
                 >
-                  <Repeat2 className="h-4 w-4" />
+                  <Repeat2 className={cn("h-4 w-4", !canTransform && "text-muted-foreground")} />
                   <span className="hidden sm:inline">{t("builder.transform")}</span>
                 </Button>
               </DropdownMenuTrigger>
