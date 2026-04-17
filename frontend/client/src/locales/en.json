@@ -190,7 +190,12 @@
     "unlimitedAttempts": "Unlimited",
     "limitedAttempts": "Limited number",
     "attemptLimit": "Number of attempts",
-    "attemptLimitHint": "Maximum number of form completion attempts per user"
+    "attemptLimitHint": "Maximum number of form completion attempts per user",
+    "exportXlsx": "Export XLSX",
+    "exporting": "Exporting...",
+    "exportSuccess": "Responses file generated",
+    "exportErrorTitle": "Failed to export responses",
+    "exportErrorDescription": "Please try again later"
   },
   "access": {
     "title": "Form access",

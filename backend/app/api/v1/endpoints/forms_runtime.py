@@ -3,9 +3,11 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 import re
 from typing import Any
+from urllib.parse import quote
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import Response as FastApiResponse
 from sqlalchemy import and_, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +17,7 @@ from app.models import (
     AppUser,
     Form,
     FormElement,
+    FormPage,
     Response,
     ResponseAnswer,
     UploadedFile,
@@ -30,6 +33,14 @@ from app.schemas import (
     PublicFormDetailResponse,
 )
 from app.security.auth_dependencies import get_current_user, get_optional_user
+from app.services.forms_export_formatting import (
+    EXPORT_LIST_SEP,
+    build_export_rows,
+    build_statistics_export_rows,
+    build_summary_export_rows,
+    build_xlsx_export,
+    sanitize_filename_part,
+)
 from app.services.forms_mapping import build_form_detail_response
 
 router = APIRouter(prefix="/forms", tags=["forms"])
@@ -310,6 +321,43 @@ async def _ensure_editor_or_owner(
     if not access.scalar_one_or_none():
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
     return form
+
+
+def _sorted_form_elements(
+    elements: list[FormElement],
+    page_index_by_id: dict[int, int],
+) -> list[FormElement]:
+    return sorted(
+        elements,
+        key=lambda item: (
+            page_index_by_id.get(item.page_id, 10_000),
+            item.position if item.position is not None else 10_000,
+            item.element_id,
+        ),
+    )
+
+
+def _extract_element_client_id(element: FormElement) -> str:
+    settings = element.other_settings if isinstance(element.other_settings, dict) else {}
+    client_id = settings.get("client_id")
+    return str(client_id) if client_id is not None else str(element.element_id)
+
+
+def _build_answer_map_by_response(
+    answer_rows: list[ResponseAnswer],
+    files_by_answer_id: dict[int, list[dict[str, Any]]],
+    sorted_elements: list[FormElement],
+) -> dict[int, dict[str, Any]]:
+    element_client_map = {
+        element.element_id: _extract_element_client_id(element) for element in sorted_elements
+    }
+    answer_rows_by_response_id: dict[int, dict[str, Any]] = {}
+    for answer_row in answer_rows:
+        client_id = element_client_map.get(answer_row.element_id, str(answer_row.element_id))
+        attachments = files_by_answer_id.get(answer_row.answer_id, [])
+        value = _deserialize_answer_value(answer_row, attachments)
+        answer_rows_by_response_id.setdefault(answer_row.response_id, {})[client_id] = value
+    return answer_rows_by_response_id
 
 
 @router.get("/{form_id}/public", response_model=PublicFormDetailResponse)
@@ -879,3 +927,134 @@ async def get_form_responses(
         )
 
     return FormStoredResponsesResponse(responses=out)
+
+
+@router.get("/{form_id}/responses/export")
+async def export_form_responses(
+    form_id: int,
+    locale: str = Query("en"),
+    db: AsyncSession = Depends(get_db),
+    current_user: AppUser = Depends(get_current_user),
+):
+    export_locale = "ru" if locale.lower().startswith("ru") else "en"
+    form = await _ensure_editor_or_owner(db, form_id, current_user, allowed_roles=("editor", "participant"))
+
+    responses_result = await db.execute(
+        select(Response)
+        .where(Response.form_id == form.form_id)
+        .where(Response.status.in_(["submitted", "cancelled"]))
+        .order_by(Response.response_id.asc())
+    )
+    responses = responses_result.scalars().all()
+
+    response_ids = [item.response_id for item in responses]
+    user_ids = list({item.user_id for item in responses})
+
+    answers_result = await db.execute(
+        select(ResponseAnswer).where(ResponseAnswer.response_id.in_(response_ids))
+    ) if response_ids else None
+    answer_rows = answers_result.scalars().all() if answers_result is not None else []
+
+    elements_result = await db.execute(
+        select(FormElement).where(FormElement.form_id == form.form_id)
+    )
+    elements = [
+        item
+        for item in elements_result.scalars().all()
+        if _enum_value(item.widget) not in ("heading", "static_text")
+    ]
+    pages_result = await db.execute(
+        select(FormPage).where(FormPage.form_id == form.form_id)
+    )
+    page_index_by_id = {
+        int(page.page_id): int(page.page_index)
+        for page in pages_result.scalars().all()
+    }
+
+    users_result = await db.execute(select(AppUser).where(AppUser.user_id.in_(user_ids))) if user_ids else None
+    users_map = {user.user_id: user for user in (users_result.scalars().all() if users_result is not None else [])}
+
+    answer_ids = [row.answer_id for row in answer_rows]
+    files_by_answer_id: dict[int, list[dict[str, Any]]] = {}
+    if answer_ids:
+        files_result = await db.execute(
+            select(UploadedFile)
+            .where(UploadedFile.answer_id.in_(answer_ids))
+            .where(UploadedFile.status != "deleted")
+        )
+        for file_row in files_result.scalars().all():
+            if file_row.answer_id is None:
+                continue
+            files_by_answer_id.setdefault(file_row.answer_id, []).append(
+                {
+                    "file_id": file_row.file_id,
+                    "name": file_row.name,
+                    "mime_type": file_row.mime_type,
+                    "size_bytes": file_row.size_bytes,
+                    "url": _file_url(file_row.file_id, file_row.access_token),
+                    "content_hash": file_row.content_hash,
+                    "status": _enum_value(file_row.status),
+                }
+            )
+
+    sorted_elements = _sorted_form_elements(elements, page_index_by_id)
+    answer_rows_by_response_id = _build_answer_map_by_response(
+        answer_rows, files_by_answer_id, sorted_elements
+    )
+
+    export_at = datetime.now(timezone.utc)
+    date_part = export_at.strftime("%d-%m-%Y")
+    time_part = export_at.strftime("%H-%M")
+
+    base_title = sanitize_filename_part(form.title or "")
+    if not base_title:
+        base_title = f"form-{form.form_id}"
+    filename_base = f"{base_title}-{date_part}-{time_part}"
+    ascii_prefix = f"form-{form.form_id}-{date_part}-{time_part}"
+
+    headers, rows = build_export_rows(
+        form_version=form.version or 1,
+        responses=responses,
+        answer_rows_by_response_id=answer_rows_by_response_id,
+        users_map=users_map,
+        sorted_elements=sorted_elements,
+        locale=export_locale,
+        list_sep=EXPORT_LIST_SEP,
+    )
+    summary_rows = build_summary_export_rows(
+        locale=export_locale,
+        form_title=form.title or "",
+        form_version=form.version or 1,
+        responses=responses,
+        export_at=export_at,
+    )
+    statistics_rows = build_statistics_export_rows(
+        locale=export_locale,
+        sorted_elements=sorted_elements,
+        answer_rows_by_response_id=answer_rows_by_response_id,
+        responses=responses,
+    )
+    try:
+        content = build_xlsx_export(
+            locale=export_locale,
+            headers=headers,
+            rows=rows,
+            summary_rows=summary_rows,
+            statistics_rows=statistics_rows,
+        )
+    except ImportError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Экспорт в Excel недоступен:не установлен openpyxl.",
+        ) from exc
+    media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    filename = f"{filename_base}.xlsx"
+    ascii_filename = f"{ascii_prefix}.xlsx"
+
+    quoted_name = quote(filename)
+    content_disposition = f"attachment; filename=\"{ascii_filename}\"; filename*=UTF-8''{quoted_name}"
+    return FastApiResponse(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": content_disposition},
+    )

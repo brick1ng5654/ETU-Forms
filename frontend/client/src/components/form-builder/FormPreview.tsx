@@ -248,8 +248,12 @@ function CountrySelect({ value, placeholder, disabled, onValueChange, onTouched 
   const triggerRef = useRef<HTMLButtonElement>(null);
   const locale = i18n.language || "en";
   const options = useMemo(() => getCountryOptions(locale), [locale]);
+  const normalizedValue = String(value ?? "").trim();
+  const isCodeLikeValue = /^[A-Za-z]{2}$/.test(normalizedValue);
   const selectedCode = resolveCountryCode(value) || "";
-  const selectedLabel = selectedCode ? getCountryLabel(selectedCode, locale) : "";
+  const selectedLabel = isCodeLikeValue
+    ? (selectedCode ? getCountryLabel(selectedCode, locale) ?? normalizedValue : normalizedValue)
+    : normalizedValue;
   const listMaxHeight = 5 * 36;
   const normalizedQuery = useMemo(() => normalizeCountrySearch(searchValue), [searchValue]);
   const filteredOptions = useMemo(() => {
@@ -335,7 +339,8 @@ function CountrySelect({ value, placeholder, disabled, onValueChange, onTouched 
                   key={option.code}
                   value={option.search}
                   onSelect={() => {
-                    onValueChange(option.code);
+                    // Persist full display label, not short ISO code.
+                    onValueChange(option.label);
                     onTouched();
                     setOpen(false);
                   }}
