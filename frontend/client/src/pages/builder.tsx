@@ -52,6 +52,7 @@ import { format } from "date-fns";
 import { enUS, ru } from "date-fns/locale";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
 import { UserMenu } from "@/components/user-menu";
+import { ThemeToggle } from "@/components/theme-toggle";
 import {
   createForm,
   fetchFormDetail,
@@ -2040,6 +2041,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
               </DialogContent>
             </Dialog>
           </div>
+          <ThemeToggle />
           <UserMenu />
         </div>
       </header>
@@ -2083,7 +2085,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
               return (
                 <div key={category} className="space-y-1">
                   <p
-                    className="text-xs font-medium text-muted-foreground uppercase flex items-center mb-3 pl-5 gap-2"
+                    className="text-xs font-medium text-muted-foreground uppercase flex items-center mb-3 pl-5 gap-2 dark:text-slate-200"
                     title={!isToolboxOpen ? categoryLabel : undefined}
                   >
                     <CategoryIcon className="h-4 w-4 shrink-0" />

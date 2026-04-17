@@ -185,7 +185,7 @@ const PageSection = React.memo(function PageSection({
 
       <div
         ref={setDropRef}
-        className={cn("p-6 bg-[#FAFBFC] transition-colors rounded-b-lg", isOver && "bg-primary/5")}
+        className={cn("p-6 bg-muted/20 dark:bg-muted/10 transition-colors rounded-b-lg", isOver && "bg-primary/5")}
       >
         <SortableContext items={pageFields.map((field) => field.id)} strategy={verticalListSortingStrategy}>
           {pageFields.length === 0 ? (
@@ -505,12 +505,12 @@ export function FormCanvas({
       <div
         ref={scrollContainerRef}
         data-testid="builder-canvas"
-        className="flex-1 bg-muted/30 px-4 sm:px-6 md:px-8 pb-6 md:pb-8 pt-0 overflow-y-auto h-full builder-scroll"
+        className="flex-1 bg-muted/30 dark:bg-[var(--color-background)] px-4 sm:px-6 md:px-8 pb-6 md:pb-8 pt-0 overflow-y-auto h-full builder-scroll"
         onClick={() => { console.log('FormCanvas background click, clearing selection'); clearSelection(); }}
       >
         <div
-          className="sticky top-0 z-20 -mx-4 sm:-mx-6 md:-mx-8 mb-0 bg-white/95 backdrop-blur border-b border-border"
           onClick={(event) => event.stopPropagation()}
+          className="sticky top-0 z-20 -mx-4 sm:-mx-6 md:-mx-8 mb-0 bg-white/95 dark:bg-white/10 backdrop-blur border-b border-border"
         >
           <div className="h-12 sm:h-[52px] px-2 sm:px-4 flex items-center gap-1 sm:gap-2 overflow-x-auto no-scrollbar min-w-0">
             <Button
@@ -606,10 +606,10 @@ export function FormCanvas({
         </div>
 
         {/* Контейнер формы (белая карточка) */}
-        <div className="max-w-3xl mx-auto min-h-[800px] bg-white rounded-xl shadow-sm border border-border/50 flex flex-col">
+        <div className="max-w-3xl mx-auto min-h-[800px] bg-white dark:bg-white/5 rounded-xl shadow-sm border border-border dark:border-white/10 flex flex-col">
 
           {/* Шапка формы с редактируемыми полями */}
-          <div className="p-8 border-b border-border/50 bg-white rounded-t-xl group hover:bg-muted/10 transition-colors relative">
+          <div className="p-8 border-b border-border dark:border-white/10 bg-white dark:bg-white/5 rounded-t-xl group hover:bg-muted/30 transition-colors relative">
             <div className="space-y-2">
 
               {/* Редактируемое поле заголовка */}
@@ -674,7 +674,7 @@ export function FormCanvas({
             );
           })}
 
-          <div className="p-6 border-t border-border/40 bg-white/95">
+          <div className="p-6 border-t border-border dark:border-white/10 bg-white dark:bg-white/5">
             <Button
               variant="outline"
               size="sm"
@@ -746,7 +746,7 @@ export function FormCanvas({
         {activeDragItem && (
 
           // Стилизованная миниатюра перетаскиваемого поля
-          <div className="bg-white border-2 border-primary shadow-xl rounded-lg p-6 opacity-90">
+          <div className="bg-white dark:bg-white/10 border-2 border-primary shadow-xl rounded-lg p-6 opacity-90">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-sm bg-primary/10 text-primary">
 

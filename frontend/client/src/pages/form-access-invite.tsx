@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth";
 import { toast } from "@/hooks/use-toast";
 import { AppBrand } from "@/components/app-brand";
 import { UserMenu } from "@/components/user-menu";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CustomLoader } from "@/components/ui/custom-loader";
@@ -182,6 +183,7 @@ export default function FormAccessInvitePage({ params }: { params: { token: stri
             <Languages className="h-4 w-4" />
             <span className="text-xs font-medium">{i18n.language.startsWith("ru") ? "RU" : "EN"}</span>
           </Button>
+          <ThemeToggle />
           <UserMenu />
         </div>
       </header>

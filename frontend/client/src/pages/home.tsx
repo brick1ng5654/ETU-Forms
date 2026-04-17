@@ -38,6 +38,7 @@ import { toast } from "@/hooks/use-toast";
 import { confirmDialog } from "@/components/confirm-dialog";
 import { useTranslation } from "react-i18next";
 import { UserMenu } from "@/components/user-menu";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { FormAccessDialog } from "@/components/form-access-dialog";
 import { createForm, deleteForm as deleteFormApi, fetchFormsCatalog, fetchMyResponses, leaveFormAccess, revokeResponse, type StoredFormResponse } from "@/lib/forms-api";
 import { useAuth } from "@/lib/auth";
@@ -332,6 +333,7 @@ export default function Home() {
               <span className="hidden sm:inline">{t("navigation.createNewForm")}</span>
             </Button>
           ) : null}
+          <ThemeToggle />
           <UserMenu />
         </div>
       </header>
