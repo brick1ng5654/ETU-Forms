@@ -137,6 +137,7 @@ class Form(Base):
     elements = relationship("FormElement", back_populates="form", cascade="all, delete-orphan")
     conditions = relationship("FormElementCondition", back_populates="form", cascade="all, delete-orphan")
     pages = relationship("FormPage", back_populates="form", cascade="all, delete-orphan", order_by="FormPage.page_index")
+
 class Response(Base):
     __tablename__="response"
 
