@@ -2,7 +2,7 @@ import { SortableContext, verticalListSortingStrategy, arrayMove, useSortable } 
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { restrictToVerticalAxis, restrictToParentElement } from "@dnd-kit/modifiers";
-import type { KeyboardEvent, MouseEvent } from "react";
+import type { FocusEvent, KeyboardEvent, MouseEvent } from "react";
 import { useState, useRef, useEffect, useMemo } from "react";
 import type { FormElementModel } from "@/form/types";
 import { presets } from "@/form/presets";
@@ -617,6 +617,13 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
     setEditingOptions([]);
   };
 
+  const handleOptionsEditorBlurCapture = (e: FocusEvent<HTMLDivElement>) => {
+    // Save when focus leaves the whole editor (not when moving between its inputs/buttons).
+    const next = e.relatedTarget as Node | null;
+    if (next && e.currentTarget.contains(next)) return;
+    saveEditing();
+  };
+
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     if (e.key === "Delete" || e.key === "Backspace") {
       e.stopPropagation();
@@ -1024,7 +1031,7 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
       }
       case "ranking":
         return editingElement === "options" ? (
-          <div className="space-y-1">
+          <div className="space-y-1" onBlurCapture={handleOptionsEditorBlurCapture}>
             {editingOptions.map((opt, index) => (
               <div
                 key={index}
@@ -1063,14 +1070,6 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
             >
               <Plus className="h-4 w-4 mr-2" /> {t("propert.addopti")}
             </Button>
-            <div className="flex gap-2 pt-2">
-              <Button size="sm" onClick={saveEditing}>
-                <Check className="h-4 w-4 mr-2" /> Save
-              </Button>
-              <Button variant="outline" size="sm" onClick={cancelEditing}>
-                Cancel
-              </Button>
-            </div>
           </div>
         ) : (
           <div className="space-y-3">
