@@ -23,12 +23,16 @@ export function AppBrand({
   const content = (
     <>
       <div className="h-12 w-12 rounded-lg flex items-center justify-center">
-        <img src="/logo_etu.png" alt="ETU_LOGO" />
+        <img
+          src="/logo_etu.png"
+          alt="ETU_LOGO"
+          className="h-12 w-12 object-contain dark:brightness-0 dark:invert"
+        />
       </div>
       {showText && (
         <span
           className={cn(
-            "font-bold text-base sm:text-xl color-txt truncate max-w-[9.5rem] sm:max-w-none",
+            "font-bold text-base sm:text-xl text-primary dark:!text-white truncate max-w-[9.5rem] sm:max-w-none",
             showTextOnMobile ? "inline" : "hidden sm:inline"
           )}
         >

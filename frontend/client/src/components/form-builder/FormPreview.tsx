@@ -2549,7 +2549,7 @@ export function FormPreview({
             variant="outline"
             onClick={handlePrevPage}
             disabled={!canGoBack || submitting}
-            className="transition-all duration-200 ease-out enabled:hover:-translate-x-0.5 enabled:active:translate-x-0 disabled:opacity-50"
+            className="transition-colors duration-200"
           >
             {t("pages.prevButton")}
           </Button>
@@ -2578,7 +2578,7 @@ export function FormPreview({
             variant="outline"
             onClick={handlePrevPage}
             disabled={!canGoBack}
-            className="transition-all duration-200 ease-out enabled:hover:-translate-x-0.5 enabled:active:translate-x-0 disabled:opacity-50"
+            className="transition-colors duration-200"
           >
             {t("pages.prevButton")}
           </Button>

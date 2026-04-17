@@ -44,6 +44,7 @@ import { createForm, deleteForm as deleteFormApi, fetchFormsCatalog, fetchMyResp
 import { useAuth } from "@/lib/auth";
 import { AppBrand } from "@/components/app-brand";
 import { CustomLoader } from "@/components/ui/custom-loader";
+import { cn } from "@/lib/utils";
 
 type AccessCategory = "all" | "edit" | "responses" | "continue" | "completed";
 
@@ -71,6 +72,8 @@ export default function Home() {
   const [, setLocation] = useLocation();
   const [isLoadingForms, setIsLoadingForms] = useState(true);
   const categoryButtonClass = "w-full h-10 md:h-auto px-0 md:px-3 justify-center md:justify-start md:py-2 md:whitespace-normal md:text-left md:leading-tight";
+  const categoryButtonClassDark = "dark:!bg-white/10 dark:!text-slate-100 dark:hover:!bg-white/20 dark:hover:!text-slate-100";
+  const categoryButtonClassDarkActive = "dark:!bg-white/20 dark:!text-slate-100 dark:hover:!bg-white/30 dark:hover:!text-slate-100";
   const canCreateForms = user?.role === "form_creator" || user?.role === "admin";
   const hasAnyRole = Boolean(user?.role);
   const continueCategoryLabel = t("navigation.availableForContinue");
@@ -344,7 +347,7 @@ export default function Home() {
             <div className="hidden md:block px-2 text-xs uppercase tracking-wide text-muted-foreground">{t("navigation.categories")}</div>
             <Button
               variant={selectedCategory === "continue" ? "secondary" : "ghost"}
-              className={categoryButtonClass}
+              className={cn(categoryButtonClass, selectedCategory === "continue" ? categoryButtonClassDarkActive : categoryButtonClassDark)}
               onClick={() => setSelectedCategory("continue")}
               title={continueCategoryLabel}
             >
@@ -353,7 +356,7 @@ export default function Home() {
             </Button>
             <Button
               variant={selectedCategory === "all" ? "secondary" : "ghost"}
-              className={categoryButtonClass}
+              className={cn(categoryButtonClass, selectedCategory === "all" ? categoryButtonClassDarkActive : categoryButtonClassDark)}
               onClick={() => setSelectedCategory("all")}
               title={t("navigation.allForms")}
             >
@@ -362,7 +365,7 @@ export default function Home() {
             </Button>
             <Button
               variant={selectedCategory === "edit" ? "secondary" : "ghost"}
-              className={categoryButtonClass}
+              className={cn(categoryButtonClass, selectedCategory === "edit" ? categoryButtonClassDarkActive : categoryButtonClassDark)}
               onClick={() => setSelectedCategory("edit")}
               title={t("navigation.availableForEdit")}
             >
@@ -371,7 +374,7 @@ export default function Home() {
             </Button>
             <Button
               variant={selectedCategory === "responses" ? "secondary" : "ghost"}
-              className={categoryButtonClass}
+              className={cn(categoryButtonClass, selectedCategory === "responses" ? categoryButtonClassDarkActive : categoryButtonClassDark)}
               onClick={() => setSelectedCategory("responses")}
               title={t("navigation.availableForViewResponses")}
             >
@@ -380,7 +383,7 @@ export default function Home() {
             </Button>
             <Button
               variant={selectedCategory === "completed" ? "secondary" : "ghost"}
-              className={categoryButtonClass}
+              className={cn(categoryButtonClass, selectedCategory === "completed" ? categoryButtonClassDarkActive : categoryButtonClassDark)}
               onClick={() => setSelectedCategory("completed")}
               title={t("navigation.completedForms")}
             >
