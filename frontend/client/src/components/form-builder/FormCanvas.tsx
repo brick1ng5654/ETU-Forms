@@ -191,7 +191,7 @@ const PageSection = React.memo(function PageSection({
           {pageFields.length === 0 ? (
             <div className="h-40 flex flex-col items-center justify-center border-2 border-dashed border-muted-foreground/20 rounded-lg bg-muted/5">
               <p className="text-muted-foreground font-medium">{t("back.bgFormCreate")}</p>
-              <p className="text-sm text-muted-foreground/60 mt-1">{t("back.drag")}</p>
+              <p className="text-sm text-muted-foreground/90 mt-1">{t("back.drag")}</p>
             </div>
           ) : (
             pageFields.map((field) => (

@@ -1757,7 +1757,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
               >
                 <DialogHeader className="space-y-1">
                   <DialogTitle className="text-sm font-semibold">{t("builder.publishTitle")}</DialogTitle>
-                  <DialogDescription className="text-xs text-muted-foreground">{t("builder.publishHint")}</DialogDescription>
+                  <DialogDescription className="text-xs text-muted-foreground ">{t("builder.publishHint")}</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div className="space-y-2">
@@ -1814,7 +1814,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
                         disabled={publishNoStart}
                         locale={calendarLocale}
                         placeholder={t("propert.selectDate")}
-                        inputClassName="h-10 text-muted-foreground"
+                        inputClassName="h-10 text-foreground"
                         buttonClassName="!left-0 !top-0 !h-10 !w-10 !translate-y-0 hover:bg-transparent z-10"
                       />
                       <Popover>
@@ -1823,7 +1823,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
                             variant="outline"
                             className={cn(
                               "w-full justify-start text-left font-normal h-10",
-                              !publishStartTime && "text-muted-foreground"
+                              !publishStartTime && "text-foreground"
                             )}
                             disabled={publishNoStart}
                             type="button"
@@ -1877,7 +1877,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
                         disabled={publishNoEnd || publishNoStart}
                         locale={calendarLocale}
                         placeholder={t("propert.selectDate")}
-                        inputClassName="h-10 text-muted-foreground"
+                        inputClassName="h-10 text-foreground."
                         buttonClassName="!left-0 !top-0 !h-10 !w-10 !translate-y-0 hover:bg-transparent z-10"
                       />
                       <Popover>
@@ -1886,7 +1886,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
                             variant="outline"
                             className={cn(
                               "w-full justify-start text-left font-normal h-10",
-                              !publishEndTime && "text-muted-foreground"
+                              !publishEndTime && "text-foreground"
                             )}
                             disabled={publishNoEnd || publishNoStart}
                             type="button"

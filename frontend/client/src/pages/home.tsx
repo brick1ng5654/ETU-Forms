@@ -427,7 +427,7 @@ export default function Home() {
                           <h3 className="font-semibold text-lg truncate">
                             {form?.title || `Form ${response.formId}`}
                           </h3>
-                          <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                          <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-foreground/90">
                             <span>
                               {response.status === "submitted" 
                                 ? t("home.submittedAt", { 
@@ -522,7 +522,7 @@ export default function Home() {
 
                     <div className="min-w-0 flex-1">
                       <h3 className="font-semibold text-lg truncate">{form.title || t("common.untitled")}</h3>
-                      <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                      <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-foreground/90">
                         <span>{t("home.author")}: {form.ownerName || t("home.unknownAuthor")}</span>
                         <span>{t("home.version")}: {form.version ?? 1}</span>
                       </div>
