@@ -52,6 +52,10 @@
     color: var(--color-accent-foreground);
   }
 
+  .dark .text-popover-foreground {
+    color: var(--color-popover-foreground);
+  }
+
   .dark .text-secondary-foreground {
     color: var(--color-secondary-foreground);
   }
@@ -62,6 +66,10 @@
 
   .dark .border-input {
     border-color: var(--color-border);
+  }
+
+  .dark .bg-border {
+    background-color: var(--color-border);
   }
 
   .dark .ring-offset-background {
@@ -88,7 +96,7 @@
     border-color: var(--color-border);
   }
 
-  .dark .after\:bg-white::after {
+  .dark [class~="after:bg-white"]::after {
     background-color: var(--color-card);
   }
 }

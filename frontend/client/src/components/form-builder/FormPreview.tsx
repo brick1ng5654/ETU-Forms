@@ -309,7 +309,7 @@ function CountrySelect({ value, placeholder, disabled, onValueChange, onTouched 
           className="w-full justify-between"
           ref={triggerRef}
         >
-          <span className={cn(!selectedLabel && "text-muted-foreground")}>
+          <span className={cn(!selectedLabel && "text-muted-foreground dark:!text-slate-700")}>
             {selectedLabel || placeholder || t("common.selectopt")}
           </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />

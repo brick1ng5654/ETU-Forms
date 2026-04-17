@@ -2124,7 +2124,7 @@ export function PropertiesPanel({
                           {options.map((option, index) => (
                             <div
                               key={index}
-                              className="flex items-center gap-2 p-2 rounded border border-green-100 hover:bg-green-50"
+                              className="flex items-center gap-2 p-2 rounded border border-green-100 hover:bg-green-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:hover:!bg-white/60 dark:hover:!text-slate-950"
                             >
                               <RadioGroupItem value={option} id={`correct-${selectedField.id}-${index}`} />
                               <Label
@@ -2144,7 +2144,7 @@ export function PropertiesPanel({
                       return (
                         <div
                           key={index}
-                          className="flex items-center gap-2 p-2 rounded border border-green-100 hover:bg-green-50"
+                          className="flex items-center gap-2 p-2 rounded border border-green-100 hover:bg-green-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:hover:!bg-white/60 dark:hover:!text-slate-950"
                         >
                           <Checkbox
                             id={`correct-${selectedField.id}-${index}`}

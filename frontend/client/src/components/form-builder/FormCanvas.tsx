@@ -519,7 +519,7 @@ export function FormCanvas({
               data-testid="builder-undo"
               onClick={onUndo}
               disabled={!canUndo}
-              className={cn("shrink-0 gap-1 sm:gap-2 h-8 sm:h-9 px-2 sm:px-3", !canUndo && "text-muted-foreground")}
+              className={cn("shrink-0 gap-1 sm:gap-2 h-8 sm:h-9 px-2 sm:px-3 dark:!bg-white/60 dark:hover:!bg-white/50", !canUndo && "text-muted-foreground")}
               title={t("builder.undo")}
             >
               <Undo2 className={cn("h-4 w-4", !canUndo && "text-muted-foreground")} />
@@ -531,7 +531,7 @@ export function FormCanvas({
               data-testid="builder-redo"
               onClick={onRedo}
               disabled={!canRedo}
-              className={cn("shrink-0 gap-1 sm:gap-2 h-8 sm:h-9 px-2 sm:px-3", !canRedo && "text-muted-foreground")}
+              className={cn("shrink-0 gap-1 sm:gap-2 h-8 sm:h-9 px-2 sm:px-3 dark:!bg-white/60 dark:hover:!bg-white/50", !canRedo && "text-muted-foreground")}
               title={t("builder.redo")}
             >
               <Redo2 className={cn("h-4 w-4", !canRedo && "text-muted-foreground")} />
@@ -553,7 +553,7 @@ export function FormCanvas({
                 onMovePage(activePage.id, activePage.pageIndex);
               }}
               disabled={!canMoveUp}
-              className={cn("shrink-0 gap-1 sm:gap-2 h-8 sm:h-9 px-2 sm:px-3", !canMoveUp && "text-muted-foreground")}
+              className={cn("shrink-0 gap-1 sm:gap-2 h-8 sm:h-9 px-2 sm:px-3 dark:!bg-white/60 dark:hover:!bg-white/50", !canMoveUp && "text-muted-foreground")}
               title={t("builder.moveUp")}
             >
               <ArrowUp className={cn("h-4 w-4", !canMoveUp && "text-muted-foreground")} />
@@ -575,7 +575,7 @@ export function FormCanvas({
                 onMovePage(activePage.id, activePage.pageIndex + 2);
               }}
               disabled={!canMoveDown}
-              className={cn("shrink-0 gap-1 sm:gap-2 h-8 sm:h-9 px-2 sm:px-3", !canMoveDown && "text-muted-foreground")}
+              className={cn("shrink-0 gap-1 sm:gap-2 h-8 sm:h-9 px-2 sm:px-3 dark:!bg-white/60 dark:hover:!bg-white/50", !canMoveDown && "text-muted-foreground")}
               title={t("builder.moveDown")}
             >
               <ArrowDown className={cn("h-4 w-4", !canMoveDown && "text-muted-foreground")} />
@@ -587,7 +587,7 @@ export function FormCanvas({
                   variant="ghost"
                   size="sm"
                   disabled={!canTransform}
-                  className={cn("shrink-0 gap-1 sm:gap-2 h-8 sm:h-9 px-2 sm:px-3", !canTransform && "text-muted-foreground")}
+                  className={cn("shrink-0 gap-1 sm:gap-2 h-8 sm:h-9 px-2 sm:px-3 dark:!bg-white/60 dark:hover:!bg-white/50", !canTransform && "text-muted-foreground")}
                   title={t("builder.transform")}
                 >
                   <Repeat2 className="h-4 w-4" />

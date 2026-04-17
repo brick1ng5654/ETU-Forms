@@ -308,8 +308,8 @@ export default function Home() {
   const isContinueCategory = selectedCategory === "continue";
 
   return (
-    <div className="min-h-screen bg-muted/30 flex flex-col">
-      <header className="h-19 border-b border-border bg-white flex items-center justify-between px-3 sm:px-8 shrink-0">
+    <div className="min-h-screen bg-muted/30 dark:bg-[var(--color-background)] flex flex-col">
+      <header className="h-19 border-b border-border dark:!border-white/10 bg-white/95 dark:!bg-white/10 backdrop-blur flex items-center justify-between px-3 sm:px-8 shrink-0">
         <div className="flex items-center gap-3">
           <AppBrand href="/" />
         </div>
@@ -339,7 +339,7 @@ export default function Home() {
       </header>
 
       <div className="flex-1 flex overflow-hidden max-w-7xl w-full mx-auto">
-        <aside className="w-14 md:w-72 border-r border-border/50 bg-transparent p-2 md:p-6 space-y-3 md:space-y-6">
+        <aside className="w-14 md:w-72 border-r border-border/50 dark:border-white/10 bg-transparent p-2 md:p-6 space-y-3 md:space-y-6">
           <div className="space-y-1">
             <div className="hidden md:block px-2 text-xs uppercase tracking-wide text-muted-foreground">{t("navigation.categories")}</div>
             <Button
@@ -397,11 +397,11 @@ export default function Home() {
           </div>
           {selectedCategory === "completed" ? (
             isLoadingResponses ? (
-              <div className="flex flex-col items-center justify-center py-20 bg-white rounded-xl border border-border">
+              <div className="flex flex-col items-center justify-center py-20 bg-white dark:!bg-white/5 rounded-xl border border-border dark:!border-white/10">
                 <CustomLoader variant="dots" text={t("navigation.loadingForms")} size="lg" />
               </div>
             ) : myResponses.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 bg-white rounded-xl border border-dashed border-border text-center">
+              <div className="flex flex-col items-center justify-center py-20 bg-white dark:!bg-white/5 rounded-xl border border-dashed border-border dark:!border-white/20 text-center">
                 <div className="h-16 w-16 bg-muted rounded-full flex items-center justify-center mb-4">
                   <CheckCircle className="h-8 w-8 text-muted-foreground" />
                 </div>
@@ -415,12 +415,15 @@ export default function Home() {
                   const attemptsExhausted = form && form.attemptLimit != null && form.attemptLimit !== undefined && form.attemptsRemaining === 0;
                   const canRevoke = form?.settings_json && 
                     typeof form.settings_json === "object" &&
-                    Boolean((form.settings_json as Record<string, unknown>).allowRevoke) &&
-                    form.accessMode !== "unauthenticated" &&
-                    response.status === "submitted";
+                  Boolean((form.settings_json as Record<string, unknown>).allowRevoke) &&
+                  form.accessMode !== "unauthenticated" &&
+                  response.status === "submitted";
                   
                   return (
-                    <div key={response.responseId} className="group bg-white rounded-xl border border-border px-5 py-4 hover:border-primary/40 transition-colors">
+                    <div
+                      key={response.responseId}
+                      className="group bg-white dark:!bg-white/5 rounded-xl border border-border dark:!border-white/10 px-5 py-4 hover:border-primary/40 dark:hover:!border-white/20 transition-colors"
+                    >
                       <div className="flex items-start gap-4">
                         <div className="h-10 w-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary shrink-0">
                           <CheckCircle className="h-5 w-5" />
@@ -495,11 +498,11 @@ export default function Home() {
               </div>
             )
           ) : isLoadingForms ? (
-            <div className="flex flex-col items-center justify-center py-20 bg-white rounded-xl border border-border">
+            <div className="flex flex-col items-center justify-center py-20 bg-white dark:!bg-white/5 rounded-xl border border-border dark:!border-white/10">
               <CustomLoader variant="dots" text={t("navigation.loadingForms")} size="lg" />
             </div>
           ) : filteredForms.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 bg-white rounded-xl border border-dashed border-border text-center">
+            <div className="flex flex-col items-center justify-center py-20 bg-white dark:!bg-white/5 rounded-xl border border-dashed border-border dark:!border-white/20 text-center">
               <div className="h-16 w-16 bg-muted rounded-full flex items-center justify-center mb-4">
                 <FileText className="h-8 w-8 text-muted-foreground" />
               </div>
@@ -516,7 +519,10 @@ export default function Home() {
           ) : (
             <div className="space-y-3">
               {filteredForms.map((form) => (
-                <div key={form.id} className="group bg-white rounded-xl border border-border px-5 py-4 hover:border-primary/40 transition-colors">
+                <div
+                  key={form.id}
+                  className="group bg-white dark:!bg-white/5 rounded-xl border border-border dark:!border-white/10 px-5 py-4 hover:border-primary/40 dark:hover:!border-white/20 transition-colors"
+                >
                   <div className="flex items-start gap-4">
                     <div className="h-10 w-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary shrink-0">
                       <FileText className="h-5 w-5" />

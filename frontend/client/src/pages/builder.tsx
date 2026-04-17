@@ -1532,8 +1532,8 @@ export default function Builder({ params }: { params: { id?: string } }) {
                 className={cn(
                   "group flex items-center gap-2 px-2 sm:px-3 py-1.5 rounded-md text-sm cursor-pointer transition-colors min-w-[80px] max-w-[140px] shrink-0",
                   activeFormId === form.id
-                    ? "bg-secondary text-secondary-foreground font-medium"
-                    : "hover:bg-muted text-muted-foreground"
+                    ? "bg-secondary text-secondary-foreground font-medium dark:!bg-white/70 dark:!text-slate-950"
+                    : "hover:bg-muted text-muted-foreground dark:text-slate-200 dark:hover:!bg-white/60 dark:hover:!text-slate-950"
                 )}
               >
                 <span className="truncate">{form.title || t("common.untitled")}</span>
@@ -1677,7 +1677,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
             <Button
               variant="ghost"
               size="sm"
-              className="gap-1.5 h-9 px-2.5"
+              className="gap-1.5 h-9 px-2.5 dark:!bg-white/60 dark:hover:!bg-white/50 dark:!text-slate-950 dark:hover:!text-slate-950"
               onClick={() => {
                 const newLang = i18n.language.startsWith('ru') ? 'en' : 'ru';
                 if (activeForm) {

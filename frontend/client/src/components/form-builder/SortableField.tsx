@@ -67,7 +67,7 @@ function CanvasSelectPreview({
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => event.stopPropagation()}
         >
-          <span className="truncate text-muted-foreground">{placeholder}</span>
+          <span className="truncate text-muted-foreground dark:!text-slate-700">{placeholder}</span>
           <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -140,7 +140,7 @@ function CanvasCountrySelectPreview({ options, placeholder }: CanvasCountrySelec
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => event.stopPropagation()}
         >
-          <span className="truncate text-muted-foreground">{placeholder}</span>
+          <span className="truncate text-muted-foreground dark:!text-slate-700">{placeholder}</span>
           <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
