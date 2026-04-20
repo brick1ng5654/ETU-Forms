@@ -68,9 +68,10 @@
     border-color: var(--color-border);
   }
 
-  .dark .bg-border {
-    background-color: var(--color-border);
-  }
+.dark .bg-border {
+  background-color: var(--color-border);
+}
+
 
   .dark .ring-offset-background {
     --tw-ring-offset-color: var(--color-background);
@@ -98,5 +99,15 @@
 
   .dark [class~="after:bg-white"]::after {
     background-color: var(--color-card);
+  }
+
+  /* Number input spinner: remove light square background in dark mode */
+  .dark input[type="number"] {
+    color-scheme: dark;
+  }
+
+  .dark input[type="number"]::-webkit-inner-spin-button,
+  .dark input[type="number"]::-webkit-outer-spin-button {
+    background: transparent;
   }
 }

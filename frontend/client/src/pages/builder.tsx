@@ -2060,12 +2060,16 @@ export default function Builder({ params }: { params: { id?: string } }) {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 shrink-0"
+                  className="h-8 w-8 shrink-0 bg-transparent hover:bg-transparent dark:!bg-transparent dark:hover:!bg-transparent"
                   onClick={() => setIsToolboxOpen(!isToolboxOpen)}
                   title={isToolboxOpen ? t("builder.collapseToolbox") : t("builder.expandToolbox")}
                   aria-label={isToolboxOpen ? t("builder.collapseToolbox") : t("builder.expandToolbox")}
                 >
-                  {isToolboxOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
+                  {isToolboxOpen ? (
+                    <PanelLeftClose className="h-4 w-4 text-muted-foreground dark:!text-white" />
+                  ) : (
+                    <PanelLeftOpen className="h-4 w-4 text-muted-foreground dark:!text-white" />
+                  )}
                 </Button>
                 {isToolboxOpen ? (
                   <h2 className="font-semibold text-sm text-foreground uppercase tracking-wider whitespace-nowrap overflow-hidden">

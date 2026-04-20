@@ -80,7 +80,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 
   if (isLoading) {
     return showLoader ? (
-      <div className="fixed inset-0 flex items-center justify-center bg-background">
+      <div className="fixed inset-0 flex items-center justify-center bg-muted/30 dark:bg-[var(--color-background)]">
         <CustomLoader variant="logo-with-dots" size="lg" />
       </div>
     ) : null;

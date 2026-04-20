@@ -17,6 +17,10 @@
     "showLess":"Collapse",
     "noResults":"No results found"
   },
+  "theme": {
+    "switchToLight": "Switch to light theme",
+    "switchToDark": "Switch to dark theme"
+  },
   "navigation": {
     "allForms": "All Forms",
     "categories": "Categories",

@@ -1,5 +1,9 @@
 {
   "ETU-Form": "ETU-Form",
+  "theme": {
+    "switchToLight": "Переключить на светлую тему",
+    "switchToDark": "Переключить на тёмную тему"
+  },
   "common": {
     "loading": "Загрузка",
     "loadingversion": "Загрузка версий",

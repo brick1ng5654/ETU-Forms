@@ -16,6 +16,8 @@ function CustomLoader({
   variant = "logo",
   ...props 
 }: CustomLoaderProps) {
+  const isDark = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
+
   const sizeClasses = {
     sm: "w-8 h-8",
     md: "w-16 h-16",
@@ -49,9 +51,11 @@ function CustomLoader({
             src="/logo_etu.png"
             alt="Логотип"
             className={cn(
-              "rounded-full bg-white p-1",
+              "rounded-full bg-white p-1 object-contain",
+              isDark && "!bg-transparent !p-0",
               iconSizeClasses[size]
             )}
+            style={isDark ? { filter: "brightness(0) invert(1)" } : undefined}
             animate={{ 
               opacity: [0.7, 1, 0.7],
             }}
@@ -73,7 +77,7 @@ function CustomLoader({
           <motion.div
             key={i}
             className={cn(
-              "rounded-full bg-gray-400",
+              "rounded-full bg-gray-400 dark:bg-white/70",
               size === "sm" && "w-2 h-2",
               size === "md" && "w-3 h-3",
               size === "lg" && "w-4 h-4",
@@ -104,7 +108,7 @@ function CustomLoader({
           <motion.div
             key={i}
             className={cn(
-              "rounded-full bg-primary",
+              "rounded-full bg-primary dark:bg-white",
               size === "sm" && "w-0.5 h-0.5",
               size === "md" && "w-1.5 h-1.5",
               size === "lg" && "w-2 h-2",
@@ -154,7 +158,7 @@ function CustomLoader({
           transition={{ delay: 0.3 }}
         >
           <motion.p
-            className="text-muted-foreground font-medium"
+            className="text-muted-foreground font-medium dark:!text-white"
             animate={{ opacity: [0.5, 1, 0.5] }}
             transition={{
               duration: 2,
@@ -175,7 +179,7 @@ function CustomLoader({
           transition={{ delay: 0.3 }}
         >
           <motion.p
-            className="text-muted-foreground font-medium"
+            className="text-muted-foreground font-medium dark:!text-white"
             animate={{ opacity: [0.5, 1, 0.5] }}
             transition={{
               duration: 2,

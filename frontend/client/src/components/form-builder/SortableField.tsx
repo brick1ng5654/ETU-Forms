@@ -63,11 +63,11 @@ function CanvasSelectPreview({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between bg-white/50 font-normal focus-visible:ring-0 focus-visible:ring-offset-0"
+          className="w-full justify-between bg-muted/30 dark:!bg-muted/30 dark:hover:!bg-muted/30 dark:!text-slate-100 dark:hover:!text-slate-100 font-normal focus-visible:ring-0 focus-visible:ring-offset-0"
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => event.stopPropagation()}
         >
-          <span className="truncate text-muted-foreground dark:!text-slate-700">{placeholder}</span>
+          <span className="truncate text-muted-foreground dark:!text-slate-200">{placeholder}</span>
           <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -136,11 +136,11 @@ function CanvasCountrySelectPreview({ options, placeholder }: CanvasCountrySelec
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between bg-white/50 font-normal focus-visible:ring-0 focus-visible:ring-offset-0"
+          className="w-full justify-between bg-muted/30 dark:!bg-muted/30 dark:hover:!bg-muted/30 dark:!text-slate-100 dark:hover:!text-slate-100 font-normal focus-visible:ring-0 focus-visible:ring-offset-0"
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => event.stopPropagation()}
         >
-          <span className="truncate text-muted-foreground dark:!text-slate-700">{placeholder}</span>
+          <span className="truncate text-muted-foreground dark:!text-slate-200">{placeholder}</span>
           <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -208,7 +208,7 @@ function CanvasDatePreview({ placeholder }: { placeholder: string }) {
           ref={triggerRef}
           type="button"
           variant="outline"
-          className="w-full justify-start bg-white/50 text-left font-normal text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
+          className="w-full justify-start bg-muted/30 dark:!bg-muted/30 dark:hover:!bg-muted/30 dark:!text-slate-100 dark:hover:!text-slate-100 text-left font-normal text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => event.stopPropagation()}
         >
@@ -271,7 +271,7 @@ function CanvasTimePreview({ placeholder }: { placeholder: string }) {
           ref={triggerRef}
           type="button"
           variant="outline"
-          className="w-full justify-start bg-white/50 text-left font-normal text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
+          className="w-full justify-start bg-muted/30 dark:!bg-muted/30 dark:hover:!bg-muted/30 dark:!text-slate-100 dark:hover:!text-slate-100 text-left font-normal text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => event.stopPropagation()}
         >
@@ -443,7 +443,7 @@ function MatrixPreviewTable({
         <Button
           size="sm"
           variant="outline"
-          className="w-full border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
+          className="w-full justify-center bg-muted/30 dark:!bg-muted/30 dark:hover:!bg-muted/30 dark:!text-slate-100 dark:hover:!text-slate-100 font-normal text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
           onClick={(e) => {
             e.stopPropagation();
             onOpenModal();
@@ -1115,7 +1115,7 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
           ) : (
             <Label
               className={cn(
-                "mt-1 text-base font-medium whitespace-normal break-words w-full cursor-pointer hover:bg-muted/50 px-2 py-1 rounded transition-colors",
+                "mt-1 text-base font-medium whitespace-normal break-words w-full cursor-pointer hover:bg-muted/50 dark:hover:!bg-white/10 dark:!text-slate-100 px-2 py-1 rounded transition-colors",
                 field.widgetType === "header" ? "text-2xl font-bold" : ""
               )}
               onClick={(e) => {
@@ -1157,7 +1157,7 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
               />
             ) : field.description ? (
               <p
-                className="text-sm text-muted-foreground cursor-pointer hover:bg-muted/50 px-2 py-1 mr-8 rounded transition-colors"
+                className="text-sm text-muted-foreground dark:!text-slate-200 cursor-pointer hover:bg-muted/50 dark:hover:!bg-white/10 px-2 py-1 mr-8 rounded transition-colors"
                 onClick={(e) => {
                   e.stopPropagation();
                   startEditing("helperText", field.description || "");
@@ -1167,7 +1167,7 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
               </p>
             ) : (
               <p
-                className="mt-1 text-sm text-muted-foreground/50 -mt-1 cursor-pointer hover:bg-muted/50 px-2 py-1 mr-8 rounded transition-colors italic"
+                className="mt-1 text-sm text-muted-foreground/50 dark:!text-slate-400 -mt-1 cursor-pointer hover:bg-muted/50 dark:hover:!bg-white/10 px-2 py-1 mr-8 rounded transition-colors italic"
                 onClick={(e) => {
                   e.stopPropagation();
                   startEditing("helperText", "");

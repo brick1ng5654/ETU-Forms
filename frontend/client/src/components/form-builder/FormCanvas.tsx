@@ -679,7 +679,7 @@ export function FormCanvas({
               variant="outline"
               size="sm"
               onClick={onAddPage}
-              className="w-full justify-center"
+              className="w-full justify-center dark:!border-white/20 dark:!bg-white/10 dark:hover:!bg-white/20 dark:!text-white dark:hover:!text-white"
             >
               + {t("pages.addPage")}
             </Button>

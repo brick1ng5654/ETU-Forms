@@ -2073,7 +2073,7 @@ export function PropertiesPanel({
                         <Button
                           variant="outline"
                           size="sm"
-                          className="w-full border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
+                          className="w-full border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800 dark:!border-emerald-400/40 dark:!bg-emerald-500/15 dark:hover:!bg-emerald-500/25 dark:!text-white dark:hover:!text-white"
                           onClick={() => {
                             updateField(selectedField.id, { props: { correctAnswers: [...rankingOrderOptions] } });
                           }}
@@ -2307,7 +2307,7 @@ export function PropertiesPanel({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full mt-2 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
+                  className="w-full mt-2 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800 dark:!border-emerald-400/40 dark:!bg-emerald-500/15 dark:hover:!bg-emerald-500/25 dark:!text-white dark:hover:!text-white"
                   onClick={() => {
                     const defaultNew = selectedField.widgetType === "rating" ? "1" : "";
                     const newAnswers = [...correctAnswers, defaultNew];
@@ -2329,9 +2329,9 @@ export function PropertiesPanel({
             {isMatrix ? (
               <div className="space-y-2 mt-3">
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
-                  className="w-full border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
+                  className="w-full border border-input bg-transparent shadow-sm hover:bg-accent hover:text-accent-foreground dark:!border-white/20 dark:!bg-white/50 dark:hover:!bg-white/50 dark:!text-slate-950 dark:hover:!text-slate-950"
                   onClick={(e) => {
                     e.stopPropagation();
                     setIsMatrixModalOpen(true);

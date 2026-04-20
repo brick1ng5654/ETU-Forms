@@ -428,7 +428,7 @@ export default function Home() {
                       className="group bg-white dark:!bg-white/5 rounded-xl border border-border dark:!border-white/10 px-5 py-4 hover:border-primary/40 dark:hover:!border-white/20 transition-colors"
                     >
                       <div className="flex items-start gap-4">
-                        <div className="h-10 w-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary shrink-0">
+                        <div className="h-10 w-10 bg-primary/10 dark:!bg-white/10 rounded-lg flex items-center justify-center text-primary dark:!text-white shrink-0">
                           <CheckCircle className="h-5 w-5" />
                         </div>
                         <div className="min-w-0 flex-1">
@@ -527,7 +527,7 @@ export default function Home() {
                   className="group bg-white dark:!bg-white/5 rounded-xl border border-border dark:!border-white/10 px-5 py-4 hover:border-primary/40 dark:hover:!border-white/20 transition-colors"
                 >
                   <div className="flex items-start gap-4">
-                    <div className="h-10 w-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary shrink-0">
+                    <div className="h-10 w-10 bg-primary/10 dark:!bg-white/10 rounded-lg flex items-center justify-center text-primary dark:!text-white shrink-0">
                       <FileText className="h-5 w-5" />
                     </div>
 
