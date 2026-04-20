@@ -325,7 +325,20 @@
     "country": "Страна",
     "ogrn": "ОГРН",
     "bik": "БИК",
-    "matrix": "Матрица выбора"
+    "matrix": "Матрица выбора",
+    "repeatableBlock": "Повторяемый блок"
+  },
+  "repeatable": {
+    "maxCountLabel": "Максимум блоков",
+    "maxCountHint": "Обязательное число от 1 до 100.",
+    "addButtonTextLabel": "Текст кнопки добавления",
+    "addButtonTextHint": "Если оставить пустым, будет использован текст по умолчанию.",
+    "instanceNameBaseLabel": "Название блока",
+    "instanceNameBaseHint": "К названию автоматически добавится номер",
+    "defaultAddButton": "добавить повторяемый блок",
+    "instanceDefaultName": "Блок",
+    "removeButton": "Убрать",
+    "emptyInBuilder": "Добавьте поля внутрь этого блока через панель «Элементы»."
   },
   "actions": {
     "act": "Действия",

@@ -19,7 +19,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Clock, CheckCircle2, GripVertical, Upload, ChevronsUpDown, Check } from "lucide-react";
+import { Clock, CheckCircle2, GripVertical, Upload, ChevronsUpDown, Check, Plus, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { enUS, ru } from "date-fns/locale";
 import { useTranslation } from "react-i18next";
@@ -71,6 +71,25 @@ const MAX_UPLOAD_MB = 20;
 const REQUIRED_WARNING_DURATION_MS = 6000;
 const REQUIRED_WARNING_FADE_MS = 450;
 const FOCUS_SCROLL_SETTLE_MS = 320;
+const REPEATABLE_ID_SEPARATOR = "::repeatable::";
+
+const getParentBlockId = (field: FormElementModel): string | null => {
+  const raw = (field.props as Record<string, unknown> | undefined)?.parentBlockId;
+  if (typeof raw !== "string") return null;
+  const normalized = raw.trim();
+  return normalized.length > 0 ? normalized : null;
+};
+
+const makeRepeatableChildId = (blockId: string, index: number, childId: string) =>
+  `${blockId}${REPEATABLE_ID_SEPARATOR}${index}${REPEATABLE_ID_SEPARATOR}${childId}`;
+
+const parseRepeatableChildId = (value: string): { blockId: string; index: number; childId: string } | null => {
+  const parts = value.split(REPEATABLE_ID_SEPARATOR);
+  if (parts.length !== 3) return null;
+  const index = Number.parseInt(parts[1], 10);
+  if (!Number.isFinite(index) || index < 0) return null;
+  return { blockId: parts[0], index, childId: parts[2] };
+};
 
 const getTextareaMetrics = (textarea: HTMLTextAreaElement) => {
   const computed = window.getComputedStyle(textarea);
@@ -1038,6 +1057,62 @@ export function FormPreview({
     }
   }, [form.fields, answers]);
 
+  useEffect(() => {
+    if (!isRespondMode || readOnly) return;
+    const patch: AnswersById = {};
+    let shouldPatch = false;
+    const currentlyVisibleFields = form.fields.filter(isFieldVisible);
+    const byId = new Map(currentlyVisibleFields.map((field) => [field.id, field]));
+    const childMap = new Map<string, FormElementModel[]>();
+    currentlyVisibleFields.forEach((field) => {
+      const parentBlockId = getParentBlockId(field);
+      if (!parentBlockId) return;
+      const parent = byId.get(parentBlockId);
+      if (!parent || parent.widgetType !== "repeatable_block") return;
+      const bucket = childMap.get(parentBlockId) ?? [];
+      bucket.push(field);
+      childMap.set(parentBlockId, bucket);
+    });
+
+    currentlyVisibleFields
+      .filter((field) => field.widgetType === "repeatable_block")
+      .forEach((blockField) => {
+        const childFields = (childMap.get(blockField.id) ?? []).slice().sort((a, b) => a.sortIndex - b.sortIndex);
+        if (childFields.length === 0) return;
+
+        const syntheticKeys = Object.keys(answers).filter((answerKey) => {
+          const parsed = parseRepeatableChildId(answerKey);
+          return parsed?.blockId === blockField.id;
+        });
+        if (syntheticKeys.length > 0) return;
+
+        const structured = answers[blockField.id];
+        if (Array.isArray(structured) && structured.length > 0) {
+          structured.forEach((instanceValue, instanceIndex) => {
+            const instanceRecord =
+              instanceValue && typeof instanceValue === "object" && !Array.isArray(instanceValue)
+                ? (instanceValue as Record<string, unknown>)
+                : {};
+            childFields.forEach((childField) => {
+              patch[makeRepeatableChildId(blockField.id, instanceIndex, childField.id)] =
+                (instanceRecord[childField.id] as AnswerValue) ?? null;
+              shouldPatch = true;
+            });
+          });
+          return;
+        }
+
+        childFields.forEach((childField) => {
+          patch[makeRepeatableChildId(blockField.id, 0, childField.id)] = null;
+          shouldPatch = true;
+        });
+      });
+
+    if (shouldPatch) {
+      setAnswers((prev) => ({ ...prev, ...patch }));
+    }
+  }, [answers, form.fields, isRespondMode, readOnly]);
+
   const checkAnswers = () => {
     const payload = payloadRef.current ?? buildAnswersPayload(form.fields, answers);
     if (import.meta.env.DEV) {
@@ -1667,6 +1742,25 @@ export function FormPreview({
 
 
 
+  const visibleFields = useMemo(() => form.fields.filter(isFieldVisible), [form.fields, answers, readOnly, isRespondMode]);
+  const repeatableChildrenByBlockId = useMemo(() => {
+    const byId = new Map(visibleFields.map((field) => [field.id, field]));
+    const grouped = new Map<string, FormElementModel[]>();
+    visibleFields.forEach((field) => {
+      const parentBlockId = getParentBlockId(field);
+      if (!parentBlockId) return;
+      const parentField = byId.get(parentBlockId);
+      if (!parentField || parentField.widgetType !== "repeatable_block") return;
+      const bucket = grouped.get(parentBlockId) ?? [];
+      bucket.push(field);
+      grouped.set(parentBlockId, bucket);
+    });
+    grouped.forEach((fieldsInBlock, blockId) => {
+      grouped.set(blockId, fieldsInBlock.slice().sort((a, b) => a.sortIndex - b.sortIndex));
+    });
+    return grouped;
+  }, [visibleFields]);
+
   const renderField = (field: FormElementModel) => {
     const props = field.props as Record<string, unknown>;
     const options = props.options as string[] | undefined;
@@ -1752,6 +1846,102 @@ export function FormPreview({
             {field.description}
           </p>
         ) : null}
+
+        {field.widgetType === "repeatable_block" && (() => {
+          const childFields = repeatableChildrenByBlockId.get(field.id) ?? [];
+          if (childFields.length === 0) return null;
+
+          const rawMaxCount = Number(props.maxCount);
+          const maxCount = Number.isFinite(rawMaxCount) && rawMaxCount > 0 ? Math.floor(rawMaxCount) : 1;
+          const addButtonText = String(props.addButtonText ?? "").trim() || t("repeatable.defaultAddButton");
+          const instanceNameBase = String(props.instanceNameBase ?? "").trim() || t("repeatable.instanceDefaultName");
+          const childInstancesMap = new Map<number, string[]>();
+          Object.keys(answers).forEach((answerKey) => {
+            const parsed = parseRepeatableChildId(answerKey);
+            if (!parsed || parsed.blockId !== field.id) return;
+            const current = childInstancesMap.get(parsed.index) ?? [];
+            current.push(answerKey);
+            childInstancesMap.set(parsed.index, current);
+          });
+          const instanceIndexes = Array.from(childInstancesMap.keys()).sort((a, b) => a - b);
+          const effectiveInstanceIndexes = instanceIndexes.length > 0 ? instanceIndexes : [0];
+          const canAddMore = !isFieldDisabled && effectiveInstanceIndexes.length < maxCount;
+          const addInstance = () => {
+            if (!canAddMore) return;
+            const patch: AnswersById = {};
+            if (instanceIndexes.length === 0) {
+              childFields.forEach((childField) => {
+                patch[makeRepeatableChildId(field.id, 0, childField.id)] = null;
+              });
+              childFields.forEach((childField) => {
+                patch[makeRepeatableChildId(field.id, 1, childField.id)] = null;
+              });
+            } else {
+              const nextIndex = Math.max(...instanceIndexes) + 1;
+              childFields.forEach((childField) => {
+                patch[makeRepeatableChildId(field.id, nextIndex, childField.id)] = null;
+              });
+            }
+            setAnswers((prev) => {
+              const next = { ...prev, ...patch };
+              onAnswersChange?.(next);
+              return next;
+            });
+          };
+          const removeInstance = (targetIndex: number) => {
+            const nextAnswerEntries = Object.entries(answers).filter(([answerKey]) => {
+              const parsed = parseRepeatableChildId(answerKey);
+              return !(parsed && parsed.blockId === field.id && parsed.index === targetIndex);
+            });
+            const next = Object.fromEntries(nextAnswerEntries) as AnswersById;
+            setAnswers(next);
+            onAnswersChange?.(next);
+          };
+
+          const renderChildField = (childField: FormElementModel, index: number) => {
+            const syntheticId = makeRepeatableChildId(field.id, index, childField.id);
+            const syntheticField: FormElementModel = { ...childField, id: syntheticId };
+            return renderField(syntheticField);
+          };
+
+          return (
+            <div className="space-y-3">
+              {effectiveInstanceIndexes.map((instanceIndex) => (
+                <div key={`${field.id}-${instanceIndex}`} className="rounded-lg border border-border/70 p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium">{`${instanceNameBase} ${instanceIndex + 1}`}</p>
+                    {effectiveInstanceIndexes.length > 1 && !isFieldDisabled && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => removeInstance(instanceIndex)}
+                      >
+                        <Minus className="h-3.5 w-3.5 mr-1" />
+                        {t("repeatable.removeButton")}
+                      </Button>
+                    )}
+                  </div>
+                  <div className="space-y-3">
+                    {childFields.map((childField) => renderChildField(childField, instanceIndex))}
+                  </div>
+                </div>
+              ))}
+              {!readOnly && maxCount > 1 && canAddMore && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addInstance}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  {addButtonText}
+                </Button>
+              )}
+            </div>
+          );
+        })()}
 
         {field.widgetType === "text_input" && renderTextInput(field, isFieldDisabled)}
 
@@ -2362,24 +2552,42 @@ export function FormPreview({
     );
   };
 
-  const visibleFields = form.fields.filter(isFieldVisible);
+  const topLevelVisibleFields = visibleFields
+    .filter((field) => {
+      const parentBlockId = getParentBlockId(field);
+      if (!parentBlockId) {
+        if (field.widgetType === "repeatable_block") {
+          const childFields = repeatableChildrenByBlockId.get(field.id) ?? [];
+          if (childFields.length === 0) return false;
+        }
+        return true;
+      }
+      return !visibleFields.some((candidate) => candidate.id === parentBlockId);
+    })
+    .map((field) => {
+      if (field.widgetType !== "repeatable_block") return field;
+      return {
+        ...field,
+        children: repeatableChildrenByBlockId.get(field.id) ?? [],
+      };
+    });
   const fieldsByPage = useMemo(() => {
     const grouped = new Map<number, FormElementModel[]>();
     normalizedPages.forEach((page) => grouped.set(page.id, []));
-    visibleFields.forEach((field) => {
+    topLevelVisibleFields.forEach((field) => {
       const pageId = pageIdSet.has(field.pageId) ? field.pageId : fallbackPageId;
       const list = grouped.get(pageId) ?? [];
       list.push(field);
       grouped.set(pageId, list);
     });
-    for (const [pageId, list] of grouped.entries()) {
+    Array.from(grouped.entries()).forEach(([pageId, list]) => {
       grouped.set(
         pageId,
         list.slice().sort((a, b) => a.sortIndex - b.sortIndex)
       );
-    }
+    });
     return grouped;
-  }, [visibleFields, normalizedPages, pageIdSet, fallbackPageId]);
+  }, [topLevelVisibleFields, normalizedPages, pageIdSet, fallbackPageId]);
   const currentPageId = activePageId ?? normalizedPages[0]?.id ?? fallbackPageId;
   const currentPageIndex = normalizedPages.findIndex((page) => page.id === currentPageId);
   const isFirstPage = currentPageIndex <= 0;
@@ -2418,7 +2626,7 @@ export function FormPreview({
     () => Object.values(activePageErrors).some((errors) => errors.some(isRequiredError)),
     [activePageErrors]
   );
-  const renderedFields = isRespondMode ? activePageFields : visibleFields;
+  const renderedFields = isRespondMode ? activePageFields : topLevelVisibleFields;
   const lastVisibleField = renderedFields[renderedFields.length - 1];
   const needsCountryPadding = Boolean(lastVisibleField && isCountryField(lastVisibleField));
   const isInputsDisabled = readOnly || submitting;
@@ -2495,7 +2703,7 @@ export function FormPreview({
   const handleSubmitAnswers = async () => {
     if (!onSubmitAnswers || submitting) return;
 
-    const visibleFieldIds = new Set(visibleFields.map((field) => field.id));
+    const visibleFieldIds = new Set(topLevelVisibleFields.map((field) => field.id));
     setTouched((prev) => {
       const next = { ...prev };
       visibleFieldIds.forEach((fieldId) => {
@@ -2504,18 +2712,18 @@ export function FormPreview({
       return next;
     });
 
-    const visibleErrors = validateForm(visibleFields, answers);
+    const visibleErrors = validateForm(topLevelVisibleFields, answers);
     if (Object.keys(visibleErrors).length > 0) {
-      const firstRequiredField = visibleFields.find((field) => {
+      const firstRequiredField = topLevelVisibleFields.find((field) => {
         if (field.widgetType === "header") return false;
         const fieldErrors = visibleErrors[field.id] || [];
         return fieldErrors.some(isRequiredError);
       });
-      const firstInvalidField = visibleFields.find((field) => {
+      const firstInvalidField = topLevelVisibleFields.find((field) => {
         if (field.widgetType === "header") return false;
         return Boolean(visibleErrors[field.id]);
       });
-      const anyInvalidField = visibleFields.find((field) => Boolean(visibleErrors[field.id]));
+      const anyInvalidField = topLevelVisibleFields.find((field) => Boolean(visibleErrors[field.id]));
       const targetField = firstRequiredField ?? firstInvalidField ?? anyInvalidField;
 
       if (targetField) {
@@ -2528,7 +2736,7 @@ export function FormPreview({
       return;
     }
 
-    const payload = buildAnswersPayload(visibleFields, answers);
+    const payload = buildAnswersPayload(topLevelVisibleFields, answers);
     await onSubmitAnswers(payload);
   };
 

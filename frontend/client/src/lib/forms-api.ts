@@ -227,7 +227,13 @@ const toTimestamp = (value?: string | number | null): number => {
   return Number.isNaN(parsed.getTime()) ? Date.now() : parsed.getTime();
 };
 
-const mapWidgetFromServer = (widget: string): FormElementModel["widgetType"] => {
+const mapWidgetFromServer = (
+  widget: string,
+  otherSettings?: Record<string, unknown>
+): FormElementModel["widgetType"] => {
+  if (widget === "text_input" && otherSettings?.repeatableBlock === true) {
+    return "repeatable_block";
+  }
   if (widget === "heading") return "header";
   if (widget === "email_input") return "text_input";
   if (widget === "static_text") return "text_input";
@@ -269,6 +275,10 @@ export const mapServerDetailToSchema = (detail: ServerFormDetail): FormSchema =>
     const otherSettings = { ...(el.other_settings ?? {}) } as Record<string, unknown>;
     delete otherSettings.client_id;
     delete otherSettings.sort_index;
+    const widgetType = mapWidgetFromServer(el.widget, otherSettings);
+    if (otherSettings.repeatableBlock === true) {
+      delete otherSettings.repeatableBlock;
+    }
     const props: Record<string, unknown> = { ...otherSettings };
     if (el.text_hint) props.placeholder = el.text_hint;
     const correctAnswers = mapCorrectAnswers(el.correct_answer);
@@ -277,7 +287,7 @@ export const mapServerDetailToSchema = (detail: ServerFormDetail): FormSchema =>
     return {
       id: String(el.client_id || ""),
       pageId: pageIdSet.has(el.page_id) ? el.page_id : fallbackPageId,
-      widgetType: mapWidgetFromServer(el.widget),
+      widgetType,
       semanticType: mapSemanticFromServer(el.widget, el.semantic ?? undefined),
       label: el.label,
       description: el.description ?? "",

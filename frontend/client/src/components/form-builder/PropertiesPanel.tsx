@@ -161,6 +161,7 @@ const widgetTypeLabelKey: Record<WidgetType, string> = {
   rating: "rating",
   ranking: "ranking",
   matrix: "matrix",
+  repeatable_block: "repeatableBlock",
 };
 
 const semanticTypeLabelKey: Record<SemanticType, string> = {
@@ -380,6 +381,24 @@ const propertiesSchemaByWidgetType: Record<WidgetType, PropertyFieldDef[]> = {
         const props = field.props as Record<string, any>;
         return props.matrixInputType === "text";
       },
+    },
+  ],
+  repeatable_block: [
+    {
+      key: "maxCount",
+      labelKey: "repeatable.maxCountLabel",
+      type: "number",
+      target: "props.maxCount",
+      min: 1,
+      max: 100,
+      step: 1,
+    },
+    {
+      key: "addButtonText",
+      labelKey: "repeatable.addButtonTextLabel",
+      type: "text",
+      target: "props.addButtonText",
+      maxLength: 120,
     },
   ],
 };
@@ -869,6 +888,77 @@ export function PropertiesPanel({
   }
 
   const props = selectedField.props as Record<string, any>;
+  if (selectedField.widgetType === "repeatable_block") {
+    const rawMaxCount = Number(props.maxCount);
+    const maxCount = Number.isFinite(rawMaxCount) && rawMaxCount > 0 ? Math.floor(rawMaxCount) : 1;
+    const addButtonText = typeof props.addButtonText === "string" ? props.addButtonText : "";
+    const instanceNameBase = typeof props.instanceNameBase === "string" ? props.instanceNameBase : "";
+    return (
+      <>
+        <div className="p-4 space-y-5 overflow-y-auto h-full pb-24">
+          {pageControls}
+          <div className="flex items-center justify-between border-b pb-4">
+            <h3 className="font-semibold text-lg">{t("propert.propet")}</h3>
+            <Button
+              variant="destructive"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => deleteField(selectedField.id)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="space-y-1">
+            <Label>{t("propert.fieldType")}</Label>
+            <div className="text-sm text-muted-foreground font-medium">{t("fields.repeatableBlock")}</div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>{t("repeatable.maxCountLabel")}</Label>
+            <Input
+              type="number"
+              min={1}
+              max={100}
+              value={String(maxCount)}
+              onChange={(event) => {
+                const parsed = Number.parseInt(event.target.value, 10);
+                const normalized = Number.isFinite(parsed) ? Math.min(Math.max(parsed, 1), 100) : 1;
+                updateField(selectedField.id, { props: { maxCount: normalized } });
+              }}
+            />
+            <p className="text-xs text-muted-foreground">{t("repeatable.maxCountHint")}</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>{t("repeatable.addButtonTextLabel")}</Label>
+            <Textarea
+              value={addButtonText}
+              maxLength={120}
+              onChange={(event) => {
+                updateField(selectedField.id, { props: { addButtonText: event.target.value.slice(0, 120) } });
+              }}
+              className="min-h-[72px] resize-y"
+            />
+            <p className="text-xs text-muted-foreground">{t("repeatable.addButtonTextHint")}</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>{t("repeatable.instanceNameBaseLabel")}</Label>
+            <Input
+              value={instanceNameBase}
+              maxLength={120}
+              onChange={(event) => {
+                updateField(selectedField.id, { props: { instanceNameBase: event.target.value.slice(0, 120) } });
+              }}
+            />
+            <p className="text-xs text-muted-foreground">{t("repeatable.instanceNameBaseHint")}</p>
+          </div>
+        </div>
+        {deletePageDialog}
+      </>
+    );
+  }
   const isReadOnly = Boolean(props.readOnly);
   const hideDate = Boolean(props.hideDate);
   const hideTime = Boolean(props.hideTime);

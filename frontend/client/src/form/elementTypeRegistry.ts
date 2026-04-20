@@ -18,6 +18,8 @@ const widgetTypeAliases: Record<string, WidgetType> = {
   ranking: "ranking",
   matrix: "matrix",
   choice_matrix: "matrix",
+  repeatable_block: "repeatable_block",
+  repeatable: "repeatable_block",
   email: "text_input",
   country: "select",
   category: "select",
@@ -51,6 +53,7 @@ export const canonicalWidgetTypes: WidgetType[] = [
   "rating",
   "ranking",
   "matrix",
+  "repeatable_block",
 ];
 
 export const canonicalSemanticTypes: SemanticType[] = [

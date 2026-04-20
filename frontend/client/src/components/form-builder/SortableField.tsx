@@ -462,6 +462,7 @@ function MatrixPreviewTable({
 interface SortableFieldProps {
   field: FormElementModel;
   isSelected: boolean;
+  selectedIds: string[];
   onSelect: (id: string, event: MouseEvent<HTMLDivElement>) => void;
   updateField: (id: string, updates: Partial<FormElementModel>) => void;
   fields: FormElementModel[];
@@ -508,7 +509,7 @@ function SortableOptionItem({ id, option, disabled, onDoubleClick }: SortableOpt
   );
 }
 
-export function SortableField({ field, isSelected, onSelect, updateField, fields }: SortableFieldProps) {
+export function SortableField({ field, isSelected, selectedIds, onSelect, updateField, fields }: SortableFieldProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [editingElement, setEditingElement] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState<string>("");
@@ -533,6 +534,14 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
     })
   );
   const props = field.props as Record<string, any>;
+  const nestedFields = (field.children ?? []).slice().sort((a, b) => a.sortIndex - b.sortIndex);
+  const getWidgetPreviewLabel = (widgetType: FormElementModel["widgetType"]) => {
+    if (widgetType === "text_input" || widgetType === "textarea") return t("fields.text");
+    if (widgetType === "number_input") return t("fields.number");
+    if (widgetType === "file_upload") return t("fields.file");
+    if (widgetType === "repeatable_block") return t("fields.repeatableBlock");
+    return t(`fields.${widgetType}`);
+  };
   const isCountrySelect = isCountryField(field);
   const countryOptions = isCountrySelect ? getCountryOptions(i18n.language).map((option) => option.label) : [];
   const allowOtherOption =
@@ -595,7 +604,7 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
               if (nextOptionsSet.has(answer)) return answer;
               return null;
             })
-            .filter((x): x is string => Boolean(x) && nextOptionsSet.has(x))
+            .filter((x): x is string => x !== null && nextOptionsSet.has(x))
           : undefined;
 
       updateField(field.id, {
@@ -1158,6 +1167,41 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
           </>
         );
       }
+      case "repeatable_block": {
+        return (
+          <div className="space-y-3">
+            {nestedFields.length === 0 ? (
+              <div className="rounded-md border border-dashed border-muted-foreground/30 bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+                {t("repeatable.emptyInBuilder")}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {nestedFields.map((child, index) => {
+                  const childSelected = selectedIds.includes(child.id);
+                  return (
+                    <div
+                      key={child.id}
+                      role="button"
+                      tabIndex={0}
+                      className={cn(
+                        "rounded-md border bg-white px-3 py-2 text-sm transition-colors",
+                        childSelected ? "border-primary ring-1 ring-primary/40" : "border-border hover:bg-muted/20"
+                      )}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onSelect(child.id, event as unknown as MouseEvent<HTMLDivElement>);
+                      }}
+                    >
+                      <div className="font-medium truncate">{child.label || `Field ${index + 1}`}</div>
+                      <div className="text-xs text-muted-foreground">{getWidgetPreviewLabel(child.widgetType)}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      }
       case "header":
         return null;
       default:
@@ -1298,7 +1342,7 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
             <div
               className={cn(
                 "pointer-events-none",
-                (field.widgetType === "matrix" || field.widgetType === "ranking") && "!pointer-events-auto"
+                (field.widgetType === "matrix" || field.widgetType === "ranking" || field.widgetType === "repeatable_block") && "!pointer-events-auto"
               )}
             >
               {renderFieldPreview()}

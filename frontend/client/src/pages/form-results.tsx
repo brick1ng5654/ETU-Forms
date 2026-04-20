@@ -39,7 +39,6 @@ import { downloadFormResponsesExport, fetchFormDetail, fetchFormResponses, fetch
 import { storage } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import { formatScoreRange } from "@/lib/points-label";
-import { getCountryLabel, isCountryField } from "@/lib/countries";
 import FormPreview from "@/components/form-builder/FormPreview";
 import { ElementAttachments } from "@/components/form-builder/ElementAttachments";
 import { UserMenu } from "@/components/user-menu";
@@ -253,9 +252,17 @@ const formatPassportDepartmentCode = (value: string) => {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value);
 
+const getParentBlockId = (field: FormElementModel): string | null => {
+  const raw = (field.props as Record<string, unknown> | undefined)?.parentBlockId;
+  if (typeof raw !== "string") return null;
+  const normalized = raw.trim();
+  return normalized.length > 0 ? normalized : null;
+};
+
 const mapWidgetTypeForPublish = (widgetType: FormElementModel["widgetType"]) => {
   if (widgetType === "header") return "heading";
   if (widgetType === "textarea") return "text_input";
+  if (widgetType === "repeatable_block") return "text_input";
   return widgetType;
 };
 
@@ -341,6 +348,9 @@ const buildFormPayload = (
         : [];
       const cleanedOtherSettings: Record<string, unknown> = { ...otherSettings };
       if (points !== undefined) cleanedOtherSettings.points = points;
+      if (field.widgetType === "repeatable_block") {
+        cleanedOtherSettings.repeatableBlock = true;
+      }
       const inputType = typeof props.inputType === "string" ? props.inputType : undefined;
       const isEmailField = field.semanticType === "email" || inputType === "email";
       if (isEmailField) {
@@ -1123,7 +1133,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
     const pageIndexById = new Map<number, number>(
       pages.map((page) => [Number(page.id), Number(page.pageIndex ?? 0)])
     );
-    return (schema.fields ?? [])
+    const sorted = (schema.fields ?? [])
       .filter((field) => field.widgetType !== "header")
       .slice()
       .sort((a, b) => {
@@ -1131,6 +1141,30 @@ export default function FormResults({ params }: { params: { id: string } }) {
         const pageB = pageIndexById.get(Number(b.pageId)) ?? Number.MAX_SAFE_INTEGER;
         if (pageA !== pageB) return pageA - pageB;
         return (a.sortIndex ?? 0) - (b.sortIndex ?? 0);
+      });
+    const byId = new Map(sorted.map((field) => [field.id, field]));
+    const childrenByParent = new Map<string, FormElementModel[]>();
+    sorted.forEach((field) => {
+      const parentBlockId = getParentBlockId(field);
+      if (!parentBlockId) return;
+      const parent = byId.get(parentBlockId);
+      if (!parent || parent.widgetType !== "repeatable_block") return;
+      const bucket = childrenByParent.get(parentBlockId) ?? [];
+      bucket.push(field);
+      childrenByParent.set(parentBlockId, bucket);
+    });
+    return sorted
+      .filter((field) => {
+        const parentBlockId = getParentBlockId(field);
+        if (!parentBlockId) return true;
+        return !byId.has(parentBlockId);
+      })
+      .map((field) => {
+        if (field.widgetType !== "repeatable_block") return field;
+        return {
+          ...field,
+          children: (childrenByParent.get(field.id) ?? []).slice().sort((a, b) => a.sortIndex - b.sortIndex),
+        };
       });
   };
 
@@ -1230,6 +1264,22 @@ export default function FormResults({ params }: { params: { id: string } }) {
       const values = responsesForVersion
         .map((response) => response.answers[field.id])
         .filter((value) => value !== undefined && value !== null);
+
+      if (field.widgetType === "repeatable_block") {
+        const counts = values
+          .map((value) => (Array.isArray(value) ? value.length : 0))
+          .filter((value) => Number.isFinite(value));
+        const average = counts.length ? counts.reduce((sum, val) => sum + val, 0) / counts.length : 0;
+        const median = numericMedian(counts);
+        return {
+          id: field.id,
+          label: field.label,
+          metrics: [
+            { label: t("results.average"), value: average.toFixed(1) },
+            { label: t("results.median"), value: median.toFixed(1) },
+          ],
+        };
+      }
 
       if (field.widgetType === "number_input" || field.widgetType === "rating" || field.widgetType === "file_upload") {
         const numbers = values
@@ -1914,7 +1964,38 @@ export default function FormResults({ params }: { params: { id: string } }) {
                                 }
                               />
                             )}
-                            {formatAnswerValue(field, activeResponse.answers[field.id], t, i18n.language)}
+                            {field.widgetType === "repeatable_block" ? (
+                              (() => {
+                                const childFields = Array.isArray(field.children) ? field.children : [];
+                                const instancesRaw = activeResponse.answers[field.id];
+                                const instances = Array.isArray(instancesRaw)
+                                  ? instancesRaw.filter((item) => item && typeof item === "object" && !Array.isArray(item)) as Record<string, unknown>[]
+                                  : [];
+                                const instanceNameBase =
+                                  String((field.props as Record<string, unknown>)?.instanceNameBase ?? "").trim()
+                                  || t("repeatable.instanceDefaultName");
+                                if (instances.length === 0 || childFields.length === 0) {
+                                  return <span className="text-muted-foreground">{t("results.noAnswer")}</span>;
+                                }
+                                return (
+                                  <div className="space-y-4">
+                                    {instances.map((instance, idx) => (
+                                      <div key={`${field.id}-instance-${idx}`} className="rounded-md border border-border/60 p-3 space-y-3">
+                                        <p className="text-sm font-medium">{`${instanceNameBase} ${idx + 1}`}</p>
+                                        {childFields.map((childField) => (
+                                          <div key={`${field.id}-${idx}-${childField.id}`} className="space-y-1">
+                                            <p className="text-sm font-medium">{childField.label}</p>
+                                            {formatAnswerValue(childField, instance[childField.id] as AnswersById[string], t, i18n.language)}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ))}
+                                  </div>
+                                );
+                              })()
+                            ) : (
+                              formatAnswerValue(field, activeResponse.answers[field.id], t, i18n.language)
+                            )}
                           </CardContent>
                         </Card>
                       ))}

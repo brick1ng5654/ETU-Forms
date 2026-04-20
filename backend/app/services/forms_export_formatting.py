@@ -135,6 +135,61 @@ def _extract_element_client_id(element: FormElement) -> str:
     return str(client_id) if client_id is not None else str(element.element_id)
 
 
+def _extract_element_settings(element: FormElement) -> dict[str, Any]:
+    return element.other_settings if isinstance(element.other_settings, dict) else {}
+
+
+def _is_repeatable_block_element(element: FormElement) -> bool:
+    widget = _enum_value(element.widget)
+    if widget == "repeatable_block":
+        return True
+    settings = _extract_element_settings(element)
+    return widget == "text_input" and settings.get("repeatableBlock") is True
+
+
+def _extract_repeatable_base_name(element: FormElement, locale: str) -> str:
+    settings = _extract_element_settings(element)
+    base = str(settings.get("instanceNameBase") or "").strip()
+    if base:
+        return base
+    label = str(element.label or "").strip()
+    if label:
+        return label
+    return "Блок" if locale == "ru" else "Block"
+
+
+def _extract_repeatable_max_count(element: FormElement) -> int | None:
+    settings = _extract_element_settings(element)
+    raw = settings.get("maxCount")
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return None
+    return value if value > 0 else None
+
+
+def _split_repeatable_elements(
+    sorted_elements: list[FormElement],
+) -> tuple[list[FormElement], list[FormElement], dict[str, list[FormElement]]]:
+    repeatable_blocks = [element for element in sorted_elements if _is_repeatable_block_element(element)]
+    repeatable_block_ids = {_extract_element_client_id(element) for element in repeatable_blocks}
+    children_by_block_id: dict[str, list[FormElement]] = {block_id: [] for block_id in repeatable_block_ids}
+    regular_elements: list[FormElement] = []
+
+    for element in sorted_elements:
+        client_id = _extract_element_client_id(element)
+        if client_id in repeatable_block_ids:
+            continue
+        settings = _extract_element_settings(element)
+        parent_block_id = str(settings.get("parentBlockId") or "").strip()
+        if parent_block_id and parent_block_id in repeatable_block_ids:
+            children_by_block_id[parent_block_id].append(element)
+            continue
+        regular_elements.append(element)
+
+    return regular_elements, repeatable_blocks, children_by_block_id
+
+
 def _prepare_xlsx_cell_value(value: Any) -> str:
     if value is None:
         text = ""
@@ -293,12 +348,45 @@ def build_export_rows(
     locale: str,
     list_sep: str,
 ) -> tuple[list[str], list[list[str]]]:
-    element_client_ids = [_extract_element_client_id(element) for element in sorted_elements]
-    element_label_by_client_id = {
+    regular_elements, repeatable_blocks, repeatable_children_by_block = _split_repeatable_elements(sorted_elements)
+    regular_element_client_ids = [_extract_element_client_id(element) for element in regular_elements]
+    regular_label_by_client_id = {
         _extract_element_client_id(element): (element.label or f"Field {element.element_id}").strip()
         or f"Field {element.element_id}"
-        for element in sorted_elements
+        for element in regular_elements
     }
+
+    repeatable_specs: list[dict[str, Any]] = []
+    for block in repeatable_blocks:
+        block_client_id = _extract_element_client_id(block)
+        children = repeatable_children_by_block.get(block_client_id, [])
+        child_specs = [
+            {
+                "client_id": _extract_element_client_id(child),
+                "label": (child.label or f"Field {child.element_id}").strip() or f"Field {child.element_id}",
+            }
+            for child in children
+        ]
+        observed_instances = 0
+        for response_answers in answer_rows_by_response_id.values():
+            raw = response_answers.get(block_client_id)
+            if isinstance(raw, list):
+                observed_instances = max(observed_instances, len(raw))
+        configured_max_count = _extract_repeatable_max_count(block)
+        instances_count = max(
+            configured_max_count or 0,
+            observed_instances,
+        )
+        if instances_count <= 0:
+            instances_count = 1
+        repeatable_specs.append(
+            {
+                "client_id": block_client_id,
+                "base_name": _extract_repeatable_base_name(block, locale),
+                "instances_count": instances_count,
+                "children": child_specs,
+            }
+        )
 
     labels = EXPORT_HEADERS.get(locale, EXPORT_HEADERS["en"])
     headers = [
@@ -306,7 +394,11 @@ def build_export_rows(
         labels["responder_email"],
         labels["status"],
         labels["version"],
-    ] + [element_label_by_client_id.get(client_id, client_id) for client_id in element_client_ids]
+    ] + [regular_label_by_client_id.get(client_id, client_id) for client_id in regular_element_client_ids]
+    for spec in repeatable_specs:
+        base_name = str(spec["base_name"])
+        for index in range(1, int(spec["instances_count"]) + 1):
+            headers.append(f"{base_name} {index}")
 
     rows: list[list[str]] = []
     for response_row in responses:
@@ -318,8 +410,36 @@ def build_export_rows(
             str(_enum_value(response_row.status)),
             str(form_version),
         ]
-        for client_id in element_client_ids:
+        for client_id in regular_element_client_ids:
             row.append(_stringify_export_value(answers.get(client_id), locale, list_sep))
+
+        for spec in repeatable_specs:
+            block_client_id = str(spec["client_id"])
+            block_children = spec["children"]
+            raw_instances = answers.get(block_client_id)
+            instances = raw_instances if isinstance(raw_instances, list) else []
+            instances_count = int(spec["instances_count"])
+            for instance_index in range(instances_count):
+                if instance_index >= len(instances) or not isinstance(instances[instance_index], dict):
+                    row.append("")
+                    continue
+                instance_data = instances[instance_index]
+                if not block_children:
+                    row.append(_stringify_export_value(instance_data, locale, list_sep))
+                    continue
+                parts: list[str] = []
+                for child_spec in block_children:
+                    child_client_id = str(child_spec["client_id"])
+                    child_label = str(child_spec["label"])
+                    child_raw_value = instance_data.get(child_client_id)
+                    if isinstance(child_raw_value, dict):
+                        nested_parts = _extract_labeled_dict_parts(child_raw_value, locale, list_sep)
+                        if nested_parts:
+                            parts.extend(nested_parts)
+                            continue
+                    child_value = _stringify_export_value(child_raw_value, locale, list_sep).strip()
+                    parts.append(f"{child_label}: {child_value}")
+                row.append(list_sep.join(parts))
         rows.append(row)
     return headers, rows
 
@@ -359,8 +479,10 @@ def build_statistics_export_rows(
         [stats_labels["dimension"], stats_labels["value_col"]],
     ]
     list_sep = EXPORT_LIST_SEP
+    regular_elements, repeatable_blocks, _ = _split_repeatable_elements(sorted_elements)
+    elements_for_stats = [*regular_elements, *repeatable_blocks]
 
-    for element in sorted_elements:
+    for element in elements_for_stats:
         widget = _enum_value(element.widget)
         if widget in ("heading", "static_text"):
             continue
@@ -372,6 +494,24 @@ def build_statistics_export_rows(
         for response_row in responses:
             raw = answer_rows_by_response_id.get(response_row.response_id, {}).get(client_id)
             per_response.append(raw)
+
+        if _is_repeatable_block_element(element):
+            counts: list[int] = []
+            for raw in per_response:
+                if isinstance(raw, list):
+                    counts.append(len(raw))
+                elif raw is None:
+                    counts.append(0)
+                else:
+                    counts.append(1)
+            nonempty_count = sum(1 for count in counts if count > 0)
+            rows.append([stats_labels["nonempty"], str(nonempty_count)])
+            if counts:
+                rows.append([stats_labels["min"], str(min(counts))])
+                rows.append([stats_labels["max"], str(max(counts))])
+                rows.append([stats_labels["average"], str(round(sum(counts) / len(counts), 6))])
+            rows.append(["", ""])
+            continue
 
         nonempty = [v for v in per_response if _is_nonempty_export_answer(v)]
         rows.append([stats_labels["nonempty"], str(len(nonempty))])

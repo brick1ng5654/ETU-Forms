@@ -48,6 +48,7 @@ class WidgetType(str, Enum):
     RANKING = 'ranking'
     MATRIX = 'matrix'
     FILE_UPLOAD = 'file_upload'
+    REPEATABLE_BLOCK = 'repeatable_block'
 
 class SemanticType(str, Enum):
     FULL_NAME = 'full_name'

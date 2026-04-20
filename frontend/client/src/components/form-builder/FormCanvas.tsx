@@ -19,7 +19,7 @@ import type { MouseEvent } from "react";
 import type { FormElementModel, FormPageModel, FormSchema, SemanticType, WidgetType } from "@/form/types";
 import { SortableField } from "./SortableField";
 import {
-  Type, AlignLeft, Hash, Calendar, List, CheckSquare, CircleDot, Heading, Star, ListOrdered, Upload, User, Phone, FileText, CreditCard, Undo2, Redo2, ArrowUp, ArrowDown, Grid, IdCardLanyard, StickyNote, Building, BriefcaseBusiness, Globe, Repeat2
+  Type, AlignLeft, Hash, Calendar, List, CheckSquare, CircleDot, Heading, Star, ListOrdered, Upload, User, Phone, FileText, CreditCard, Undo2, Redo2, ArrowUp, ArrowDown, Grid, IdCardLanyard, StickyNote, Building, BriefcaseBusiness, Globe, Repeat2, Blocks
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -43,6 +43,14 @@ const widgetTypeLabelKey: Record<WidgetType, string> = {
   rating: "rating",
   ranking: "ranking",
   matrix: "matrix",
+  repeatable_block: "repeatableBlock",
+};
+
+const getParentBlockId = (field: FormElementModel): string | null => {
+  const raw = (field.props as Record<string, unknown> | undefined)?.parentBlockId;
+  if (typeof raw !== "string") return null;
+  const normalized = raw.trim();
+  return normalized.length > 0 ? normalized : null;
 };
 
 const AUTO_PAGE_TITLE = /^(Страница|Page)\s+\d+$/;
@@ -117,6 +125,7 @@ export const getIconForElement = (
     case "ranking": return ListOrdered;
     case "matrix": return Grid;
     case "file_upload": return Upload;
+    case "repeatable_block": return Blocks;
 
     default: return Type;
   }
@@ -197,6 +206,7 @@ const PageSection = React.memo(function PageSection({
                 key={field.id}
                 field={field}
                 isSelected={selectedIds.includes(field.id)}
+                selectedIds={selectedIds}
                 onSelect={onSelectField}
                 updateField={updateField}
                 fields={fields}
@@ -251,18 +261,42 @@ export function FormCanvas({
 
 
   const fieldsByPage = pageOrder.reduce((acc, page) => {
-    acc.set(
-      page.id,
-      fields
-        .filter((field) => field.pageId === page.id)
-        .slice()
-        .sort((a, b) => a.sortIndex - b.sortIndex)
-    );
+    const pageFields = fields
+      .filter((field) => field.pageId === page.id)
+      .slice()
+      .sort((a, b) => a.sortIndex - b.sortIndex);
+    const idsOnPage = new Set(pageFields.map((field) => field.id));
+    const childrenByParent = new Map<string, FormElementModel[]>();
+
+    pageFields.forEach((field) => {
+      const parentBlockId = getParentBlockId(field);
+      if (!parentBlockId || !idsOnPage.has(parentBlockId)) return;
+      const bucket = childrenByParent.get(parentBlockId) ?? [];
+      bucket.push(field);
+      childrenByParent.set(parentBlockId, bucket);
+    });
+
+    const topLevelFields = pageFields
+      .filter((field) => {
+        const parentBlockId = getParentBlockId(field);
+        return !parentBlockId || !idsOnPage.has(parentBlockId);
+      })
+      .map((field) => {
+        const children = childrenByParent.get(field.id);
+        if (!children || field.widgetType !== "repeatable_block") return field;
+        return {
+          ...field,
+          children: children.slice().sort((a, b) => a.sortIndex - b.sortIndex),
+        };
+      });
+
+    acc.set(page.id, topLevelFields);
     return acc;
   }, new Map<number, FormElementModel[]>());
 
   const getPageIdForField = (fieldId: string) => {
-    for (const [pageId, pageFields] of fieldsByPage.entries()) {
+    const pagesWithFields = Array.from(fieldsByPage.entries());
+    for (const [pageId, pageFields] of pagesWithFields) {
       if (pageFields.some((field) => field.id === fieldId)) {
         return pageId;
       }
@@ -359,15 +393,25 @@ export function FormCanvas({
       nextByPage.set(targetPageId, nextTarget);
     }
 
-    const nextFields: FormElementModel[] = [];
+    const movedTopLevelIds = new Set<string>();
+    const topLevelUpdates = new Map<string, { pageId: number; sortIndex: number }>();
     for (const page of pageOrder) {
-      const pageFields = (nextByPage.get(page.id) ?? []).map((field, index) => ({
-        ...field,
-        sortIndex: index,
-      }));
-      nextFields.push(...pageFields);
+      const pageFields = nextByPage.get(page.id) ?? [];
+      pageFields.forEach((field, index) => {
+        movedTopLevelIds.add(field.id);
+        topLevelUpdates.set(field.id, { pageId: page.id, sortIndex: index });
+      });
     }
-
+    const nextFields = fields.map((field) => {
+      if (!movedTopLevelIds.has(field.id)) return field;
+      const update = topLevelUpdates.get(field.id);
+      if (!update) return field;
+      return {
+        ...field,
+        pageId: update.pageId,
+        sortIndex: update.sortIndex,
+      };
+    });
     setForm({ ...form, fields: nextFields });
     setActiveDragItem(null);
   };
