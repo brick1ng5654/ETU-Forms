@@ -45,7 +45,7 @@ const widgetTypeLabelKey: Record<WidgetType, string> = {
   matrix: "matrix",
 };
 
-const AUTO_PAGE_TITLE = /^(Страница|Page)\s+\d+$/;
+const AUTO_PAGE_TITLE = /^(Р РЋРЎвЂљРЎР‚Р В°Р Р…Р С‘РЎвЂ Р В°|Page)\s+\d+$/;
 
 interface FormCanvasProps {
   form: FormSchema;
@@ -71,9 +71,9 @@ interface FormCanvasProps {
 }
 
 /**
- * Возвращает иконку для типа поля формы
- * @param type - тип поля (text, number, email и т.д.)
- * @returns React-компонент иконки из библиотеки lucide-react
+ * Р вЂ™Р С•Р В·Р Р†РЎР‚Р В°РЎвЂ°Р В°Р ВµРЎвЂљ Р С‘Р С”Р С•Р Р…Р С”РЎС“ Р Т‘Р В»РЎРЏ РЎвЂљР С‘Р С—Р В° Р С—Р С•Р В»РЎРЏ РЎвЂћР С•РЎР‚Р СРЎвЂ№
+ * @param type - РЎвЂљР С‘Р С— Р С—Р С•Р В»РЎРЏ (text, number, email Р С‘ РЎвЂљ.Р Т‘.)
+ * @returns React-Р С”Р С•Р СР С—Р С•Р Р…Р ВµР Р…РЎвЂљ Р С‘Р С”Р С•Р Р…Р С”Р С‘ Р С‘Р В· Р В±Р С‘Р В±Р В»Р С‘Р С•РЎвЂљР ВµР С”Р С‘ lucide-react
 */
 export const getIconForElement = (
   widgetType: WidgetType,
@@ -191,7 +191,9 @@ const PageSection = React.memo(function PageSection({
           {pageFields.length === 0 ? (
             <div className="h-40 flex flex-col items-center justify-center border-2 border-dashed border-muted-foreground/20 rounded-lg bg-muted/5">
               <p className="text-muted-foreground font-medium">{t("back.bgFormCreate")}</p>
-              <p className="text-sm text-muted-foreground/60 mt-1">{t("back.drag")}</p>
+              <p className="text-sm mt-1 text-muted-foreground dark:text-foreground/80">
+                {t("back.drag")}
+              </p>
             </div>
           ) : (
             pageFields.map((field) => (
@@ -212,12 +214,12 @@ const PageSection = React.memo(function PageSection({
 });
 
 /**
- Компонент холста формы - область для редактирования и перетаскивания полей формы
- Отвечает за:
- 1. Отображение полей формы
- 2. Drag & Drop переупорядочивание полей
- 3. Редактирование заголовка и описания формы
- 4. Визуальную обратную связь при перетаскивании
+ Р С™Р С•Р СР С—Р С•Р Р…Р ВµР Р…РЎвЂљ РЎвЂ¦Р С•Р В»РЎРѓРЎвЂљР В° РЎвЂћР С•РЎР‚Р СРЎвЂ№ - Р С•Р В±Р В»Р В°РЎРѓРЎвЂљРЎРЉ Р Т‘Р В»РЎРЏ РЎР‚Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚Р С•Р Р†Р В°Р Р…Р С‘РЎРЏ Р С‘ Р С—Р ВµРЎР‚Р ВµРЎвЂљР В°РЎРѓР С”Р С‘Р Р†Р В°Р Р…Р С‘РЎРЏ Р С—Р С•Р В»Р ВµР в„– РЎвЂћР С•РЎР‚Р СРЎвЂ№
+ Р С›РЎвЂљР Р†Р ВµРЎвЂЎР В°Р ВµРЎвЂљ Р В·Р В°:
+ 1. Р С›РЎвЂљР С•Р В±РЎР‚Р В°Р В¶Р ВµР Р…Р С‘Р Вµ Р С—Р С•Р В»Р ВµР в„– РЎвЂћР С•РЎР‚Р СРЎвЂ№
+ 2. Drag & Drop Р С—Р ВµРЎР‚Р ВµРЎС“Р С—Р С•РЎР‚РЎРЏР Т‘Р С•РЎвЂЎР С‘Р Р†Р В°Р Р…Р С‘Р Вµ Р С—Р С•Р В»Р ВµР в„–
+ 3. Р В Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚Р С•Р Р†Р В°Р Р…Р С‘Р Вµ Р В·Р В°Р С–Р С•Р В»Р С•Р Р†Р С”Р В° Р С‘ Р С•Р С—Р С‘РЎРѓР В°Р Р…Р С‘РЎРЏ РЎвЂћР С•РЎР‚Р СРЎвЂ№
+ 4. Р вЂ™Р С‘Р В·РЎС“Р В°Р В»РЎРЉР Р…РЎС“РЎР‹ Р С•Р В±РЎР‚Р В°РЎвЂљР Р…РЎС“РЎР‹ РЎРѓР Р†РЎРЏР В·РЎРЉ Р С—РЎР‚Р С‘ Р С—Р ВµРЎР‚Р ВµРЎвЂљР В°РЎРѓР С”Р С‘Р Р†Р В°Р Р…Р С‘Р С‘
 */
 export function FormCanvas({
   form,
@@ -242,7 +244,7 @@ export function FormCanvas({
   scrollContainerRef,
 }: FormCanvasProps) {
 
-  const { t } = useTranslation()  // Хук для локализации
+  const { t } = useTranslation()  // Р ТђРЎС“Р С” Р Т‘Р В»РЎРЏ Р В»Р С•Р С”Р В°Р В»Р С‘Р В·Р В°РЎвЂ Р С‘Р С‘
   const [activeDragItem, setActiveDragItem] = useState<any>(null);
   const [moveDialogPageId, setMoveDialogPageId] = useState<number | null>(null);
   const [moveTargetIndex, setMoveTargetIndex] = useState<number | null>(null);
@@ -280,8 +282,8 @@ export function FormCanvas({
     return getPageIdForField(overId);
   };
   /**
-   Настройка сенсоров для перетаскивания
-   PointerSensor активируется при перемещении мыши/таче
+   Р СњР В°РЎРѓРЎвЂљРЎР‚Р С•Р в„–Р С”Р В° РЎРѓР ВµР Р…РЎРѓР С•РЎР‚Р С•Р Р† Р Т‘Р В»РЎРЏ Р С—Р ВµРЎР‚Р ВµРЎвЂљР В°РЎРѓР С”Р С‘Р Р†Р В°Р Р…Р С‘РЎРЏ
+   PointerSensor Р В°Р С”РЎвЂљР С‘Р Р†Р С‘РЎР‚РЎС“Р ВµРЎвЂљРЎРѓРЎРЏ Р С—РЎР‚Р С‘ Р С—Р ВµРЎР‚Р ВµР СР ВµРЎвЂ°Р ВµР Р…Р С‘Р С‘ Р СРЎвЂ№РЎв‚¬Р С‘/РЎвЂљР В°РЎвЂЎР Вµ
   */
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -292,8 +294,8 @@ export function FormCanvas({
   );
 
   /**
-   Обработчик начала перетаскивания
-   Сохраняет данные перетаскиваемого поля
+   Р С›Р В±РЎР‚Р В°Р В±Р С•РЎвЂљРЎвЂЎР С‘Р С” Р Р…Р В°РЎвЂЎР В°Р В»Р В° Р С—Р ВµРЎР‚Р ВµРЎвЂљР В°РЎРѓР С”Р С‘Р Р†Р В°Р Р…Р С‘РЎРЏ
+   Р РЋР С•РЎвЂ¦РЎР‚Р В°Р Р…РЎРЏР ВµРЎвЂљ Р Т‘Р В°Р Р…Р Р…РЎвЂ№Р Вµ Р С—Р ВµРЎР‚Р ВµРЎвЂљР В°РЎРѓР С”Р С‘Р Р†Р В°Р ВµР СР С•Р С–Р С• Р С—Р С•Р В»РЎРЏ
   */
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -302,8 +304,8 @@ export function FormCanvas({
   };
 
   /**
-   Обработчик завершения перетаскивания
-   Выполняет переупорядочивание полей в массиве формы
+   Р С›Р В±РЎР‚Р В°Р В±Р С•РЎвЂљРЎвЂЎР С‘Р С” Р В·Р В°Р Р†Р ВµРЎР‚РЎв‚¬Р ВµР Р…Р С‘РЎРЏ Р С—Р ВµРЎР‚Р ВµРЎвЂљР В°РЎРѓР С”Р С‘Р Р†Р В°Р Р…Р С‘РЎРЏ
+   Р вЂ™РЎвЂ№Р С—Р С•Р В»Р Р…РЎРЏР ВµРЎвЂљ Р С—Р ВµРЎР‚Р ВµРЎС“Р С—Р С•РЎР‚РЎРЏР Т‘Р С•РЎвЂЎР С‘Р Р†Р В°Р Р…Р С‘Р Вµ Р С—Р С•Р В»Р ВµР в„– Р Р† Р СР В°РЎРѓРЎРѓР С‘Р Р†Р Вµ РЎвЂћР С•РЎР‚Р СРЎвЂ№
   */
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -375,7 +377,7 @@ export function FormCanvas({
   };
 
   /**
-   Функция для автоматического изменения высоты textarea
+   Р В¤РЎС“Р Р…Р С”РЎвЂ Р С‘РЎРЏ Р Т‘Р В»РЎРЏ Р В°Р Р†РЎвЂљР С•Р СР В°РЎвЂљР С‘РЎвЂЎР ВµРЎРѓР С”Р С•Р С–Р С• Р С‘Р В·Р СР ВµР Р…Р ВµР Р…Р С‘РЎРЏ Р Р†РЎвЂ№РЎРѓР С•РЎвЂљРЎвЂ№ textarea
   */
   const adjustTextareaHeight = (textarea: HTMLTextAreaElement | null) => {
     if (textarea) {
@@ -385,20 +387,20 @@ export function FormCanvas({
   };
 
   /**
-   Обновление заголовка формы
+   Р С›Р В±Р Р…Р С•Р Р†Р В»Р ВµР Р…Р С‘Р Вµ Р В·Р В°Р С–Р С•Р В»Р С•Р Р†Р С”Р В° РЎвЂћР С•РЎР‚Р СРЎвЂ№
   */
   const updateTitle = (title: string) => {
     setForm({ ...form, title });
   };
 
   /**
-   Обновление описания формы
+   Р С›Р В±Р Р…Р С•Р Р†Р В»Р ВµР Р…Р С‘Р Вµ Р С•Р С—Р С‘РЎРѓР В°Р Р…Р С‘РЎРЏ РЎвЂћР С•РЎР‚Р СРЎвЂ№
   */
   const updateDescription = (description: string) => {
     setForm({ ...form, description });
   };
 
-  // Устанавливаем высоту при изменении значений
+  // Р Р€РЎРѓРЎвЂљР В°Р Р…Р В°Р Р†Р В»Р С‘Р Р†Р В°Р ВµР С Р Р†РЎвЂ№РЎРѓР С•РЎвЂљРЎС“ Р С—РЎР‚Р С‘ Р С‘Р В·Р СР ВµР Р…Р ВµР Р…Р С‘Р С‘ Р В·Р Р…Р В°РЎвЂЎР ВµР Р…Р С‘Р в„–
   useEffect(() => {
     adjustTextareaHeight(titleTextareaRef.current);
     adjustTextareaHeight(descriptionTextareaRef.current);
@@ -494,14 +496,14 @@ export function FormCanvas({
   };
 
   return (
-    // DndContext - компонент для Drag & Drop функциональности
+    // DndContext - Р С”Р С•Р СР С—Р С•Р Р…Р ВµР Р…РЎвЂљ Р Т‘Р В»РЎРЏ Drag & Drop РЎвЂћРЎС“Р Р…Р С”РЎвЂ Р С‘Р С•Р Р…Р В°Р В»РЎРЉР Р…Р С•РЎРѓРЎвЂљР С‘
     <DndContext
-      sensors={sensors} // Передаем сенсор
+      sensors={sensors} // Р СџР ВµРЎР‚Р ВµР Т‘Р В°Р ВµР С РЎРѓР ВµР Р…РЎРѓР С•РЎР‚
       collisionDetection={closestCenter}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      {/* Основная область холста формы */}
+      {/* Р С›РЎРѓР Р…Р С•Р Р†Р Р…Р В°РЎРЏ Р С•Р В±Р В»Р В°РЎРѓРЎвЂљРЎРЉ РЎвЂ¦Р С•Р В»РЎРѓРЎвЂљР В° РЎвЂћР С•РЎР‚Р СРЎвЂ№ */}
       <div
         ref={scrollContainerRef}
         data-testid="builder-canvas"
@@ -605,14 +607,14 @@ export function FormCanvas({
           </div>
         </div>
 
-        {/* Контейнер формы (белая карточка) */}
+        {/* Р С™Р С•Р Р…РЎвЂљР ВµР в„–Р Р…Р ВµРЎР‚ РЎвЂћР С•РЎР‚Р СРЎвЂ№ (Р В±Р ВµР В»Р В°РЎРЏ Р С”Р В°РЎР‚РЎвЂљР С•РЎвЂЎР С”Р В°) */}
         <div className="max-w-3xl mx-auto min-h-[800px] bg-white dark:bg-white/5 rounded-xl shadow-sm border border-border dark:border-white/10 flex flex-col">
 
-          {/* Шапка формы с редактируемыми полями */}
+          {/* Р РЃР В°Р С—Р С”Р В° РЎвЂћР С•РЎР‚Р СРЎвЂ№ РЎРѓ РЎР‚Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚РЎС“Р ВµР СРЎвЂ№Р СР С‘ Р С—Р С•Р В»РЎРЏР СР С‘ */}
           <div className="p-8 border-b border-border dark:border-white/10 bg-white dark:bg-white/5 rounded-t-xl group hover:bg-muted/30 transition-colors relative">
             <div className="space-y-2">
 
-              {/* Редактируемое поле заголовка */}
+              {/* Р В Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚РЎС“Р ВµР СР С•Р Вµ Р С—Р С•Р В»Р Вµ Р В·Р В°Р С–Р С•Р В»Р С•Р Р†Р С”Р В° */}
               <Textarea
                 ref={titleTextareaRef}
                 value={form.title}
@@ -627,7 +629,7 @@ export function FormCanvas({
                 rows={1}
               />
 
-              {/* Редактируемое поле описания */}
+              {/* Р В Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚РЎС“Р ВµР СР С•Р Вµ Р С—Р С•Р В»Р Вµ Р С•Р С—Р С‘РЎРѓР В°Р Р…Р С‘РЎРЏ */}
               <Textarea
                 ref={descriptionTextareaRef}
                 value={form.description}
@@ -643,9 +645,9 @@ export function FormCanvas({
               />
             </div>
 
-            {/* Индикатор редактируемости (показывается при наведении) */}
+            {/* Р ВР Р…Р Т‘Р С‘Р С”Р В°РЎвЂљР С•РЎР‚ РЎР‚Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚РЎС“Р ВµР СР С•РЎРѓРЎвЂљР С‘ (Р С—Р С•Р С”Р В°Р В·РЎвЂ№Р Р†Р В°Р ВµРЎвЂљРЎРѓРЎРЏ Р С—РЎР‚Р С‘ Р Р…Р В°Р Р†Р ВµР Т‘Р ВµР Р…Р С‘Р С‘) */}
             <div className="absolute right-4 top-4 opacity-0 group-hover:opacity-100 transition-opacity">
-              {/* Добавить иконку редактирования */}
+              {/* Р вЂќР С•Р В±Р В°Р Р†Р С‘РЎвЂљРЎРЉ Р С‘Р С”Р С•Р Р…Р С”РЎС“ РЎР‚Р ВµР Т‘Р В°Р С”РЎвЂљР С‘РЎР‚Р С•Р Р†Р В°Р Р…Р С‘РЎРЏ */}
             </div>
           </div>
 
@@ -741,16 +743,16 @@ export function FormCanvas({
         </DialogContent>
       </Dialog>
 
-      {/* DragOverlay - элемент, который следует за курсором при перетаскивании */}
+      {/* DragOverlay - РЎРЊР В»Р ВµР СР ВµР Р…РЎвЂљ, Р С”Р С•РЎвЂљР С•РЎР‚РЎвЂ№Р в„– РЎРѓР В»Р ВµР Т‘РЎС“Р ВµРЎвЂљ Р В·Р В° Р С”РЎС“РЎР‚РЎРѓР С•РЎР‚Р С•Р С Р С—РЎР‚Р С‘ Р С—Р ВµРЎР‚Р ВµРЎвЂљР В°РЎРѓР С”Р С‘Р Р†Р В°Р Р…Р С‘Р С‘ */}
       <DragOverlay>
         {activeDragItem && (
 
-          // Стилизованная миниатюра перетаскиваемого поля
+          // Р РЋРЎвЂљР С‘Р В»Р С‘Р В·Р С•Р Р†Р В°Р Р…Р Р…Р В°РЎРЏ Р СР С‘Р Р…Р С‘Р В°РЎвЂљРЎР‹РЎР‚Р В° Р С—Р ВµРЎР‚Р ВµРЎвЂљР В°РЎРѓР С”Р С‘Р Р†Р В°Р ВµР СР С•Р С–Р С• Р С—Р С•Р В»РЎРЏ
           <div className="bg-white dark:bg-white/10 border-2 border-primary shadow-xl rounded-lg p-6 opacity-90">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-sm bg-primary/10 text-primary">
 
-                {/* Динамическое отображение иконки типа поля */}
+                {/* Р вЂќР С‘Р Р…Р В°Р СР С‘РЎвЂЎР ВµРЎРѓР С”Р С•Р Вµ Р С•РЎвЂљР С•Р В±РЎР‚Р В°Р В¶Р ВµР Р…Р С‘Р Вµ Р С‘Р С”Р С•Р Р…Р С”Р С‘ РЎвЂљР С‘Р С—Р В° Р С—Р С•Р В»РЎРЏ */}
                 {getIconForElement(activeDragItem.widgetType, activeDragItem.semanticType, activeDragItem.props) &&
                   React.createElement(getIconForElement(activeDragItem.widgetType, activeDragItem.semanticType, activeDragItem.props), { className: "h-4 w-4" })}
               </div>

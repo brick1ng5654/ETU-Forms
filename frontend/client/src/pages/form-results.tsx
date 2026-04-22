@@ -154,12 +154,12 @@ const createPrivateLinkKey = () => {
 };
 
 const formatDuration = (minutes: number, useRussianUnits = false) => {
-  if (!Number.isFinite(minutes)) return useRussianUnits ? "0м 00с" : "0m 00s";
+  if (!Number.isFinite(minutes)) return useRussianUnits ? "0Р В РЎВ 00Р РЋР С“" : "0m 00s";
   const totalSeconds = Math.max(0, Math.round(minutes * 60));
   const mins = Math.floor(totalSeconds / 60);
   const secs = totalSeconds % 60;
-  const minuteUnit = useRussianUnits ? "м" : "m";
-  const secondUnit = useRussianUnits ? "с" : "s";
+  const minuteUnit = useRussianUnits ? "Р В РЎВ" : "m";
+  const secondUnit = useRussianUnits ? "Р РЋР С“" : "s";
   return `${mins}${minuteUnit} ${secs.toString().padStart(2, "0")}${secondUnit}`;
 };
 
@@ -727,7 +727,7 @@ const formatAnswerValue = (
                           type="text"
                           value={textValue ?? ""}
                           className="h-8 bg-background"
-                          placeholder="—"
+                          placeholder="Р Р†Р вЂљРІР‚Сњ"
                         />
                       ) : matrixInputType === "number" ? (
                         <Input
@@ -735,7 +735,7 @@ const formatAnswerValue = (
                           type="number"
                           value={textValue ?? ""}
                           className="h-8 bg-background"
-                          placeholder="—"
+                          placeholder="Р Р†Р вЂљРІР‚Сњ"
                         />
                       ) : matrixInputType === "checkbox" ? (
                         <Checkbox checked={isSelected} simplifiedAnimation className="mx-auto" />
@@ -821,7 +821,7 @@ const formatAnswerValue = (
       .filter((part): part is string => Boolean(part && part.trim()))
       .join(" ");
     if (fullNameParts) {
-      items.push({ label: locale.startsWith("ru") ? "ФИО" : "Full name", value: fullNameParts });
+      items.push({ label: locale.startsWith("ru") ? "Р В Р’В¤Р В Р’ВР В РЎвЂє" : "Full name", value: fullNameParts });
     }
     if (passport.gender) {
       items.push({
@@ -1077,7 +1077,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
       : "";
     setPrivateLinkKey(savedKey || createPrivateLinkKey());
     
-    // Инициализация настроек попыток
+    // Р В Р’ВР В Р вЂ¦Р В РЎвЂР РЋРІР‚В Р В РЎвЂР В Р’В°Р В Р’В»Р В РЎвЂР В Р’В·Р В Р’В°Р РЋРІР‚В Р В РЎвЂР РЋР РЏ Р В Р вЂ¦Р В Р’В°Р РЋР С“Р РЋРІР‚С™Р РЋР вЂљР В РЎвЂўР В Р’ВµР В РЎвЂќ Р В РЎвЂ”Р В РЎвЂўР В РЎвЂ”Р РЋРІР‚в„–Р РЋРІР‚С™Р В РЎвЂўР В РЎвЂќ
     const settings = form.settings_json ?? {};
     setAllowRevoke(Boolean(settings.allowRevoke));
     setAttemptLimitType(
@@ -1471,7 +1471,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
     try {
       const saved = await saveFormInPlace(form.id, payload);
       storage.saveForm(saved);
-      // Сохраняем права доступа: ответ PUT не содержит canEdit/canViewResponses/canContinuePassage
+      // Р В Р Р‹Р В РЎвЂўР РЋРІР‚В¦Р РЋР вЂљР В Р’В°Р В Р вЂ¦Р РЋР РЏР В Р’ВµР В РЎВ Р В РЎвЂ”Р РЋР вЂљР В Р’В°Р В Р вЂ Р В Р’В° Р В РўвЂР В РЎвЂўР РЋР С“Р РЋРІР‚С™Р РЋРЎвЂњР В РЎвЂ”Р В Р’В°: Р В РЎвЂўР РЋРІР‚С™Р В Р вЂ Р В Р’ВµР РЋРІР‚С™ PUT Р В Р вЂ¦Р В Р’Вµ Р РЋР С“Р В РЎвЂўР В РўвЂР В Р’ВµР РЋР вЂљР В Р’В¶Р В РЎвЂР РЋРІР‚С™ canEdit/canViewResponses/canContinuePassage
       setForm({
         ...saved,
         canEdit: form.canEdit,
@@ -1483,7 +1483,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
       setEndAt(getDateInputValue(saved.endAt));
       setAccessMode(saved.accessMode ?? "private");
       
-      // Обновляем настройки попыток из сохраненной формы
+      // Р В РЎвЂєР В Р’В±Р В Р вЂ¦Р В РЎвЂўР В Р вЂ Р В Р’В»Р РЋР РЏР В Р’ВµР В РЎВ Р В Р вЂ¦Р В Р’В°Р РЋР С“Р РЋРІР‚С™Р РЋР вЂљР В РЎвЂўР В РІвЂћвЂ“Р В РЎвЂќР В РЎвЂ Р В РЎвЂ”Р В РЎвЂўР В РЎвЂ”Р РЋРІР‚в„–Р РЋРІР‚С™Р В РЎвЂўР В РЎвЂќ Р В РЎвЂР В Р’В· Р РЋР С“Р В РЎвЂўР РЋРІР‚В¦Р РЋР вЂљР В Р’В°Р В Р вЂ¦Р В Р’ВµР В Р вЂ¦Р В Р вЂ¦Р В РЎвЂўР В РІвЂћвЂ“ Р РЋРІР‚С›Р В РЎвЂўР РЋР вЂљР В РЎВР РЋРІР‚в„–
       const settings = saved.settings_json ?? {};
       setAllowRevoke(Boolean(settings.allowRevoke));
       setAttemptLimitType(
@@ -1551,7 +1551,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
               const newLang = i18n.language.startsWith("ru") ? "en" : "ru";
               i18n.changeLanguage(newLang);
             }}
-            title={i18n.language.startsWith("ru") ? "Переключить на Английский" : "Switch to Russian"}
+            title={i18n.language.startsWith("ru") ? "Р В РЎСџР В Р’ВµР РЋР вЂљР В Р’ВµР В РЎвЂќР В Р’В»Р РЋР вЂ№Р РЋРІР‚РЋР В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В Р вЂ¦Р В Р’В° Р В РЎвЂ™Р В Р вЂ¦Р В РЎвЂ“Р В Р’В»Р В РЎвЂР В РІвЂћвЂ“Р РЋР С“Р В РЎвЂќР В РЎвЂР В РІвЂћвЂ“" : "Switch to Russian"}
           >
             <Languages className="h-4 w-4" />
             <span className="hidden sm:inline text-sm font-medium">{i18n.language.startsWith("ru") ? "RU" : "EN"}</span>
@@ -1652,7 +1652,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
                     type="button"
                     className={cn(
                       "w-full flex items-start gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
-                      activeVersionId === versionForm.id ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                      activeVersionId === versionForm.id ? "bg-primary/10 text-foreground ring-1 ring-primary/30" : "hover:bg-muted/60 hover:text-foreground"
                     )}
                     onClick={() => {
                       setActiveVersionId(versionForm.id);
@@ -1675,7 +1675,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
                   type="button"
                   className={cn(
                     "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
-                    selection.type === "source" ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                    selection.type === "source" ? "bg-primary/10 text-foreground ring-1 ring-primary/30" : "hover:bg-muted/60 hover:text-foreground"
                   )}
                   onClick={() => setSelection({ type: "source" })}
                 >
@@ -1689,7 +1689,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
                   type="button"
                   className={cn(
                     "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
-                    selection.type === "summary" ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                    selection.type === "summary" ? "bg-primary/10 text-foreground ring-1 ring-primary/30" : "hover:bg-muted/60 hover:text-foreground"
                   )}
                   onClick={() => setSelection({ type: "summary" })}
                 >
@@ -1718,8 +1718,10 @@ export default function FormResults({ params }: { params: { id: string } }) {
                     className={cn(
                       "w-full flex items-center gap-3 rounded-lg pl-3 pr-7 py-2 text-sm transition-colors",
                       selection.type === "response" && selection.responseId === response.id
-                        ? "bg-primary/10 text-primary"
+                        ? "bg-primary/10 text-foreground ring-1 ring-primary/30"
                         : response.status === "cancelled"
+                          ? "opacity-70 hover:bg-muted/40"
+                          : "hover:bg-muted/60 hover:text-foreground"
                     )}
                     onClick={() => {
                       setActiveVersionId(response.formId);

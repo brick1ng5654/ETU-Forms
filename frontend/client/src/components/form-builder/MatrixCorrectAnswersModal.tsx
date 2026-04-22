@@ -65,26 +65,26 @@ export function MatrixCorrectAnswersModal({
     return next;
   };
   
-  // Локальное состояние для выбранных ответов
+  // Р›РѕРєР°Р»СЊРЅРѕРµ СЃРѕСЃС‚РѕСЏРЅРёРµ РґР»СЏ РІС‹Р±СЂР°РЅРЅС‹С… РѕС‚РІРµС‚РѕРІ
   const [selectedAnswers, setSelectedAnswers] = useState<string[]>(matrixCorrectAnswers);
-  // Локальное состояние для значений правильных ответов (для number/text режимов)
+  // Р›РѕРєР°Р»СЊРЅРѕРµ СЃРѕСЃС‚РѕСЏРЅРёРµ РґР»СЏ Р·РЅР°С‡РµРЅРёР№ РїСЂР°РІРёР»СЊРЅС‹С… РѕС‚РІРµС‚РѕРІ (РґР»СЏ number/text СЂРµР¶РёРјРѕРІ)
   const [correctAnswerValues, setCorrectAnswerValues] = useState<Record<string, string>>(matrixCorrectAnswerValues);
-  // Локальное состояние для баллов по ячейкам
+  // Р›РѕРєР°Р»СЊРЅРѕРµ СЃРѕСЃС‚РѕСЏРЅРёРµ РґР»СЏ Р±Р°Р»Р»РѕРІ РїРѕ СЏС‡РµР№РєР°Рј
   const [cellPoints, setCellPoints] = useState<Record<string, number>>(pointsPerCell || {});
   const [cellPointsInput, setCellPointsInput] = useState<Record<string, string>>(mapPointsToInputs(pointsPerCell));
-  // Локальное состояние для баллов по строкам
+  // Р›РѕРєР°Р»СЊРЅРѕРµ СЃРѕСЃС‚РѕСЏРЅРёРµ РґР»СЏ Р±Р°Р»Р»РѕРІ РїРѕ СЃС‚СЂРѕРєР°Рј
   const [rowPoints, setRowPoints] = useState<Record<string, number>>(pointsPerRow || {});
   const [rowPointsInput, setRowPointsInput] = useState<Record<string, string>>(mapPointsToInputs(pointsPerRow));
-  // Локальное состояние для баллов по столбцам
+  // Р›РѕРєР°Р»СЊРЅРѕРµ СЃРѕСЃС‚РѕСЏРЅРёРµ РґР»СЏ Р±Р°Р»Р»РѕРІ РїРѕ СЃС‚РѕР»Р±С†Р°Рј
   const [columnPoints, setColumnPoints] = useState<Record<string, number>>(pointsPerColumn || {});
   const [columnPointsInput, setColumnPointsInput] = useState<Record<string, string>>(mapPointsToInputs(pointsPerColumn));
-  // Локальное состояние для баллов всей матрицы
+  // Р›РѕРєР°Р»СЊРЅРѕРµ СЃРѕСЃС‚РѕСЏРЅРёРµ РґР»СЏ Р±Р°Р»Р»РѕРІ РІСЃРµР№ РјР°С‚СЂРёС†С‹
   const [totalPoints, setTotalPoints] = useState<number>(matrixTotalPoints);
   const [totalPointsInput, setTotalPointsInput] = useState<string>(
     matrixTotalPoints ? String(matrixTotalPoints) : ""
   );
   
-  // Локальное состояние для типа распределения баллов
+  // Р›РѕРєР°Р»СЊРЅРѕРµ СЃРѕСЃС‚РѕСЏРЅРёРµ РґР»СЏ С‚РёРїР° СЂР°СЃРїСЂРµРґРµР»РµРЅРёСЏ Р±Р°Р»Р»РѕРІ
   const [pointsDistributionType, setPointsDistributionType] = useState<"cell" | "row" | "column" | "total" | undefined>(
     props.pointsDistributionType || (Object.keys(pointsPerCell).length > 0 ? "cell" :
     Object.keys(pointsPerRow).length > 0 ? "row" :
@@ -92,10 +92,10 @@ export function MatrixCorrectAnswersModal({
     matrixTotalPoints > 0 ? "total" : "cell")
   );
   
-  // Локальное состояние для режима проверки
+  // Р›РѕРєР°Р»СЊРЅРѕРµ СЃРѕСЃС‚РѕСЏРЅРёРµ РґР»СЏ СЂРµР¶РёРјР° РїСЂРѕРІРµСЂРєРё
   const [validationMode, setValidationMode] = useState<string | undefined>(matrixValidationMode);
   
-  // Обновление состояния при изменении props
+  // РћР±РЅРѕРІР»РµРЅРёРµ СЃРѕСЃС‚РѕСЏРЅРёСЏ РїСЂРё РёР·РјРµРЅРµРЅРёРё props
   useEffect(() => {
     setSelectedAnswers(matrixCorrectAnswers);
     setCorrectAnswerValues(matrixCorrectAnswerValues);
@@ -108,7 +108,7 @@ export function MatrixCorrectAnswersModal({
     setTotalPoints(matrixTotalPoints);
     setTotalPointsInput(matrixTotalPoints ? String(matrixTotalPoints) : "");
     
-    // Устанавливаем тип распределения баллов
+    // РЈСЃС‚Р°РЅР°РІР»РёРІР°РµРј С‚РёРї СЂР°СЃРїСЂРµРґРµР»РµРЅРёСЏ Р±Р°Р»Р»РѕРІ
     if (props.pointsDistributionType) {
       setPointsDistributionType(props.pointsDistributionType);
     } else if (Object.keys(pointsPerCell || {}).length > 0) {
@@ -123,7 +123,7 @@ export function MatrixCorrectAnswersModal({
       setPointsDistributionType("cell");
     }
     
-    // Устанавливаем режим проверки
+    // РЈСЃС‚Р°РЅР°РІР»РёРІР°РµРј СЂРµР¶РёРј РїСЂРѕРІРµСЂРєРё
     setValidationMode(matrixValidationMode);
   }, [field.id, matrixCorrectAnswers.length, JSON.stringify(pointsPerCell), JSON.stringify(pointsPerRow), JSON.stringify(pointsPerColumn), JSON.stringify(matrixCorrectAnswerValues), matrixValidationMode, matrixTotalPoints, props.pointsDistributionType]);
 
@@ -197,22 +197,22 @@ export function MatrixCorrectAnswersModal({
     }
   };
   
-  // Обработчик изменения выбора ответов
+  // РћР±СЂР°Р±РѕС‚С‡РёРє РёР·РјРµРЅРµРЅРёСЏ РІС‹Р±РѕСЂР° РѕС‚РІРµС‚РѕРІ
   const handleAnswerChange = (cellKey: string, checked: boolean) => {
     let newAnswers = [...selectedAnswers];
     
     if (checked) {
       if (multiplePerRow) {
-        // Для множественного выбора добавляем ответ
+        // Р”Р»СЏ РјРЅРѕР¶РµСЃС‚РІРµРЅРЅРѕРіРѕ РІС‹Р±РѕСЂР° РґРѕР±Р°РІР»СЏРµРј РѕС‚РІРµС‚
         newAnswers.push(cellKey);
       } else {
-        // Для одиночного выбора удаляем другие ответы в этой строке и добавляем новый
+        // Р”Р»СЏ РѕРґРёРЅРѕС‡РЅРѕРіРѕ РІС‹Р±РѕСЂР° СѓРґР°Р»СЏРµРј РґСЂСѓРіРёРµ РѕС‚РІРµС‚С‹ РІ СЌС‚РѕР№ СЃС‚СЂРѕРєРµ Рё РґРѕР±Р°РІР»СЏРµРј РЅРѕРІС‹Р№
         const rowPrefix = cellKey.split(':')[0];
         newAnswers = newAnswers.filter(key => !key.startsWith(`${rowPrefix}:`));
         newAnswers.push(cellKey);
       }
       
-      // Автоматически устанавливаем 0 баллов для выбранной ячейки
+      // РђРІС‚РѕРјР°С‚РёС‡РµСЃРєРё СѓСЃС‚Р°РЅР°РІР»РёРІР°РµРј 0 Р±Р°Р»Р»РѕРІ РґР»СЏ РІС‹Р±СЂР°РЅРЅРѕР№ СЏС‡РµР№РєРё
       if (!cellPoints.hasOwnProperty(cellKey)) {
         setCellPoints(prev => ({
           ...prev,
@@ -224,10 +224,10 @@ export function MatrixCorrectAnswersModal({
         }));
       }
     } else {
-      // Удаляем ответ
+      // РЈРґР°Р»СЏРµРј РѕС‚РІРµС‚
       newAnswers = newAnswers.filter(key => key !== cellKey);
       
-      // Удаляем баллы для отмененной ячейки
+      // РЈРґР°Р»СЏРµРј Р±Р°Р»Р»С‹ РґР»СЏ РѕС‚РјРµРЅРµРЅРЅРѕР№ СЏС‡РµР№РєРё
       setCellPoints(prev => {
         const updated = { ...prev };
         delete updated[cellKey];
@@ -243,7 +243,7 @@ export function MatrixCorrectAnswersModal({
     setSelectedAnswers(newAnswers);
   };
   
-  // Обработчик изменения баллов для ячейки
+  // РћР±СЂР°Р±РѕС‚С‡РёРє РёР·РјРµРЅРµРЅРёСЏ Р±Р°Р»Р»РѕРІ РґР»СЏ СЏС‡РµР№РєРё
   const handleCellPointsInputChange = (cellKey: string, value: string) => {
     if (decimalInputPattern.test(value)) {
       setCellPointsInput(prev => ({
@@ -333,7 +333,7 @@ export function MatrixCorrectAnswersModal({
     setPointsDistributionType((value || "cell") as "cell" | "row" | "column" | "total");
   };
   
-  // Обработчик изменения режима проверки
+  // РћР±СЂР°Р±РѕС‚С‡РёРє РёР·РјРµРЅРµРЅРёСЏ СЂРµР¶РёРјР° РїСЂРѕРІРµСЂРєРё
   const handleValidationModeChange = (value: string) => {
     setValidationMode(value);
   };
@@ -466,16 +466,16 @@ export function MatrixCorrectAnswersModal({
     }
   }, [resolvedPointsDistributionType, rows.length, columns.length]);
   
-  // Сохранение изменений
+  // РЎРѕС…СЂР°РЅРµРЅРёРµ РёР·РјРµРЅРµРЅРёР№
   const handleSave = () => {
-    // Формируем объект pointsPerCell только с ненулевыми значениями
+    // Р¤РѕСЂРјРёСЂСѓРµРј РѕР±СЉРµРєС‚ pointsPerCell С‚РѕР»СЊРєРѕ СЃ РЅРµРЅСѓР»РµРІС‹РјРё Р·РЅР°С‡РµРЅРёСЏРјРё
     const allCellPoints: Record<string, number> = {};
     selectedAnswers.forEach(cellKey => {
       const rawValue = cellPointsInput[cellKey] ?? String(cellPoints[cellKey] ?? 1);
       allCellPoints[cellKey] = parsePointInput(rawValue, cellPoints[cellKey] ?? 1);
     });
     
-    // Формируем объект pointsPerRow только с ненулевыми значениями
+    // Р¤РѕСЂРјРёСЂСѓРµРј РѕР±СЉРµРєС‚ pointsPerRow С‚РѕР»СЊРєРѕ СЃ РЅРµРЅСѓР»РµРІС‹РјРё Р·РЅР°С‡РµРЅРёСЏРјРё
     const nonZeroRowPoints: Record<string, number> = {};
     if (resolvedPointsDistributionType === "row") {
       rows.forEach((_, index) => {
@@ -488,7 +488,7 @@ export function MatrixCorrectAnswersModal({
       });
     }
     
-    // Формируем объект pointsPerColumn только с ненулевыми значениями
+    // Р¤РѕСЂРјРёСЂСѓРµРј РѕР±СЉРµРєС‚ pointsPerColumn С‚РѕР»СЊРєРѕ СЃ РЅРµРЅСѓР»РµРІС‹РјРё Р·РЅР°С‡РµРЅРёСЏРјРё
     const nonZeroColumnPoints: Record<string, number> = {};
     if (resolvedPointsDistributionType === "column") {
       columns.forEach((_, index) => {
@@ -501,7 +501,7 @@ export function MatrixCorrectAnswersModal({
       });
     }
     
-    // Определяем тип проверки
+    // РћРїСЂРµРґРµР»СЏРµРј С‚РёРї РїСЂРѕРІРµСЂРєРё
     let matrixValidationModeToSave: "any" | "all" | undefined;
     if (showValidationMode) {
       if (validationMode === "any") {
@@ -511,7 +511,7 @@ export function MatrixCorrectAnswersModal({
       }
     }
     
-    // Определяем, какие баллы сохранять в зависимости от выбранного типа распределения
+    // РћРїСЂРµРґРµР»СЏРµРј, РєР°РєРёРµ Р±Р°Р»Р»С‹ СЃРѕС…СЂР°РЅСЏС‚СЊ РІ Р·Р°РІРёСЃРёРјРѕСЃС‚Рё РѕС‚ РІС‹Р±СЂР°РЅРЅРѕРіРѕ С‚РёРїР° СЂР°СЃРїСЂРµРґРµР»РµРЅРёСЏ
     let pointsPerCellToSave: Record<string, number> | undefined;
     let pointsPerRowToSave: Record<string, number> | undefined;
     let pointsPerColumnToSave: Record<string, number> | undefined;
@@ -549,7 +549,7 @@ export function MatrixCorrectAnswersModal({
     onOpenChange(false);
   };
   
-  // Отмена изменений
+  // РћС‚РјРµРЅР° РёР·РјРµРЅРµРЅРёР№
   const handleCancel = () => {
     setSelectedAnswers(matrixCorrectAnswers);
     setCorrectAnswerValues(matrixCorrectAnswerValues);
@@ -724,15 +724,15 @@ export function MatrixCorrectAnswersModal({
                 </table>
               </div>
               
-              {/* Выпадающий список для типа распределения баллов */}
+              {/* Р’С‹РїР°РґР°СЋС‰РёР№ СЃРїРёСЃРѕРє РґР»СЏ С‚РёРїР° СЂР°СЃРїСЂРµРґРµР»РµРЅРёСЏ Р±Р°Р»Р»РѕРІ */}
               <div className="space-y-3 border-t pt-4">
                 <Label className="text-green-600">{t("propert.pointsDistributionType")}</Label>
                 
                 <Select value={resolvedPointsDistributionType} onValueChange={handlePointsDistributionTypeChange}>
-                  <SelectTrigger className="w-[260px]">
+                  <SelectTrigger className="w-[260px] dark:!bg-slate-900 dark:!text-white dark:data-[placeholder]:!text-white/70 dark:!border-white/20">
                     <SelectValue placeholder={t("common.selectopt")} />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="dark:!bg-slate-900 dark:!text-white dark:!border-white/20">
                     {pointsDistributionOptions.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
                         <div className="flex w-full items-center justify-between gap-2">
@@ -759,7 +759,7 @@ export function MatrixCorrectAnswersModal({
                   </SelectContent>
                 </Select>
                 
-                {/* Баллы по ячейкам (отображается только при выборе "cell") */}
+                {/* Р‘Р°Р»Р»С‹ РїРѕ СЏС‡РµР№РєР°Рј (РѕС‚РѕР±СЂР°Р¶Р°РµС‚СЃСЏ С‚РѕР»СЊРєРѕ РїСЂРё РІС‹Р±РѕСЂРµ "cell") */}
                 {resolvedPointsDistributionType === "cell" && (
                   <div className="space-y-3 border-t pt-4">
                     <Label className="text-green-600">{t("propert.pointsPerCell")}</Label>
@@ -785,7 +785,7 @@ export function MatrixCorrectAnswersModal({
                               </td>
                               {columns.map((_, colIdx) => {
                                 const cellKey = `${rowIdx + 1}:${colIdx + 1}`;
-                                // Отображаем только ячейки, которые выбраны как правильные ответы
+                                // РћС‚РѕР±СЂР°Р¶Р°РµРј С‚РѕР»СЊРєРѕ СЏС‡РµР№РєРё, РєРѕС‚РѕСЂС‹Рµ РІС‹Р±СЂР°РЅС‹ РєР°Рє РїСЂР°РІРёР»СЊРЅС‹Рµ РѕС‚РІРµС‚С‹
                                 if (!selectedAnswers.includes(cellKey)) {
                                   return (
                                     <td key={colIdx} className="border border-muted-foreground/20 p-2 bg-muted/10">
@@ -817,7 +817,7 @@ export function MatrixCorrectAnswersModal({
                   </div>
                 )}
                 
-                {/* Баллы по строкам (отображается только при выборе "row") */}
+                {/* Р‘Р°Р»Р»С‹ РїРѕ СЃС‚СЂРѕРєР°Рј (РѕС‚РѕР±СЂР°Р¶Р°РµС‚СЃСЏ С‚РѕР»СЊРєРѕ РїСЂРё РІС‹Р±РѕСЂРµ "row") */}
                 {resolvedPointsDistributionType === "row" && (
                   <div className="space-y-3 border-t pt-4">
                     <Label className="text-green-600">{t("propert.pointsPerRow")}</Label>
@@ -860,7 +860,7 @@ export function MatrixCorrectAnswersModal({
                   </div>
                 )}
                 
-                {/* Баллы по столбцам (отображается только при выборе "column") */}
+                {/* Р‘Р°Р»Р»С‹ РїРѕ СЃС‚РѕР»Р±С†Р°Рј (РѕС‚РѕР±СЂР°Р¶Р°РµС‚СЃСЏ С‚РѕР»СЊРєРѕ РїСЂРё РІС‹Р±РѕСЂРµ "column") */}
                 {resolvedPointsDistributionType === "column" && (
                   <div className="space-y-3 border-t pt-4">
                     <Label className="text-green-600">{t("propert.pointsPerColumn")}</Label>
@@ -903,7 +903,7 @@ export function MatrixCorrectAnswersModal({
                   </div>
                 )}
                 
-                {/* Баллы за всю матрицу (отображается только при выборе "total") */}
+                {/* Р‘Р°Р»Р»С‹ Р·Р° РІСЃСЋ РјР°С‚СЂРёС†Сѓ (РѕС‚РѕР±СЂР°Р¶Р°РµС‚СЃСЏ С‚РѕР»СЊРєРѕ РїСЂРё РІС‹Р±РѕСЂРµ "total") */}
                 {resolvedPointsDistributionType === "total" && (
                   <div className="space-y-3 border-t pt-4">
                     <Label className="text-green-600">{t("propert.matrixTotalPoints")}</Label>
@@ -931,7 +931,7 @@ export function MatrixCorrectAnswersModal({
           )}
         </div>
               
-        {/* Выпадающий список для режима проверки */}
+        {/* Р’С‹РїР°РґР°СЋС‰РёР№ СЃРїРёСЃРѕРє РґР»СЏ СЂРµР¶РёРјР° РїСЂРѕРІРµСЂРєРё */}
         {showValidationMode && (
           <div className="space-y-3 border-t pt-4">
           <div className="flex items-center gap-2">
@@ -953,10 +953,10 @@ export function MatrixCorrectAnswersModal({
           </div>
           
             <Select value={validationMode || "all"} onValueChange={handleValidationModeChange}>
-            <SelectTrigger className="w-[260px]">
+            <SelectTrigger className="w-[260px] dark:!bg-slate-900 dark:!text-white dark:data-[placeholder]:!text-white/70 dark:!border-white/20">
               <SelectValue placeholder={t("common.selectopt")} />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="dark:!bg-slate-900 dark:!text-white dark:!border-white/20">
               <SelectItem value="any">{t("propert.matrixValidationModeAny")}</SelectItem>
               <SelectItem value="all">{t("propert.matrixValidationModeAll")}</SelectItem>
             </SelectContent>

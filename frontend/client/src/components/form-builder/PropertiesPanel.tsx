@@ -40,7 +40,7 @@ interface PropertiesPanelProps {
   fields: FormElementModel[];
 }
 
-const AUTO_PAGE_TITLE = /^(Страница|Page)\s+\d+$/;
+const AUTO_PAGE_TITLE = /^(Р РЋРЎвЂљРЎР‚Р В°Р Р…Р С‘РЎвЂ Р В°|Page)\s+\d+$/;
 
 interface SortableFieldProps {
   field: FormElementModel;
@@ -2007,7 +2007,7 @@ export function PropertiesPanel({
 
         {canHaveCorrectAnswers && (
           <div className="space-y-3 pt-2 border-t mt-2">
-            <Label className="text-green-600 flex items-center gap-1">
+            <Label className="text-[#34D399] flex items-center gap-1">
               <Check className="h-4 w-4" /> {t("propert.corransw")}
               {isMatrix && (
                 <Tooltip delayDuration={0}>
@@ -2287,7 +2287,7 @@ export function PropertiesPanel({
                             }
                           }
                         }}
-                        placeholder={selectedField.widgetType === "rating" ? `1–${Number.isFinite(Number(props.maxRating)) ? Math.min(10, Math.max(1, Number(props.maxRating))) : 10}` : t("propert.correctAnswerPlaceholder")}
+                        placeholder={selectedField.widgetType === "rating" ? `1РІР‚вЂњ${Number.isFinite(Number(props.maxRating)) ? Math.min(10, Math.max(1, Number(props.maxRating))) : 10}` : t("propert.correctAnswerPlaceholder")}
                         className={`focus-visible:ring-green-500 ${isInvalid ? "border-red-500" : "border-green-200"}`}
                       />
                       <Button
@@ -2388,7 +2388,7 @@ export function PropertiesPanel({
         )}
 
         <div className="space-y-3 pt-2 border-t mt-2">
-          <Label className="text-blue-600 flex items-center gap-1">
+          <Label className="text-[#60A5FA] flex items-center gap-1">
             <Check className="h-4 w-4" /> {t("logic.conditional")}
           </Label>
           <div className="space-y-2">
