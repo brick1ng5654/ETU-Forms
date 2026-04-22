@@ -3,7 +3,7 @@ copyright = '2026, ETU'
 author = 'RLS'
 
 extensions = [
-    'myst_parser',
+    "myst_parser",
 ]
 
 templates_path = ['_templates']
@@ -11,16 +11,22 @@ exclude_patterns = []
 
 language = 'ru'
 
-html_theme = 'furo'
+try:
+    import furo  # noqa: F401
+except ModuleNotFoundError:
+    html_theme = "alabaster"
+else:
+    html_theme = "furo"
 html_static_path = ['_static']
 html_css_files = ['custom.css']
 html_show_sphinx = False
 html_show_sourcelink = False
 
-# Furo: remove "view this page" / "view source" top-of-page button.
-html_theme_options = {
-    "top_of_page_buttons": [],
-}
+if html_theme == "furo":
+    # Furo: remove "view this page" / "view source" top-of-page button.
+    html_theme_options = {
+        "top_of_page_buttons": [],
+    }
 
 source_suffix = {
     '.md': 'markdown',
