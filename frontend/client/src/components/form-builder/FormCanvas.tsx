@@ -103,13 +103,11 @@ export const getIconForElement = (
     }
   }
   switch (widgetType) {
-    // ?????????????? ???????? ??????????
     case "text_input": return Type;
     case "textarea": return AlignLeft;
     case "number_input": return Hash;
     case "header": return Heading;
 
-    // ???????? ?? ???????????????????????? ????????????
     case "select": return props?.optionsSource === "countries" ? Globe : List;
     case "checkbox": return CheckSquare;
     case "radio": return CircleDot;
@@ -592,7 +590,7 @@ export function FormCanvas({
                   className={cn("shrink-0 gap-1 sm:gap-2 h-8 sm:h-9 px-2 sm:px-3 dark:!bg-white/60 dark:hover:!bg-white/50", !canTransform && "text-muted-foreground")}
                   title={t("builder.transform")}
                 >
-                  <Repeat2 className="h-4 w-4" />
+                  <Repeat2 className={cn("h-4 w-4", !canTransform && "text-muted-foreground")} />
                   <span className="hidden sm:inline">{t("builder.transform")}</span>
                 </Button>
               </DropdownMenuTrigger>

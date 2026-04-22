@@ -1,11 +1,13 @@
-import { useSortable } from "@dnd-kit/sortable";
+import { SortableContext, verticalListSortingStrategy, arrayMove, useSortable } from "@dnd-kit/sortable";
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import type { KeyboardEvent, MouseEvent } from "react";
+import { restrictToVerticalAxis, restrictToParentElement } from "@dnd-kit/modifiers";
+import type { FocusEvent, KeyboardEvent, MouseEvent } from "react";
 import { useState, useRef, useEffect, useMemo } from "react";
 import type { FormElementModel } from "@/form/types";
 import { presets } from "@/form/presets";
 import { cn } from "@/lib/utils";
-import { GripVertical, Upload, GripHorizontal, CalendarDays, Clock, ChevronDown, ChevronUp, X, Plus, Check } from "lucide-react";
+import { GripVertical, Upload, CalendarDays, Clock, ChevronDown, ChevronUp, X, Plus, Check } from "lucide-react";
 import { ElementAttachments } from "@/components/form-builder/ElementAttachments";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -465,6 +467,47 @@ interface SortableFieldProps {
   fields: FormElementModel[];
 }
 
+interface SortableOptionItemProps {
+  id: string;
+  option: string;
+  disabled?: boolean;
+  onDoubleClick?: () => void;
+}
+
+function SortableOptionItem({ id, option, disabled, onDoubleClick }: SortableOptionItemProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      onDoubleClick={(e) => {
+        if (!onDoubleClick) return;
+        e.stopPropagation();
+        onDoubleClick();
+      }}
+      className={`flex items-center gap-2 p-2 rounded border ${disabled ? "bg-gray-50 border-gray-200 opacity-60" : "bg-white border-gray-200 hover:bg-gray-50"
+        } ${isDragging ? "shadow-lg z-50" : ""}`}
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        // Important: don't override dnd-kit pointer handlers; otherwise dragging won't start.
+        style={{ touchAction: "none" }}
+        className={`cursor-grab ${disabled ? "cursor-not-allowed" : ""}`}
+      >
+        <GripVertical className="h-4 w-4 text-gray-400" />
+      </div>
+      <span className="flex-1 text-sm">{option}</span>
+    </div>
+  );
+}
+
 export function SortableField({ field, isSelected, onSelect, updateField, fields }: SortableFieldProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [editingElement, setEditingElement] = useState<string | null>(null);
@@ -483,6 +526,12 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.id });
   const { t, i18n } = useTranslation();
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      // Lets normal clicks go through; drag starts only after a small movement.
+      activationConstraint: { distance: 6 },
+    })
+  );
   const props = field.props as Record<string, any>;
   const isCountrySelect = isCountryField(field);
   const countryOptions = isCountrySelect ? getCountryOptions(i18n.language).map((option) => option.label) : [];
@@ -524,7 +573,37 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
         setEditingOptions([]);
         return;
       }
-      updateField(field.id, { props: { options: editingOptions.filter(Boolean) } });
+      const rawPrevOptions = (field.props as Record<string, unknown>).options;
+      const prevOptions = Array.isArray(rawPrevOptions)
+        ? rawPrevOptions.map((o) => String(o ?? "").trim())
+        : [];
+      const nextOptions = editingOptions.map((o) => String(o ?? "").trim()).filter(Boolean);
+
+      const rawPrevCorrect = (field.props as Record<string, unknown>).correctAnswers;
+      const prevCorrectAnswers = Array.isArray(rawPrevCorrect)
+        ? rawPrevCorrect.map((a) => String(a ?? "").trim()).filter(Boolean)
+        : [];
+
+      // If ranking has a fixed default/correct order stored as option strings, keep it in sync with option text edits.
+      const nextOptionsSet = new Set(nextOptions);
+      const nextCorrectAnswers =
+        prevCorrectAnswers.length > 0
+          ? prevCorrectAnswers
+            .map((answer) => {
+              const idx = prevOptions.indexOf(answer);
+              if (idx !== -1 && idx < nextOptions.length) return nextOptions[idx];
+              if (nextOptionsSet.has(answer)) return answer;
+              return null;
+            })
+            .filter((x): x is string => Boolean(x) && nextOptionsSet.has(x))
+          : undefined;
+
+      updateField(field.id, {
+        props: {
+          options: nextOptions,
+          correctAnswers: nextCorrectAnswers && nextCorrectAnswers.length > 0 ? nextCorrectAnswers : undefined,
+        },
+      });
     }
 
     setEditingElement(null);
@@ -536,6 +615,13 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
     setEditingElement(null);
     setEditingValue("");
     setEditingOptions([]);
+  };
+
+  const handleOptionsEditorBlurCapture = (e: FocusEvent<HTMLDivElement>) => {
+    // Save when focus leaves the whole editor (not when moving between its inputs/buttons).
+    const next = e.relatedTarget as Node | null;
+    if (next && e.currentTarget.contains(next)) return;
+    saveEditing();
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -945,9 +1031,12 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
       }
       case "ranking":
         return editingElement === "options" ? (
-          <div className="space-y-2">
+          <div className="space-y-1" onBlurCapture={handleOptionsEditorBlurCapture}>
             {editingOptions.map((opt, index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-muted/30 rounded-md border border-transparent">
+              <div
+                key={index}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-muted/30 rounded-md border border-transparent"
+              >
                 <Input
                   value={opt}
                   onChange={(e) => {
@@ -955,23 +1044,20 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
                     newOptions[index] = e.target.value;
                     setEditingOptions(newOptions);
                   }}
-                  className="flex-1 border border-primary bg-white"
+                  className="flex-1 h-8 border border-primary bg-white"
                   autoFocus={index === 0}
                 />
-                <div className="flex items-center gap-2">
-                  <GripHorizontal className="h-4 w-4 text-muted-foreground" />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                    onClick={() => {
-                      const newOptions = editingOptions.filter((_, i) => i !== index);
-                      setEditingOptions(newOptions);
-                    }}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                  onClick={() => {
+                    const newOptions = editingOptions.filter((_, i) => i !== index);
+                    setEditingOptions(newOptions);
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
             ))}
             <Button
@@ -984,29 +1070,43 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
             >
               <Plus className="h-4 w-4 mr-2" /> {t("propert.addopti")}
             </Button>
-            <div className="flex gap-2 pt-2">
-              <Button size="sm" onClick={saveEditing}>
-                <Check className="h-4 w-4 mr-2" /> Save
-              </Button>
-              <Button variant="outline" size="sm" onClick={cancelEditing}>
-                Cancel
-              </Button>
-            </div>
           </div>
         ) : (
-          <div
-            className="space-y-2 cursor-pointer"
-            onClick={(e) => {
-              e.stopPropagation();
-              startEditing("options");
-            }}
-          >
-            {options.map((opt, i) => (
-              <div key={i} className="flex items-center justify-between p-3 bg-muted/30 rounded-md border border-transparent">
-                <span className="text-sm font-medium">{opt}</span>
-                <GripHorizontal className="h-4 w-4 text-muted-foreground" />
-              </div>
-            ))}
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground font-medium">{t("propert.dragToOrder")}</p>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+                onDragEnd={({ active, over }) => {
+                  if (!over || active.id === over.id) return;
+                  const oldIndex = options.findIndex((_, idx) => `opt-${idx}` === String(active.id));
+                  const newIndex = options.findIndex((_, idx) => `opt-${idx}` === String(over.id));
+                  if (oldIndex === -1 || newIndex === -1) return;
+                  const reordered = arrayMove(options, oldIndex, newIndex);
+                  // Keep fixed/default order in sync if it's already set elsewhere.
+                  const nextProps: Record<string, unknown> = { options: reordered };
+                  if (Array.isArray(props.correctAnswers) && (props.correctAnswers as unknown[]).length > 0) {
+                    nextProps.correctAnswers = reordered;
+                  }
+                  updateField(field.id, { props: nextProps });
+                }}
+              >
+                <SortableContext items={options.map((_, idx) => `opt-${idx}`)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-2">
+                    {options.map((opt, idx) => (
+                      <SortableOptionItem
+                        key={`opt-${idx}`}
+                        id={`opt-${idx}`}
+                        option={opt}
+                        onDoubleClick={() => startEditing("options")}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            </div>
           </div>
         );
       case "file_upload":
@@ -1183,8 +1283,8 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
               const condition = props.conditionalLogic!.condition;
               const conditionText = condition === "equals" ? "Equals" :
                 condition === "not_equals" ? "Not equals" :
-                condition === "answered" ? "Answered" :
-                "";
+                  condition === "answered" ? "Answered" :
+                    "";
               const expectedValue = props.conditionalLogic!.expectedValue as string | string[] | undefined;
               const valueText = Array.isArray(expectedValue) ? expectedValue.join(", ") : expectedValue || "";
               const showValue = condition === "equals";
@@ -1195,10 +1295,12 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
               );
             })()}
 
-            <div className={cn(
-              "pointer-events-none",
-              (field.widgetType === "select" || field.widgetType === "datetime" || field.widgetType === "matrix") && "!pointer-events-auto"
-            )}>
+            <div
+              className={cn(
+                "pointer-events-none",
+                (field.widgetType === "matrix" || field.widgetType === "ranking") && "!pointer-events-auto"
+              )}
+            >
               {renderFieldPreview()}
             </div>
             <ElementAttachments
