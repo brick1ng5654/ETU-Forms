@@ -329,8 +329,10 @@
     "repeatableBlock": "Повторяемый блок"
   },
   "repeatable": {
+    "minCountLabel": "Минимум блоков",
+    "minCountHint": "Используется вместо обязательности поля.",
     "maxCountLabel": "Максимум блоков",
-    "maxCountHint": "Обязательное число от 1 до 100.",
+    "maxCountHint": "Обязательное число",
     "addButtonTextLabel": "Текст кнопки добавления",
     "addButtonTextHint": "Если оставить пустым, будет использован текст по умолчанию.",
     "instanceNameBaseLabel": "Название блока",

@@ -73,11 +73,14 @@ export const validateForm = (elements: FormElementModel[], answers: AnswersById)
       }
 
       const rawMaxCount = Number((props as Record<string, unknown>).maxCount);
-      const maxCount = Number.isFinite(rawMaxCount) && rawMaxCount > 0 ? Math.floor(rawMaxCount) : 1;
+      const rawMinCount = Number((props as Record<string, unknown>).minCount);
+      const minCount = Number.isFinite(rawMinCount) && rawMinCount >= 0 ? Math.floor(rawMinCount) : 1;
+      const maxCountBase = Number.isFinite(rawMaxCount) && rawMaxCount > 0 ? Math.floor(rawMaxCount) : 1;
+      const maxCount = Math.max(maxCountBase, minCount);
       if (instances.length > maxCount) {
         elementErrors.push("Invalid selection");
       }
-      if (element.required && instances.length === 0) {
+      if (instances.length < minCount) {
         elementErrors.push("Required");
       }
 

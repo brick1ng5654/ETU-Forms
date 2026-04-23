@@ -1079,6 +1079,10 @@ export function FormPreview({
       .forEach((blockField) => {
         const childFields = (childMap.get(blockField.id) ?? []).slice().sort((a, b) => a.sortIndex - b.sortIndex);
         if (childFields.length === 0) return;
+        const blockProps = blockField.props as Record<string, unknown>;
+        const rawMinCount = Number(blockProps.minCount);
+        const minCount = Number.isFinite(rawMinCount) && rawMinCount >= 0 ? Math.floor(rawMinCount) : 1;
+        const initialCount = Math.max(minCount, 1);
 
         const syntheticKeys = Object.keys(answers).filter((answerKey) => {
           const parsed = parseRepeatableChildId(answerKey);
@@ -1099,13 +1103,23 @@ export function FormPreview({
               shouldPatch = true;
             });
           });
+          if (structured.length < initialCount) {
+            for (let instanceIndex = structured.length; instanceIndex < initialCount; instanceIndex += 1) {
+              childFields.forEach((childField) => {
+                patch[makeRepeatableChildId(blockField.id, instanceIndex, childField.id)] = null;
+                shouldPatch = true;
+              });
+            }
+          }
           return;
         }
 
-        childFields.forEach((childField) => {
-          patch[makeRepeatableChildId(blockField.id, 0, childField.id)] = null;
-          shouldPatch = true;
-        });
+        for (let instanceIndex = 0; instanceIndex < initialCount; instanceIndex += 1) {
+          childFields.forEach((childField) => {
+            patch[makeRepeatableChildId(blockField.id, instanceIndex, childField.id)] = null;
+            shouldPatch = true;
+          });
+        }
       });
 
     if (shouldPatch) {
@@ -1812,7 +1826,7 @@ export function FormPreview({
           <div className="flex items-center justify-between">
             <Label className="flex items-center gap-2">
               {field.label}
-              {field.required && <span className="text-destructive">*</span>}
+              {field.required && field.widgetType !== "repeatable_block" && <span className="text-destructive">*</span>}
               {typeof props.points === "number" && props.points > 0 && (
                 <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
                   {formatPoints(props.points, i18n.language)}
@@ -1851,8 +1865,11 @@ export function FormPreview({
           const childFields = repeatableChildrenByBlockId.get(field.id) ?? [];
           if (childFields.length === 0) return null;
 
+          const rawMinCount = Number(props.minCount);
           const rawMaxCount = Number(props.maxCount);
-          const maxCount = Number.isFinite(rawMaxCount) && rawMaxCount > 0 ? Math.floor(rawMaxCount) : 1;
+          const minCount = Number.isFinite(rawMinCount) && rawMinCount >= 0 ? Math.floor(rawMinCount) : 1;
+          const maxCountBase = Number.isFinite(rawMaxCount) && rawMaxCount > 0 ? Math.floor(rawMaxCount) : 1;
+          const maxCount = Math.max(minCount, maxCountBase);
           const addButtonText = String(props.addButtonText ?? "").trim() || t("repeatable.defaultAddButton");
           const instanceNameBase = String(props.instanceNameBase ?? "").trim() || t("repeatable.instanceDefaultName");
           const childInstancesMap = new Map<number, string[]>();
@@ -1864,24 +1881,24 @@ export function FormPreview({
             childInstancesMap.set(parsed.index, current);
           });
           const instanceIndexes = Array.from(childInstancesMap.keys()).sort((a, b) => a - b);
-          const effectiveInstanceIndexes = instanceIndexes.length > 0 ? instanceIndexes : [0];
+          const fallbackCount = Math.max(1, minCount);
+          const fallbackIndexes = Array.from({ length: fallbackCount }, (_, index) => index);
+          const effectiveInstanceIndexes = instanceIndexes.length > 0 ? instanceIndexes : fallbackIndexes;
+          const displayPositionByRawIndex = new Map(
+            effectiveInstanceIndexes.map((rawIndex, position) => [rawIndex, position])
+          );
           const canAddMore = !isFieldDisabled && effectiveInstanceIndexes.length < maxCount;
           const addInstance = () => {
             if (!canAddMore) return;
             const patch: AnswersById = {};
-            if (instanceIndexes.length === 0) {
-              childFields.forEach((childField) => {
-                patch[makeRepeatableChildId(field.id, 0, childField.id)] = null;
-              });
-              childFields.forEach((childField) => {
-                patch[makeRepeatableChildId(field.id, 1, childField.id)] = null;
-              });
-            } else {
-              const nextIndex = Math.max(...instanceIndexes) + 1;
-              childFields.forEach((childField) => {
-                patch[makeRepeatableChildId(field.id, nextIndex, childField.id)] = null;
-              });
+            const occupied = new Set(instanceIndexes);
+            let nextIndex = 0;
+            while (occupied.has(nextIndex)) {
+              nextIndex += 1;
             }
+            childFields.forEach((childField) => {
+              patch[makeRepeatableChildId(field.id, nextIndex, childField.id)] = null;
+            });
             setAnswers((prev) => {
               const next = { ...prev, ...patch };
               onAnswersChange?.(next);
@@ -1909,8 +1926,8 @@ export function FormPreview({
               {effectiveInstanceIndexes.map((instanceIndex) => (
                 <div key={`${field.id}-${instanceIndex}`} className="rounded-lg border border-border/70 p-3 space-y-3">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium">{`${instanceNameBase} ${instanceIndex + 1}`}</p>
-                    {effectiveInstanceIndexes.length > 1 && !isFieldDisabled && (
+                    <p className="text-sm font-medium">{`${instanceNameBase} ${(displayPositionByRawIndex.get(instanceIndex) ?? 0) + 1}`}</p>
+                    {effectiveInstanceIndexes.length > minCount && !isFieldDisabled && (
                       <Button
                         type="button"
                         variant="outline"
@@ -1928,7 +1945,7 @@ export function FormPreview({
                   </div>
                 </div>
               ))}
-              {!readOnly && maxCount > 1 && canAddMore && (
+              {!readOnly && maxCount > minCount && canAddMore && (
                 <Button
                   type="button"
                   variant="outline"

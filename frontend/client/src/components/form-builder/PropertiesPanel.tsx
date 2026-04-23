@@ -385,6 +385,15 @@ const propertiesSchemaByWidgetType: Record<WidgetType, PropertyFieldDef[]> = {
   ],
   repeatable_block: [
     {
+      key: "minCount",
+      labelKey: "repeatable.minCountLabel",
+      type: "number",
+      target: "props.minCount",
+      min: 0,
+      max: 100,
+      step: 1,
+    },
+    {
       key: "maxCount",
       labelKey: "repeatable.maxCountLabel",
       type: "number",
@@ -889,8 +898,11 @@ export function PropertiesPanel({
 
   const props = selectedField.props as Record<string, any>;
   if (selectedField.widgetType === "repeatable_block") {
+    const rawMinCount = Number(props.minCount);
+    const minCount = Number.isFinite(rawMinCount) && rawMinCount >= 0 ? Math.floor(rawMinCount) : 1;
     const rawMaxCount = Number(props.maxCount);
-    const maxCount = Number.isFinite(rawMaxCount) && rawMaxCount > 0 ? Math.floor(rawMaxCount) : 1;
+    const maxCountBase = Number.isFinite(rawMaxCount) && rawMaxCount > 0 ? Math.floor(rawMaxCount) : 1;
+    const maxCount = Math.max(minCount, maxCountBase);
     const addButtonText = typeof props.addButtonText === "string" ? props.addButtonText : "";
     const instanceNameBase = typeof props.instanceNameBase === "string" ? props.instanceNameBase : "";
     return (
@@ -915,6 +927,23 @@ export function PropertiesPanel({
           </div>
 
           <div className="space-y-2">
+            <Label>{t("repeatable.minCountLabel")}</Label>
+            <Input
+              type="number"
+              min={0}
+              max={100}
+              value={String(minCount)}
+              onChange={(event) => {
+                const parsed = Number.parseInt(event.target.value, 10);
+                const normalized = Number.isFinite(parsed) ? Math.min(Math.max(parsed, 0), 100) : 1;
+                const nextMax = Math.max(maxCount, normalized);
+                updateField(selectedField.id, { props: { minCount: normalized, maxCount: nextMax } });
+              }}
+            />
+            <p className="text-xs text-muted-foreground">{t("repeatable.minCountHint")}</p>
+          </div>
+
+          <div className="space-y-2">
             <Label>{t("repeatable.maxCountLabel")}</Label>
             <Input
               type="number"
@@ -924,7 +953,8 @@ export function PropertiesPanel({
               onChange={(event) => {
                 const parsed = Number.parseInt(event.target.value, 10);
                 const normalized = Number.isFinite(parsed) ? Math.min(Math.max(parsed, 1), 100) : 1;
-                updateField(selectedField.id, { props: { maxCount: normalized } });
+                const bounded = Math.max(normalized, minCount);
+                updateField(selectedField.id, { props: { maxCount: bounded } });
               }}
             />
             <p className="text-xs text-muted-foreground">{t("repeatable.maxCountHint")}</p>

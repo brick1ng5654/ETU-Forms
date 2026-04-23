@@ -329,6 +329,8 @@
     "repeatableBlock": "Repeatable Block"
   },
   "repeatable": {
+    "minCountLabel": "Minimum blocks",
+    "minCountHint": "Number from 0 to 100. Used instead of field required flag.",
     "maxCountLabel": "Maximum blocks",
     "maxCountHint": "Required number from 1 to 100.",
     "addButtonTextLabel": "Add button text",

@@ -71,7 +71,6 @@ const TOOLBOX_ITEMS: ToolboxItemDefinition[] = [
   { widgetType: "header", labelKey: "header", category: "Basic" },
   { widgetType: "text_input", labelKey: "text", category: "Basic" },
   { widgetType: "number_input", labelKey: "number", category: "Basic" },
-  { widgetType: "repeatable_block", labelKey: "repeatableBlock", category: "Basic" },
 
   // Choice
   { widgetType: "select", labelKey: "select", category: "Choice" },
@@ -85,6 +84,7 @@ const TOOLBOX_ITEMS: ToolboxItemDefinition[] = [
   { widgetType: "ranking", labelKey: "ranking", category: "Advanced" },
   { widgetType: "matrix", labelKey: "matrix", category: "Advanced" },
   { widgetType: "file_upload", labelKey: "file", category: "Advanced" },
+  { widgetType: "repeatable_block", labelKey: "repeatableBlock", category: "Advanced" },
 
   // Specialized
   { widgetType: "text_input", semanticType: "full_name", labelKey: "fullname", category: "Specialized" },
@@ -669,6 +669,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
       widgetDefaults.maxFiles = 1;
     }
     if (item.widgetType === "repeatable_block") {
+      widgetDefaults.minCount = 1;
       widgetDefaults.maxCount = 3;
       widgetDefaults.addButtonText = "";
     }

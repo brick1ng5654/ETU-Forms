@@ -37,6 +37,7 @@ export type ElementAttachment = {
 export type FormElementProps = {
   attachments?: ElementAttachment[];
   attachmentsDisplay?: "list" | "slider";
+  minCount?: number;
   maxCount?: number;
   addButtonText?: string;
   instanceNameBase?: string;

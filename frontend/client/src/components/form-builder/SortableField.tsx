@@ -466,6 +466,7 @@ interface SortableFieldProps {
   onSelect: (id: string, event: MouseEvent<HTMLDivElement>) => void;
   updateField: (id: string, updates: Partial<FormElementModel>) => void;
   fields: FormElementModel[];
+  isNested?: boolean;
 }
 
 interface SortableOptionItemProps {
@@ -509,7 +510,7 @@ function SortableOptionItem({ id, option, disabled, onDoubleClick }: SortableOpt
   );
 }
 
-export function SortableField({ field, isSelected, selectedIds, onSelect, updateField, fields }: SortableFieldProps) {
+export function SortableField({ field, isSelected, selectedIds, onSelect, updateField, fields, isNested = false }: SortableFieldProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [editingElement, setEditingElement] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState<string>("");
@@ -535,13 +536,6 @@ export function SortableField({ field, isSelected, selectedIds, onSelect, update
   );
   const props = field.props as Record<string, any>;
   const nestedFields = (field.children ?? []).slice().sort((a, b) => a.sortIndex - b.sortIndex);
-  const getWidgetPreviewLabel = (widgetType: FormElementModel["widgetType"]) => {
-    if (widgetType === "text_input" || widgetType === "textarea") return t("fields.text");
-    if (widgetType === "number_input") return t("fields.number");
-    if (widgetType === "file_upload") return t("fields.file");
-    if (widgetType === "repeatable_block") return t("fields.repeatableBlock");
-    return t(`fields.${widgetType}`);
-  };
   const isCountrySelect = isCountryField(field);
   const countryOptions = isCountrySelect ? getCountryOptions(i18n.language).map((option) => option.label) : [];
   const allowOtherOption =
@@ -1175,29 +1169,28 @@ export function SortableField({ field, isSelected, selectedIds, onSelect, update
                 {t("repeatable.emptyInBuilder")}
               </div>
             ) : (
-              <div className="space-y-2">
-                {nestedFields.map((child, index) => {
-                  const childSelected = selectedIds.includes(child.id);
-                  return (
+              <SortableContext items={nestedFields.map((child) => child.id)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-3">
+                  {nestedFields.map((child) => (
                     <div
                       key={child.id}
-                      role="button"
-                      tabIndex={0}
-                      className={cn(
-                        "rounded-md border bg-white px-3 py-2 text-sm transition-colors",
-                        childSelected ? "border-primary ring-1 ring-primary/40" : "border-border hover:bg-muted/20"
-                      )}
                       onClick={(event) => {
                         event.stopPropagation();
-                        onSelect(child.id, event as unknown as MouseEvent<HTMLDivElement>);
                       }}
                     >
-                      <div className="font-medium truncate">{child.label || `Field ${index + 1}`}</div>
-                      <div className="text-xs text-muted-foreground">{getWidgetPreviewLabel(child.widgetType)}</div>
+                      <SortableField
+                        field={child}
+                        isSelected={selectedIds.includes(child.id)}
+                        selectedIds={selectedIds}
+                        onSelect={onSelect}
+                        updateField={updateField}
+                        fields={fields}
+                        isNested
+                      />
                     </div>
-                  );
-                })}
-              </div>
+                  ))}
+                </div>
+              </SortableContext>
             )}
           </div>
         );
@@ -1232,14 +1225,15 @@ export function SortableField({ field, isSelected, selectedIds, onSelect, update
         {...attributes}
         {...listeners}
         className={cn(
-          "absolute left-2 top-1/2 -translate-y-1/2 cursor-grab p-1.5 rounded-md text-muted-foreground/50 hover:text-foreground hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity",
+          "absolute cursor-grab rounded-md text-muted-foreground/50 hover:text-foreground hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity",
+          isNested ? "left-2 top-1/2 -translate-y-1/2 p-1" : "left-2 top-1/2 -translate-y-1/2 p-1.5",
           isSelected && "opacity-100"
         )}
       >
-        <GripVertical className="h-5 w-5" />
+        <GripVertical className={cn(isNested ? "h-4 w-4" : "h-5 w-5")} />
       </div>
 
-      <div className="flex-1 space-y-3 pl-6 w-full overflow-hidden">
+      <div className="flex-1 space-y-3 w-full overflow-hidden pl-6">
         <div className={cn("flex items-baseline justify-between", isCollapsed && "py-2")}>
           {editingElement === "label" ? (
             <Textarea
