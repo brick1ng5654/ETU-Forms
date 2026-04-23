@@ -632,9 +632,11 @@ export function PropertiesPanel({
     if (!selectedField || selectedField.widgetType !== "repeatable_block") return;
     const repeatableProps = selectedField.props as Record<string, any>;
     const rawMin = Number(repeatableProps.minCount);
-    const nextMin = Number.isFinite(rawMin) && rawMin >= 0 ? Math.floor(rawMin) : 1;
+    const nextMinBase = Number.isFinite(rawMin) && rawMin >= 0 ? Math.floor(rawMin) : 1;
+    const nextMin = Math.min(nextMinBase, 100);
     const rawMax = Number(repeatableProps.maxCount);
-    const nextMaxBase = Number.isFinite(rawMax) && rawMax > 0 ? Math.floor(rawMax) : 1;
+    const nextMaxRaw = Number.isFinite(rawMax) && rawMax > 0 ? Math.floor(rawMax) : 1;
+    const nextMaxBase = Math.min(nextMaxRaw, 100);
     const nextMax = Math.max(nextMin, nextMaxBase);
     setRepeatableMinInput(String(nextMin));
     setRepeatableMaxInput(String(nextMax));

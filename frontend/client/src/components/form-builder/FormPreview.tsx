@@ -1081,7 +1081,8 @@ export function FormPreview({
         if (childFields.length === 0) return;
         const blockProps = blockField.props as Record<string, unknown>;
         const rawMinCount = Number(blockProps.minCount);
-        const minCount = Number.isFinite(rawMinCount) && rawMinCount >= 0 ? Math.floor(rawMinCount) : 1;
+        const minCountRaw = Number.isFinite(rawMinCount) && rawMinCount >= 0 ? Math.floor(rawMinCount) : 1;
+        const minCount = Math.min(minCountRaw, 100);
         const initialCount = Math.max(minCount, 1);
 
         const syntheticKeys = Object.keys(answers).filter((answerKey) => {
@@ -1867,8 +1868,10 @@ export function FormPreview({
 
           const rawMinCount = Number(props.minCount);
           const rawMaxCount = Number(props.maxCount);
-          const minCount = Number.isFinite(rawMinCount) && rawMinCount >= 0 ? Math.floor(rawMinCount) : 1;
-          const maxCountBase = Number.isFinite(rawMaxCount) && rawMaxCount > 0 ? Math.floor(rawMaxCount) : 1;
+          const minCountRaw = Number.isFinite(rawMinCount) && rawMinCount >= 0 ? Math.floor(rawMinCount) : 1;
+          const minCount = Math.min(minCountRaw, 100);
+          const maxCountRaw = Number.isFinite(rawMaxCount) && rawMaxCount > 0 ? Math.floor(rawMaxCount) : 1;
+          const maxCountBase = Math.min(maxCountRaw, 100);
           const maxCount = Math.max(minCount, maxCountBase);
           const addButtonText = String(props.addButtonText ?? "").trim() || t("repeatable.defaultAddButton");
           const instanceNameBase = String(props.instanceNameBase ?? "").trim() || t("repeatable.instanceDefaultName");
