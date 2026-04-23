@@ -585,6 +585,8 @@ export function PropertiesPanel({
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
   const [textMaxCharsInput, setTextMaxCharsInput] = useState<string>("");
+  const [repeatableMinInput, setRepeatableMinInput] = useState<string>("1");
+  const [repeatableMaxInput, setRepeatableMaxInput] = useState<string>("1");
   const [deletePageIds, setDeletePageIds] = useState<number[]>([]);
   const [deletePageMode, setDeletePageMode] = useState<"delete" | "move">("delete");
   const [deletePageTargetId, setDeletePageTargetId] = useState<number | null>(null);
@@ -624,6 +626,23 @@ export function PropertiesPanel({
     selectedField?.semanticType,
     (selectedField?.props as Record<string, any> | undefined)?.inputType,
     (selectedField?.props as Record<string, any> | undefined)?.maxChars,
+  ]);
+
+  useEffect(() => {
+    if (!selectedField || selectedField.widgetType !== "repeatable_block") return;
+    const repeatableProps = selectedField.props as Record<string, any>;
+    const rawMin = Number(repeatableProps.minCount);
+    const nextMin = Number.isFinite(rawMin) && rawMin >= 0 ? Math.floor(rawMin) : 1;
+    const rawMax = Number(repeatableProps.maxCount);
+    const nextMaxBase = Number.isFinite(rawMax) && rawMax > 0 ? Math.floor(rawMax) : 1;
+    const nextMax = Math.max(nextMin, nextMaxBase);
+    setRepeatableMinInput(String(nextMin));
+    setRepeatableMaxInput(String(nextMax));
+  }, [
+    selectedField?.id,
+    selectedField?.widgetType,
+    (selectedField?.props as Record<string, any> | undefined)?.minCount,
+    (selectedField?.props as Record<string, any> | undefined)?.maxCount,
   ]);
 
   const readOnlyEnableHint = t("propert.readOnlyEnableTooltip");
@@ -898,13 +917,23 @@ export function PropertiesPanel({
 
   const props = selectedField.props as Record<string, any>;
   if (selectedField.widgetType === "repeatable_block") {
-    const rawMinCount = Number(props.minCount);
-    const minCount = Number.isFinite(rawMinCount) && rawMinCount >= 0 ? Math.floor(rawMinCount) : 1;
-    const rawMaxCount = Number(props.maxCount);
-    const maxCountBase = Number.isFinite(rawMaxCount) && rawMaxCount > 0 ? Math.floor(rawMaxCount) : 1;
-    const maxCount = Math.max(minCount, maxCountBase);
     const addButtonText = typeof props.addButtonText === "string" ? props.addButtonText : "";
     const instanceNameBase = typeof props.instanceNameBase === "string" ? props.instanceNameBase : "";
+    const applyRepeatableCounts = (minInputRaw: string, maxInputRaw: string) => {
+      const parsedMin = Number.parseInt(minInputRaw, 10);
+      const parsedMax = Number.parseInt(maxInputRaw, 10);
+      const normalizedMin = Number.isFinite(parsedMin) ? Math.min(Math.max(parsedMin, 0), 100) : 1;
+      const normalizedMaxBase = Number.isFinite(parsedMax) ? Math.min(Math.max(parsedMax, 1), 100) : 1;
+      const normalizedMax = Math.max(normalizedMin, normalizedMaxBase);
+      setRepeatableMinInput(String(normalizedMin));
+      setRepeatableMaxInput(String(normalizedMax));
+      updateField(selectedField.id, {
+        props: {
+          minCount: normalizedMin,
+          maxCount: normalizedMax,
+        },
+      });
+    };
     return (
       <>
         <div className="p-4 space-y-5 overflow-y-auto h-full pb-24">
@@ -932,13 +961,14 @@ export function PropertiesPanel({
               type="number"
               min={0}
               max={100}
-              value={String(minCount)}
+              value={repeatableMinInput}
               onChange={(event) => {
-                const parsed = Number.parseInt(event.target.value, 10);
-                const normalized = Number.isFinite(parsed) ? Math.min(Math.max(parsed, 0), 100) : 1;
-                const nextMax = Math.max(maxCount, normalized);
-                updateField(selectedField.id, { props: { minCount: normalized, maxCount: nextMax } });
+                const raw = event.target.value;
+                if (raw === "" || /^\d+$/.test(raw)) {
+                  setRepeatableMinInput(raw);
+                }
               }}
+              onBlur={() => applyRepeatableCounts(repeatableMinInput, repeatableMaxInput)}
             />
             <p className="text-xs text-muted-foreground">{t("repeatable.minCountHint")}</p>
           </div>
@@ -949,13 +979,14 @@ export function PropertiesPanel({
               type="number"
               min={1}
               max={100}
-              value={String(maxCount)}
+              value={repeatableMaxInput}
               onChange={(event) => {
-                const parsed = Number.parseInt(event.target.value, 10);
-                const normalized = Number.isFinite(parsed) ? Math.min(Math.max(parsed, 1), 100) : 1;
-                const bounded = Math.max(normalized, minCount);
-                updateField(selectedField.id, { props: { maxCount: bounded } });
+                const raw = event.target.value;
+                if (raw === "" || /^\d+$/.test(raw)) {
+                  setRepeatableMaxInput(raw);
+                }
               }}
+              onBlur={() => applyRepeatableCounts(repeatableMinInput, repeatableMaxInput)}
             />
             <p className="text-xs text-muted-foreground">{t("repeatable.maxCountHint")}</p>
           </div>
