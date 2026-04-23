@@ -9,3 +9,5 @@
 :caption: Содержание
 
 UserGuide
+MainPage
+```
