@@ -325,7 +325,22 @@
     "country": "Country",
     "ogrn": "OGRN",
     "bik": "BIK",
-    "matrix": "Choice Matrix"
+    "matrix": "Choice Matrix",
+    "repeatableBlock": "Repeatable Block"
+  },
+  "repeatable": {
+    "minCountLabel": "Minimum blocks",
+    "minCountHint": "Number from 0 to 100. Used instead of field required flag.",
+    "maxCountLabel": "Maximum blocks",
+    "maxCountHint": "Required number from 1 to 100.",
+    "addButtonTextLabel": "Add button text",
+    "addButtonTextHint": "If empty, the default text will be used.",
+    "instanceNameBaseLabel": "Block name",
+    "instanceNameBaseHint": "A numeric suffix is appended automatically: 1, 2, 3...",
+    "defaultAddButton": "add repeatable block",
+    "instanceDefaultName": "Block",
+    "removeButton": "Remove",
+    "emptyInBuilder": "Add fields inside this block from the Elements panel."
   },
   "actions": {
     "act":"Actions",

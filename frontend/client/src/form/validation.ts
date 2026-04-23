@@ -9,6 +9,22 @@ import {
 } from "@/form/choice-answer";
 
 export type ValidationErrorsById = Record<string, string[]>;
+const REPEATABLE_ID_SEPARATOR = "::repeatable::";
+
+const parseRepeatableChildId = (value: string): { blockId: string; index: number; childId: string } | null => {
+  const parts = value.split(REPEATABLE_ID_SEPARATOR);
+  if (parts.length !== 3) return null;
+  const index = Number.parseInt(parts[1], 10);
+  if (!Number.isFinite(index) || index < 0) return null;
+  return { blockId: parts[0], index, childId: parts[2] };
+};
+
+const getParentBlockId = (element: FormElementModel): string | null => {
+  const raw = (element.props as Record<string, unknown> | undefined)?.parentBlockId;
+  if (typeof raw !== "string") return null;
+  const normalized = raw.trim();
+  return normalized.length > 0 ? normalized : null;
+};
 
 const isEmptyValue = (value: unknown) => {
   if (value == null) return true;
@@ -24,11 +40,66 @@ export const validateForm = (elements: FormElementModel[], answers: AnswersById)
   const errors: ValidationErrorsById = {};
 
   elements.forEach((element) => {
+    const parentBlockId = getParentBlockId(element);
+    if (parentBlockId && elements.some((candidate) => candidate.id === parentBlockId)) {
+      return;
+    }
     const value = answers[element.id];
     const elementErrors: string[] = [];
     const props = element.props as Record<string, unknown>;
     const preset = element.semanticType ? presets[element.semanticType] : undefined;
     if (props.readOnly) {
+      return;
+    }
+
+    if (element.widgetType === "repeatable_block") {
+      const nestedFields = Array.isArray(element.children) ? element.children : [];
+      const instancesByIndex = new Map<number, Record<string, unknown>>();
+      Object.entries(answers).forEach(([answerKey, answerValue]) => {
+        const parsed = parseRepeatableChildId(answerKey);
+        if (!parsed || parsed.blockId !== element.id) return;
+        const bucket = instancesByIndex.get(parsed.index) ?? {};
+        bucket[parsed.childId] = answerValue;
+        instancesByIndex.set(parsed.index, bucket);
+      });
+
+      let instances = Array.from(instancesByIndex.entries())
+        .sort((a, b) => a[0] - b[0])
+        .map(([, record]) => record);
+      if (instances.length === 0 && Array.isArray(value)) {
+        instances = value
+          .filter((entry) => entry && typeof entry === "object" && !Array.isArray(entry))
+          .map((entry) => entry as Record<string, unknown>);
+      }
+
+      const rawMaxCount = Number((props as Record<string, unknown>).maxCount);
+      const rawMinCount = Number((props as Record<string, unknown>).minCount);
+      const minCountRaw = Number.isFinite(rawMinCount) && rawMinCount >= 0 ? Math.floor(rawMinCount) : 1;
+      const minCount = Math.min(minCountRaw, 100);
+      const maxCountRaw = Number.isFinite(rawMaxCount) && rawMaxCount > 0 ? Math.floor(rawMaxCount) : 1;
+      const maxCountBase = Math.min(maxCountRaw, 100);
+      const maxCount = Math.max(maxCountBase, minCount);
+      if (instances.length > maxCount) {
+        elementErrors.push("Invalid selection");
+      }
+      if (instances.length < minCount) {
+        elementErrors.push("Required");
+      }
+
+      if (instances.length > 0 && nestedFields.length > 0) {
+        instances.forEach((instance, instanceIndex) => {
+          nestedFields.forEach((childField) => {
+            const childErrors = validateForm([childField], { [childField.id]: (instance as Record<string, unknown>)[childField.id] as any });
+            if (childErrors[childField.id]?.length) {
+              childErrors[childField.id].forEach((err) => elementErrors.push(`#${instanceIndex + 1}: ${err}`));
+            }
+          });
+        });
+      }
+
+      if (elementErrors.length > 0) {
+        errors[element.id] = elementErrors;
+      }
       return;
     }
 

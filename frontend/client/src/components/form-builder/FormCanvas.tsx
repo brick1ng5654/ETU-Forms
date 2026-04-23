@@ -12,14 +12,13 @@ import {
 import {
   SortableContext,
   verticalListSortingStrategy,
-  arrayMove
 } from "@dnd-kit/sortable";
 import { useState, useEffect, useRef } from "react";
 import type { MouseEvent } from "react";
 import type { FormElementModel, FormPageModel, FormSchema, SemanticType, WidgetType } from "@/form/types";
 import { SortableField } from "./SortableField";
 import {
-  Type, AlignLeft, Hash, Calendar, List, CheckSquare, CircleDot, Heading, Star, ListOrdered, Upload, User, Phone, FileText, CreditCard, Undo2, Redo2, ArrowUp, ArrowDown, Grid, IdCardLanyard, StickyNote, Building, BriefcaseBusiness, Globe, Repeat2
+  Type, AlignLeft, Hash, Calendar, List, CheckSquare, CircleDot, Heading, Star, ListOrdered, Upload, User, Phone, FileText, CreditCard, Undo2, Redo2, ArrowUp, ArrowDown, Grid, IdCardLanyard, StickyNote, Building, BriefcaseBusiness, Globe, Repeat2, Blocks
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -43,6 +42,14 @@ const widgetTypeLabelKey: Record<WidgetType, string> = {
   rating: "rating",
   ranking: "ranking",
   matrix: "matrix",
+  repeatable_block: "repeatableBlock",
+};
+
+const getParentBlockId = (field: FormElementModel): string | null => {
+  const raw = (field.props as Record<string, unknown> | undefined)?.parentBlockId;
+  if (typeof raw !== "string") return null;
+  const normalized = raw.trim();
+  return normalized.length > 0 ? normalized : null;
 };
 
 const AUTO_PAGE_TITLE = /^(Страница|Page)\s+\d+$/;
@@ -117,6 +124,7 @@ export const getIconForElement = (
     case "ranking": return ListOrdered;
     case "matrix": return Grid;
     case "file_upload": return Upload;
+    case "repeatable_block": return Blocks;
 
     default: return Type;
   }
@@ -197,6 +205,7 @@ const PageSection = React.memo(function PageSection({
                 key={field.id}
                 field={field}
                 isSelected={selectedIds.includes(field.id)}
+                selectedIds={selectedIds}
                 onSelect={onSelectField}
                 updateField={updateField}
                 fields={fields}
@@ -251,32 +260,39 @@ export function FormCanvas({
 
 
   const fieldsByPage = pageOrder.reduce((acc, page) => {
-    acc.set(
-      page.id,
-      fields
-        .filter((field) => field.pageId === page.id)
-        .slice()
-        .sort((a, b) => a.sortIndex - b.sortIndex)
-    );
+    const pageFields = fields
+      .filter((field) => field.pageId === page.id)
+      .slice()
+      .sort((a, b) => a.sortIndex - b.sortIndex);
+    const idsOnPage = new Set(pageFields.map((field) => field.id));
+    const childrenByParent = new Map<string, FormElementModel[]>();
+
+    pageFields.forEach((field) => {
+      const parentBlockId = getParentBlockId(field);
+      if (!parentBlockId || !idsOnPage.has(parentBlockId)) return;
+      const bucket = childrenByParent.get(parentBlockId) ?? [];
+      bucket.push(field);
+      childrenByParent.set(parentBlockId, bucket);
+    });
+
+    const topLevelFields = pageFields
+      .filter((field) => {
+        const parentBlockId = getParentBlockId(field);
+        return !parentBlockId || !idsOnPage.has(parentBlockId);
+      })
+      .map((field) => {
+        const children = childrenByParent.get(field.id);
+        if (!children || field.widgetType !== "repeatable_block") return field;
+        return {
+          ...field,
+          children: children.slice().sort((a, b) => a.sortIndex - b.sortIndex),
+        };
+      });
+
+    acc.set(page.id, topLevelFields);
     return acc;
   }, new Map<number, FormElementModel[]>());
 
-  const getPageIdForField = (fieldId: string) => {
-    for (const [pageId, pageFields] of fieldsByPage.entries()) {
-      if (pageFields.some((field) => field.id === fieldId)) {
-        return pageId;
-      }
-    }
-    return pageOrder[0]?.id ?? 1;
-  };
-
-  const getPageIdForOver = (overId: string) => {
-    if (overId.startsWith("page-")) {
-      const raw = Number(overId.replace("page-", ""));
-      if (Number.isFinite(raw)) return raw;
-    }
-    return getPageIdForField(overId);
-  };
   /**
    Настройка сенсоров для перетаскивания
    PointerSensor активируется при перемещении мыши/таче
@@ -318,56 +334,148 @@ export function FormCanvas({
       return;
     }
 
-    const sourcePageId = getPageIdForField(activeId);
-    const targetPageId = getPageIdForOver(overId);
-    if (!targetPageId) {
+    const fieldById = new Map(fields.map((field) => [field.id, field]));
+    const activeField = fieldById.get(activeId);
+    if (!activeField) {
       setActiveDragItem(null);
       return;
     }
 
-    const nextByPage = new Map<number, FormElementModel[]>();
+    const topLevelByPage = new Map<number, FormElementModel[]>();
     for (const page of pageOrder) {
-      nextByPage.set(page.id, (fieldsByPage.get(page.id) ?? []).slice());
+      topLevelByPage.set(page.id, (fieldsByPage.get(page.id) ?? []).slice());
     }
 
-    const sourceFields = nextByPage.get(sourcePageId) ?? [];
-    const targetFields = nextByPage.get(targetPageId) ?? [];
-    const activeIndex = sourceFields.findIndex((field) => field.id === activeId);
-    if (activeIndex === -1) {
-      setActiveDragItem(null);
-      return;
-    }
+    const childrenByParent = new Map<string, FormElementModel[]>();
+    fields.forEach((field) => {
+      const parentBlockId = getParentBlockId(field);
+      if (!parentBlockId || !fieldById.has(parentBlockId)) return;
+      const bucket = childrenByParent.get(parentBlockId) ?? [];
+      bucket.push(field);
+      childrenByParent.set(parentBlockId, bucket);
+    });
+    childrenByParent.forEach((bucket, parentId) => {
+      childrenByParent.set(parentId, bucket.slice().sort((a, b) => a.sortIndex - b.sortIndex));
+    });
 
-    if (sourcePageId === targetPageId) {
-      const overIndex = targetFields.findIndex((field) => field.id === overId);
-      if (overIndex !== -1) {
-        nextByPage.set(targetPageId, arrayMove(targetFields, activeIndex, overIndex));
-      }
+    let targetParentId: string | null = null;
+    let targetPageId: number | null = null;
+    let insertIndex = 0;
+
+    if (overId.startsWith("page-")) {
+      const rawPage = Number(overId.replace("page-", ""));
+      targetPageId = Number.isFinite(rawPage) ? rawPage : null;
+      const targetTop = targetPageId != null ? (topLevelByPage.get(targetPageId) ?? []) : [];
+      insertIndex = targetTop.length;
     } else {
-      const moved = sourceFields.splice(activeIndex, 1)[0];
-      const nextMoved = { ...moved, pageId: targetPageId };
-      let insertIndex = targetFields.length;
-      if (!overId.startsWith("page-")) {
-        const overIndex = targetFields.findIndex((field) => field.id === overId);
-        if (overIndex !== -1) {
-          insertIndex = overIndex;
-        }
+      const overField = fieldById.get(overId);
+      if (!overField) {
+        setActiveDragItem(null);
+        return;
       }
-      const nextTarget = targetFields.slice();
-      nextTarget.splice(insertIndex, 0, nextMoved);
-      nextByPage.set(sourcePageId, sourceFields);
-      nextByPage.set(targetPageId, nextTarget);
+      const overParentId = getParentBlockId(overField);
+
+      if (overField.widgetType === "repeatable_block" && activeField.widgetType !== "repeatable_block") {
+        targetParentId = overField.id;
+        targetPageId = overField.pageId;
+        insertIndex = (childrenByParent.get(overField.id) ?? []).length;
+      } else if (overParentId && fieldById.has(overParentId)) {
+        targetParentId = overParentId;
+        const parentField = fieldById.get(overParentId);
+        targetPageId = parentField?.pageId ?? overField.pageId;
+        const targetChildren = childrenByParent.get(overParentId) ?? [];
+        insertIndex = targetChildren.findIndex((field) => field.id === overId);
+        if (insertIndex < 0) insertIndex = targetChildren.length;
+      } else {
+        targetParentId = null;
+        targetPageId = overField.pageId;
+        const targetTop = topLevelByPage.get(targetPageId) ?? [];
+        insertIndex = targetTop.findIndex((field) => field.id === overId);
+        if (insertIndex < 0) insertIndex = targetTop.length;
+      }
     }
 
-    const nextFields: FormElementModel[] = [];
+    if (targetPageId == null) {
+      setActiveDragItem(null);
+      return;
+    }
+    if (activeField.widgetType === "repeatable_block" && targetParentId) {
+      setActiveDragItem(null);
+      return;
+    }
+    if (targetParentId === activeField.id) {
+      setActiveDragItem(null);
+      return;
+    }
+
+    const sourceParentId = getParentBlockId(activeField);
+    const sourcePageId = activeField.pageId;
+    const sourceList = sourceParentId
+      ? (childrenByParent.get(sourceParentId) ?? [])
+      : (topLevelByPage.get(sourcePageId) ?? []);
+    const sourceIndex = sourceList.findIndex((field) => field.id === activeId);
+    if (sourceIndex < 0) {
+      setActiveDragItem(null);
+      return;
+    }
+
+    const movedField = sourceList.splice(sourceIndex, 1)[0];
+    const targetList = targetParentId
+      ? (childrenByParent.get(targetParentId) ?? [])
+      : (topLevelByPage.get(targetPageId) ?? []);
+
+    let effectiveInsertIndex = Math.min(Math.max(insertIndex, 0), targetList.length);
+    if (sourceList === targetList && sourceIndex < effectiveInsertIndex) {
+      effectiveInsertIndex -= 1;
+    }
+    targetList.splice(effectiveInsertIndex, 0, movedField);
+
+    if (sourceParentId) {
+      childrenByParent.set(sourceParentId, sourceList);
+    } else {
+      topLevelByPage.set(sourcePageId, sourceList);
+    }
+    if (targetParentId) {
+      childrenByParent.set(targetParentId, targetList);
+    } else {
+      topLevelByPage.set(targetPageId, targetList);
+    }
+
+    const updatesById = new Map<string, { pageId: number; sortIndex: number; parentBlockId: string | null }>();
     for (const page of pageOrder) {
-      const pageFields = (nextByPage.get(page.id) ?? []).map((field, index) => ({
-        ...field,
-        sortIndex: index,
-      }));
-      nextFields.push(...pageFields);
+      const topLevel = topLevelByPage.get(page.id) ?? [];
+      topLevel.forEach((field, index) => {
+        updatesById.set(field.id, { pageId: page.id, sortIndex: index, parentBlockId: null });
+      });
     }
+    childrenByParent.forEach((children, parentId) => {
+      const parentField = fieldById.get(parentId);
+      if (!parentField) return;
+      children.forEach((field, index) => {
+        updatesById.set(field.id, {
+          pageId: parentField.pageId,
+          sortIndex: index,
+          parentBlockId: parentId,
+        });
+      });
+    });
 
+    const nextFields = fields.map((field) => {
+      const update = updatesById.get(field.id);
+      if (!update) return field;
+      const nextProps = { ...((field.props as Record<string, unknown>) ?? {}) };
+      if (update.parentBlockId) {
+        nextProps.parentBlockId = update.parentBlockId;
+      } else {
+        delete nextProps.parentBlockId;
+      }
+      return {
+        ...field,
+        pageId: update.pageId,
+        sortIndex: update.sortIndex,
+        props: nextProps,
+      };
+    });
     setForm({ ...form, fields: nextFields });
     setActiveDragItem(null);
   };

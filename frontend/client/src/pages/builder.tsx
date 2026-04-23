@@ -84,6 +84,7 @@ const TOOLBOX_ITEMS: ToolboxItemDefinition[] = [
   { widgetType: "ranking", labelKey: "ranking", category: "Advanced" },
   { widgetType: "matrix", labelKey: "matrix", category: "Advanced" },
   { widgetType: "file_upload", labelKey: "file", category: "Advanced" },
+  { widgetType: "repeatable_block", labelKey: "repeatableBlock", category: "Advanced" },
 
   // Specialized
   { widgetType: "text_input", semanticType: "full_name", labelKey: "fullname", category: "Specialized" },
@@ -220,6 +221,13 @@ const normalizeFieldsByPage = (elements: FormElementModel[], pages: FormPageMode
   }
 
   return normalized;
+};
+
+const getParentBlockId = (field: FormElementModel): string | null => {
+  const raw = (field.props as Record<string, unknown> | undefined)?.parentBlockId;
+  if (typeof raw !== "string") return null;
+  const normalized = raw.trim();
+  return normalized.length > 0 ? normalized : null;
 };
 
 const sortForSignature = (value: unknown): unknown => {
@@ -660,6 +668,11 @@ export default function Builder({ params }: { params: { id?: string } }) {
       widgetDefaults.maxFileSize = 20;
       widgetDefaults.maxFiles = 1;
     }
+    if (item.widgetType === "repeatable_block") {
+      widgetDefaults.minCount = 1;
+      widgetDefaults.maxCount = 3;
+      widgetDefaults.addButtonText = "";
+    }
 
     const currentPageId = activePageId ?? pages[0]?.id ?? 1;
     const pageFields = fields
@@ -667,6 +680,17 @@ export default function Builder({ params }: { params: { id?: string } }) {
       .slice()
       .sort((a, b) => a.sortIndex - b.sortIndex);
     const selectedOnPage = selectedIds.filter((id) => pageFields.some((field) => field.id === id));
+
+    const selectedField = selectedIds.length === 1
+      ? pageFields.find((field) => field.id === selectedIds[0]) ?? null
+      : null;
+    const parentBlockId =
+      selectedField?.widgetType === "repeatable_block" && item.widgetType !== "repeatable_block"
+        ? selectedField.id
+        : null;
+    if (parentBlockId) {
+      widgetDefaults.parentBlockId = parentBlockId;
+    }
 
     const newField: FormElementModel = {
       id: nanoid(),
@@ -677,8 +701,19 @@ export default function Builder({ params }: { params: { id?: string } }) {
       description: "",
       required: false,
       props: { ...widgetDefaults, ...defaultProps },
-      sortIndex: pageFields.length,
+      sortIndex: parentBlockId
+        ? pageFields.filter((field) => getParentBlockId(field) === parentBlockId).length
+        : pageFields.length,
     };
+
+    if (parentBlockId) {
+      setFields([...fields, newField]);
+      setSelectedIds([newField.id]);
+      setLastSelectedId(newField.id);
+      setSelectedPageIds([]);
+      setLastSelectedPageId(null);
+      return;
+    }
 
     const anchorId = lastSelectedId ?? (selectedOnPage.length > 0 ? selectedOnPage[selectedOnPage.length - 1] : null);
     const anchorIndex = anchorId ? pageFields.findIndex((field) => field.id === anchorId) : -1;
@@ -897,15 +932,27 @@ export default function Builder({ params }: { params: { id?: string } }) {
     }));
   };
   const deleteField = (id: string) => {
-    setFields(fields.filter(f => f.id !== id));
-    setSelectedIds(prev => prev.filter(existingId => existingId !== id));
+    const idsToDelete = new Set(
+      fields
+        .filter((field) => field.id === id || getParentBlockId(field) === id)
+        .map((field) => field.id)
+    );
+    setFields(fields.filter((field) => !idsToDelete.has(field.id)));
+    setSelectedIds((prev) => prev.filter((existingId) => !idsToDelete.has(existingId)));
     if (lastSelectedId === id) setLastSelectedId(null);
   };
 
   const deleteSelected = () => {
     if (selectedIds.length === 0) return;
     const selectedSet = new Set(selectedIds);
-    setFields(fields.filter(f => !selectedSet.has(f.id)));
+    const idsToDelete = new Set<string>(selectedIds);
+    fields.forEach((field) => {
+      const parentBlockId = getParentBlockId(field);
+      if (parentBlockId && selectedSet.has(parentBlockId)) {
+        idsToDelete.add(field.id);
+      }
+    });
+    setFields(fields.filter((field) => !idsToDelete.has(field.id)));
     clearSelection();
   };
 
@@ -1068,6 +1115,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
   const mapWidgetTypeForPublish = (widgetType: FormElementModel["widgetType"]) => {
     if (widgetType === "header") return "heading";
     if (widgetType === "textarea") return "text_input";
+    if (widgetType === "repeatable_block") return "text_input";
     return widgetType;
   };
 
@@ -1183,6 +1231,9 @@ export default function Builder({ params }: { params: { id?: string } }) {
           : [];
         const cleanedOtherSettings: Record<string, unknown> = { ...otherSettings };
         if (points !== undefined) cleanedOtherSettings.points = points;
+        if (f.widgetType === "repeatable_block") {
+          cleanedOtherSettings.repeatableBlock = true;
+        }
         const inputType = typeof props.inputType === "string" ? props.inputType : undefined;
         const isEmailField = f.semanticType === "email" || inputType === "email";
         if (isEmailField) {

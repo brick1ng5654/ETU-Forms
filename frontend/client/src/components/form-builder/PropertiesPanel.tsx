@@ -161,6 +161,7 @@ const widgetTypeLabelKey: Record<WidgetType, string> = {
   rating: "rating",
   ranking: "ranking",
   matrix: "matrix",
+  repeatable_block: "repeatableBlock",
 };
 
 const semanticTypeLabelKey: Record<SemanticType, string> = {
@@ -382,6 +383,33 @@ const propertiesSchemaByWidgetType: Record<WidgetType, PropertyFieldDef[]> = {
       },
     },
   ],
+  repeatable_block: [
+    {
+      key: "minCount",
+      labelKey: "repeatable.minCountLabel",
+      type: "number",
+      target: "props.minCount",
+      min: 0,
+      max: 100,
+      step: 1,
+    },
+    {
+      key: "maxCount",
+      labelKey: "repeatable.maxCountLabel",
+      type: "number",
+      target: "props.maxCount",
+      min: 1,
+      max: 100,
+      step: 1,
+    },
+    {
+      key: "addButtonText",
+      labelKey: "repeatable.addButtonTextLabel",
+      type: "text",
+      target: "props.addButtonText",
+      maxLength: 120,
+    },
+  ],
 };
 
 const getPassportVisibleCount = (props: Record<string, any>) =>
@@ -557,6 +585,8 @@ export function PropertiesPanel({
   const attachmentInputRef = useRef<HTMLInputElement>(null);
   const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
   const [textMaxCharsInput, setTextMaxCharsInput] = useState<string>("");
+  const [repeatableMinInput, setRepeatableMinInput] = useState<string>("1");
+  const [repeatableMaxInput, setRepeatableMaxInput] = useState<string>("1");
   const [deletePageIds, setDeletePageIds] = useState<number[]>([]);
   const [deletePageMode, setDeletePageMode] = useState<"delete" | "move">("delete");
   const [deletePageTargetId, setDeletePageTargetId] = useState<number | null>(null);
@@ -596,6 +626,25 @@ export function PropertiesPanel({
     selectedField?.semanticType,
     (selectedField?.props as Record<string, any> | undefined)?.inputType,
     (selectedField?.props as Record<string, any> | undefined)?.maxChars,
+  ]);
+
+  useEffect(() => {
+    if (!selectedField || selectedField.widgetType !== "repeatable_block") return;
+    const repeatableProps = selectedField.props as Record<string, any>;
+    const rawMin = Number(repeatableProps.minCount);
+    const nextMinBase = Number.isFinite(rawMin) && rawMin >= 0 ? Math.floor(rawMin) : 1;
+    const nextMin = Math.min(nextMinBase, 100);
+    const rawMax = Number(repeatableProps.maxCount);
+    const nextMaxRaw = Number.isFinite(rawMax) && rawMax > 0 ? Math.floor(rawMax) : 1;
+    const nextMaxBase = Math.min(nextMaxRaw, 100);
+    const nextMax = Math.max(nextMin, nextMaxBase);
+    setRepeatableMinInput(String(nextMin));
+    setRepeatableMaxInput(String(nextMax));
+  }, [
+    selectedField?.id,
+    selectedField?.widgetType,
+    (selectedField?.props as Record<string, any> | undefined)?.minCount,
+    (selectedField?.props as Record<string, any> | undefined)?.maxCount,
   ]);
 
   const readOnlyEnableHint = t("propert.readOnlyEnableTooltip");
@@ -869,6 +918,110 @@ export function PropertiesPanel({
   }
 
   const props = selectedField.props as Record<string, any>;
+  if (selectedField.widgetType === "repeatable_block") {
+    const addButtonText = typeof props.addButtonText === "string" ? props.addButtonText : "";
+    const instanceNameBase = typeof props.instanceNameBase === "string" ? props.instanceNameBase : "";
+    const applyRepeatableCounts = (minInputRaw: string, maxInputRaw: string) => {
+      const parsedMin = Number.parseInt(minInputRaw, 10);
+      const parsedMax = Number.parseInt(maxInputRaw, 10);
+      const normalizedMin = Number.isFinite(parsedMin) ? Math.min(Math.max(parsedMin, 0), 100) : 1;
+      const normalizedMaxBase = Number.isFinite(parsedMax) ? Math.min(Math.max(parsedMax, 1), 100) : 1;
+      const normalizedMax = Math.max(normalizedMin, normalizedMaxBase);
+      setRepeatableMinInput(String(normalizedMin));
+      setRepeatableMaxInput(String(normalizedMax));
+      updateField(selectedField.id, {
+        props: {
+          minCount: normalizedMin,
+          maxCount: normalizedMax,
+        },
+      });
+    };
+    return (
+      <>
+        <div className="p-4 space-y-5 overflow-y-auto h-full pb-24">
+          {pageControls}
+          <div className="flex items-center justify-between border-b pb-4">
+            <h3 className="font-semibold text-lg">{t("propert.propet")}</h3>
+            <Button
+              variant="destructive"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => deleteField(selectedField.id)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="space-y-1">
+            <Label>{t("propert.fieldType")}</Label>
+            <div className="text-sm text-muted-foreground font-medium">{t("fields.repeatableBlock")}</div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>{t("repeatable.minCountLabel")}</Label>
+            <Input
+              type="number"
+              min={0}
+              max={100}
+              value={repeatableMinInput}
+              onChange={(event) => {
+                const raw = event.target.value;
+                if (raw === "" || /^\d+$/.test(raw)) {
+                  setRepeatableMinInput(raw);
+                }
+              }}
+              onBlur={() => applyRepeatableCounts(repeatableMinInput, repeatableMaxInput)}
+            />
+            <p className="text-xs text-muted-foreground">{t("repeatable.minCountHint")}</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>{t("repeatable.maxCountLabel")}</Label>
+            <Input
+              type="number"
+              min={1}
+              max={100}
+              value={repeatableMaxInput}
+              onChange={(event) => {
+                const raw = event.target.value;
+                if (raw === "" || /^\d+$/.test(raw)) {
+                  setRepeatableMaxInput(raw);
+                }
+              }}
+              onBlur={() => applyRepeatableCounts(repeatableMinInput, repeatableMaxInput)}
+            />
+            <p className="text-xs text-muted-foreground">{t("repeatable.maxCountHint")}</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>{t("repeatable.addButtonTextLabel")}</Label>
+            <Textarea
+              value={addButtonText}
+              maxLength={120}
+              onChange={(event) => {
+                updateField(selectedField.id, { props: { addButtonText: event.target.value.slice(0, 120) } });
+              }}
+              className="min-h-[72px] resize-y"
+            />
+            <p className="text-xs text-muted-foreground">{t("repeatable.addButtonTextHint")}</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>{t("repeatable.instanceNameBaseLabel")}</Label>
+            <Input
+              value={instanceNameBase}
+              maxLength={120}
+              onChange={(event) => {
+                updateField(selectedField.id, { props: { instanceNameBase: event.target.value.slice(0, 120) } });
+              }}
+            />
+            <p className="text-xs text-muted-foreground">{t("repeatable.instanceNameBaseHint")}</p>
+          </div>
+        </div>
+        {deletePageDialog}
+      </>
+    );
+  }
   const isReadOnly = Boolean(props.readOnly);
   const hideDate = Boolean(props.hideDate);
   const hideTime = Boolean(props.hideTime);

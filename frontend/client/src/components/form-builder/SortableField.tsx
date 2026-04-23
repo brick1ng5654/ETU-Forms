@@ -462,9 +462,11 @@ function MatrixPreviewTable({
 interface SortableFieldProps {
   field: FormElementModel;
   isSelected: boolean;
+  selectedIds: string[];
   onSelect: (id: string, event: MouseEvent<HTMLDivElement>) => void;
   updateField: (id: string, updates: Partial<FormElementModel>) => void;
   fields: FormElementModel[];
+  isNested?: boolean;
 }
 
 interface SortableOptionItemProps {
@@ -508,7 +510,7 @@ function SortableOptionItem({ id, option, disabled, onDoubleClick }: SortableOpt
   );
 }
 
-export function SortableField({ field, isSelected, onSelect, updateField, fields }: SortableFieldProps) {
+export function SortableField({ field, isSelected, selectedIds, onSelect, updateField, fields, isNested = false }: SortableFieldProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [editingElement, setEditingElement] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState<string>("");
@@ -533,6 +535,7 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
     })
   );
   const props = field.props as Record<string, any>;
+  const nestedFields = (field.children ?? []).slice().sort((a, b) => a.sortIndex - b.sortIndex);
   const isCountrySelect = isCountryField(field);
   const countryOptions = isCountrySelect ? getCountryOptions(i18n.language).map((option) => option.label) : [];
   const allowOtherOption =
@@ -595,7 +598,7 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
               if (nextOptionsSet.has(answer)) return answer;
               return null;
             })
-            .filter((x): x is string => Boolean(x) && nextOptionsSet.has(x))
+            .filter((x): x is string => x !== null && nextOptionsSet.has(x))
           : undefined;
 
       updateField(field.id, {
@@ -1158,6 +1161,40 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
           </>
         );
       }
+      case "repeatable_block": {
+        return (
+          <div className="space-y-3">
+            {nestedFields.length === 0 ? (
+              <div className="rounded-md border border-dashed border-muted-foreground/30 bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+                {t("repeatable.emptyInBuilder")}
+              </div>
+            ) : (
+              <SortableContext items={nestedFields.map((child) => child.id)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-3">
+                  {nestedFields.map((child) => (
+                    <div
+                      key={child.id}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                      }}
+                    >
+                      <SortableField
+                        field={child}
+                        isSelected={selectedIds.includes(child.id)}
+                        selectedIds={selectedIds}
+                        onSelect={onSelect}
+                        updateField={updateField}
+                        fields={fields}
+                        isNested
+                      />
+                    </div>
+                  ))}
+                </div>
+              </SortableContext>
+            )}
+          </div>
+        );
+      }
       case "header":
         return null;
       default:
@@ -1188,14 +1225,15 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
         {...attributes}
         {...listeners}
         className={cn(
-          "absolute left-2 top-1/2 -translate-y-1/2 cursor-grab p-1.5 rounded-md text-muted-foreground/50 hover:text-foreground hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity",
+          "absolute cursor-grab rounded-md text-muted-foreground/50 hover:text-foreground hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity",
+          isNested ? "left-2 top-1/2 -translate-y-1/2 p-1" : "left-2 top-1/2 -translate-y-1/2 p-1.5",
           isSelected && "opacity-100"
         )}
       >
-        <GripVertical className="h-5 w-5" />
+        <GripVertical className={cn(isNested ? "h-4 w-4" : "h-5 w-5")} />
       </div>
 
-      <div className="flex-1 space-y-3 pl-6 w-full overflow-hidden">
+      <div className="flex-1 space-y-3 w-full overflow-hidden pl-6">
         <div className={cn("flex items-baseline justify-between", isCollapsed && "py-2")}>
           {editingElement === "label" ? (
             <Textarea
@@ -1298,7 +1336,7 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
             <div
               className={cn(
                 "pointer-events-none",
-                (field.widgetType === "matrix" || field.widgetType === "ranking") && "!pointer-events-auto"
+                (field.widgetType === "matrix" || field.widgetType === "ranking" || field.widgetType === "repeatable_block") && "!pointer-events-auto"
               )}
             >
               {renderFieldPreview()}

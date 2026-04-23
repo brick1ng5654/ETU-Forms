@@ -10,7 +10,8 @@ export type WidgetType =
   | "file_upload"
   | "rating"
   | "ranking"
-  | "matrix";
+  | "matrix"
+  | "repeatable_block";
 
 export type SemanticType =
   | "phone"
@@ -36,6 +37,11 @@ export type ElementAttachment = {
 export type FormElementProps = {
   attachments?: ElementAttachment[];
   attachmentsDisplay?: "list" | "slider";
+  minCount?: number;
+  maxCount?: number;
+  addButtonText?: string;
+  instanceNameBase?: string;
+  parentBlockId?: string;
   [key: string]: unknown;
 };
 
@@ -142,6 +148,7 @@ export type PassportAnswer = {
 // Matrix answer is stored as an array of "rowIndex:colIndex" keys
 export type MatrixAnswer = string[];
 export type FileUploadAnswer = ElementAttachment[];
+export type RepeatableBlockAnswer = Array<Record<string, AnswerValue>>;
 
 export type AnswerValue =
   | string
@@ -154,6 +161,7 @@ export type AnswerValue =
   | DateTimeAnswer
   | MatrixAnswer
   | FileUploadAnswer
+  | RepeatableBlockAnswer
   | null;
 
 export type AnswersById = Record<string, AnswerValue>;
