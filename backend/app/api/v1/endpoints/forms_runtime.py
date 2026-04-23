@@ -42,6 +42,10 @@ from app.services.forms_export_formatting import (
     sanitize_filename_part,
 )
 from app.services.forms_mapping import build_form_detail_response
+from app.security.text_moderation import (
+    PROHIBITED_TEXT_MESSAGE,
+    normalize_and_validate_text_payload,
+)
 
 router = APIRouter(prefix="/forms", tags=["forms"])
 
@@ -267,6 +271,16 @@ def _validate_semantic_answer(element: FormElement, value: Any) -> str | None:
     if semantic == "snils":
         return _validate_snils_value(value)
     return None
+
+
+def _normalize_and_validate_answer_value(client_id: str, value: Any) -> Any:
+    normalized_value, has_forbidden_symbols = normalize_and_validate_text_payload(value)
+    if has_forbidden_symbols:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid value for '{client_id}': {PROHIBITED_TEXT_MESSAGE}",
+        )
+    return normalized_value
 
 
 def _file_url(file_id: int, token: str) -> str:
@@ -614,12 +628,15 @@ async def save_form_draft(
     }
 
     payload_element_ids: set[int] = set()
+    normalized_answers_by_client_id: dict[str, Any] = {}
     for client_id, value in payload.answers.items():
         element = by_client_id.get(client_id)
         if element is None:
             continue
+        normalized_value = _normalize_and_validate_answer_value(client_id, value)
+        normalized_answers_by_client_id[client_id] = normalized_value
         payload_element_ids.add(element.element_id)
-        semantic_error = _validate_semantic_answer(element, value)
+        semantic_error = _validate_semantic_answer(element, normalized_value)
         if semantic_error is not None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -627,13 +644,13 @@ async def save_form_draft(
             )
         answer_row = existing_by_element.get(element.element_id)
         if answer_row is not None:
-            _apply_answer_value(answer_row, value)
+            _apply_answer_value(answer_row, normalized_value)
         else:
             answer_row = ResponseAnswer(
                 response_id=draft.response_id,
                 element_id=element.element_id,
             )
-            _apply_answer_value(answer_row, value)
+            _apply_answer_value(answer_row, normalized_value)
             db.add(answer_row)
             existing_by_element[element.element_id] = answer_row
 
@@ -643,7 +660,7 @@ async def save_form_draft(
 
     await db.flush()
 
-    for client_id, value in payload.answers.items():
+    for client_id, value in normalized_answers_by_client_id.items():
         element = by_client_id.get(client_id)
         if element is None:
             continue
@@ -663,7 +680,7 @@ async def save_form_draft(
     await db.refresh(draft)
 
     answers_out: dict[str, Any] = {}
-    for client_id, value in payload.answers.items():
+    for client_id, value in normalized_answers_by_client_id.items():
         answers_out[client_id] = value
 
     return FormDraftResponse(
@@ -801,7 +818,8 @@ async def submit_form_response(
         element = by_client_id.get(client_id)
         if element is None:
             continue
-        semantic_error = _validate_semantic_answer(element, value)
+        normalized_value = _normalize_and_validate_answer_value(client_id, value)
+        semantic_error = _validate_semantic_answer(element, normalized_value)
         if semantic_error is not None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -812,11 +830,11 @@ async def submit_form_response(
             response_id=response_row.response_id,
             element_id=element.element_id,
         )
-        _apply_answer_value(answer_row, value)
+        _apply_answer_value(answer_row, normalized_value)
         db.add(answer_row)
         await db.flush()
 
-        file_ids = _extract_file_ids(value)
+        file_ids = _extract_file_ids(normalized_value)
         if file_ids:
             await db.execute(
                 update(UploadedFile)
