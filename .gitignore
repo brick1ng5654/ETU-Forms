@@ -29,3 +29,6 @@ logs/**
 !logs/**/.gitkeep
 uploads/**
 pgadmin_data/
+
+# Sphinx
+docs-sphinx/docs/build/
