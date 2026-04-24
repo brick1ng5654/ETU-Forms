@@ -629,6 +629,9 @@ export function PropertiesPanel({
   const availableDeleteTargets = deletePageIds.length > 0
     ? pageOrder.filter((page) => !deletePageIds.includes(page.id))
     : [];
+  const deletePageTooltip = t("pages.deleteTitle");
+  const deleteSelectedTooltip = t("builder.deleteSelected");
+  const deleteFieldTooltip = t("actions.delete");
 
   const handleTogglePageReadOnly = () => {
     if (pageFieldIds.length === 0) return;
@@ -671,16 +674,31 @@ export function PropertiesPanel({
           >
             {allPageReadOnly ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
           </Button>
-          <Button
-            variant="destructive"
-            size="icon"
-            className="h-8 w-8"
-            onClick={openDeletePageDialog}
-            disabled={!canDeletePage}
-            aria-label={t("pages.deleteTitle")}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          {!canDeletePage ? (
+            <span className="inline-flex" title={deletePageTooltip}>
+              <Button
+                variant="destructive"
+                size="icon"
+                className="h-8 w-8"
+                onClick={openDeletePageDialog}
+                disabled
+                aria-label={deletePageTooltip}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </span>
+          ) : (
+            <Button
+              variant="destructive"
+              size="icon"
+              className="h-8 w-8"
+              onClick={openDeletePageDialog}
+              aria-label={deletePageTooltip}
+              title={deletePageTooltip}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
       {!isMultiPageSelection && (
@@ -832,7 +850,8 @@ export function PropertiesPanel({
               size="icon"
               className="h-8 w-8"
               onClick={deleteSelected}
-              aria-label={t("builder.deleteSelected")}
+              aria-label={deleteSelectedTooltip}
+              title={deleteSelectedTooltip}
             >
               <Trash2 className="h-4 w-4" />
             </Button>
@@ -1619,6 +1638,8 @@ export function PropertiesPanel({
             size="icon"
             className="h-8 w-8"
             onClick={() => deleteField(selectedField.id)}
+            aria-label={deleteFieldTooltip}
+            title={deleteFieldTooltip}
           >
             <Trash2 className="h-4 w-4" />
           </Button>

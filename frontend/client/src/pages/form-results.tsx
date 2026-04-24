@@ -1528,6 +1528,8 @@ export default function FormResults({ params }: { params: { id: string } }) {
               size="sm"
               className="gap-2"
               onClick={() => setLocation(`/builder/${params.id}`)}
+              aria-label={t("results.editForm")}
+              title={t("results.editForm")}
             >
               <PencilLine className="h-4 w-4" />
               <span className="hidden sm:inline">{t("results.editForm")}</span>
@@ -1539,6 +1541,8 @@ export default function FormResults({ params }: { params: { id: string } }) {
             className="gap-2"
             onClick={() => setIsAccessDialogOpen(true)}
             disabled={!canEditCurrentForm}
+            aria-label={t("access.manageAccessToForm")}
+            title={t("access.manageAccessToForm")}
           >
             <Users className="h-4 w-4" />
             <span className="hidden sm:inline">{t("access.manageAccessToForm")}</span>
@@ -1551,7 +1555,8 @@ export default function FormResults({ params }: { params: { id: string } }) {
               const newLang = i18n.language.startsWith("ru") ? "en" : "ru";
               i18n.changeLanguage(newLang);
             }}
-            title={i18n.language.startsWith("ru") ? "Переключить на Английский" : "Switch to Russian"}
+            aria-label={i18n.language.startsWith("ru") ? t("builder.switchToEnglish") : t("builder.switchToRussian")}
+            title={i18n.language.startsWith("ru") ? t("builder.switchToEnglish") : t("builder.switchToRussian")}
           >
             <Languages className="h-4 w-4" />
             <span className="hidden sm:inline text-sm font-medium">{i18n.language.startsWith("ru") ? "RU" : "EN"}</span>
@@ -1619,6 +1624,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
                   size="icon"
                   className="h-10 w-10 shrink-0"
                   title={responsesSortDirection === "asc" ? t("results.sortAsc") : t("results.sortDesc")}
+                  aria-label={responsesSortDirection === "asc" ? t("results.sortAsc") : t("results.sortDesc")}
                   onClick={() =>
                     setResponsesSortDirection((prev) => (prev === "asc" ? "desc" : "asc"))
                   }
@@ -1787,6 +1793,8 @@ export default function FormResults({ params }: { params: { id: string } }) {
                         className="w-full sm:w-auto"
                         onClick={handleExportResponses}
                         disabled={isExporting}
+                        aria-label={isExporting ? t("results.exporting") : t("results.exportXlsx")}
+                        title={isExporting ? t("results.exporting") : t("results.exportXlsx")}
                       >
                         {isExporting ? t("results.exporting") : t("results.exportXlsx")}
                       </Button>
@@ -1983,7 +1991,13 @@ export default function FormResults({ params }: { params: { id: string } }) {
                     <LinkIcon className="h-4 w-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
                     <Input value={formLink} readOnly className="pl-9" />
                   </div>
-                  <Button variant="outline" size="icon" onClick={handleCopyLink}>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleCopyLink}
+                    aria-label={t("results.copyLink")}
+                    title={t("results.copyLink")}
+                  >
                     <Copy className="h-4 w-4" />
                   </Button>
                 </div>

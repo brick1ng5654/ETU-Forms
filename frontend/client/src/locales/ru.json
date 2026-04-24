@@ -80,7 +80,11 @@
     "saveDisabledNoChanges": "Нет изменений для сохранения.",
     "publishDisabledNeedSave": "Сначала нужно сохранить форму.",
     "publishDisabledNeedContent": "Добавьте хотя бы один элемент формы перед публикацией.",
-    "publishDisabledNeedDraft": "Публикация доступна только для черновика."
+    "publishDisabledNeedDraft": "Публикация доступна только для черновика.",
+    "switchToEnglish": "Переключить на английский",
+    "switchToRussian": "Переключить на русский",
+    "closeForm": "Закрыть форму",
+    "addNewForm": "Добавить новую форму"
   },
   "pages": {
     "defaultTitle": "Страница {{index}}",
@@ -266,6 +270,7 @@
     "invalidDateRange": "Дата начала должна быть раньше даты окончания",
     "activeLinks": "Активные ссылки приглашения",
     "emptyLinks": "Нет активных ссылок",
+    "deleteLink": "Удалить ссылку",
     "deleteAllActiveLinks": "Удалить все активные ссылки",
     "deleteAllActiveLinksConfirm": "Удалить все активные ссылки приглашения для этой формы?",
     "deleteAllActiveLinksSuccess": "Все активные ссылки удалены",
@@ -273,6 +278,7 @@
     "acceptedUsage": "Принято",
     "noStartLimit": "Сразу",
     "emptyList": "Нет назначенных доступов",
+    "confirmChanges": "Подтвердить изменения",
     "clearAllEntries": "Снять все роли и приглашения",
     "clearAllEntriesConfirm": "Снять все текущие роли и приглашения для этой формы?",
     "clearAllEntriesSuccess": "Все роли и приглашения сняты",

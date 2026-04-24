@@ -80,7 +80,11 @@
     "saveDisabledNoChanges": "No changes to save.",
     "publishDisabledNeedSave": "Save the form first.",
     "publishDisabledNeedContent": "Add at least one field before publishing.",
-    "publishDisabledNeedDraft": "Publishing is available only for draft forms."
+    "publishDisabledNeedDraft": "Publishing is available only for draft forms.",
+    "switchToEnglish": "Switch to English",
+    "switchToRussian": "Switch to Russian",
+    "closeForm": "Close form",
+    "addNewForm": "Add new form"
   },
   "pages": {
     "defaultTitle": "Page {{index}}",
@@ -244,6 +248,7 @@
     "invalidDateRange": "Start date must be before end date",
     "activeLinks": "Active invitation links",
     "emptyLinks": "No active links",
+    "deleteLink": "Delete link",
     "deleteAllActiveLinks": "Delete all active links",
     "deleteAllActiveLinksConfirm": "Delete all active invitation links for this form?",
     "deleteAllActiveLinksSuccess": "All active links were deleted",
@@ -251,6 +256,7 @@
     "acceptedUsage": "Accepted",
     "noStartLimit": "Immediately",
     "emptyList": "No access entries",
+    "confirmChanges": "Confirm changes",
     "clearAllEntries": "Remove all roles and invites",
     "clearAllEntriesConfirm": "Remove all current roles and invitations for this form?",
     "clearAllEntriesSuccess": "All roles and invitations were removed",

@@ -1360,7 +1360,11 @@ export default function Builder({ params }: { params: { id?: string } }) {
   const resultsTargetFormId = publishedVersionsForActiveForm[0]?.id ?? activeForm?.id ?? "";
   const isResultsDisabled = !hasPublishedVersion;
   const resultsDisabledHint = isResultsDisabled ? t("results.onlyPublishedShort") : undefined;
+  const isSaveDisabled = !hasSaveChanges || isSaving;
   const saveDisabledHint = !hasSaveChanges ? t("builder.saveDisabledNoChanges") : undefined;
+  const languageSwitchTitle = i18n.language.startsWith("ru")
+    ? t("builder.switchToEnglish")
+    : t("builder.switchToRussian");
 
   useEffect(() => {
     if (isPublishDisabled && isPublishOpen) {
@@ -1541,13 +1545,21 @@ export default function Builder({ params }: { params: { id?: string } }) {
                   size="icon"
                   className="h-5 w-5 opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive shrink-0"
                   onClick={(e) => closeForm(e, form.id)}
-                  title="Close form"
+                  aria-label={t("builder.closeForm")}
+                  title={t("builder.closeForm")}
                 >
                   <X className="h-3 w-3" />
                 </Button>
               </div>
             ))}
-            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={addNewForm}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0"
+              onClick={addNewForm}
+              aria-label={t("builder.addNewForm")}
+              title={t("builder.addNewForm")}
+            >
               <Plus className="h-4 w-4" />
             </Button>
           </div>
@@ -1558,7 +1570,13 @@ export default function Builder({ params }: { params: { id?: string } }) {
           {/* Кнопка раскрытия панели элементов (только на экранах < md, в одном ряду с действиями) */}
           <Sheet open={isToolboxSheetOpen} onOpenChange={setIsToolboxSheetOpen}>
             <SheetTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-1.5 md:hidden shrink-0 h-8 px-2 sm:px-2.5" aria-label={t("builder.toolbox")}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 md:hidden shrink-0 h-8 px-2 sm:px-2.5"
+                aria-label={t("builder.toolbox")}
+                title={t("builder.toolbox")}
+              >
                 <PanelLeftOpen className="h-4 w-4" /> <span className="hidden sm:inline text-xs">{t("builder.toolbox")}</span>
               </Button>
             </SheetTrigger>
@@ -1600,7 +1618,13 @@ export default function Builder({ params }: { params: { id?: string } }) {
           <div className="flex items-center gap-1 lg:hidden">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" aria-label={t("actions.act")}>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 sm:h-9 sm:w-9"
+                  aria-label={t("actions.act")}
+                  title={t("actions.act")}
+                >
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -1686,15 +1710,23 @@ export default function Builder({ params }: { params: { id?: string } }) {
                 localStorage.setItem("etu_pending_lang", newLang);
                 window.location.reload();
               }}
-              title={i18n.language.startsWith('ru') ? 'English' : 'Русский'}
+              aria-label={languageSwitchTitle}
+              title={languageSwitchTitle}
             >
               <Languages className="h-4 w-4" />
               <span className="text-sm font-medium">{i18n.language.startsWith('ru') ? 'RU' : 'EN'}</span>
             </Button>
             <Dialog>
               <DialogTrigger asChild>
-                <Button data-testid="builder-preview-open" variant="outline" size="sm" className="gap-1.5 h-9 px-2.5">
-                  <Eye className="h-4 w-4" /> <span>{t('builder.preview')}</span>
+                <Button
+                  data-testid="builder-preview-open"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 h-9 px-2.5"
+                  aria-label={t("builder.preview")}
+                  title={t("builder.preview")}
+                >
+                  <Eye className="h-4 w-4" /> <span>{t("builder.preview")}</span>
                 </Button>
               </DialogTrigger>
               <DialogContent data-testid="preview-dialog" className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -1714,39 +1746,72 @@ export default function Builder({ params }: { params: { id?: string } }) {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 h-9 px-2.5"
-              disabled={isResultsDisabled}
-              onClick={() => {
-                if (isResultsDisabled) return;
-                setLocation(`/forms/${resultsTargetFormId}/results`);
-              }}
-            >
-              <BarChart3 className="h-4 w-4" /> <span>{t("results.openResults")}</span>
-            </Button>
-            <Button
-              data-testid="builder-save"
-              variant="outline"
-              size="sm"
-              className="gap-1.5 h-9 px-2.5"
-              onClick={handleSave}
-              disabled={!hasSaveChanges || isSaving}
-            >
-              <Save className="h-4 w-4" /> <span>{t('builder.save')}</span>
-            </Button>
+            {isResultsDisabled ? (
+              <span className="inline-flex" title={resultsDisabledHint ?? t("results.openResults")}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 h-9 px-2.5"
+                  disabled
+                  aria-label={t("results.openResults")}
+                >
+                  <BarChart3 className="h-4 w-4" /> <span>{t("results.openResults")}</span>
+                </Button>
+              </span>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 h-9 px-2.5"
+                onClick={() => setLocation(`/forms/${resultsTargetFormId}/results`)}
+                aria-label={t("results.openResults")}
+                title={t("results.openResults")}
+              >
+                <BarChart3 className="h-4 w-4" /> <span>{t("results.openResults")}</span>
+              </Button>
+            )}
+            {isSaveDisabled ? (
+              <span className="inline-flex" title={saveDisabledHint ?? t("builder.save")}>
+                <Button
+                  data-testid="builder-save"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 h-9 px-2.5"
+                  onClick={handleSave}
+                  disabled
+                  aria-label={t("builder.save")}
+                >
+                  <Save className="h-4 w-4" /> <span>{t("builder.save")}</span>
+                </Button>
+              </span>
+            ) : (
+              <Button
+                data-testid="builder-save"
+                variant="outline"
+                size="sm"
+                className="gap-1.5 h-9 px-2.5"
+                onClick={handleSave}
+                aria-label={t("builder.save")}
+                title={t("builder.save")}
+              >
+                <Save className="h-4 w-4" /> <span>{t("builder.save")}</span>
+              </Button>
+            )}
             <Dialog open={isPublishOpen} onOpenChange={setIsPublishOpen}>
               {isPublishDisabled ? (
-                <Button data-testid="builder-publish-open" size="sm" className="gap-1.5 h-9 px-2.5" disabled title={publishDisabledHint}>
-                  <Share2 className="h-4 w-4" /> <span>{t("builder.publish")}</span>
-                </Button>
+                <span className="inline-flex" title={publishDisabledHint}>
+                  <Button data-testid="builder-publish-open" size="sm" className="gap-1.5 h-9 px-2.5" disabled aria-label={t("builder.publish")}>
+                    <Share2 className="h-4 w-4" /> <span>{t("builder.publish")}</span>
+                  </Button>
+                </span>
               ) : (
                 <Button
                   data-testid="builder-publish-open"
                   size="sm"
                   className="gap-1.5 h-9 px-2.5"
                   onClick={() => setIsPublishOpen(true)}
+                  aria-label={t("builder.publish")}
+                  title={t("builder.publish")}
                 >
                   <Share2 className="h-4 w-4" /> <span>{t("builder.publish")}</span>
                 </Button>
