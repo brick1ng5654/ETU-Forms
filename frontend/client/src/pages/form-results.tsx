@@ -58,6 +58,7 @@ import { toast } from "@/hooks/use-toast";
 import { AppBrand } from "@/components/app-brand";
 import { CustomLoader } from "@/components/ui/custom-loader";
 import { FormAccessDialog } from "@/components/form-access-dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 type ResponseEntry = {
   id: string;
@@ -81,6 +82,54 @@ type SummaryRow = {
   label: string;
   metrics: SummaryMetric[];
 };
+
+function AccessModeSelectItemLabel({ label, hint }: { label: string; hint: string }) {
+  const [isTooltipOpen, setIsTooltipOpen] = useState(false);
+
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span>{label}</span>
+      <Tooltip open={isTooltipOpen}>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            aria-label={hint}
+            onPointerDown={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+            onPointerEnter={(event) => {
+              event.stopPropagation();
+              setIsTooltipOpen(true);
+            }}
+            onPointerLeave={(event) => {
+              event.stopPropagation();
+              setIsTooltipOpen(false);
+            }}
+            onFocus={(event) => {
+              event.stopPropagation();
+              setIsTooltipOpen(false);
+            }}
+            onBlur={(event) => {
+              event.stopPropagation();
+              setIsTooltipOpen(false);
+            }}
+            className="h-5 w-5 rounded-full border border-muted-foreground/40 text-muted-foreground text-[11px] leading-none flex items-center justify-center hover:bg-muted"
+          >
+            ?
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="right" className="max-w-sm text-xs leading-relaxed">
+          {hint}
+        </TooltipContent>
+      </Tooltip>
+    </span>
+  );
+}
 
 type Selection =
   | { type: "source" }
@@ -1979,8 +2028,18 @@ export default function FormResults({ params }: { params: { id: string } }) {
                     <SelectValue placeholder={t("builder.accessModePlaceholder")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="private">{t("builder.accessModePrivate")}</SelectItem>
-                    <SelectItem value="unauthenticated">{t("builder.accessModeUnauthenticated")}</SelectItem>
+                    <SelectItem value="private">
+                      <AccessModeSelectItemLabel
+                        label={t("builder.accessModePrivate")}
+                        hint={t("builder.accessModePrivateHint")}
+                      />
+                    </SelectItem>
+                    <SelectItem value="unauthenticated">
+                      <AccessModeSelectItemLabel
+                        label={t("builder.accessModeUnauthenticated")}
+                        hint={t("builder.accessModeUnauthenticatedHint")}
+                      />
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>

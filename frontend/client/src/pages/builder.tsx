@@ -8,6 +8,7 @@ import FormPreview from "@/components/form-builder/FormPreview";
 import { ToolboxItem, ToolboxItemDefinition } from "@/components/form-builder/ToolboxItem";
 import { CustomLoader } from "@/components/ui/custom-loader";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Eye,
   BarChart3,
@@ -96,6 +97,51 @@ const TOOLBOX_ITEMS: ToolboxItemDefinition[] = [
   { widgetType: "text_input", semanticType: "ogrn", labelKey: "ogrn", category: "Specialized" },
   { widgetType: "text_input", semanticType: "bik", labelKey: "bik", category: "Specialized" },
 ];
+
+function HintIcon({ text }: { text: string }) {
+  const [isTooltipOpen, setIsTooltipOpen] = useState(false);
+
+  return (
+    <Tooltip open={isTooltipOpen}>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          aria-label={text}
+          onPointerDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          onPointerEnter={(event) => {
+            event.stopPropagation();
+            setIsTooltipOpen(true);
+          }}
+          onPointerLeave={(event) => {
+            event.stopPropagation();
+            setIsTooltipOpen(false);
+          }}
+          onFocus={(event) => {
+            event.stopPropagation();
+            setIsTooltipOpen(false);
+          }}
+          onBlur={(event) => {
+            event.stopPropagation();
+            setIsTooltipOpen(false);
+          }}
+          className="h-5 w-5 rounded-full border border-muted-foreground/40 text-muted-foreground text-[11px] leading-none flex items-center justify-center hover:bg-muted"
+        >
+          ?
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="right" className="max-w-sm text-xs leading-relaxed">
+        {text}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 const CATEGORY_ICONS: Record<string, LucideIcon> = {
   Basic: Diamond,
@@ -1834,15 +1880,21 @@ export default function Builder({ params }: { params: { id?: string } }) {
                     >
                       <div className="flex items-center space-x-2">
                         <RadioGroupItem value="private" id="access-private" />
-                        <Label htmlFor="access-private" className="cursor-pointer">
-                          {t("builder.accessModePrivate")}
-                        </Label>
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="access-private" className="cursor-pointer">
+                            {t("builder.accessModePrivate")}
+                          </Label>
+                          <HintIcon text={t("builder.accessModePrivateHint")} />
+                        </div>
                       </div>
                       <div className="flex items-center space-x-2">
                         <RadioGroupItem value="unauthenticated" id="access-unauthenticated" />
-                        <Label htmlFor="access-unauthenticated" className="cursor-pointer">
-                          {t("builder.accessModeUnauthenticated")}
-                        </Label>
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="access-unauthenticated" className="cursor-pointer">
+                            {t("builder.accessModeUnauthenticated")}
+                          </Label>
+                          <HintIcon text={t("builder.accessModeUnauthenticatedHint")} />
+                        </div>
                       </div>
                     </RadioGroup>
                   </div>

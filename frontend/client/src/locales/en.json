@@ -58,6 +58,8 @@
     "accessModePlaceholder": "Select access mode",
     "accessModePrivate": "Private",
     "accessModeUnauthenticated": "Public",
+    "accessModePrivateHint": "Only authenticated users can open and complete the form. You can grant access via roles or invitations. Revocation and attempt limit settings are available.",
+    "accessModeUnauthenticatedHint": "Anyone with the link can open and complete the form without signing in. Attempt limit is always unlimited and response revocation is disabled in this mode.",
     "published": "Form published",
     "publishedDesc": "Publish settings saved.",
     "publishDateError": "End date cannot be earlier than start date.",
