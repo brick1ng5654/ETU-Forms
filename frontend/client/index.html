@@ -5,6 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
     
     <link rel="icon" type="image/png" href="/logo_etu.png" />
+    <script>
+      (function () {
+        try {
+          var theme = localStorage.getItem("theme");
+          if (theme === "dark" || (theme !== "light" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+            document.documentElement.classList.add("dark");
+          } else {
+            document.documentElement.classList.remove("dark");
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <style>
+      html, body { background: #fff; color: #0f1729; }
+      html.dark, html.dark body { background: hsl(222 22% 12%); color: hsl(210 20% 96%); }
+    </style>
   </head>
   <body>
     <div id="root"></div>

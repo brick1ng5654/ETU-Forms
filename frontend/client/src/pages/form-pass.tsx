@@ -7,6 +7,7 @@ import { buildAnswersPayload } from "@/form/answers";
 import FormPreview from "@/components/form-builder/FormPreview";
 import { AppBrand } from "@/components/app-brand";
 import { UserMenu } from "@/components/user-menu";
+import { ThemeToggle } from "@/components/theme-toggle";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -414,6 +415,7 @@ export default function FormPass({ params }: { params: { id: string } }) {
             <Languages className="h-4 w-4" />
             <span className="text-xs font-medium">{i18n.language.startsWith("ru") ? "RU" : "EN"}</span>
           </Button>
+          <ThemeToggle />
           {accessToken ? (
             <UserMenu />
           ) : shouldShowLoginButton ? (

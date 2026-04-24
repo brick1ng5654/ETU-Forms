@@ -309,7 +309,7 @@ function CountrySelect({ value, placeholder, disabled, onValueChange, onTouched 
           className="w-full justify-between"
           ref={triggerRef}
         >
-          <span className={cn(!selectedLabel && "text-muted-foreground")}>
+          <span className={cn(!selectedLabel && "text-muted-foreground dark:!text-slate-700")}>
             {selectedLabel || placeholder || t("common.selectopt")}
           </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -2549,7 +2549,7 @@ export function FormPreview({
             variant="outline"
             onClick={handlePrevPage}
             disabled={!canGoBack || submitting}
-            className="transition-all duration-200 ease-out enabled:hover:-translate-x-0.5 enabled:active:translate-x-0 disabled:opacity-50"
+            className="transition-colors duration-200"
           >
             {t("pages.prevButton")}
           </Button>
@@ -2578,7 +2578,7 @@ export function FormPreview({
             variant="outline"
             onClick={handlePrevPage}
             disabled={!canGoBack}
-            className="transition-all duration-200 ease-out enabled:hover:-translate-x-0.5 enabled:active:translate-x-0 disabled:opacity-50"
+            className="transition-colors duration-200"
           >
             {t("pages.prevButton")}
           </Button>

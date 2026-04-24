@@ -1,0 +1,113 @@
+@layer base {
+  html,
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+  }
+}
+
+@layer utilities {
+  /* Override hard-coded light surfaces in dark mode */
+  .dark .bg-background {
+    background-color: var(--color-background);
+  }
+
+  .dark .bg-card {
+    background-color: var(--color-card);
+  }
+
+  .dark .bg-popover {
+    background-color: var(--color-popover);
+  }
+
+  .dark .bg-muted {
+    background-color: var(--color-muted);
+  }
+
+  .dark .bg-accent {
+    background-color: var(--color-accent);
+  }
+
+  .dark .bg-secondary {
+    background-color: var(--color-secondary);
+  }
+
+  .dark .bg-input {
+    background-color: var(--color-input);
+  }
+
+  .dark .text-foreground {
+    color: var(--color-foreground);
+  }
+
+  .dark .text-card-foreground {
+    color: var(--color-card-foreground);
+  }
+
+  .dark .text-muted-foreground {
+    color: var(--color-muted-foreground);
+  }
+
+  .dark .text-accent-foreground {
+    color: var(--color-accent-foreground);
+  }
+
+  .dark .text-popover-foreground {
+    color: var(--color-popover-foreground);
+  }
+
+  .dark .text-secondary-foreground {
+    color: var(--color-secondary-foreground);
+  }
+
+  .dark .border-border {
+    border-color: var(--color-border);
+  }
+
+  .dark .border-input {
+    border-color: var(--color-border);
+  }
+
+.dark .bg-border {
+  background-color: var(--color-border);
+}
+
+
+  .dark .ring-offset-background {
+    --tw-ring-offset-color: var(--color-background);
+  }
+
+  .dark .bg-white {
+    background-color: var(--color-card);
+  }
+
+  .dark .bg-white\/50 {
+    background-color: color-mix(in srgb, var(--color-card) 55%, transparent);
+  }
+
+  .dark .bg-white\/95 {
+    background-color: color-mix(in srgb, var(--color-card) 92%, transparent);
+  }
+
+  .dark .bg-gray-50 {
+    background-color: color-mix(in srgb, var(--color-card) 88%, var(--color-foreground) 12%);
+  }
+
+  .dark .border-gray-200 {
+    border-color: var(--color-border);
+  }
+
+  .dark [class~="after:bg-white"]::after {
+    background-color: var(--color-card);
+  }
+
+  /* Number input spinner: remove light square background in dark mode */
+  .dark input[type="number"] {
+    color-scheme: dark;
+  }
+
+  .dark input[type="number"]::-webkit-inner-spin-button,
+  .dark input[type="number"]::-webkit-outer-spin-button {
+    background: transparent;
+  }
+}

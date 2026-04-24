@@ -40,7 +40,7 @@ interface PropertiesPanelProps {
   fields: FormElementModel[];
 }
 
-const AUTO_PAGE_TITLE = /^(Страница|Page)\s+\d+$/;
+const AUTO_PAGE_TITLE = /^(Р РЋРЎвЂљРЎР‚Р В°Р Р…Р С‘РЎвЂ Р В°|Page)\s+\d+$/;
 
 interface SortableFieldProps {
   field: FormElementModel;
@@ -2007,7 +2007,7 @@ export function PropertiesPanel({
 
         {canHaveCorrectAnswers && (
           <div className="space-y-3 pt-2 border-t mt-2">
-            <Label className="text-green-600 flex items-center gap-1">
+            <Label className="text-[#34D399] flex items-center gap-1">
               <Check className="h-4 w-4" /> {t("propert.corransw")}
               {isMatrix && (
                 <Tooltip delayDuration={0}>
@@ -2073,7 +2073,7 @@ export function PropertiesPanel({
                         <Button
                           variant="outline"
                           size="sm"
-                          className="w-full border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
+                          className="w-full border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800 dark:!border-emerald-400/40 dark:!bg-emerald-500/15 dark:hover:!bg-emerald-500/25 dark:!text-white dark:hover:!text-white"
                           onClick={() => {
                             updateField(selectedField.id, { props: { correctAnswers: [...rankingOrderOptions] } });
                           }}
@@ -2124,7 +2124,7 @@ export function PropertiesPanel({
                           {options.map((option, index) => (
                             <div
                               key={index}
-                              className="flex items-center gap-2 p-2 rounded border border-green-100 hover:bg-green-50"
+                              className="flex items-center gap-2 p-2 rounded border border-green-100 hover:bg-green-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:hover:!bg-white/60 dark:hover:!text-slate-950"
                             >
                               <RadioGroupItem value={option} id={`correct-${selectedField.id}-${index}`} />
                               <Label
@@ -2144,7 +2144,7 @@ export function PropertiesPanel({
                       return (
                         <div
                           key={index}
-                          className="flex items-center gap-2 p-2 rounded border border-green-100 hover:bg-green-50"
+                          className="flex items-center gap-2 p-2 rounded border border-green-100 hover:bg-green-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:hover:!bg-white/60 dark:hover:!text-slate-950"
                         >
                           <Checkbox
                             id={`correct-${selectedField.id}-${index}`}
@@ -2287,7 +2287,7 @@ export function PropertiesPanel({
                             }
                           }
                         }}
-                        placeholder={selectedField.widgetType === "rating" ? `1–${Number.isFinite(Number(props.maxRating)) ? Math.min(10, Math.max(1, Number(props.maxRating))) : 10}` : t("propert.correctAnswerPlaceholder")}
+                        placeholder={selectedField.widgetType === "rating" ? `1РІР‚вЂњ${Number.isFinite(Number(props.maxRating)) ? Math.min(10, Math.max(1, Number(props.maxRating))) : 10}` : t("propert.correctAnswerPlaceholder")}
                         className={`focus-visible:ring-green-500 ${isInvalid ? "border-red-500" : "border-green-200"}`}
                       />
                       <Button
@@ -2307,7 +2307,7 @@ export function PropertiesPanel({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full mt-2 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
+                  className="w-full mt-2 border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800 dark:!border-emerald-400/40 dark:!bg-emerald-500/15 dark:hover:!bg-emerald-500/25 dark:!text-white dark:hover:!text-white"
                   onClick={() => {
                     const defaultNew = selectedField.widgetType === "rating" ? "1" : "";
                     const newAnswers = [...correctAnswers, defaultNew];
@@ -2329,9 +2329,9 @@ export function PropertiesPanel({
             {isMatrix ? (
               <div className="space-y-2 mt-3">
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
-                  className="w-full border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800"
+                  className="w-full border border-input bg-transparent shadow-sm hover:bg-accent hover:text-accent-foreground dark:!border-white/20 dark:!bg-white/50 dark:hover:!bg-white/50 dark:!text-slate-950 dark:hover:!text-slate-950"
                   onClick={(e) => {
                     e.stopPropagation();
                     setIsMatrixModalOpen(true);
@@ -2388,7 +2388,7 @@ export function PropertiesPanel({
         )}
 
         <div className="space-y-3 pt-2 border-t mt-2">
-          <Label className="text-blue-600 flex items-center gap-1">
+          <Label className="text-[#60A5FA] flex items-center gap-1">
             <Check className="h-4 w-4" /> {t("logic.conditional")}
           </Label>
           <div className="space-y-2">

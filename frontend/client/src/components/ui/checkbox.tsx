@@ -195,6 +195,20 @@ const StyledWrapper = styled.div`
     outline-offset: 2px;
   }
 
+  .dark & button.cbx {
+    background: transparent;
+    border-color: var(--color-border);
+  }
+
+  .dark & button.cbx.disabled {
+    background: transparent;
+    border-color: var(--color-border);
+  }
+
+  .dark & button.cbx:hover:not(.disabled) {
+    border-color: var(--color-ring);
+  }
+
   @keyframes jelly {
     from {
       transform: scale(1, 1);

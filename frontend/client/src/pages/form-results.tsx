@@ -39,10 +39,10 @@ import { downloadFormResponsesExport, fetchFormDetail, fetchFormResponses, fetch
 import { storage } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import { formatScoreRange } from "@/lib/points-label";
-import { getCountryLabel, isCountryField } from "@/lib/countries";
 import FormPreview from "@/components/form-builder/FormPreview";
 import { ElementAttachments } from "@/components/form-builder/ElementAttachments";
 import { UserMenu } from "@/components/user-menu";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -154,12 +154,12 @@ const createPrivateLinkKey = () => {
 };
 
 const formatDuration = (minutes: number, useRussianUnits = false) => {
-  if (!Number.isFinite(minutes)) return useRussianUnits ? "0м 00с" : "0m 00s";
+  if (!Number.isFinite(minutes)) return useRussianUnits ? "0Р В РЎВ 00Р РЋР С“" : "0m 00s";
   const totalSeconds = Math.max(0, Math.round(minutes * 60));
   const mins = Math.floor(totalSeconds / 60);
   const secs = totalSeconds % 60;
-  const minuteUnit = useRussianUnits ? "м" : "m";
-  const secondUnit = useRussianUnits ? "с" : "s";
+  const minuteUnit = useRussianUnits ? "Р В РЎВ" : "m";
+  const secondUnit = useRussianUnits ? "Р РЋР С“" : "s";
   return `${mins}${minuteUnit} ${secs.toString().padStart(2, "0")}${secondUnit}`;
 };
 
@@ -694,9 +694,9 @@ const formatAnswerValue = (
         <table className="w-full min-w-[420px] border-collapse border border-border text-sm">
           <thead>
             <tr>
-              <th className="border border-border bg-muted/30 p-2 text-left font-medium"></th>
+              <th className="border border-border bg-muted/30 dark:bg-white/10 p-2 text-left font-medium"></th>
               {columns.map((column, colIdx) => (
-                <th key={colIdx} className="border border-border bg-muted/30 p-2 text-center font-medium">
+                <th key={colIdx} className="border border-border bg-muted/30 dark:bg-white/10 p-2 text-center font-medium">
                   {column || `Column ${colIdx + 1}`}
                 </th>
               ))}
@@ -705,7 +705,7 @@ const formatAnswerValue = (
           <tbody>
             {rows.map((row, rowIdx) => (
               <tr key={rowIdx}>
-                <td className="border border-border bg-muted/20 p-2 font-medium">{row || `Row ${rowIdx + 1}`}</td>
+                <td className="border border-border bg-muted/20 dark:bg-white/5 p-2 font-medium">{row || `Row ${rowIdx + 1}`}</td>
                 {columns.map((_, colIdx) => {
                   const key = `${rowIdx + 1}:${colIdx + 1}`;
                   const isSelected = selectedKeys.has(key);
@@ -727,7 +727,7 @@ const formatAnswerValue = (
                           type="text"
                           value={textValue ?? ""}
                           className="h-8 bg-background"
-                          placeholder="—"
+                          placeholder="Р Р†Р вЂљРІР‚Сњ"
                         />
                       ) : matrixInputType === "number" ? (
                         <Input
@@ -735,7 +735,7 @@ const formatAnswerValue = (
                           type="number"
                           value={textValue ?? ""}
                           className="h-8 bg-background"
-                          placeholder="—"
+                          placeholder="Р Р†Р вЂљРІР‚Сњ"
                         />
                       ) : matrixInputType === "checkbox" ? (
                         <Checkbox checked={isSelected} simplifiedAnimation className="mx-auto" />
@@ -821,7 +821,7 @@ const formatAnswerValue = (
       .filter((part): part is string => Boolean(part && part.trim()))
       .join(" ");
     if (fullNameParts) {
-      items.push({ label: locale.startsWith("ru") ? "ФИО" : "Full name", value: fullNameParts });
+      items.push({ label: locale.startsWith("ru") ? "Р В Р’В¤Р В Р’ВР В РЎвЂє" : "Full name", value: fullNameParts });
     }
     if (passport.gender) {
       items.push({
@@ -1077,7 +1077,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
       : "";
     setPrivateLinkKey(savedKey || createPrivateLinkKey());
     
-    // Инициализация настроек попыток
+    // Р В Р’ВР В Р вЂ¦Р В РЎвЂР РЋРІР‚В Р В РЎвЂР В Р’В°Р В Р’В»Р В РЎвЂР В Р’В·Р В Р’В°Р РЋРІР‚В Р В РЎвЂР РЋР РЏ Р В Р вЂ¦Р В Р’В°Р РЋР С“Р РЋРІР‚С™Р РЋР вЂљР В РЎвЂўР В Р’ВµР В РЎвЂќ Р В РЎвЂ”Р В РЎвЂўР В РЎвЂ”Р РЋРІР‚в„–Р РЋРІР‚С™Р В РЎвЂўР В РЎвЂќ
     const settings = form.settings_json ?? {};
     setAllowRevoke(Boolean(settings.allowRevoke));
     setAttemptLimitType(
@@ -1471,7 +1471,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
     try {
       const saved = await saveFormInPlace(form.id, payload);
       storage.saveForm(saved);
-      // Сохраняем права доступа: ответ PUT не содержит canEdit/canViewResponses/canContinuePassage
+      // Р В Р Р‹Р В РЎвЂўР РЋРІР‚В¦Р РЋР вЂљР В Р’В°Р В Р вЂ¦Р РЋР РЏР В Р’ВµР В РЎВ Р В РЎвЂ”Р РЋР вЂљР В Р’В°Р В Р вЂ Р В Р’В° Р В РўвЂР В РЎвЂўР РЋР С“Р РЋРІР‚С™Р РЋРЎвЂњР В РЎвЂ”Р В Р’В°: Р В РЎвЂўР РЋРІР‚С™Р В Р вЂ Р В Р’ВµР РЋРІР‚С™ PUT Р В Р вЂ¦Р В Р’Вµ Р РЋР С“Р В РЎвЂўР В РўвЂР В Р’ВµР РЋР вЂљР В Р’В¶Р В РЎвЂР РЋРІР‚С™ canEdit/canViewResponses/canContinuePassage
       setForm({
         ...saved,
         canEdit: form.canEdit,
@@ -1483,7 +1483,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
       setEndAt(getDateInputValue(saved.endAt));
       setAccessMode(saved.accessMode ?? "private");
       
-      // Обновляем настройки попыток из сохраненной формы
+      // Р В РЎвЂєР В Р’В±Р В Р вЂ¦Р В РЎвЂўР В Р вЂ Р В Р’В»Р РЋР РЏР В Р’ВµР В РЎВ Р В Р вЂ¦Р В Р’В°Р РЋР С“Р РЋРІР‚С™Р РЋР вЂљР В РЎвЂўР В РІвЂћвЂ“Р В РЎвЂќР В РЎвЂ Р В РЎвЂ”Р В РЎвЂўР В РЎвЂ”Р РЋРІР‚в„–Р РЋРІР‚С™Р В РЎвЂўР В РЎвЂќ Р В РЎвЂР В Р’В· Р РЋР С“Р В РЎвЂўР РЋРІР‚В¦Р РЋР вЂљР В Р’В°Р В Р вЂ¦Р В Р’ВµР В Р вЂ¦Р В Р вЂ¦Р В РЎвЂўР В РІвЂћвЂ“ Р РЋРІР‚С›Р В РЎвЂўР РЋР вЂљР В РЎВР РЋРІР‚в„–
       const settings = saved.settings_json ?? {};
       setAllowRevoke(Boolean(settings.allowRevoke));
       setAttemptLimitType(
@@ -1511,8 +1511,8 @@ export default function FormResults({ params }: { params: { id: string } }) {
   const calendarLocale = i18n.language.startsWith("ru") ? ru : enUS;
 
   return (
-    <div className="min-h-screen bg-muted/30 flex flex-col">
-      <header className="h-19 border-b border-border bg-white flex items-center justify-between px-3 sm:px-8 shrink-0">
+    <div className="min-h-screen bg-muted/30 dark:bg-[var(--color-background)] flex flex-col">
+      <header className="h-19 border-b border-border dark:!border-white/10 bg-white/95 dark:!bg-white/10 backdrop-blur flex items-center justify-between px-3 sm:px-8 shrink-0">
         <div className="flex items-center gap-4">
           <AppBrand href="/" onClick={() => setLocation("/")} />
           <div className="h-8 w-px bg-border hidden sm:block" />
@@ -1551,18 +1551,19 @@ export default function FormResults({ params }: { params: { id: string } }) {
               const newLang = i18n.language.startsWith("ru") ? "en" : "ru";
               i18n.changeLanguage(newLang);
             }}
-            title={i18n.language.startsWith("ru") ? "Переключить на Английский" : "Switch to Russian"}
+            title={i18n.language.startsWith("ru") ? "Р В РЎСџР В Р’ВµР РЋР вЂљР В Р’ВµР В РЎвЂќР В Р’В»Р РЋР вЂ№Р РЋРІР‚РЋР В РЎвЂР РЋРІР‚С™Р РЋР Р‰ Р В Р вЂ¦Р В Р’В° Р В РЎвЂ™Р В Р вЂ¦Р В РЎвЂ“Р В Р’В»Р В РЎвЂР В РІвЂћвЂ“Р РЋР С“Р В РЎвЂќР В РЎвЂР В РІвЂћвЂ“" : "Switch to Russian"}
           >
             <Languages className="h-4 w-4" />
             <span className="hidden sm:inline text-sm font-medium">{i18n.language.startsWith("ru") ? "RU" : "EN"}</span>
           </Button>
+          <ThemeToggle />
           <UserMenu />
         </div>
       </header>
 
       {!isLoading && form && form.status !== "submitted" ? (
         <div className="flex-1 px-6 py-6">
-          <Card className="max-w-2xl mx-auto">
+          <Card className="max-w-2xl mx-auto dark:!bg-white/5 dark:!border-white/10">
             <CardContent className="pt-10 pb-10">
               <Empty className="border-none p-0">
                 <EmptyHeader>
@@ -1586,7 +1587,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
       ) : (
       <div className="flex-1 flex flex-col lg:flex-row gap-6 px-6 py-6 min-h-0">
         <aside className="lg:w-72 w-full flex flex-col gap-4 min-h-0">
-          <Card className="flex flex-col min-h-0">
+          <Card className="flex flex-col min-h-0 dark:!bg-white/5 dark:!border-white/10">
             <CardHeader className="pb-4">
               <CardTitle className="text-base flex items-center justify-between">
                 <span>{t("results.versions")}</span>
@@ -1651,7 +1652,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
                     type="button"
                     className={cn(
                       "w-full flex items-start gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
-                      activeVersionId === versionForm.id ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                      activeVersionId === versionForm.id ? "bg-primary/10 text-foreground ring-1 ring-primary/30" : "hover:bg-muted/60 hover:text-foreground"
                     )}
                     onClick={() => {
                       setActiveVersionId(versionForm.id);
@@ -1674,7 +1675,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
                   type="button"
                   className={cn(
                     "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
-                    selection.type === "source" ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                    selection.type === "source" ? "bg-primary/10 text-foreground ring-1 ring-primary/30" : "hover:bg-muted/60 hover:text-foreground"
                   )}
                   onClick={() => setSelection({ type: "source" })}
                 >
@@ -1688,7 +1689,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
                   type="button"
                   className={cn(
                     "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
-                    selection.type === "summary" ? "bg-primary/10 text-primary" : "hover:bg-muted"
+                    selection.type === "summary" ? "bg-primary/10 text-foreground ring-1 ring-primary/30" : "hover:bg-muted/60 hover:text-foreground"
                   )}
                   onClick={() => setSelection({ type: "summary" })}
                 >
@@ -1717,8 +1718,10 @@ export default function FormResults({ params }: { params: { id: string } }) {
                     className={cn(
                       "w-full flex items-center gap-3 rounded-lg pl-3 pr-7 py-2 text-sm transition-colors",
                       selection.type === "response" && selection.responseId === response.id
-                        ? "bg-primary/10 text-primary"
+                        ? "bg-primary/10 text-foreground ring-1 ring-primary/30"
                         : response.status === "cancelled"
+                          ? "opacity-70 hover:bg-muted/40"
+                          : "hover:bg-muted/60 hover:text-foreground"
                     )}
                     onClick={() => {
                       setActiveVersionId(response.formId);
@@ -1764,15 +1767,15 @@ export default function FormResults({ params }: { params: { id: string } }) {
 
         <section className="flex-1 min-h-0">
           {isLoading ? (
-              <Card className="flex flex-col min-h-0">
+              <Card className="flex flex-col min-h-0 dark:!bg-white/5 dark:!border-white/10">
                 <div className="flex-1 flex items-center justify-center py-10">
                   <CustomLoader variant="dots" text={t("navigation.loadingForms")} />
                 </div>
               </Card>
             ):(
 
-          <Card className="h-full flex flex-col">
-            <CardHeader className="pb-4 border-b">
+          <Card className="h-full flex flex-col dark:!bg-white/5 dark:!border-white/10">
+            <CardHeader className="pb-4 border-b border-border dark:border-white/10">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                 <div className="min-w-0">
                   <CardTitle className="text-lg">{selectionTitle}</CardTitle>
@@ -1896,7 +1899,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
 
                     <div className="space-y-4">
                       {answerableFields.map((field) => (
-                        <Card key={field.id} className="border border-border/60 shadow-sm">
+                        <Card key={field.id} className="border border-border/60 dark:!border-white/10 shadow-sm dark:!bg-white/5">
                           <CardHeader className="pb-3">
                             <CardTitle className="text-base">{field.label}</CardTitle>
                             {field.description && (
@@ -1938,7 +1941,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
         </section>
 
         <aside className="lg:w-80 w-full flex flex-col gap-4 min-h-0">
-          <Card>
+          <Card className="dark:!bg-white/5 dark:!border-white/10">
             <CardHeader className="pb-4">
               <CardTitle className="text-base">{t("results.accessSettings")}</CardTitle>
               <CardDescription>{t("results.linkHint")}</CardDescription>
@@ -2128,35 +2131,35 @@ export default function FormResults({ params }: { params: { id: string } }) {
           </Card>
 
           {isLoading ? (
-              <Card className="flex flex-col min-h-0">
+              <Card className="flex flex-col min-h-0 dark:!bg-white/5 dark:!border-white/10">
                 <div className="flex-1 flex items-center justify-center py-10">
                   <CustomLoader variant="dots" text={t("common.loadingstats")} />
                 </div>
               </Card>
           ) : (
-          <Card>
+          <Card className="dark:!bg-white/5 dark:!border-white/10">
             <CardHeader className="pb-4">
               <CardTitle className="text-base">{t("results.stats")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="rounded-lg border border-border/60 p-3 min-h-24 flex flex-col">
+                <div className="rounded-lg border border-border/60 dark:!border-white/10 dark:!bg-white/5 p-3 min-h-24 flex flex-col">
                   <div className="text-muted-foreground">{t("results.linkClicks")}</div>
                   <div className="mt-auto text-xl font-semibold">{stats.totalViews}</div>
                 </div>
-                <div className="rounded-lg border border-border/60 p-3 min-h-24 flex flex-col">
+                <div className="rounded-lg border border-border/60 dark:!border-white/10 dark:!bg-white/5 p-3 min-h-24 flex flex-col">
                   <div className="text-muted-foreground">{t("results.completed")}</div>
                   <div className="mt-auto text-xl font-semibold">{stats.completed}</div>
                 </div>
-                <div className="rounded-lg border border-border/60 p-3 min-h-24 flex flex-col">
+                <div className="rounded-lg border border-border/60 dark:!border-white/10 dark:!bg-white/5 p-3 min-h-24 flex flex-col">
                   <div className="text-muted-foreground">{t("results.avgTime")}</div>
                   <div className="mt-auto text-xl font-semibold">{stats.avgTime}</div>
                 </div>
-                <div className="rounded-lg border border-border/60 p-3 min-h-24 flex flex-col">
+                <div className="rounded-lg border border-border/60 dark:!border-white/10 dark:!bg-white/5 p-3 min-h-24 flex flex-col">
                   <div className="text-muted-foreground">{t("results.medianTime")}</div>
                   <div className="mt-auto text-xl font-semibold">{stats.medianTime}</div>
                 </div>
-                <div className="rounded-lg border border-border/60 p-3 min-h-24 flex flex-col">
+                <div className="rounded-lg border border-border/60 dark:!border-white/10 dark:!bg-white/5 p-3 min-h-24 flex flex-col">
                   <div className="text-muted-foreground">{t("results.averageScore")}</div>
                   <div className="mt-auto text-xl font-semibold">
                     {scoreStats.hasScore
@@ -2164,7 +2167,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
                       : scoreFallbackLabel}
                   </div>
                 </div>
-                <div className="rounded-lg border border-border/60 p-3 min-h-24 flex flex-col">
+                <div className="rounded-lg border border-border/60 dark:!border-white/10 dark:!bg-white/5 p-3 min-h-24 flex flex-col">
                   <div className="text-muted-foreground">{t("results.medianScore")}</div>
                   <div className="mt-auto text-xl font-semibold">
                     {scoreStats.hasScore

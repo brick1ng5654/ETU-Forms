@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
+﻿import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
 import type { MouseEvent } from "react";
 import { nanoid } from "nanoid";
 import type { FormAccessMode, FormElementModel, FormPageModel, FormSchema } from "@/form/types";
@@ -52,6 +52,7 @@ import { format } from "date-fns";
 import { enUS, ru } from "date-fns/locale";
 import { DatePickerInput } from "@/components/ui/date-picker-input";
 import { UserMenu } from "@/components/user-menu";
+import { ThemeToggle } from "@/components/theme-toggle";
 import {
   createForm,
   fetchFormDetail,
@@ -164,7 +165,7 @@ const normalizePages = (pages: FormPageModel[] | undefined | null): FormPageMode
     .sort((a, b) => a.pageIndex - b.pageIndex);
 };
 
-const AUTO_PAGE_TITLE = /^(Страница|Page) \d+$/;
+const AUTO_PAGE_TITLE = /^(РЎС‚СЂР°РЅРёС†Р°|Page) \d+$/;
 
 const reindexPages = (pages: FormPageModel[]): FormPageModel[] => {
   return pages
@@ -1510,15 +1511,15 @@ export default function Builder({ params }: { params: { id?: string } }) {
 
   return (
     <div className="h-screen w-full flex flex-col bg-background overflow-hidden min-h-0">
-      {/* Navbar: grid из 3 колонок — логотип+элементы | вкладки | действия (или меню на узких экранах) */}
+      {/* Navbar: grid РёР· 3 РєРѕР»РѕРЅРѕРє вЂ” Р»РѕРіРѕС‚РёРї+СЌР»РµРјРµРЅС‚С‹ | РІРєР»Р°РґРєРё | РґРµР№СЃС‚РІРёСЏ (РёР»Рё РјРµРЅСЋ РЅР° СѓР·РєРёС… СЌРєСЂР°РЅР°С…) */}
       <header className="h-19 border-b border-border bg-white grid grid-cols-[auto_1fr_auto] items-center gap-2 px-3 sm:px-8 shrink-0 z-20 min-h-0">
-        {/* Левая колонка: только логотип и разделитель */}
+        {/* Р›РµРІР°СЏ РєРѕР»РѕРЅРєР°: С‚РѕР»СЊРєРѕ Р»РѕРіРѕС‚РёРї Рё СЂР°Р·РґРµР»РёС‚РµР»СЊ */}
         <div className="flex items-center gap-2 shrink-0">
           <AppBrand href="/" onClick={() => setLocation('/')} className="shrink-0" />
           <div className="h-5 sm:h-6 w-px bg-border shrink-0 hidden sm:block" />
         </div>
 
-        {/* Центр: вкладки форм — занимает оставшееся место, прокрутка по горизонтали */}
+        {/* Р¦РµРЅС‚СЂ: РІРєР»Р°РґРєРё С„РѕСЂРј вЂ” Р·Р°РЅРёРјР°РµС‚ РѕСЃС‚Р°РІС€РµРµСЃСЏ РјРµСЃС‚Рѕ, РїСЂРѕРєСЂСѓС‚РєР° РїРѕ РіРѕСЂРёР·РѕРЅС‚Р°Р»Рё */}
         <div className="min-w-0 overflow-x-auto no-scrollbar flex items-center">
           <div className="flex items-center gap-1 py-1">
             {tabForms.map(form => (
@@ -1531,8 +1532,8 @@ export default function Builder({ params }: { params: { id?: string } }) {
                 className={cn(
                   "group flex items-center gap-2 px-2 sm:px-3 py-1.5 rounded-md text-sm cursor-pointer transition-colors min-w-[80px] max-w-[140px] shrink-0",
                   activeFormId === form.id
-                    ? "bg-secondary text-secondary-foreground font-medium"
-                    : "hover:bg-muted text-muted-foreground"
+                    ? "bg-secondary text-secondary-foreground font-medium dark:!bg-white/70 dark:!text-slate-950"
+                    : "hover:bg-muted text-muted-foreground dark:text-slate-200 dark:hover:!bg-white/60 dark:hover:!text-slate-950"
                 )}
               >
                 <span className="truncate">{form.title || t("common.untitled")}</span>
@@ -1553,9 +1554,9 @@ export default function Builder({ params }: { params: { id?: string } }) {
           </div>
         </div>
 
-        {/* Правая колонка: на узких экранах — кнопка «Элементы» + меню «Ещё», на больших — все кнопки */}
+        {/* РџСЂР°РІР°СЏ РєРѕР»РѕРЅРєР°: РЅР° СѓР·РєРёС… СЌРєСЂР°РЅР°С… вЂ” РєРЅРѕРїРєР° В«Р­Р»РµРјРµРЅС‚С‹В» + РјРµРЅСЋ В«Р•С‰С‘В», РЅР° Р±РѕР»СЊС€РёС… вЂ” РІСЃРµ РєРЅРѕРїРєРё */}
         <div className="flex items-center gap-1 sm:gap-2 shrink-0 justify-end">
-          {/* Кнопка раскрытия панели элементов (только на экранах < md, в одном ряду с действиями) */}
+          {/* РљРЅРѕРїРєР° СЂР°СЃРєСЂС‹С‚РёСЏ РїР°РЅРµР»Рё СЌР»РµРјРµРЅС‚РѕРІ (С‚РѕР»СЊРєРѕ РЅР° СЌРєСЂР°РЅР°С… < md, РІ РѕРґРЅРѕРј СЂСЏРґСѓ СЃ РґРµР№СЃС‚РІРёСЏРјРё) */}
           <Sheet open={isToolboxSheetOpen} onOpenChange={setIsToolboxSheetOpen}>
             <SheetTrigger asChild>
               <Button variant="outline" size="sm" className="gap-1.5 md:hidden shrink-0 h-8 px-2 sm:px-2.5" aria-label={t("builder.toolbox")}>
@@ -1596,7 +1597,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
             </SheetContent>
           </Sheet>
 
-          {/* На экранах < lg: выпадающее меню с действиями */}
+          {/* РќР° СЌРєСЂР°РЅР°С… < lg: РІС‹РїР°РґР°СЋС‰РµРµ РјРµРЅСЋ СЃ РґРµР№СЃС‚РІРёСЏРјРё */}
           <div className="flex items-center gap-1 lg:hidden">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -1671,12 +1672,12 @@ export default function Builder({ params }: { params: { id?: string } }) {
             )}
           </div>
 
-          {/* На экранах lg+: все кнопки в ряд */}
+          {/* РќР° СЌРєСЂР°РЅР°С… lg+: РІСЃРµ РєРЅРѕРїРєРё РІ СЂСЏРґ */}
           <div className="hidden lg:flex items-center gap-1.5 flex-nowrap">
             <Button
               variant="ghost"
               size="sm"
-              className="gap-1.5 h-9 px-2.5"
+              className="gap-1.5 h-9 px-2.5 dark:!bg-white/60 dark:hover:!bg-white/50 dark:!text-slate-950 dark:hover:!text-slate-950"
               onClick={() => {
                 const newLang = i18n.language.startsWith('ru') ? 'en' : 'ru';
                 if (activeForm) {
@@ -1686,7 +1687,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
                 localStorage.setItem("etu_pending_lang", newLang);
                 window.location.reload();
               }}
-              title={i18n.language.startsWith('ru') ? 'English' : 'Русский'}
+              title={i18n.language.startsWith('ru') ? 'English' : 'Р СѓСЃСЃРєРёР№'}
             >
               <Languages className="h-4 w-4" />
               <span className="text-sm font-medium">{i18n.language.startsWith('ru') ? 'RU' : 'EN'}</span>
@@ -1814,7 +1815,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
                         disabled={publishNoStart}
                         locale={calendarLocale}
                         placeholder={t("propert.selectDate")}
-                        inputClassName="h-10 text-foreground"
+                        inputClassName="h-10"
                         buttonClassName="!left-0 !top-0 !h-10 !w-10 !translate-y-0 hover:bg-transparent z-10"
                       />
                       <Popover>
@@ -1877,7 +1878,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
                         disabled={publishNoEnd || publishNoStart}
                         locale={calendarLocale}
                         placeholder={t("propert.selectDate")}
-                        inputClassName="h-10 text-foreground."
+                        inputClassName="h-10"
                         buttonClassName="!left-0 !top-0 !h-10 !w-10 !translate-y-0 hover:bg-transparent z-10"
                       />
                       <Popover>
@@ -2040,12 +2041,13 @@ export default function Builder({ params }: { params: { id?: string } }) {
               </DialogContent>
             </Dialog>
           </div>
+          <ThemeToggle />
           <UserMenu />
         </div>
       </header>
 
       <div className="flex-1 flex overflow-hidden min-h-0">
-        {/* Боковая панель элементов: скрыта на узких экранах (< md), там используется Sheet */}
+        {/* Р‘РѕРєРѕРІР°СЏ РїР°РЅРµР»СЊ СЌР»РµРјРµРЅС‚РѕРІ: СЃРєСЂС‹С‚Р° РЅР° СѓР·РєРёС… СЌРєСЂР°РЅР°С… (< md), С‚Р°Рј РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ Sheet */}
         <div
           className={cn(
             "hidden md:flex border-r border-border bg-white flex-col shrink-0 z-10 overflow-hidden transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
@@ -2058,12 +2060,16 @@ export default function Builder({ params }: { params: { id?: string } }) {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 shrink-0"
+                  className="h-8 w-8 shrink-0 bg-transparent hover:bg-transparent dark:!bg-transparent dark:hover:!bg-transparent"
                   onClick={() => setIsToolboxOpen(!isToolboxOpen)}
                   title={isToolboxOpen ? t("builder.collapseToolbox") : t("builder.expandToolbox")}
                   aria-label={isToolboxOpen ? t("builder.collapseToolbox") : t("builder.expandToolbox")}
                 >
-                  {isToolboxOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
+                  {isToolboxOpen ? (
+                    <PanelLeftClose className="h-4 w-4 text-muted-foreground dark:!text-white" />
+                  ) : (
+                    <PanelLeftOpen className="h-4 w-4 text-muted-foreground dark:!text-white" />
+                  )}
                 </Button>
                 {isToolboxOpen ? (
                   <h2 className="font-semibold text-sm text-foreground uppercase tracking-wider whitespace-nowrap overflow-hidden">
@@ -2083,7 +2089,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
               return (
                 <div key={category} className="space-y-1">
                   <p
-                    className="text-xs font-medium text-muted-foreground uppercase flex items-center mb-3 pl-5 gap-2"
+                    className="text-xs font-medium text-muted-foreground uppercase flex items-center mb-3 pl-5 gap-2 dark:text-slate-200"
                     title={!isToolboxOpen ? categoryLabel : undefined}
                   >
                     <CategoryIcon className="h-4 w-4 shrink-0" />
@@ -2131,7 +2137,7 @@ export default function Builder({ params }: { params: { id?: string } }) {
         />
         </div>
 
-        {/* Панель свойств: скрыта на узких экранах (< lg), там используется Sheet */}
+        {/* РџР°РЅРµР»СЊ СЃРІРѕР№СЃС‚РІ: СЃРєСЂС‹С‚Р° РЅР° СѓР·РєРёС… СЌРєСЂР°РЅР°С… (< lg), С‚Р°Рј РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ Sheet */}
         <div className="hidden lg:flex w-80 border-l border-border bg-white flex-col shrink-0 z-10 overflow-hidden">
           <PropertiesPanel
             key={selectedField?.id || selectedIds.join("-") || 'none'}
