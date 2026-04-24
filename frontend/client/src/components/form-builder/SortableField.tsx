@@ -1298,7 +1298,11 @@ export function SortableField({ field, isSelected, onSelect, updateField, fields
             <div
               className={cn(
                 "pointer-events-none",
-                (field.widgetType === "matrix" || field.widgetType === "ranking") && "!pointer-events-auto"
+                (field.widgetType === "select" ||
+                  field.widgetType === "datetime" ||
+                  field.widgetType === "matrix" ||
+                  field.widgetType === "ranking") &&
+                  "!pointer-events-auto"
               )}
             >
               {renderFieldPreview()}
