@@ -529,7 +529,8 @@
     "invalidEmailDomainList": "Allowed domains: {{domains}}",
     "invalidSnils": "Invalid SNILS",
     "invalidSnilsRepeatedDigits": "Invalid SNILS",
-    "invalidSnilsChecksum": "Invalid SNILS checksum"
+    "invalidSnilsChecksum": "Invalid SNILS checksum",
+    "prohibitedSymbols": "Prohibited symbols were detected. Please remove them: using such symbols is not allowed."
   },
   "descerr": {
     "empty":"Folder name cannot be empty",

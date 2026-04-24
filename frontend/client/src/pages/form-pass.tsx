@@ -166,6 +166,9 @@ export default function FormPass({ params }: { params: { id: string } }) {
   const startedAt = useMemo(() => new Date().toISOString(), [params.id]);
   const localizeSubmitError = (raw?: string) => {
     if (!raw) return t("respond.submitError");
+    if (raw.includes("Text contains prohibited symbols")) {
+      return t("errors.prohibitedSymbols");
+    }
     if (raw.includes("Invalid SNILS repeated digits")) {
       return t("errors.invalidSnilsRepeatedDigits");
     }

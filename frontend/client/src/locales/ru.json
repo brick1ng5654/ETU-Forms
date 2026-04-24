@@ -582,7 +582,8 @@
     "invalidEmailDomainList": "Разрешенные домены: {{domains}}",
     "invalidSnils": "Некорректный СНИЛС",
     "invalidSnilsRepeatedDigits": "Некорректный СНИЛС",
-    "invalidSnilsChecksum": "Некорректная контрольная сумма СНИЛС"
+    "invalidSnilsChecksum": "Некорректная контрольная сумма СНИЛС",
+    "prohibitedSymbols": "Обнаружены запрещенные символы. Пожалуйста, удалите их: использовать такие символы недопустимо."
   },
   "auth": {
     "login": "Вход в систему",
