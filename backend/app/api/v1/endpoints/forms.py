@@ -12,6 +12,7 @@ from app.security.auth_dependencies import (
     get_current_user as get_current_user_dep,
     can_edit_forms,
     ensure_can_edit_forms,
+    resolve_user_role,
 )
 from app.schemas import (
     FormCreate,
@@ -193,6 +194,7 @@ async def get_forms_catalog(
 ):
     await _cleanup_expired_temp_forms(db)
     can_manage_forms = can_edit_forms(current_user)
+    is_admin = resolve_user_role(current_user) == "admin"
 
     query = (
         select(Form, AccessControl.role)
@@ -205,14 +207,15 @@ async def get_forms_catalog(
             ),
         )
         .where(Form.status != "deleted")
-        .where(
+        .order_by(Form.updated_at.desc(), Form.created_at.desc(), Form.form_id.desc())
+    )
+    if not is_admin:
+        query = query.where(
             or_(
                 Form.user_id == current_user.user_id,
                 AccessControl.user_id == current_user.user_id,
             )
         )
-        .order_by(Form.updated_at.desc(), Form.created_at.desc(), Form.form_id.desc())
-    )
     result = await db.execute(query)
 
     forms_by_id: dict[int, Form] = {}
@@ -230,14 +233,14 @@ async def get_forms_catalog(
         status_value = _enum_value(form.status)
         role_set = roles_by_form_id.get(form.form_id, set())
         is_owner = form.user_id == current_user.user_id
-        can_edit = can_manage_forms and (is_owner or "editor" in role_set)
+        can_edit = is_admin or (can_manage_forms and (is_owner or "editor" in role_set))
         can_view_responses = (
             status_value == "submitted"
-            and (is_owner or "editor" in role_set or "participant" in role_set)
+            and (is_admin or is_owner or "editor" in role_set or "participant" in role_set)
         )
         can_continue_passage = (
             status_value == "submitted"
-            and (is_owner or "editor" in role_set or "participant" in role_set)
+            and (is_admin or is_owner or "editor" in role_set or "participant" in role_set)
         )
 
         if not (can_edit or can_view_responses or can_continue_passage):
@@ -299,6 +302,9 @@ async def _ensure_editor_or_owner(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Form expired")
 
     if form.user_id == current_user.user_id:
+        return form
+
+    if resolve_user_role(current_user) == "admin":
         return form
 
     if not allowed_roles:
