@@ -10,4 +10,5 @@
 
 UserGuide
 MainPage
+SingInPage
 ```
