@@ -331,6 +331,7 @@
     "act":"Actions",
     "properties": "Properties",
     "delete": "Delete",
+    "duplicate": "Duplicate",
     "moveTo": "Move to",
     "create": "Create",
     "cancel": "Cancel",
