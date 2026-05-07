@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
-import type { MouseEvent } from "react";
+import type { MouseEvent, PointerEvent as ReactPointerEvent } from "react";
 import { nanoid } from "nanoid";
 import type { FormAccessMode, FormElementModel, FormPageModel, FormSchema } from "@/form/types";
 import { FormCanvas, getIconForElement } from "@/components/form-builder/FormCanvas";
@@ -102,6 +102,26 @@ const CATEGORY_ICONS: Record<string, LucideIcon> = {
   Choice: Copy,
   Advanced: Hexagon,
   Specialized: SquareAsterisk,
+};
+
+const BUILDER_LEFT_PANEL_WIDTH_KEY = "builder:left-panel-width";
+const BUILDER_RIGHT_PANEL_WIDTH_KEY = "builder:right-panel-width";
+const BUILDER_LEFT_PANEL_DEFAULT_WIDTH = 256;
+const BUILDER_RIGHT_PANEL_DEFAULT_WIDTH = 320;
+const BUILDER_LEFT_PANEL_MIN_WIDTH = 208;
+const BUILDER_LEFT_PANEL_MAX_WIDTH = 420;
+const BUILDER_RIGHT_PANEL_MIN_WIDTH = 280;
+const BUILDER_RIGHT_PANEL_MAX_WIDTH = 520;
+
+const clampPanelWidth = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const readStoredPanelWidth = (key: string, fallback: number, min: number, max: number) => {
+  if (typeof window === "undefined") return fallback;
+  const stored = window.localStorage.getItem(key);
+  if (!stored) return fallback;
+  const parsed = Number(stored);
+  if (!Number.isFinite(parsed)) return fallback;
+  return clampPanelWidth(parsed, min, max);
 };
 
 const isValidDateString = (value: string) => {
@@ -348,6 +368,22 @@ export default function Builder({ params }: { params: { id?: string } }) {
   const [isToolboxOpen, setIsToolboxOpen] = useState(true);
   const [isToolboxSheetOpen, setIsToolboxSheetOpen] = useState(false);
   const [isPropertiesSheetOpen, setIsPropertiesSheetOpen] = useState(false);
+  const [toolboxPanelWidth, setToolboxPanelWidth] = useState(() =>
+    readStoredPanelWidth(
+      BUILDER_LEFT_PANEL_WIDTH_KEY,
+      BUILDER_LEFT_PANEL_DEFAULT_WIDTH,
+      BUILDER_LEFT_PANEL_MIN_WIDTH,
+      BUILDER_LEFT_PANEL_MAX_WIDTH,
+    )
+  );
+  const [propertiesPanelWidth, setPropertiesPanelWidth] = useState(() =>
+    readStoredPanelWidth(
+      BUILDER_RIGHT_PANEL_WIDTH_KEY,
+      BUILDER_RIGHT_PANEL_DEFAULT_WIDTH,
+      BUILDER_RIGHT_PANEL_MIN_WIDTH,
+      BUILDER_RIGHT_PANEL_MAX_WIDTH,
+    )
+  );
   const [isLgUp, setIsLgUp] = useState(typeof window !== "undefined" ? window.matchMedia("(min-width: 1024px)").matches : true);
 
   useEffect(() => {
@@ -362,6 +398,57 @@ export default function Builder({ params }: { params: { id?: string } }) {
       setIsPropertiesSheetOpen(true);
     }
   }, [isLgUp, selectedIds.length, selectedPageIds.length]);
+
+  useEffect(() => {
+    window.localStorage.setItem(BUILDER_LEFT_PANEL_WIDTH_KEY, String(toolboxPanelWidth));
+  }, [toolboxPanelWidth]);
+
+  useEffect(() => {
+    window.localStorage.setItem(BUILDER_RIGHT_PANEL_WIDTH_KEY, String(propertiesPanelWidth));
+  }, [propertiesPanelWidth]);
+
+  const startPanelResize = useCallback((
+    panel: "toolbox" | "properties",
+    event: ReactPointerEvent<HTMLDivElement>,
+  ) => {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = panel === "toolbox" ? toolboxPanelWidth : propertiesPanelWidth;
+    const previousCursor = document.body.style.cursor;
+    const previousUserSelect = document.body.style.userSelect;
+
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const delta = moveEvent.clientX - startX;
+      if (panel === "toolbox") {
+        setToolboxPanelWidth(clampPanelWidth(
+          startWidth + delta,
+          BUILDER_LEFT_PANEL_MIN_WIDTH,
+          BUILDER_LEFT_PANEL_MAX_WIDTH,
+        ));
+      } else {
+        setPropertiesPanelWidth(clampPanelWidth(
+          startWidth - delta,
+          BUILDER_RIGHT_PANEL_MIN_WIDTH,
+          BUILDER_RIGHT_PANEL_MAX_WIDTH,
+        ));
+      }
+    };
+
+    const stopResize = () => {
+      document.body.style.cursor = previousCursor;
+      document.body.style.userSelect = previousUserSelect;
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", stopResize);
+      window.removeEventListener("pointercancel", stopResize);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", stopResize);
+    window.addEventListener("pointercancel", stopResize);
+  }, [propertiesPanelWidth, toolboxPanelWidth]);
   const { t, i18n } = useTranslation();
   const calendarLocale = i18n.language.startsWith("ru") ? ru : enUS;
 
@@ -2048,9 +2135,10 @@ export default function Builder({ params }: { params: { id?: string } }) {
         {/* Боковая панель элементов: скрыта на узких экранах (< md), там используется Sheet */}
         <div
           className={cn(
-            "hidden md:flex border-r border-border bg-white flex-col shrink-0 z-10 overflow-hidden transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
-            isToolboxOpen ? "w-56 sm:w-64" : "w-14 sm:w-24"
+            "hidden md:flex border-r border-border bg-white flex-col shrink-0 z-10 overflow-hidden",
+            isToolboxOpen ? "" : "w-14 sm:w-24 transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
           )}
+          style={isToolboxOpen ? { width: `${toolboxPanelWidth}px` } : undefined}
         >
           <div className="border-b border-border">
             <div className="h-[52px] px-6 flex items-center">
@@ -2104,6 +2192,17 @@ export default function Builder({ params }: { params: { id?: string } }) {
             })}
           </div>
         </div>
+        {isToolboxOpen ? (
+          <div
+            aria-label={`${t("builder.toolbox")} resize`}
+            className="hidden md:flex w-2 shrink-0 cursor-col-resize items-stretch justify-center bg-white hover:bg-muted/60 active:bg-muted"
+            onPointerDown={(event) => startPanelResize("toolbox", event)}
+            role="separator"
+            title={t("builder.toolbox")}
+          >
+            <div className="w-px bg-border" />
+          </div>
+        ) : null}
 
         <div className="flex-1 min-w-0 overflow-hidden flex flex-col">
         <FormCanvas
@@ -2132,7 +2231,19 @@ export default function Builder({ params }: { params: { id?: string } }) {
         </div>
 
         {/* Панель свойств: скрыта на узких экранах (< lg), там используется Sheet */}
-        <div className="hidden lg:flex w-80 border-l border-border bg-white flex-col shrink-0 z-10 overflow-hidden">
+        <div
+          aria-label={`${t("builder.properties")} resize`}
+          className="hidden lg:flex w-2 shrink-0 cursor-col-resize items-stretch justify-center bg-white hover:bg-muted/60 active:bg-muted"
+          onPointerDown={(event) => startPanelResize("properties", event)}
+          role="separator"
+          title={t("builder.properties")}
+        >
+          <div className="w-px bg-border" />
+        </div>
+        <div
+          className="hidden lg:flex border-l border-border bg-white flex-col shrink-0 z-10 overflow-hidden"
+          style={{ width: `${propertiesPanelWidth}px` }}
+        >
           <PropertiesPanel
             key={selectedField?.id || selectedIds.join("-") || 'none'}
             pages={pages}
