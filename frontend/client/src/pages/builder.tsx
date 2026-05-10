@@ -996,6 +996,169 @@ export default function Builder({ params }: { params: { id?: string } }) {
     clearSelection();
   };
 
+  const cloneFieldForDuplicate = (
+    field: FormElementModel,
+    overrides: { id: string; pageId: number; sortIndex: number },
+    idMap: Map<string, string>
+  ): FormElementModel => {
+    const clone = JSON.parse(JSON.stringify(field)) as FormElementModel;
+    const props = { ...(clone.props ?? {}) } as Record<string, any>;
+    const conditionalLogic = props.conditionalLogic as Record<string, any> | undefined;
+    if (conditionalLogic?.dependsOn && idMap.has(String(conditionalLogic.dependsOn))) {
+      props.conditionalLogic = {
+        ...conditionalLogic,
+        dependsOn: idMap.get(String(conditionalLogic.dependsOn)),
+      };
+    }
+    return {
+      ...clone,
+      id: overrides.id,
+      pageId: overrides.pageId,
+      sortIndex: overrides.sortIndex,
+      props,
+    };
+  };
+
+  const createPageIdAllocator = () => {
+    const existingIds = new Set(pages.map((page) => page.id));
+    const hasTemporaryIds = Array.from(existingIds).some((id) => id < 0);
+    let maxId = existingIds.size > 0 ? Math.max(...Array.from(existingIds)) : 0;
+
+    return () => {
+      if (hasTemporaryIds) {
+        let nextId = nextPageIdRef.current;
+        while (existingIds.has(nextId)) {
+          nextId -= 1;
+        }
+        nextPageIdRef.current = nextId - 1;
+        existingIds.add(nextId);
+        return nextId;
+      }
+
+      let nextId = maxId + 1;
+      while (existingIds.has(nextId)) {
+        nextId += 1;
+      }
+      maxId = nextId;
+      existingIds.add(nextId);
+      return nextId;
+    };
+  };
+
+  const duplicateSelected = () => {
+    if (selectedIds.length === 0) return;
+    const selectedSet = new Set(selectedIds);
+    const idMap = new Map<string, string>();
+    selectedIds.forEach((id) => idMap.set(id, nanoid()));
+
+    const duplicatedIds: string[] = [];
+    const nextFields: FormElementModel[] = [];
+    const pageOrder = pages.slice().sort((a, b) => a.pageIndex - b.pageIndex);
+
+    pageOrder.forEach((page) => {
+      const pageFields = fields
+        .filter((field) => field.pageId === page.id)
+        .slice()
+        .sort((a, b) => a.sortIndex - b.sortIndex);
+
+      pageFields.forEach((field) => {
+        nextFields.push(field);
+        const duplicateId = idMap.get(field.id);
+        if (!duplicateId || !selectedSet.has(field.id)) return;
+
+        duplicatedIds.push(duplicateId);
+        nextFields.push(
+          cloneFieldForDuplicate(
+            field,
+            { id: duplicateId, pageId: field.pageId, sortIndex: field.sortIndex + 1 },
+            idMap
+          )
+        );
+      });
+    });
+
+    setFields(nextFields);
+    setSelectedIds(duplicatedIds);
+    setLastSelectedId(duplicatedIds[duplicatedIds.length - 1] ?? null);
+    setSelectedPageIds([]);
+    setLastSelectedPageId(null);
+    const firstDuplicate = nextFields.find((field) => field.id === duplicatedIds[0]);
+    if (firstDuplicate) {
+      setActivePageId(firstDuplicate.pageId);
+    }
+  };
+
+  const duplicatePages = (pageIds: number[]) => {
+    if (!activeForm || pageIds.length === 0) return;
+    const selectedPageSet = new Set(pageIds);
+    const allocatePageId = createPageIdAllocator();
+    const pageIdMap = new Map<number, number>();
+    const idMap = new Map<string, string>();
+
+    pages.forEach((page) => {
+      if (selectedPageSet.has(page.id)) {
+        pageIdMap.set(page.id, allocatePageId());
+      }
+    });
+    fields.forEach((field) => {
+      if (selectedPageSet.has(field.pageId)) {
+        idMap.set(field.id, nanoid());
+      }
+    });
+
+    const duplicatedPageIds: number[] = [];
+    const orderedPages = pages.slice().sort((a, b) => a.pageIndex - b.pageIndex);
+    const nextPages = reindexPagesInOrder(
+      orderedPages.flatMap((page) => {
+        const duplicatePageId = pageIdMap.get(page.id);
+        if (duplicatePageId == null) return [page];
+        duplicatedPageIds.push(duplicatePageId);
+        return [
+          page,
+          {
+            ...JSON.parse(JSON.stringify(page)) as FormPageModel,
+            id: duplicatePageId,
+          },
+        ];
+      })
+    );
+
+    const nextFields: FormElementModel[] = [];
+    nextPages.forEach((page) => {
+      const sourcePageId = Array.from(pageIdMap.entries()).find(([, duplicateId]) => duplicateId === page.id)?.[0] ?? page.id;
+      const pageFields = fields
+        .filter((field) => field.pageId === sourcePageId)
+        .slice()
+        .sort((a, b) => a.sortIndex - b.sortIndex);
+
+      pageFields.forEach((field, index) => {
+        const duplicateFieldId = idMap.get(field.id);
+        if (page.id === sourcePageId || !duplicateFieldId) {
+          if (page.id === sourcePageId) {
+            nextFields.push({ ...field, sortIndex: index });
+          }
+          return;
+        }
+
+        nextFields.push(
+          cloneFieldForDuplicate(
+            field,
+            { id: duplicateFieldId, pageId: page.id, sortIndex: index },
+            idMap
+          )
+        );
+      });
+    });
+
+    const normalizedFields = normalizeFieldsByPage(nextFields, nextPages);
+    setForm({ ...activeForm, pages: nextPages, fields: normalizedFields });
+    setActivePageId(duplicatedPageIds[0] ?? activePageId);
+    setSelectedPageIds(duplicatedPageIds);
+    setLastSelectedPageId(duplicatedPageIds[duplicatedPageIds.length - 1] ?? null);
+    setSelectedIds([]);
+    setLastSelectedId(null);
+  };
+
   const undoLast = useCallback(() => {
     if (!activeForm || history.length === 0) return;
     const previousForm = history[history.length - 1];
@@ -1743,11 +1906,13 @@ export default function Builder({ params }: { params: { id?: string } }) {
                       pages={pages}
                       selectedPageIds={selectedPageIds}
                       onDeletePages={deletePages}
+                      onDuplicatePages={duplicatePages}
                       onTogglePageBack={togglePageBack}
                       selectedField={selectedField}
                       selectedIds={selectedIds}
                       updateField={updateField}
                       updateFields={updateFields}
+                      duplicateSelected={duplicateSelected}
                       deleteField={deleteField}
                       deleteSelected={deleteSelected}
                       fields={fields}
@@ -2249,11 +2414,13 @@ export default function Builder({ params }: { params: { id?: string } }) {
             pages={pages}
             selectedPageIds={selectedPageIds}
             onDeletePages={deletePages}
+            onDuplicatePages={duplicatePages}
             onTogglePageBack={togglePageBack}
             selectedField={selectedField}
             selectedIds={selectedIds}
             updateField={updateField}
             updateFields={updateFields}
+            duplicateSelected={duplicateSelected}
             deleteField={deleteField}
             deleteSelected={deleteSelected}
             fields={fields}

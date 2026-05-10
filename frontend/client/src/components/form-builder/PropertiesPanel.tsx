@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { X, Plus, Trash2, Check, Lock, Unlock } from "lucide-react";
+import { X, Plus, Trash2, Check, Lock, Unlock, CopyPlus } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTranslation } from "react-i18next";
 import { DndContext, DragEndEvent, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
@@ -30,11 +30,13 @@ interface PropertiesPanelProps {
   pages: FormPageModel[];
   selectedPageIds: number[];
   onDeletePages: (pageIds: number[], options: { mode: "delete" | "move"; targetPageId?: number }) => void;
+  onDuplicatePages: (pageIds: number[]) => void;
   onTogglePageBack: (pageId: number, allowBack: boolean) => void;
   selectedField: FormElementModel | null;
   selectedIds: string[];
   updateField: (id: string, updates: Partial<FormElementModel>) => void;
   updateFields: (ids: string[], updates: Partial<FormElementModel>) => void;
+  duplicateSelected: () => void;
   deleteField: (id: string) => void;
   deleteSelected: () => void;
   fields: FormElementModel[];
@@ -531,11 +533,13 @@ export function PropertiesPanel({
   pages,
   selectedPageIds,
   onDeletePages,
+  onDuplicatePages,
   onTogglePageBack,
   selectedField,
   selectedIds,
   updateField,
   updateFields,
+  duplicateSelected,
   deleteField,
   deleteSelected,
   fields,
@@ -660,6 +664,16 @@ export function PropertiesPanel({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => onDuplicatePages(selectedPageIds)}
+            aria-label={t("actions.duplicate")}
+            title={t("actions.duplicate")}
+          >
+            <CopyPlus className="h-4 w-4" />
+          </Button>
           <Button
             variant="outline"
             size="icon"
@@ -811,6 +825,16 @@ export function PropertiesPanel({
         <div className="flex items-center justify-between border-b pb-4">
           <h3 className="font-semibold text-lg">{t("propert.propet")}</h3>
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={duplicateSelected}
+              aria-label={t("actions.duplicate")}
+              title={t("actions.duplicate")}
+            >
+              <CopyPlus className="h-4 w-4" />
+            </Button>
             <Button
               variant="outline"
               size="icon"
@@ -1598,6 +1622,16 @@ export function PropertiesPanel({
       <div className="flex items-center justify-between border-b pb-4">
         <h3 className="font-semibold text-lg">{t("propert.propet")}</h3>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            onClick={duplicateSelected}
+            aria-label={t("actions.duplicate")}
+            title={t("actions.duplicate")}
+          >
+            <CopyPlus className="h-4 w-4" />
+          </Button>
           <Button
             variant="outline"
             size="icon"
