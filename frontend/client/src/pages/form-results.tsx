@@ -39,7 +39,6 @@ import { downloadFormResponsesExport, fetchFormDetail, fetchFormResponses, fetch
 import { storage } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import { formatScoreRange } from "@/lib/points-label";
-import { getCountryLabel, isCountryField } from "@/lib/countries";
 import FormPreview from "@/components/form-builder/FormPreview";
 import { ElementAttachments } from "@/components/form-builder/ElementAttachments";
 import { UserMenu } from "@/components/user-menu";
@@ -2009,6 +2008,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
                   title={t("results.openCalendar")}
                   locale={calendarLocale}
                   popoverPortalled={false}
+                  disabled={!canEditCurrentForm}
                 />
               </div>
               <div className="space-y-2">
@@ -2019,11 +2019,16 @@ export default function FormResults({ params }: { params: { id: string } }) {
                   title={t("results.openCalendar")}
                   locale={calendarLocale}
                   popoverPortalled={false}
+                  disabled={!canEditCurrentForm}
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">{t("builder.accessMode")}</label>
-                <Select value={accessMode} onValueChange={(value) => setAccessMode(value as FormAccessMode)}>
+                <Select
+                  value={accessMode}
+                  onValueChange={(value) => setAccessMode(value as FormAccessMode)}
+                  disabled={!canEditCurrentForm}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder={t("builder.accessModePlaceholder")} />
                   </SelectTrigger>
