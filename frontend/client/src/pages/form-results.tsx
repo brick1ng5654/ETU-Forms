@@ -39,7 +39,6 @@ import { downloadFormResponsesExport, fetchFormDetail, fetchFormResponses, fetch
 import { storage } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import { formatScoreRange } from "@/lib/points-label";
-import { getCountryLabel, isCountryField } from "@/lib/countries";
 import FormPreview from "@/components/form-builder/FormPreview";
 import { ElementAttachments } from "@/components/form-builder/ElementAttachments";
 import { UserMenu } from "@/components/user-menu";
@@ -58,6 +57,7 @@ import { toast } from "@/hooks/use-toast";
 import { AppBrand } from "@/components/app-brand";
 import { CustomLoader } from "@/components/ui/custom-loader";
 import { FormAccessDialog } from "@/components/form-access-dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 type ResponseEntry = {
   id: string;
@@ -81,6 +81,54 @@ type SummaryRow = {
   label: string;
   metrics: SummaryMetric[];
 };
+
+function AccessModeSelectItemLabel({ label, hint }: { label: string; hint: string }) {
+  const [isTooltipOpen, setIsTooltipOpen] = useState(false);
+
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span>{label}</span>
+      <Tooltip open={isTooltipOpen}>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            aria-label={hint}
+            onPointerDown={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+            onPointerEnter={(event) => {
+              event.stopPropagation();
+              setIsTooltipOpen(true);
+            }}
+            onPointerLeave={(event) => {
+              event.stopPropagation();
+              setIsTooltipOpen(false);
+            }}
+            onFocus={(event) => {
+              event.stopPropagation();
+              setIsTooltipOpen(false);
+            }}
+            onBlur={(event) => {
+              event.stopPropagation();
+              setIsTooltipOpen(false);
+            }}
+            className="h-5 w-5 rounded-full border border-muted-foreground/40 text-muted-foreground text-[11px] leading-none flex items-center justify-center hover:bg-muted"
+          >
+            ?
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="right" className="max-w-sm text-xs leading-relaxed">
+          {hint}
+        </TooltipContent>
+      </Tooltip>
+    </span>
+  );
+}
 
 type Selection =
   | { type: "source" }
@@ -1528,6 +1576,8 @@ export default function FormResults({ params }: { params: { id: string } }) {
               size="sm"
               className="gap-2"
               onClick={() => setLocation(`/builder/${params.id}`)}
+              aria-label={t("results.editForm")}
+              title={t("results.editForm")}
             >
               <PencilLine className="h-4 w-4" />
               <span className="hidden sm:inline">{t("results.editForm")}</span>
@@ -1539,6 +1589,8 @@ export default function FormResults({ params }: { params: { id: string } }) {
             className="gap-2"
             onClick={() => setIsAccessDialogOpen(true)}
             disabled={!canEditCurrentForm}
+            aria-label={t("access.manageAccessToForm")}
+            title={t("access.manageAccessToForm")}
           >
             <Users className="h-4 w-4" />
             <span className="hidden sm:inline">{t("access.manageAccessToForm")}</span>
@@ -1551,7 +1603,8 @@ export default function FormResults({ params }: { params: { id: string } }) {
               const newLang = i18n.language.startsWith("ru") ? "en" : "ru";
               i18n.changeLanguage(newLang);
             }}
-            title={i18n.language.startsWith("ru") ? "Переключить на Английский" : "Switch to Russian"}
+            aria-label={i18n.language.startsWith("ru") ? t("builder.switchToEnglish") : t("builder.switchToRussian")}
+            title={i18n.language.startsWith("ru") ? t("builder.switchToEnglish") : t("builder.switchToRussian")}
           >
             <Languages className="h-4 w-4" />
             <span className="hidden sm:inline text-sm font-medium">{i18n.language.startsWith("ru") ? "RU" : "EN"}</span>
@@ -1619,6 +1672,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
                   size="icon"
                   className="h-10 w-10 shrink-0"
                   title={responsesSortDirection === "asc" ? t("results.sortAsc") : t("results.sortDesc")}
+                  aria-label={responsesSortDirection === "asc" ? t("results.sortAsc") : t("results.sortDesc")}
                   onClick={() =>
                     setResponsesSortDirection((prev) => (prev === "asc" ? "desc" : "asc"))
                   }
@@ -1787,6 +1841,8 @@ export default function FormResults({ params }: { params: { id: string } }) {
                         className="w-full sm:w-auto"
                         onClick={handleExportResponses}
                         disabled={isExporting}
+                        aria-label={isExporting ? t("results.exporting") : t("results.exportXlsx")}
+                        title={isExporting ? t("results.exporting") : t("results.exportXlsx")}
                       >
                         {isExporting ? t("results.exporting") : t("results.exportXlsx")}
                       </Button>
@@ -1952,6 +2008,7 @@ export default function FormResults({ params }: { params: { id: string } }) {
                   title={t("results.openCalendar")}
                   locale={calendarLocale}
                   popoverPortalled={false}
+                  disabled={!canEditCurrentForm}
                 />
               </div>
               <div className="space-y-2">
@@ -1962,17 +2019,32 @@ export default function FormResults({ params }: { params: { id: string } }) {
                   title={t("results.openCalendar")}
                   locale={calendarLocale}
                   popoverPortalled={false}
+                  disabled={!canEditCurrentForm}
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">{t("builder.accessMode")}</label>
-                <Select value={accessMode} onValueChange={(value) => setAccessMode(value as FormAccessMode)}>
+                <Select
+                  value={accessMode}
+                  onValueChange={(value) => setAccessMode(value as FormAccessMode)}
+                  disabled={!canEditCurrentForm}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder={t("builder.accessModePlaceholder")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="private">{t("builder.accessModePrivate")}</SelectItem>
-                    <SelectItem value="unauthenticated">{t("builder.accessModeUnauthenticated")}</SelectItem>
+                    <SelectItem value="private">
+                      <AccessModeSelectItemLabel
+                        label={t("builder.accessModePrivate")}
+                        hint={t("builder.accessModePrivateHint")}
+                      />
+                    </SelectItem>
+                    <SelectItem value="unauthenticated">
+                      <AccessModeSelectItemLabel
+                        label={t("builder.accessModeUnauthenticated")}
+                        hint={t("builder.accessModeUnauthenticatedHint")}
+                      />
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1983,7 +2055,13 @@ export default function FormResults({ params }: { params: { id: string } }) {
                     <LinkIcon className="h-4 w-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
                     <Input value={formLink} readOnly className="pl-9" />
                   </div>
-                  <Button variant="outline" size="icon" onClick={handleCopyLink}>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleCopyLink}
+                    aria-label={t("results.copyLink")}
+                    title={t("results.copyLink")}
+                  >
                     <Copy className="h-4 w-4" />
                   </Button>
                 </div>

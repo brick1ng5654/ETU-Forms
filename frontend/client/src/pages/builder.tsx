@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
-import type { MouseEvent } from "react";
+import type { MouseEvent, PointerEvent as ReactPointerEvent } from "react";
 import { nanoid } from "nanoid";
 import type { FormAccessMode, FormElementModel, FormPageModel, FormSchema } from "@/form/types";
 import { FormCanvas, getIconForElement } from "@/components/form-builder/FormCanvas";
@@ -8,6 +8,7 @@ import FormPreview from "@/components/form-builder/FormPreview";
 import { ToolboxItem, ToolboxItemDefinition } from "@/components/form-builder/ToolboxItem";
 import { CustomLoader } from "@/components/ui/custom-loader";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Eye,
   BarChart3,
@@ -97,11 +98,76 @@ const TOOLBOX_ITEMS: ToolboxItemDefinition[] = [
   { widgetType: "text_input", semanticType: "bik", labelKey: "bik", category: "Specialized" },
 ];
 
+function HintIcon({ text }: { text: string }) {
+  const [isTooltipOpen, setIsTooltipOpen] = useState(false);
+
+  return (
+    <Tooltip open={isTooltipOpen}>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          aria-label={text}
+          onPointerDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          onPointerEnter={(event) => {
+            event.stopPropagation();
+            setIsTooltipOpen(true);
+          }}
+          onPointerLeave={(event) => {
+            event.stopPropagation();
+            setIsTooltipOpen(false);
+          }}
+          onFocus={(event) => {
+            event.stopPropagation();
+            setIsTooltipOpen(false);
+          }}
+          onBlur={(event) => {
+            event.stopPropagation();
+            setIsTooltipOpen(false);
+          }}
+          className="h-5 w-5 rounded-full border border-muted-foreground/40 text-muted-foreground text-[11px] leading-none flex items-center justify-center hover:bg-muted"
+        >
+          ?
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="right" className="max-w-sm text-xs leading-relaxed">
+        {text}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 const CATEGORY_ICONS: Record<string, LucideIcon> = {
   Basic: Diamond,
   Choice: Copy,
   Advanced: Hexagon,
   Specialized: SquareAsterisk,
+};
+
+const BUILDER_LEFT_PANEL_WIDTH_KEY = "builder:left-panel-width";
+const BUILDER_RIGHT_PANEL_WIDTH_KEY = "builder:right-panel-width";
+const BUILDER_LEFT_PANEL_DEFAULT_WIDTH = 256;
+const BUILDER_RIGHT_PANEL_DEFAULT_WIDTH = 320;
+const BUILDER_LEFT_PANEL_MIN_WIDTH = 208;
+const BUILDER_LEFT_PANEL_MAX_WIDTH = 420;
+const BUILDER_RIGHT_PANEL_MIN_WIDTH = 280;
+const BUILDER_RIGHT_PANEL_MAX_WIDTH = 520;
+
+const clampPanelWidth = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const readStoredPanelWidth = (key: string, fallback: number, min: number, max: number) => {
+  if (typeof window === "undefined") return fallback;
+  const stored = window.localStorage.getItem(key);
+  if (!stored) return fallback;
+  const parsed = Number(stored);
+  if (!Number.isFinite(parsed)) return fallback;
+  return clampPanelWidth(parsed, min, max);
 };
 
 const isValidDateString = (value: string) => {
@@ -348,6 +414,22 @@ export default function Builder({ params }: { params: { id?: string } }) {
   const [isToolboxOpen, setIsToolboxOpen] = useState(true);
   const [isToolboxSheetOpen, setIsToolboxSheetOpen] = useState(false);
   const [isPropertiesSheetOpen, setIsPropertiesSheetOpen] = useState(false);
+  const [toolboxPanelWidth, setToolboxPanelWidth] = useState(() =>
+    readStoredPanelWidth(
+      BUILDER_LEFT_PANEL_WIDTH_KEY,
+      BUILDER_LEFT_PANEL_DEFAULT_WIDTH,
+      BUILDER_LEFT_PANEL_MIN_WIDTH,
+      BUILDER_LEFT_PANEL_MAX_WIDTH,
+    )
+  );
+  const [propertiesPanelWidth, setPropertiesPanelWidth] = useState(() =>
+    readStoredPanelWidth(
+      BUILDER_RIGHT_PANEL_WIDTH_KEY,
+      BUILDER_RIGHT_PANEL_DEFAULT_WIDTH,
+      BUILDER_RIGHT_PANEL_MIN_WIDTH,
+      BUILDER_RIGHT_PANEL_MAX_WIDTH,
+    )
+  );
   const [isLgUp, setIsLgUp] = useState(typeof window !== "undefined" ? window.matchMedia("(min-width: 1024px)").matches : true);
 
   useEffect(() => {
@@ -362,6 +444,57 @@ export default function Builder({ params }: { params: { id?: string } }) {
       setIsPropertiesSheetOpen(true);
     }
   }, [isLgUp, selectedIds.length, selectedPageIds.length]);
+
+  useEffect(() => {
+    window.localStorage.setItem(BUILDER_LEFT_PANEL_WIDTH_KEY, String(toolboxPanelWidth));
+  }, [toolboxPanelWidth]);
+
+  useEffect(() => {
+    window.localStorage.setItem(BUILDER_RIGHT_PANEL_WIDTH_KEY, String(propertiesPanelWidth));
+  }, [propertiesPanelWidth]);
+
+  const startPanelResize = useCallback((
+    panel: "toolbox" | "properties",
+    event: ReactPointerEvent<HTMLDivElement>,
+  ) => {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = panel === "toolbox" ? toolboxPanelWidth : propertiesPanelWidth;
+    const previousCursor = document.body.style.cursor;
+    const previousUserSelect = document.body.style.userSelect;
+
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const delta = moveEvent.clientX - startX;
+      if (panel === "toolbox") {
+        setToolboxPanelWidth(clampPanelWidth(
+          startWidth + delta,
+          BUILDER_LEFT_PANEL_MIN_WIDTH,
+          BUILDER_LEFT_PANEL_MAX_WIDTH,
+        ));
+      } else {
+        setPropertiesPanelWidth(clampPanelWidth(
+          startWidth - delta,
+          BUILDER_RIGHT_PANEL_MIN_WIDTH,
+          BUILDER_RIGHT_PANEL_MAX_WIDTH,
+        ));
+      }
+    };
+
+    const stopResize = () => {
+      document.body.style.cursor = previousCursor;
+      document.body.style.userSelect = previousUserSelect;
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", stopResize);
+      window.removeEventListener("pointercancel", stopResize);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", stopResize);
+    window.addEventListener("pointercancel", stopResize);
+  }, [propertiesPanelWidth, toolboxPanelWidth]);
   const { t, i18n } = useTranslation();
   const calendarLocale = i18n.language.startsWith("ru") ? ru : enUS;
 
@@ -909,6 +1042,169 @@ export default function Builder({ params }: { params: { id?: string } }) {
     clearSelection();
   };
 
+  const cloneFieldForDuplicate = (
+    field: FormElementModel,
+    overrides: { id: string; pageId: number; sortIndex: number },
+    idMap: Map<string, string>
+  ): FormElementModel => {
+    const clone = JSON.parse(JSON.stringify(field)) as FormElementModel;
+    const props = { ...(clone.props ?? {}) } as Record<string, any>;
+    const conditionalLogic = props.conditionalLogic as Record<string, any> | undefined;
+    if (conditionalLogic?.dependsOn && idMap.has(String(conditionalLogic.dependsOn))) {
+      props.conditionalLogic = {
+        ...conditionalLogic,
+        dependsOn: idMap.get(String(conditionalLogic.dependsOn)),
+      };
+    }
+    return {
+      ...clone,
+      id: overrides.id,
+      pageId: overrides.pageId,
+      sortIndex: overrides.sortIndex,
+      props,
+    };
+  };
+
+  const createPageIdAllocator = () => {
+    const existingIds = new Set(pages.map((page) => page.id));
+    const hasTemporaryIds = Array.from(existingIds).some((id) => id < 0);
+    let maxId = existingIds.size > 0 ? Math.max(...Array.from(existingIds)) : 0;
+
+    return () => {
+      if (hasTemporaryIds) {
+        let nextId = nextPageIdRef.current;
+        while (existingIds.has(nextId)) {
+          nextId -= 1;
+        }
+        nextPageIdRef.current = nextId - 1;
+        existingIds.add(nextId);
+        return nextId;
+      }
+
+      let nextId = maxId + 1;
+      while (existingIds.has(nextId)) {
+        nextId += 1;
+      }
+      maxId = nextId;
+      existingIds.add(nextId);
+      return nextId;
+    };
+  };
+
+  const duplicateSelected = () => {
+    if (selectedIds.length === 0) return;
+    const selectedSet = new Set(selectedIds);
+    const idMap = new Map<string, string>();
+    selectedIds.forEach((id) => idMap.set(id, nanoid()));
+
+    const duplicatedIds: string[] = [];
+    const nextFields: FormElementModel[] = [];
+    const pageOrder = pages.slice().sort((a, b) => a.pageIndex - b.pageIndex);
+
+    pageOrder.forEach((page) => {
+      const pageFields = fields
+        .filter((field) => field.pageId === page.id)
+        .slice()
+        .sort((a, b) => a.sortIndex - b.sortIndex);
+
+      pageFields.forEach((field) => {
+        nextFields.push(field);
+        const duplicateId = idMap.get(field.id);
+        if (!duplicateId || !selectedSet.has(field.id)) return;
+
+        duplicatedIds.push(duplicateId);
+        nextFields.push(
+          cloneFieldForDuplicate(
+            field,
+            { id: duplicateId, pageId: field.pageId, sortIndex: field.sortIndex + 1 },
+            idMap
+          )
+        );
+      });
+    });
+
+    setFields(nextFields);
+    setSelectedIds(duplicatedIds);
+    setLastSelectedId(duplicatedIds[duplicatedIds.length - 1] ?? null);
+    setSelectedPageIds([]);
+    setLastSelectedPageId(null);
+    const firstDuplicate = nextFields.find((field) => field.id === duplicatedIds[0]);
+    if (firstDuplicate) {
+      setActivePageId(firstDuplicate.pageId);
+    }
+  };
+
+  const duplicatePages = (pageIds: number[]) => {
+    if (!activeForm || pageIds.length === 0) return;
+    const selectedPageSet = new Set(pageIds);
+    const allocatePageId = createPageIdAllocator();
+    const pageIdMap = new Map<number, number>();
+    const idMap = new Map<string, string>();
+
+    pages.forEach((page) => {
+      if (selectedPageSet.has(page.id)) {
+        pageIdMap.set(page.id, allocatePageId());
+      }
+    });
+    fields.forEach((field) => {
+      if (selectedPageSet.has(field.pageId)) {
+        idMap.set(field.id, nanoid());
+      }
+    });
+
+    const duplicatedPageIds: number[] = [];
+    const orderedPages = pages.slice().sort((a, b) => a.pageIndex - b.pageIndex);
+    const nextPages = reindexPagesInOrder(
+      orderedPages.flatMap((page) => {
+        const duplicatePageId = pageIdMap.get(page.id);
+        if (duplicatePageId == null) return [page];
+        duplicatedPageIds.push(duplicatePageId);
+        return [
+          page,
+          {
+            ...JSON.parse(JSON.stringify(page)) as FormPageModel,
+            id: duplicatePageId,
+          },
+        ];
+      })
+    );
+
+    const nextFields: FormElementModel[] = [];
+    nextPages.forEach((page) => {
+      const sourcePageId = Array.from(pageIdMap.entries()).find(([, duplicateId]) => duplicateId === page.id)?.[0] ?? page.id;
+      const pageFields = fields
+        .filter((field) => field.pageId === sourcePageId)
+        .slice()
+        .sort((a, b) => a.sortIndex - b.sortIndex);
+
+      pageFields.forEach((field, index) => {
+        const duplicateFieldId = idMap.get(field.id);
+        if (page.id === sourcePageId || !duplicateFieldId) {
+          if (page.id === sourcePageId) {
+            nextFields.push({ ...field, sortIndex: index });
+          }
+          return;
+        }
+
+        nextFields.push(
+          cloneFieldForDuplicate(
+            field,
+            { id: duplicateFieldId, pageId: page.id, sortIndex: index },
+            idMap
+          )
+        );
+      });
+    });
+
+    const normalizedFields = normalizeFieldsByPage(nextFields, nextPages);
+    setForm({ ...activeForm, pages: nextPages, fields: normalizedFields });
+    setActivePageId(duplicatedPageIds[0] ?? activePageId);
+    setSelectedPageIds(duplicatedPageIds);
+    setLastSelectedPageId(duplicatedPageIds[duplicatedPageIds.length - 1] ?? null);
+    setSelectedIds([]);
+    setLastSelectedId(null);
+  };
+
   const undoLast = useCallback(() => {
     if (!activeForm || history.length === 0) return;
     const previousForm = history[history.length - 1];
@@ -1360,7 +1656,11 @@ export default function Builder({ params }: { params: { id?: string } }) {
   const resultsTargetFormId = publishedVersionsForActiveForm[0]?.id ?? activeForm?.id ?? "";
   const isResultsDisabled = !hasPublishedVersion;
   const resultsDisabledHint = isResultsDisabled ? t("results.onlyPublishedShort") : undefined;
+  const isSaveDisabled = !hasSaveChanges || isSaving;
   const saveDisabledHint = !hasSaveChanges ? t("builder.saveDisabledNoChanges") : undefined;
+  const languageSwitchTitle = i18n.language.startsWith("ru")
+    ? t("builder.switchToEnglish")
+    : t("builder.switchToRussian");
 
   useEffect(() => {
     if (isPublishDisabled && isPublishOpen) {
@@ -1541,13 +1841,21 @@ export default function Builder({ params }: { params: { id?: string } }) {
                   size="icon"
                   className="h-5 w-5 opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive shrink-0"
                   onClick={(e) => closeForm(e, form.id)}
-                  title="Close form"
+                  aria-label={t("builder.closeForm")}
+                  title={t("builder.closeForm")}
                 >
                   <X className="h-3 w-3" />
                 </Button>
               </div>
             ))}
-            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={addNewForm}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0"
+              onClick={addNewForm}
+              aria-label={t("builder.addNewForm")}
+              title={t("builder.addNewForm")}
+            >
               <Plus className="h-4 w-4" />
             </Button>
           </div>
@@ -1558,7 +1866,13 @@ export default function Builder({ params }: { params: { id?: string } }) {
           {/* Кнопка раскрытия панели элементов (только на экранах < md, в одном ряду с действиями) */}
           <Sheet open={isToolboxSheetOpen} onOpenChange={setIsToolboxSheetOpen}>
             <SheetTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-1.5 md:hidden shrink-0 h-8 px-2 sm:px-2.5" aria-label={t("builder.toolbox")}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 md:hidden shrink-0 h-8 px-2 sm:px-2.5"
+                aria-label={t("builder.toolbox")}
+                title={t("builder.toolbox")}
+              >
                 <PanelLeftOpen className="h-4 w-4" /> <span className="hidden sm:inline text-xs">{t("builder.toolbox")}</span>
               </Button>
             </SheetTrigger>
@@ -1600,7 +1914,13 @@ export default function Builder({ params }: { params: { id?: string } }) {
           <div className="flex items-center gap-1 lg:hidden">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" aria-label={t("actions.act")}>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 sm:h-9 sm:w-9"
+                  aria-label={t("actions.act")}
+                  title={t("actions.act")}
+                >
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -1656,11 +1976,13 @@ export default function Builder({ params }: { params: { id?: string } }) {
                       pages={pages}
                       selectedPageIds={selectedPageIds}
                       onDeletePages={deletePages}
+                      onDuplicatePages={duplicatePages}
                       onTogglePageBack={togglePageBack}
                       selectedField={selectedField}
                       selectedIds={selectedIds}
                       updateField={updateField}
                       updateFields={updateFields}
+                      duplicateSelected={duplicateSelected}
                       deleteField={deleteField}
                       deleteSelected={deleteSelected}
                       fields={fields}
@@ -1686,15 +2008,23 @@ export default function Builder({ params }: { params: { id?: string } }) {
                 localStorage.setItem("etu_pending_lang", newLang);
                 window.location.reload();
               }}
-              title={i18n.language.startsWith('ru') ? 'English' : 'Русский'}
+              aria-label={languageSwitchTitle}
+              title={languageSwitchTitle}
             >
               <Languages className="h-4 w-4" />
               <span className="text-sm font-medium">{i18n.language.startsWith('ru') ? 'RU' : 'EN'}</span>
             </Button>
             <Dialog>
               <DialogTrigger asChild>
-                <Button data-testid="builder-preview-open" variant="outline" size="sm" className="gap-1.5 h-9 px-2.5">
-                  <Eye className="h-4 w-4" /> <span>{t('builder.preview')}</span>
+                <Button
+                  data-testid="builder-preview-open"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 h-9 px-2.5"
+                  aria-label={t("builder.preview")}
+                  title={t("builder.preview")}
+                >
+                  <Eye className="h-4 w-4" /> <span>{t("builder.preview")}</span>
                 </Button>
               </DialogTrigger>
               <DialogContent data-testid="preview-dialog" className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -1714,39 +2044,72 @@ export default function Builder({ params }: { params: { id?: string } }) {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 h-9 px-2.5"
-              disabled={isResultsDisabled}
-              onClick={() => {
-                if (isResultsDisabled) return;
-                setLocation(`/forms/${resultsTargetFormId}/results`);
-              }}
-            >
-              <BarChart3 className="h-4 w-4" /> <span>{t("results.openResults")}</span>
-            </Button>
-            <Button
-              data-testid="builder-save"
-              variant="outline"
-              size="sm"
-              className="gap-1.5 h-9 px-2.5"
-              onClick={handleSave}
-              disabled={!hasSaveChanges || isSaving}
-            >
-              <Save className="h-4 w-4" /> <span>{t('builder.save')}</span>
-            </Button>
+            {isResultsDisabled ? (
+              <span className="inline-flex" title={resultsDisabledHint ?? t("results.openResults")}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 h-9 px-2.5"
+                  disabled
+                  aria-label={t("results.openResults")}
+                >
+                  <BarChart3 className="h-4 w-4" /> <span>{t("results.openResults")}</span>
+                </Button>
+              </span>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 h-9 px-2.5"
+                onClick={() => setLocation(`/forms/${resultsTargetFormId}/results`)}
+                aria-label={t("results.openResults")}
+                title={t("results.openResults")}
+              >
+                <BarChart3 className="h-4 w-4" /> <span>{t("results.openResults")}</span>
+              </Button>
+            )}
+            {isSaveDisabled ? (
+              <span className="inline-flex" title={saveDisabledHint ?? t("builder.save")}>
+                <Button
+                  data-testid="builder-save"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 h-9 px-2.5"
+                  onClick={handleSave}
+                  disabled
+                  aria-label={t("builder.save")}
+                >
+                  <Save className="h-4 w-4" /> <span>{t("builder.save")}</span>
+                </Button>
+              </span>
+            ) : (
+              <Button
+                data-testid="builder-save"
+                variant="outline"
+                size="sm"
+                className="gap-1.5 h-9 px-2.5"
+                onClick={handleSave}
+                aria-label={t("builder.save")}
+                title={t("builder.save")}
+              >
+                <Save className="h-4 w-4" /> <span>{t("builder.save")}</span>
+              </Button>
+            )}
             <Dialog open={isPublishOpen} onOpenChange={setIsPublishOpen}>
               {isPublishDisabled ? (
-                <Button data-testid="builder-publish-open" size="sm" className="gap-1.5 h-9 px-2.5" disabled title={publishDisabledHint}>
-                  <Share2 className="h-4 w-4" /> <span>{t("builder.publish")}</span>
-                </Button>
+                <span className="inline-flex" title={publishDisabledHint}>
+                  <Button data-testid="builder-publish-open" size="sm" className="gap-1.5 h-9 px-2.5" disabled aria-label={t("builder.publish")}>
+                    <Share2 className="h-4 w-4" /> <span>{t("builder.publish")}</span>
+                  </Button>
+                </span>
               ) : (
                 <Button
                   data-testid="builder-publish-open"
                   size="sm"
                   className="gap-1.5 h-9 px-2.5"
                   onClick={() => setIsPublishOpen(true)}
+                  aria-label={t("builder.publish")}
+                  title={t("builder.publish")}
                 >
                   <Share2 className="h-4 w-4" /> <span>{t("builder.publish")}</span>
                 </Button>
@@ -1769,15 +2132,21 @@ export default function Builder({ params }: { params: { id?: string } }) {
                     >
                       <div className="flex items-center space-x-2">
                         <RadioGroupItem value="private" id="access-private" />
-                        <Label htmlFor="access-private" className="cursor-pointer">
-                          {t("builder.accessModePrivate")}
-                        </Label>
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="access-private" className="cursor-pointer">
+                            {t("builder.accessModePrivate")}
+                          </Label>
+                          <HintIcon text={t("builder.accessModePrivateHint")} />
+                        </div>
                       </div>
                       <div className="flex items-center space-x-2">
                         <RadioGroupItem value="unauthenticated" id="access-unauthenticated" />
-                        <Label htmlFor="access-unauthenticated" className="cursor-pointer">
-                          {t("builder.accessModeUnauthenticated")}
-                        </Label>
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="access-unauthenticated" className="cursor-pointer">
+                            {t("builder.accessModeUnauthenticated")}
+                          </Label>
+                          <HintIcon text={t("builder.accessModeUnauthenticatedHint")} />
+                        </div>
                       </div>
                     </RadioGroup>
                   </div>
@@ -2048,9 +2417,10 @@ export default function Builder({ params }: { params: { id?: string } }) {
         {/* Боковая панель элементов: скрыта на узких экранах (< md), там используется Sheet */}
         <div
           className={cn(
-            "hidden md:flex border-r border-border bg-white flex-col shrink-0 z-10 overflow-hidden transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
-            isToolboxOpen ? "w-56 sm:w-64" : "w-14 sm:w-24"
+            "hidden md:flex border-r border-border bg-white flex-col shrink-0 z-10 overflow-hidden",
+            isToolboxOpen ? "" : "w-14 sm:w-24 transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
           )}
+          style={isToolboxOpen ? { width: `${toolboxPanelWidth}px` } : undefined}
         >
           <div className="border-b border-border">
             <div className="h-[52px] px-6 flex items-center">
@@ -2104,6 +2474,17 @@ export default function Builder({ params }: { params: { id?: string } }) {
             })}
           </div>
         </div>
+        {isToolboxOpen ? (
+          <div
+            aria-label={`${t("builder.toolbox")} resize`}
+            className="hidden md:flex w-2 shrink-0 cursor-col-resize items-stretch justify-center bg-white hover:bg-muted/60 active:bg-muted"
+            onPointerDown={(event) => startPanelResize("toolbox", event)}
+            role="separator"
+            title={t("builder.toolbox")}
+          >
+            <div className="w-px bg-border" />
+          </div>
+        ) : null}
 
         <div className="flex-1 min-w-0 overflow-hidden flex flex-col">
         <FormCanvas
@@ -2132,17 +2513,31 @@ export default function Builder({ params }: { params: { id?: string } }) {
         </div>
 
         {/* Панель свойств: скрыта на узких экранах (< lg), там используется Sheet */}
-        <div className="hidden lg:flex w-80 border-l border-border bg-white flex-col shrink-0 z-10 overflow-hidden">
+        <div
+          aria-label={`${t("builder.properties")} resize`}
+          className="hidden lg:flex w-2 shrink-0 cursor-col-resize items-stretch justify-center bg-white hover:bg-muted/60 active:bg-muted"
+          onPointerDown={(event) => startPanelResize("properties", event)}
+          role="separator"
+          title={t("builder.properties")}
+        >
+          <div className="w-px bg-border" />
+        </div>
+        <div
+          className="hidden lg:flex border-l border-border bg-white flex-col shrink-0 z-10 overflow-hidden"
+          style={{ width: `${propertiesPanelWidth}px` }}
+        >
           <PropertiesPanel
             key={selectedField?.id || selectedIds.join("-") || 'none'}
             pages={pages}
             selectedPageIds={selectedPageIds}
             onDeletePages={deletePages}
+            onDuplicatePages={duplicatePages}
             onTogglePageBack={togglePageBack}
             selectedField={selectedField}
             selectedIds={selectedIds}
             updateField={updateField}
             updateFields={updateFields}
+            duplicateSelected={duplicateSelected}
             deleteField={deleteField}
             deleteSelected={deleteSelected}
             fields={fields}

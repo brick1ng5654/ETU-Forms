@@ -806,6 +806,8 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
                 onClick={() => void handleInviteByEmail()}
                 disabled={isSubmitting || !email.trim()}
                 className="w-full gap-2"
+                aria-label={t("access.inviteByEmail")}
+                title={t("access.inviteByEmail")}
               >
                 <UserPlus className="h-4 w-4" />
                 {t("access.inviteByEmail")}
@@ -921,6 +923,8 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
                 onClick={() => void handleCreateLink()}
                 disabled={isSubmitting}
                 className="w-full gap-2"
+                aria-label={t("access.generateLink")}
+                title={t("access.generateLink")}
               >
                 <LinkIcon className="h-4 w-4" />
                 {t("access.generateLink")}
@@ -954,6 +958,8 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
                               size="icon"
                               className="h-8 w-8"
                               onClick={() => void copyText(link)}
+                              aria-label={t("results.copyLink")}
+                              title={t("results.copyLink")}
                             >
                               <Copy className="h-3.5 w-3.5" />
                             </Button>
@@ -963,6 +969,8 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
                               className="h-8 w-8 text-destructive hover:text-destructive"
                               onClick={() => void handleDeleteEntry(entry)}
                               disabled={isSubmitting}
+                              aria-label={t("access.deleteLink")}
+                              title={t("access.deleteLink")}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
@@ -972,15 +980,31 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
                     })}
                   </div>
                 )}
-                <Button
-                  variant="outline"
-                  onClick={() => void handleDeleteAllActiveLinks()}
-                  disabled={isSubmitting || activeUniversalLinks.length === 0}
-                  className="w-full text-destructive hover:text-destructive"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  {t("access.deleteAllActiveLinks")}
-                </Button>
+                {isSubmitting || activeUniversalLinks.length === 0 ? (
+                  <span className="inline-flex w-full" title={t("access.deleteAllActiveLinks")}>
+                    <Button
+                      variant="outline"
+                      onClick={() => void handleDeleteAllActiveLinks()}
+                      disabled
+                      className="w-full text-destructive hover:text-destructive"
+                      aria-label={t("access.deleteAllActiveLinks")}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      {t("access.deleteAllActiveLinks")}
+                    </Button>
+                  </span>
+                ) : (
+                  <Button
+                    variant="outline"
+                    onClick={() => void handleDeleteAllActiveLinks()}
+                    className="w-full text-destructive hover:text-destructive"
+                    aria-label={t("access.deleteAllActiveLinks")}
+                    title={t("access.deleteAllActiveLinks")}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    {t("access.deleteAllActiveLinks")}
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -1003,6 +1027,7 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
                   size="icon"
                   className="h-10 w-10 shrink-0"
                   title={sortDirection === "asc" ? t("results.sortAsc") : t("results.sortDesc")}
+                  aria-label={sortDirection === "asc" ? t("results.sortAsc") : t("results.sortDesc")}
                   onClick={() => setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"))}
                 >
                   {sortDirection === "asc" ? (
@@ -1148,24 +1173,45 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
                                 </SelectItem>
                               </SelectContent>
                             </Select>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className={cn(
-                                "h-8 px-2 ring-0 transition-shadow duration-300 ease-out",
-                                hasPendingChanges && "ring-2 ring-primary ring-offset-1 ring-offset-background"
-                              )}
-                              disabled={isSubmitting || !hasPendingChanges}
-                              onClick={() => void handleSaveEntry(entry)}
-                            >
-                              <Check className="h-3.5 w-3.5" />
-                            </Button>
+                            {isSubmitting || !hasPendingChanges ? (
+                              <span className="inline-flex" title={t("access.confirmChanges")}>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className={cn(
+                                    "h-8 px-2 ring-0 transition-shadow duration-300 ease-out",
+                                    hasPendingChanges && "ring-2 ring-primary ring-offset-1 ring-offset-background"
+                                  )}
+                                  disabled
+                                  onClick={() => void handleSaveEntry(entry)}
+                                  aria-label={t("access.confirmChanges")}
+                                >
+                                  <Check className="h-3.5 w-3.5" />
+                                </Button>
+                              </span>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className={cn(
+                                  "h-8 px-2 ring-0 transition-shadow duration-300 ease-out",
+                                  hasPendingChanges && "ring-2 ring-primary ring-offset-1 ring-offset-background"
+                                )}
+                                onClick={() => void handleSaveEntry(entry)}
+                                aria-label={t("access.confirmChanges")}
+                                title={t("access.confirmChanges")}
+                              >
+                                <Check className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
                             <Button
                               size="sm"
                               variant="ghost"
                               className="h-8 px-2 text-destructive hover:text-destructive"
                               onClick={() => void handleDeleteEntry(entry)}
                               disabled={isSubmitting}
+                              aria-label={t("actions.delete")}
+                              title={t("actions.delete")}
                             >
                               <Trash2 className="mr-1 h-3.5 w-3.5" />
                               {t("actions.delete")}
@@ -1185,6 +1231,8 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
                               variant="outline"
                               className="h-8 px-2"
                               onClick={() => void copyText(toAbsoluteUrl(entry.inviteUrl))}
+                              aria-label={t("results.copyLink")}
+                              title={t("results.copyLink")}
                             >
                               <Copy className="mr-1 h-3.5 w-3.5" />
                               {t("results.copyLink")}
@@ -1196,6 +1244,8 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
                             className="h-8 px-2 text-destructive hover:text-destructive"
                             onClick={() => void handleDeleteEntry(entry)}
                             disabled={isSubmitting}
+                            aria-label={t("actions.delete")}
+                            title={t("actions.delete")}
                           >
                             <Trash2 className="mr-1 h-3.5 w-3.5" />
                             {t("actions.delete")}
@@ -1207,15 +1257,31 @@ export function FormAccessDialog({ form, open, onOpenChange, canManage, onUpdate
                 })
               )}
             </div>
-            <Button
-              variant="outline"
-              onClick={() => void handleClearAllEntries()}
-              disabled={isSubmitting || filteredEntries.length === 0}
-              className="w-full text-destructive hover:text-destructive"
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              {t("access.clearAllEntries")}
-            </Button>
+            {isSubmitting || filteredEntries.length === 0 ? (
+              <span className="inline-flex w-full" title={t("access.clearAllEntries")}>
+                <Button
+                  variant="outline"
+                  onClick={() => void handleClearAllEntries()}
+                  disabled
+                  className="w-full text-destructive hover:text-destructive"
+                  aria-label={t("access.clearAllEntries")}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  {t("access.clearAllEntries")}
+                </Button>
+              </span>
+            ) : (
+              <Button
+                variant="outline"
+                onClick={() => void handleClearAllEntries()}
+                className="w-full text-destructive hover:text-destructive"
+                aria-label={t("access.clearAllEntries")}
+                title={t("access.clearAllEntries")}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                {t("access.clearAllEntries")}
+              </Button>
+            )}
           </div>
         )}
         </DialogContent>

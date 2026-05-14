@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { X, Plus, Trash2, Check, Lock, Unlock } from "lucide-react";
+import { X, Plus, Trash2, Check, Lock, Unlock, CopyPlus } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTranslation } from "react-i18next";
 import { DndContext, DragEndEvent, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
@@ -30,11 +30,13 @@ interface PropertiesPanelProps {
   pages: FormPageModel[];
   selectedPageIds: number[];
   onDeletePages: (pageIds: number[], options: { mode: "delete" | "move"; targetPageId?: number }) => void;
+  onDuplicatePages: (pageIds: number[]) => void;
   onTogglePageBack: (pageId: number, allowBack: boolean) => void;
   selectedField: FormElementModel | null;
   selectedIds: string[];
   updateField: (id: string, updates: Partial<FormElementModel>) => void;
   updateFields: (ids: string[], updates: Partial<FormElementModel>) => void;
+  duplicateSelected: () => void;
   deleteField: (id: string) => void;
   deleteSelected: () => void;
   fields: FormElementModel[];
@@ -531,11 +533,13 @@ export function PropertiesPanel({
   pages,
   selectedPageIds,
   onDeletePages,
+  onDuplicatePages,
   onTogglePageBack,
   selectedField,
   selectedIds,
   updateField,
   updateFields,
+  duplicateSelected,
   deleteField,
   deleteSelected,
   fields,
@@ -629,6 +633,9 @@ export function PropertiesPanel({
   const availableDeleteTargets = deletePageIds.length > 0
     ? pageOrder.filter((page) => !deletePageIds.includes(page.id))
     : [];
+  const deletePageTooltip = t("pages.deleteTitle");
+  const deleteSelectedTooltip = t("builder.deleteSelected");
+  const deleteFieldTooltip = t("actions.delete");
 
   const handleTogglePageReadOnly = () => {
     if (pageFieldIds.length === 0) return;
@@ -664,6 +671,16 @@ export function PropertiesPanel({
             variant="outline"
             size="icon"
             className="h-8 w-8"
+            onClick={() => onDuplicatePages(selectedPageIds)}
+            aria-label={t("actions.duplicate")}
+            title={t("actions.duplicate")}
+          >
+            <CopyPlus className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
             onClick={handleTogglePageReadOnly}
             disabled={pageFieldIds.length === 0}
             aria-label={t("propert.readOnly")}
@@ -671,16 +688,31 @@ export function PropertiesPanel({
           >
             {allPageReadOnly ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
           </Button>
-          <Button
-            variant="destructive"
-            size="icon"
-            className="h-8 w-8"
-            onClick={openDeletePageDialog}
-            disabled={!canDeletePage}
-            aria-label={t("pages.deleteTitle")}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          {!canDeletePage ? (
+            <span className="inline-flex" title={deletePageTooltip}>
+              <Button
+                variant="destructive"
+                size="icon"
+                className="h-8 w-8"
+                onClick={openDeletePageDialog}
+                disabled
+                aria-label={deletePageTooltip}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </span>
+          ) : (
+            <Button
+              variant="destructive"
+              size="icon"
+              className="h-8 w-8"
+              onClick={openDeletePageDialog}
+              aria-label={deletePageTooltip}
+              title={deletePageTooltip}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
       {!isMultiPageSelection && (
@@ -815,6 +847,16 @@ export function PropertiesPanel({
               variant="outline"
               size="icon"
               className="h-8 w-8"
+              onClick={duplicateSelected}
+              aria-label={t("actions.duplicate")}
+              title={t("actions.duplicate")}
+            >
+              <CopyPlus className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
               onClick={() => {
                 const nextReadOnly = !allReadOnly;
                 updateFields(selectedIds, {
@@ -832,7 +874,8 @@ export function PropertiesPanel({
               size="icon"
               className="h-8 w-8"
               onClick={deleteSelected}
-              aria-label={t("builder.deleteSelected")}
+              aria-label={deleteSelectedTooltip}
+              title={deleteSelectedTooltip}
             >
               <Trash2 className="h-4 w-4" />
             </Button>
@@ -1602,6 +1645,16 @@ export function PropertiesPanel({
             variant="outline"
             size="icon"
             className="h-8 w-8"
+            onClick={duplicateSelected}
+            aria-label={t("actions.duplicate")}
+            title={t("actions.duplicate")}
+          >
+            <CopyPlus className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
             onClick={() => {
               const nextReadOnly = !isReadOnly;
               updateField(selectedField.id, {
@@ -1619,6 +1672,8 @@ export function PropertiesPanel({
             size="icon"
             className="h-8 w-8"
             onClick={() => deleteField(selectedField.id)}
+            aria-label={deleteFieldTooltip}
+            title={deleteFieldTooltip}
           >
             <Trash2 className="h-4 w-4" />
           </Button>
