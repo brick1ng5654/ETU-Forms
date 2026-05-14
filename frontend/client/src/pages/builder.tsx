@@ -1819,27 +1819,40 @@ export default function Builder({ params }: { params: { id?: string } }) {
         </div>
 
         {/* Центр: вкладки форм — занимает оставшееся место, прокрутка по горизонтали */}
-        <div className="min-w-0 overflow-x-auto no-scrollbar flex items-center">
-          <div className="flex items-center gap-1 py-1">
+        <div className="builder-tabs-scroll min-w-0 overflow-x-auto flex items-center">
+          <div className="flex items-center gap-1 py-1 pr-2">
             {tabForms.map(form => (
               <div
                 key={form.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => {
                   setActiveFormId(form.id);
                   setLocation(`/builder/${form.id}`);
                 }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setActiveFormId(form.id);
+                    setLocation(`/builder/${form.id}`);
+                  }
+                }}
                 className={cn(
-                  "group flex items-center gap-2 px-2 sm:px-3 py-1.5 rounded-md text-sm cursor-pointer transition-colors min-w-[80px] max-w-[140px] shrink-0",
+                  "group flex items-center gap-2 px-2 sm:px-3 py-1.5 rounded-md text-sm cursor-pointer transition-colors outline-none min-w-[80px] max-w-[140px] shrink-0 focus-visible:ring-1 focus-visible:ring-ring",
                   activeFormId === form.id
                     ? "bg-secondary text-secondary-foreground font-medium"
                     : "hover:bg-muted text-muted-foreground"
                 )}
+                title={form.title || t("common.untitled")}
               >
                 <span className="truncate">{form.title || t("common.untitled")}</span>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-5 w-5 opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive shrink-0"
+                  className={cn(
+                    "h-5 w-5 shrink-0 hover:bg-destructive/10 hover:text-destructive",
+                    activeFormId === form.id ? "opacity-70 hover:opacity-100" : "opacity-0 group-hover:opacity-100"
+                  )}
                   onClick={(e) => closeForm(e, form.id)}
                   aria-label={t("builder.closeForm")}
                   title={t("builder.closeForm")}
