@@ -10,5 +10,5 @@
 
 UserGuide
 MainPage
-SingInPage
+BuilderPage
 ```
