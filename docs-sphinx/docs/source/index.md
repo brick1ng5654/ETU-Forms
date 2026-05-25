@@ -11,4 +11,5 @@
 UserGuide
 MainPage
 SingInPage
+ElementsPage
 ```
